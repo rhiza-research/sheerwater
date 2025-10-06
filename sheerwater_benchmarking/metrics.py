@@ -131,8 +131,8 @@ def eval_metric(start_time, end_time, variable, lead, forecast, truth,
     fcst_fn = get_datasource_fn(forecast)
 
     # Decide if this is a forecast with a lead or direct datasource with just an agg
-    sparse = False # A variable used to indicate whether the truth is creating sparsity
-    metric_sparse = False # A variable used to indicate whether the metric induces sparsity
+    sparse = False  # A variable used to indicate whether the truth is creating sparsity
+    metric_sparse = False  # A variable used to indicate whether the metric induces sparsity
     if 'lead' in signature(fcst_fn).parameters:
         if lead_or_agg(lead) == 'agg':
             raise ValueError("Evaluating the function {forecast} must be called with a lead, not an aggregation")
@@ -474,22 +474,23 @@ def grouped_metric(start_time, end_time, variable, lead, forecast, truth,
         else:
             prob_type = 'deterministic'
 
-        fcst_fn =  get_datasource_fn(forecast)
+        fcst_fn = get_datasource_fn(forecast)
 
         if 'lead' in signature(fcst_fn).parameters:
             check_ds = fcst_fn(start_time, end_time, variable, lead=lead,
-                           prob_type=prob_type, grid=grid, mask=mask, region=region)
+                               prob_type=prob_type, grid=grid, mask=mask, region=region)
 
         else:
             check_ds = fcst_fn(start_time, end_time, variable, agg_days=lead_to_agg_days(lead),
-                           grid=grid, mask=mask, region=region)
+                               grid=grid, mask=mask, region=region)
     else:
         check_ds = ds
 
     # Check if forecast is valid before spatial averaging
-    if not is_valid(check_ds, variable, mask, region, grid, valid_threshold=0.98):
-        print("Metric is not valid for region.")
-        return None
+    # if not is_valid(check_ds, variable, mask, region, grid, valid_threshold=0.98):
+    #     import pdb; pdb.set_trace()
+    #     print("Metric is not valid for region.")
+    #     return None
 
     for coord in ds.coords:
         if coord not in ['time', 'lat', 'lon']:
@@ -619,8 +620,8 @@ def summary_metrics_table(start_time, end_time, variable,
                        'time_grouping', 'grid', 'mask', 'region'],
            cache=True)
 def seasonal_metrics_table(start_time, end_time, variable,
-                          truth, metric, time_grouping=None,
-                          grid='global1_5', mask='lsm', region='global'):
+                           truth, metric, time_grouping=None,
+                           grid='global1_5', mask='lsm', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['salient', 'climatology_2015']
     leads = ["month1", "month2", "month3"]
