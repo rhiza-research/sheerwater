@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 20,
   "links": [],
   "panels": [
     {
@@ -105,7 +104,7 @@
                 "color": {
                   "fixed": "super-light-purple"
                 },
-                "opacity": 0.4,
+                "opacity": 0.40000000000000002,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -150,7 +149,7 @@
                 "color": {
                   "fixed": "dark-blue"
                 },
-                "opacity": 0.4,
+                "opacity": 0.40000000000000002,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -640,7 +639,7 @@
             "autorange": false,
             "gridcolor": "rgba(0, 0, 0, 0.15)",
             "range": [
-              -0.1,
+              -0.10000000000000001,
               1
             ],
             "rangemode": "tozero",
@@ -843,7 +842,7 @@
             "autorange": false,
             "gridcolor": "rgba(0, 0, 0, 0.15)",
             "range": [
-              -0.1,
+              -0.10000000000000001,
               1
             ],
             "rangemode": "tozero",
@@ -1703,6 +1702,6 @@
   "timezone": "utc",
   "title": "Suitable Planting Window Graphs",
   "uid": "becpaz5nsxr7kc",
-  "version": 11,
+  "version": 1,
   "weekStart": ""
 }

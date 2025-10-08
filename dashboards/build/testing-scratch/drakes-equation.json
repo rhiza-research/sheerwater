@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 23,
   "links": [],
   "panels": [
     {
@@ -1330,6 +1329,6 @@
   "timezone": "utc",
   "title": "Drakes Equation",
   "uid": "fedkd2e4oymtca",
-  "version": 3,
+  "version": 1,
   "weekStart": ""
 }

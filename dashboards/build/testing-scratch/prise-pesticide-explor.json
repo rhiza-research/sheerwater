@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 22,
   "links": [],
   "panels": [
     {
@@ -497,7 +496,7 @@
                 "color": {
                   "fixed": "super-light-purple"
                 },
-                "opacity": 0.4,
+                "opacity": 0.40000000000000002,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -542,7 +541,7 @@
                 "color": {
                   "fixed": "dark-blue"
                 },
-                "opacity": 0.4,
+                "opacity": 0.40000000000000002,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -1225,6 +1224,6 @@
   "timezone": "utc",
   "title": "Prise Pesticide Explor",
   "uid": "aecw2vlsh11q8f",
-  "version": 13,
+  "version": 1,
   "weekStart": ""
 }

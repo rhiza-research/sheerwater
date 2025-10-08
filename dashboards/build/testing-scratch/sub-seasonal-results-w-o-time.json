@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 11,
   "links": [],
   "panels": [
     {
@@ -733,6 +732,6 @@
   "timezone": "utc",
   "title": "Sub-Seasonal Results W/O Time",
   "uid": "ee2y4ss08wcn4d",
-  "version": 5,
+  "version": 1,
   "weekStart": ""
 }

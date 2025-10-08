@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 48,
   "links": [],
   "panels": [
     {
@@ -1207,6 +1206,6 @@
   "timezone": "utc",
   "title": "Salient V8 Forecast Scorecard",
   "uid": "bepyxg70fisjkf",
-  "version": 6,
+  "version": 1,
   "weekStart": ""
 }

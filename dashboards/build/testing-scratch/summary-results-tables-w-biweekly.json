@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 13,
   "links": [],
   "panels": [
     {
@@ -822,6 +821,6 @@
   "timezone": "utc",
   "title": "Summary Results Tables w/ Biweekly",
   "uid": "fe41lhowuv01sc",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
