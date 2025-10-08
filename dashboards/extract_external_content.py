@@ -217,32 +217,35 @@ def process_json_file(json_file_path):
     modifications = []
     extract_external_content(data, assets_dir=assets_dir, root_data=data, modifications=modifications)
 
+    # Always create template filename in src folder
+    template_path = src_dir / f"{json_path.stem}.jsonnet"
+
+    # Save JSON as template, then fix importstr syntax if any modifications were made
+    json_content = json.dumps(data, indent=2)
+
     if modifications:
-        # Create template filename in src folder
-        template_path = src_dir / f"{json_path.stem}.jsonnet"
-
-        # Save modified JSON as template, then fix importstr syntax
-        json_content = json.dumps(data, indent=2)
-
         # Replace special markers with proper jsonnet importstr syntax
         jsonnet_content = re.sub(
             r'"__JSONNET_IMPORTSTR__([^_]+)__"',
             r"importstr '\1'",
             json_content
         )
+    else:
+        # No modifications, just use the JSON as-is for jsonnet
+        jsonnet_content = json_content
 
-        with open(template_path, 'w') as f:
-            f.write(jsonnet_content)
+    with open(template_path, 'w') as f:
+        f.write(jsonnet_content)
 
-        print(f"\nCreated template: {template_path}")
+    print(f"\nCreated template: {template_path}")
+    if modifications:
         print(f"Extracted {len(modifications)} external references:")
         for mod in modifications:
             print(f"  {mod['path']} -> {mod['filename']}")
-
-        return True
     else:
-        print("No EXTERNAL references found.")
-        return False
+        print("No EXTERNAL references found - created jsonnet file without external assets.")
+
+    return True
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -254,7 +257,7 @@ if __name__ == "__main__":
     success = process_json_file(json_file)
 
     if success:
-        print("\n✓ External content extraction completed successfully")
+        print("\n✓ Jsonnet template creation completed successfully")
     else:
-        print("\n✗ External content extraction failed or no content found")
+        print("\n✗ Jsonnet template creation failed")
         sys.exit(1)
