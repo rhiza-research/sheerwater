@@ -186,3 +186,6 @@ salient_scripts
 
 # grafana config
 config.yaml
+
+# check in the build dashboards so at least for now we can see the diff
+!dashboards/build
