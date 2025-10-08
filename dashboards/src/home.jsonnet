@@ -108,6 +108,6 @@
   "timezone": "utc",
   "title": "Home",
   "uid": "ee4mze492j0n4d",
-  "version": 4,
+  "version": 6,
   "weekStart": ""
 }
