@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 3,
   "links": [],
   "panels": [
     {
@@ -97,6 +96,6 @@
   "timezone": "utc",
   "title": "Home Backup",
   "uid": "be1ojrm8i0lq8b",
-  "version": 14,
+  "version": 1,
   "weekStart": ""
 }

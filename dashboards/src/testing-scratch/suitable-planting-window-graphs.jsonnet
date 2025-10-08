@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 20,
   "links": [],
   "panels": [
     {
@@ -1703,6 +1702,6 @@
   "timezone": "utc",
   "title": "Suitable Planting Window Graphs",
   "uid": "becpaz5nsxr7kc",
-  "version": 11,
+  "version": 1,
   "weekStart": ""
 }

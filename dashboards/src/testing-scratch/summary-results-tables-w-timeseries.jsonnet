@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 19,
   "links": [],
   "panels": [
     {
@@ -866,6 +865,6 @@
   "timezone": "utc",
   "title": "Summary Results Tables w/Timeseries",
   "uid": "ceavawaipj7y8c",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }

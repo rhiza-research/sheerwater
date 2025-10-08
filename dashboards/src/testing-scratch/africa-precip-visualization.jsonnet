@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 18,
   "links": [],
   "panels": [
     {
@@ -913,6 +912,6 @@
   "timezone": "utc",
   "title": "Africa Precip Visualization",
   "uid": "aeasywjuo5pfkb",
-  "version": 42,
+  "version": 1,
   "weekStart": ""
 }

@@ -181,9 +181,13 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
             current_path = f"{path}[{index}]"
             extract_external_content(item, current_path, assets_dir, root_data, modifications)
 
-def process_json_file(json_file_path):
+def process_json_file(json_file_path, base_dir=None):
     """
     Process a JSON file to extract EXTERNAL content and create template.
+
+    Args:
+        json_file_path: Path to the input JSON file
+        base_dir: Optional base directory name to determine folder structure (e.g., "dashboards2")
     """
     json_path = Path(json_file_path)
 
@@ -200,10 +204,24 @@ def process_json_file(json_file_path):
         print(f"JSON Error: {e}")
         return False
 
-    # Setup paths - always use src folder
+    # Setup paths
     script_dir = Path(__file__).parent
     src_dir = script_dir / "src"
     assets_dir = src_dir / "assets"
+
+    # Determine template directory based on base_dir
+    template_dir = src_dir  # default
+
+    if base_dir and base_dir in json_path.parts:
+        # Find the base directory in the path and preserve structure after it
+        base_index = json_path.parts.index(base_dir)
+        if base_index < len(json_path.parts) - 2:  # -2 because we don't want the filename itself
+            # Has subfolders after the base directory
+            relative_parts = json_path.parts[base_index + 1:-1]  # Exclude the filename
+            template_dir = src_dir / Path(*relative_parts)
+
+    # Create the template directory if it doesn't exist
+    template_dir.mkdir(parents=True, exist_ok=True)
 
     # Extract dashboard ID for display
     dashboard_id = data.get('uid', data.get('id', 'dashboard'))
@@ -211,14 +229,15 @@ def process_json_file(json_file_path):
     print(f"Processing: {json_file_path}")
     print(f"Dashboard ID: {dashboard_id}")
     print(f"Assets directory: {assets_dir}")
+    print(f"Template directory: {template_dir}")
     print("=" * 50)
 
     # Extract external content
     modifications = []
     extract_external_content(data, assets_dir=assets_dir, root_data=data, modifications=modifications)
 
-    # Always create template filename in src folder
-    template_path = src_dir / f"{json_path.stem}.jsonnet"
+    # Create template filename in the appropriate subfolder
+    template_path = template_dir / f"{json_path.stem}.jsonnet"
 
     # Save JSON as template, then fix importstr syntax if any modifications were made
     json_content = json.dumps(data, indent=2)
@@ -248,13 +267,15 @@ def process_json_file(json_file_path):
     return True
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python extract_external_content.py <json_file>")
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print("Usage: python extract_external_content.py <json_file> [base_dir]")
         print("Example: python extract_external_content.py dashboard.json")
+        print("Example: python extract_external_content.py ../../dashboards2/subfolder/file.json dashboards2")
         sys.exit(1)
 
     json_file = sys.argv[1]
-    success = process_json_file(json_file)
+    base_dir = sys.argv[2] if len(sys.argv) == 3 else None
+    success = process_json_file(json_file, base_dir)
 
     if success:
         print("\n✓ Jsonnet template creation completed successfully")

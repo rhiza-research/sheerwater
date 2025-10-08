@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 2,
   "links": [],
   "panels": [
     {
@@ -300,6 +299,6 @@
   "timezone": "utc",
   "title": "Mock Evaluation",
   "uid": "ce176gtyg4p34b",
-  "version": 5,
+  "version": 1,
   "weekStart": ""
 }

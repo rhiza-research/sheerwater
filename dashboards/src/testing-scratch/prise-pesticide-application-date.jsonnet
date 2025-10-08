@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 21,
   "links": [],
   "panels": [
     {
@@ -720,6 +719,6 @@
   "timezone": "utc",
   "title": "Prise Pesticide Application Date",
   "uid": "cecvod6ko42yob",
-  "version": 3,
+  "version": 1,
   "weekStart": ""
 }

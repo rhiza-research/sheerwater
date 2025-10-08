@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 11,
   "links": [],
   "panels": [
     {
@@ -116,7 +115,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "select forecast, week1, week2, week3, week4, week5,\nCASE\n    WHEN week1_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week1_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week1_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week1_skill,\nCASE\n    WHEN week2_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week2_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week2_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week2_skill,\nCASE\n    WHEN week3_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week3_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week3_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week3_skill,\nCASE\n    WHEN week4_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week4_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week4_skill*-01) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week4_skill,\nCASE\n    WHEN week5_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week5_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week5_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week5_skill\n from \"$tmp2m_tab_name\"",
+          "rawSql": "select forecast, week1, week2, week3, week4, week5,\nCASE\n    WHEN week1_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week1_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week1_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week1_skill,\nCASE\n    WHEN week2_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week2_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week2_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week2_skill,\nCASE\n    WHEN week3_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week3_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week3_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week3_skill,\nCASE\n    WHEN week4_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week4_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week4_skill*-01) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week4_skill,\nCASE\n    WHEN week5_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week5_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill) * 255 as integer))::text, 2, '0') || '99'\n    ELSE '#' || lpad(to_hex(cast((1 - week5_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week5_skill\n from \"$tmp2m_tab_name\"\n ${time_filter_query}",
           "refId": "A",
           "sql": {
             "columns": [
@@ -366,7 +365,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "select forecast, week1, week2, week3, week4, week5,\nCASE\n    WHEN week1_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week1_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week1_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week1_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week1_skill,\nCASE\n    WHEN week2_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week2_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill) * 255 as integer))::text, 2, '0') || '99'\n   WHEN week2_skill < -1 THEN '#0000FF99' \n   ELSE '#' || lpad(to_hex(cast((1 - week2_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week2_skill,\nCASE\n    WHEN week3_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week3_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week3_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week3_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week3_skill,\nCASE\n    WHEN week4_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week4_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week4_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week4_skill*-01) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week4_skill,\nCASE\n    WHEN week5_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week5_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week5_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week5_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week5_skill\n from \"$precip_tab_name\"",
+          "rawSql": "select forecast, week1, week2, week3, week4, week5,\nCASE\n    WHEN week1_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week1_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week1_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week1_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week1_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week1_skill,\nCASE\n    WHEN week2_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week2_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill) * 255 as integer))::text, 2, '0') || '99'\n   WHEN week2_skill < -1 THEN '#0000FF99' \n   ELSE '#' || lpad(to_hex(cast((1 - week2_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week2_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week2_skill,\nCASE\n    WHEN week3_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week3_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week3_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week3_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week3_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week3_skill,\nCASE\n    WHEN week4_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week4_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week4_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week4_skill*-01) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week4_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week4_skill,\nCASE\n    WHEN week5_skill > 0 THEN '#FF' || lpad(to_hex(cast((1 - week5_skill) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill) * 255 as integer))::text, 2, '0') || '99'\n    WHEN week5_skill < -1 THEN '#0000FF99' \n    ELSE '#' || lpad(to_hex(cast((1 - week5_skill*-1) * 255 as integer))::text, 2, '0') || lpad(to_hex(cast((1-week5_skill*-1) * 255 as integer))::text, 2, '0') || 'FF99'\nEND week5_skill\n from \"$precip_tab_name\"\n${time_filter_query}",
           "refId": "A",
           "sql": {
             "columns": [
@@ -529,9 +528,9 @@
     "list": [
       {
         "current": {
-          "selected": true,
-          "text": "CRPS",
-          "value": "crps"
+          "selected": false,
+          "text": "MAE",
+          "value": "mae"
         },
         "hide": 0,
         "includeAll": false,
@@ -540,12 +539,12 @@
         "name": "metric",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "MAE",
             "value": "mae"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "CRPS",
             "value": "crps"
           }
@@ -680,20 +679,53 @@
       {
         "current": {
           "selected": false,
-          "text": "125c8fbc7ad1ac902f2cbda7e852c1aa",
-          "value": "125c8fbc7ad1ac902f2cbda7e852c1aa"
+          "text": "None",
+          "value": "None"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Time Grouping",
+        "multi": false,
+        "name": "time_grouping",
+        "options": [
+          {
+            "selected": true,
+            "text": "None",
+            "value": "None"
+          },
+          {
+            "selected": false,
+            "text": "Month of Year",
+            "value": "month_of_year"
+          },
+          {
+            "selected": false,
+            "text": "Year",
+            "value": "year"
+          }
+        ],
+        "query": "None : None, Month of Year : month_of_year, Year : year",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "892ea747c79a968f14a17d8eb8185b1c",
+          "value": "892ea747c79a968f14a17d8eb8185b1c"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${truth}_tmp2m')",
+        "definition": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_tmp2m')",
         "hide": 2,
         "includeAll": false,
         "multi": false,
         "name": "tmp2m_tab_name",
         "options": [],
-        "query": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${truth}_tmp2m')",
+        "query": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_tmp2m')",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -703,20 +735,91 @@
       {
         "current": {
           "selected": false,
-          "text": "b37e5633b7274481a69702ddafa64dbb",
-          "value": "b37e5633b7274481a69702ddafa64dbb"
+          "text": "db152643d40513b4e60f2e3708b14708",
+          "value": "db152643d40513b4e60f2e3708b14708"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${truth}_precip')",
+        "definition": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip')",
         "hide": 2,
         "includeAll": false,
         "multi": false,
         "name": "precip_tab_name",
         "options": [],
-        "query": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${truth}_precip')",
+        "query": "select * from md5('summary_metrics_table_${baseline}_2023-01-01_${grid}_lsm_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip')",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "select v.* from (values ('None')) v(t)",
+          "value": "select v.* from (values ('None')) v(t)"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bdz3m3xs99p1cf"
+        },
+        "definition": "select \nCASE\n    WHEN v.g = 'None' THEN 'select v.* from (values (''None'')) v(t)'\n    ELSE 'select distinct time from \"${precip_tab_name}\"'\nEND\nfrom (values ('$time_grouping')) v(g)",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "time_filter_filter_query",
+        "options": [],
+        "query": "select \nCASE\n    WHEN v.g = 'None' THEN 'select v.* from (values (''None'')) v(t)'\n    ELSE 'select distinct time from \"${precip_tab_name}\"'\nEND\nfrom (values ('$time_grouping')) v(g)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "isNone": true,
+          "selected": false,
+          "text": "None",
+          "value": ""
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bdz3m3xs99p1cf"
+        },
+        "definition": "${time_filter_filter_query:raw}",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Time Filter",
+        "multi": false,
+        "name": "time_filter",
+        "options": [],
+        "query": "${time_filter_filter_query:raw}",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 3,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bdz3m3xs99p1cf"
+        },
+        "definition": "select \nCASE\n    WHEN v.g = 'None' THEN ''\n    ELSE 'where time = ' || v.t\nEND\nfrom (values ('$time_filter', '$time_grouping')) v(t, g)",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "time_filter_query",
+        "options": [],
+        "query": "select \nCASE\n    WHEN v.g = 'None' THEN ''\n    ELSE 'where time = ' || v.t\nEND\nfrom (values ('$time_filter', '$time_grouping')) v(t, g)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -731,8 +834,8 @@
   },
   "timepicker": {},
   "timezone": "utc",
-  "title": "Sub-Seasonal Results W/O Time",
-  "uid": "ee2y4ss08wcn4d",
-  "version": 5,
+  "title": "Sub-Seasonal Results",
+  "uid": "ce2ggkm852fi8b",
+  "version": 1,
   "weekStart": ""
 }
