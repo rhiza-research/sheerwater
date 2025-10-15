@@ -154,22 +154,61 @@ def generate_filename_for_segment(seg_first_line, seg_content, key, current_path
     """
     params = parse_external_params(seg_first_line)
 
-    # Check if it's already EXTERNAL:filename format
-    if "EXTERNAL:" in seg_first_line:
-        external_start = seg_first_line.find("EXTERNAL:")
-        filename_part = seg_first_line[external_start + 9:]
+    # Check if it's already EXTERNAL:filename or EXTERNAL({...}):filename format
+    if "EXTERNAL" in seg_first_line and ":" in seg_first_line:
+        # Find the position after EXTERNAL
+        external_pos = seg_first_line.find("EXTERNAL")
+        after_external = seg_first_line[external_pos + 8:]  # 8 = len("EXTERNAL")
 
-        delimiters = [' ', '\t', '\n', ')', ']', '}']
-        end_pos = len(filename_part)
-        for delimiter in delimiters:
-            pos = filename_part.find(delimiter)
-            if pos != -1 and pos < end_pos:
-                end_pos = pos
+        # Check if there are params: EXTERNAL({...}):filename
+        if params:
+            # Look for the colon after the closing paren of params
+            paren_match = re.search(r'\([^)]*\{[^}]+\}\s*\)\s*:', after_external)
+            if paren_match:
+                # Extract filename after the ):
+                filename_start = paren_match.end()
+                filename_part = after_external[filename_start:]
+            else:
+                # Params but no :filename after them - need to generate
+                filename_part = None
+        else:
+            # No params, look for :filename
+            if after_external.startswith(':'):
+                filename_part = after_external[1:]  # Skip the :
+            else:
+                filename_part = None
 
-        filename = filename_part[:end_pos].strip()
-        # Reconstruct full content
-        content = seg_first_line + "\n" + seg_content
-        return filename, content
+        # If we found a filename, extract it and return
+        if filename_part:
+            # Stop at delimiters OR at a second colon (which would indicate duplication)
+            delimiters = [' ', '\t', '\n', ')', ']', '}', ':']
+            end_pos = len(filename_part)
+            for delimiter in delimiters:
+                pos = filename_part.find(delimiter)
+                if pos != -1 and pos < end_pos:
+                    end_pos = pos
+            filename = filename_part[:end_pos].strip()
+            if filename:  # Only return if we actually got a filename
+                # Reconstruct full content - but fix the first line to not have duplicates
+                # Remove any :filename duplication from seg_first_line
+                if params:
+                    # For EXTERNAL({...}):filename:filename, keep only first filename
+                    paren_end = seg_first_line.find('})')
+                    if paren_end != -1:
+                        before_filenames = seg_first_line[:paren_end+2] + ':'
+                        fixed_first_line = before_filenames + filename
+                    else:
+                        fixed_first_line = seg_first_line
+                else:
+                    # For EXTERNAL:filename:filename, keep only first filename
+                    external_colon = seg_first_line.find('EXTERNAL:')
+                    if external_colon != -1:
+                        fixed_first_line = seg_first_line[:external_colon+9] + filename
+                    else:
+                        fixed_first_line = seg_first_line
+
+                content = fixed_first_line + "\n" + seg_content
+                return filename, content
 
     # Generate filename
     panel_id, dashboard_id = get_panel_info(root_data, current_path)
@@ -222,6 +261,19 @@ def generate_filename_for_segment(seg_first_line, seg_content, key, current_path
         if paren_match:
             params_part = paren_match.group(0)  # The ({...}) part
             after_params = after_external[paren_match.end():]
+            # Skip any existing :filename in after_params
+            if after_params.startswith(':'):
+                # Find where the old filename ends (at space, newline, or end of string)
+                rest = after_params[1:]  # Skip the initial ':'
+                # Find first delimiter after filename
+                delimiters = [' ', '\t', '\n', '\r']
+                end_of_filename = len(rest)
+                for delim in delimiters:
+                    pos = rest.find(delim)
+                    if pos != -1 and pos < end_of_filename:
+                        end_of_filename = pos
+                # Keep anything after the filename
+                after_params = rest[end_of_filename:]
             new_first_line = f"{before_external}EXTERNAL{params_part}:{filename}{after_params}"
         else:
             # Fallback if pattern doesn't match
@@ -239,8 +291,7 @@ def process_multi_external_segments(segments, key, current_path, assets_dir, roo
     Process multiple EXTERNAL segments in a single value.
     Creates multiple asset files and a concatenation expression in jsonnet.
     """
-    filenames = []
-    local_var_names = []
+    var_names = []
 
     # Process each segment
     for idx, (seg_first_line, seg_content) in enumerate(segments):
@@ -254,34 +305,30 @@ def process_multi_external_segments(segments, key, current_path, assets_dir, roo
         # Write content to file
         asset_file = assets_dir / filename
         with open(asset_file, 'w') as f:
-            f.write(content)
+            # Ensure exactly one trailing newline
+            content_to_write = content.rstrip('\n') + '\n'
+            f.write(content_to_write)
         print(f"  Wrote segment {idx} to: {asset_file}")
-
-        filenames.append(filename)
 
         # Generate local variable name (sanitize filename)
         var_name = filename.replace('-', '_').replace('.', '_')
         # Ensure variable name doesn't start with a number
         if var_name[0].isdigit():
             var_name = 'f_' + var_name
-        local_var_names.append(var_name)
+        var_names.append(var_name)
+
+        # Track each file individually
+        modifications.append({
+            'path': current_path,
+            'filename': filename,
+            'var_name': var_name
+        })
 
     # Create concatenation expression: var1 + var2 + var3
-    concat_expr = ' + '.join(local_var_names)
-    placeholder = f"__JSONNET_MULTI_IMPORT__{concat_expr}__"
+    concat_expr = ' + '.join(var_names)
 
-    # Track modification with special multi-import marker
-    modifications.append({
-        'path': current_path,
-        'original_value': None,  # Not needed for multi
-        'new_value': placeholder,
-        'filenames': filenames,
-        'local_var_names': local_var_names,
-        'is_multi': True
-    })
-
-    # Update the value in place
-    obj[key] = placeholder
+    # Update the value in place with concatenation
+    obj[key] = f"__CONCAT__{concat_expr}__"
 
 def extract_external_content(obj, path="", assets_dir=None, root_data=None, modifications=None):
     """
@@ -329,21 +376,44 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
                     # Single EXTERNAL - process normally
                     params = parse_external_params(first_line)
 
-                    # Check if it's EXTERNAL:filename format
-                    if "EXTERNAL:" in first_line:
-                        # Extract filename from first line, stopping at common delimiters
-                        external_start = first_line.find("EXTERNAL:")
-                        filename_part = first_line[external_start + 9:]
+                    # Check if it's already EXTERNAL:filename or EXTERNAL({...}):filename format
+                    filename = None
+                    if "EXTERNAL" in first_line and ":" in first_line:
+                        external_pos = first_line.find("EXTERNAL")
+                        after_external = first_line[external_pos + 8:]  # 8 = len("EXTERNAL")
 
-                        # Stop at common delimiter characters: ), ], }, space, tab, newline
-                        delimiters = [' ', '\t', '\n', ')', ']', '}']
-                        end_pos = len(filename_part)
-                        for delimiter in delimiters:
-                            pos = filename_part.find(delimiter)
-                            if pos != -1 and pos < end_pos:
-                                end_pos = pos
+                        # Check if there are params: EXTERNAL({...}):filename
+                        if params:
+                            # Look for the colon after the closing paren of params
+                            paren_match = re.search(r'\([^)]*\{[^}]+\}\s*\)\s*:', after_external)
+                            if paren_match:
+                                # Extract filename after the ):
+                                filename_start = paren_match.end()
+                                filename_part = after_external[filename_start:]
 
-                        filename = filename_part[:end_pos].strip()
+                                delimiters = [' ', '\t', '\n', ')', ']', '}', ':']
+                                end_pos = len(filename_part)
+                                for delimiter in delimiters:
+                                    pos = filename_part.find(delimiter)
+                                    if pos != -1 and pos < end_pos:
+                                        end_pos = pos
+
+                                filename = filename_part[:end_pos].strip()
+                        else:
+                            # No params, look for :filename
+                            if after_external.startswith(':'):
+                                filename_part = after_external[1:]  # Skip the :
+
+                                delimiters = [' ', '\t', '\n', ')', ']', '}', ':']
+                                end_pos = len(filename_part)
+                                for delimiter in delimiters:
+                                    pos = filename_part.find(delimiter)
+                                    if pos != -1 and pos < end_pos:
+                                        end_pos = pos
+
+                                filename = filename_part[:end_pos].strip()
+
+                    if filename:
                         content = value  # Keep the entire original content including EXTERNAL line
                         print(f"  Named external reference: {filename}")
                     else:
@@ -403,6 +473,19 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
                             if paren_match:
                                 params_part = paren_match.group(0)  # The ({...}) part
                                 after_params = after_external[paren_match.end():]
+                                # Skip any existing :filename in after_params
+                                if after_params.startswith(':'):
+                                    # Find where the old filename ends (at space, newline, or end of string)
+                                    rest = after_params[1:]  # Skip the initial ':'
+                                    # Find first delimiter after filename
+                                    delimiters = [' ', '\t', '\n', '\r']
+                                    end_of_filename = len(rest)
+                                    for delim in delimiters:
+                                        pos = rest.find(delim)
+                                        if pos != -1 and pos < end_of_filename:
+                                            end_of_filename = pos
+                                    # Keep anything after the filename
+                                    after_params = rest[end_of_filename:]
                                 new_first_line = f"{before_external}EXTERNAL{params_part}:{filename}{after_params}"
                             else:
                                 # Fallback if pattern doesn't match
@@ -417,29 +500,32 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
                         else:
                             content = new_first_line
 
-                    # Create a special marker for jsonnet importstr that we'll replace later
-                    # Use relative path from src/ to local assets/
-                    placeholder = f"__JSONNET_IMPORTSTR__./assets/{filename}__"
-
                     # Create assets directory if it doesn't exist
                     assets_dir.mkdir(exist_ok=True)
 
                     # Write content to file
                     asset_file = assets_dir / filename
                     with open(asset_file, 'w') as f:
-                        f.write(content)
+                        # Ensure exactly one trailing newline
+                        content_to_write = content.rstrip('\n') + '\n'
+                        f.write(content_to_write)
                     print(f"  Wrote content to: {asset_file}")
+
+                    # Generate local variable name (sanitize filename)
+                    var_name = filename.replace('-', '_').replace('.', '_')
+                    # Ensure variable name doesn't start with a number
+                    if var_name[0].isdigit():
+                        var_name = 'f_' + var_name
 
                     # Track modification
                     modifications.append({
                         'path': current_path,
-                        'original_value': value,
-                        'new_value': placeholder,
-                        'filename': filename
+                        'filename': filename,
+                        'var_name': var_name
                     })
 
-                    # Update the value in place
-                    obj[key] = placeholder
+                    # Update the value in place - just use the variable name
+                    obj[key] = f"__{var_name}__"
 
             # Always recursively process non-string values
             else:
@@ -513,27 +599,13 @@ def process_json_file(json_file_path, base_dir=None):
     json_content = json.dumps(data, indent=2)
 
     if modifications:
-        # Collect all unique imports (both single and multi)
-        # Use a dict to track unique filename -> var_name mappings
-        unique_imports = {}  # filename -> var_name
-
-        # First, collect all files that need to be imported
+        # Collect all unique imports - filename -> var_name
+        unique_imports = {}
         for mod in modifications:
-            if mod.get('is_multi'):
-                # Multi-import: add each file
-                for var_name, filename in zip(mod['local_var_names'], mod['filenames']):
-                    if filename not in unique_imports:
-                        unique_imports[filename] = var_name
-            else:
-                # Single import: extract filename from placeholder
-                filename = mod.get('filename')
-                if filename:
-                    var_name = filename.replace('-', '_').replace('.', '_')
-                    # Ensure variable name doesn't start with a number
-                    if var_name[0].isdigit():
-                        var_name = 'f_' + var_name
-                    if filename not in unique_imports:
-                        unique_imports[filename] = var_name
+            filename = mod.get('filename')
+            var_name = mod.get('var_name')
+            if filename and var_name and filename not in unique_imports:
+                unique_imports[filename] = var_name
 
         # Generate local variable declarations (sorted for consistency)
         local_vars = []
@@ -541,28 +613,23 @@ def process_json_file(json_file_path, base_dir=None):
             var_name = unique_imports[filename]
             local_vars.append(f"local {var_name} = importstr './assets/{filename}';")
 
-        # Replace multi-import placeholders with concatenation expressions
-        for mod in modifications:
-            if mod.get('is_multi'):
-                # Replace __JSONNET_MULTI_IMPORT__var1 + var2__  with  var1 + var2
-                placeholder = mod['new_value']
-                concat_expr = placeholder.replace('__JSONNET_MULTI_IMPORT__', '').replace('__', '')
-                json_content = json_content.replace(f'"{placeholder}"', concat_expr)
+        # Replace placeholders with variable names or concatenation expressions
+        # __varname__ -> varname
+        # __CONCAT__var1 + var2__ -> var1 + var2
+        import re
+        def replace_placeholder(match):
+            content = match.group(1)
+            if content.startswith('CONCAT__'):
+                # Multi-segment: remove CONCAT__ prefix
+                return content[8:]  # Remove 'CONCAT__'
+            else:
+                # Single segment: just the variable name
+                return content
 
-        # Replace single import markers with variable references
-        for mod in modifications:
-            if not mod.get('is_multi'):
-                filename = mod.get('filename')
-                if filename and filename in unique_imports:
-                    placeholder = mod['new_value']
-                    var_name = unique_imports[filename]
-                    json_content = json_content.replace(f'"{placeholder}"', var_name)
+        json_content = re.sub(r'"__(.+?)__"', replace_placeholder, json_content)
 
-        # Add local variables at the top if there are any
-        if local_vars:
-            jsonnet_content = '\n'.join(local_vars) + '\n\n' + json_content
-        else:
-            jsonnet_content = json_content
+        # Add local variables at the top
+        jsonnet_content = '\n'.join(local_vars) + '\n\n' + json_content if local_vars else json_content
     else:
         # No modifications, just use the JSON as-is for jsonnet
         jsonnet_content = json_content
@@ -572,12 +639,20 @@ def process_json_file(json_file_path, base_dir=None):
 
     print(f"\nCreated template: {template_path}")
     if modifications:
-        print(f"Extracted {len(modifications)} external references:")
+        # Group by path to show multi-segment imports together
+        by_path = {}
         for mod in modifications:
-            if mod.get('is_multi'):
-                print(f"  {mod['path']} -> {len(mod['filenames'])} segments: {', '.join(mod['filenames'])}")
+            path = mod['path']
+            if path not in by_path:
+                by_path[path] = []
+            by_path[path].append(mod['filename'])
+
+        print(f"Extracted external content from {len(by_path)} locations:")
+        for path, filenames in by_path.items():
+            if len(filenames) > 1:
+                print(f"  {path} -> {len(filenames)} segments: {', '.join(filenames)}")
             else:
-                print(f"  {mod['path']} -> {mod['filename']}")
+                print(f"  {path} -> {filenames[0]}")
     else:
         print("No EXTERNAL references found - created jsonnet file without external assets.")
 
