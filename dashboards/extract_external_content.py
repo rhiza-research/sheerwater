@@ -15,6 +15,35 @@ from pathlib import Path
 #   <!-- EXTERNAL -->
 
 
+def parse_external_params(first_line):
+    """
+    Parse parameters from EXTERNAL({...}) format.
+
+    Returns a dict with parsed params, or None if not in this format.
+    Example: EXTERNAL({panel_id:"weekly-temperature-results", key: "params"})
+    Returns: {"panel_id": "weekly-temperature-results", "key": "params"}
+    """
+    # Look for EXTERNAL({...}) pattern
+    match = re.match(r'.*EXTERNAL\s*\(\s*\{([^}]+)\}\s*\)', first_line)
+    if not match:
+        return None
+
+    params_str = match.group(1)
+    params = {}
+
+    # Parse key-value pairs (handle both "key":"value" and key:"value" and "key": "value")
+    # Split by comma, then parse each pair
+    pairs = re.split(r',\s*', params_str)
+    for pair in pairs:
+        # Match key:value where key and value can be quoted or unquoted
+        kv_match = re.match(r'^\s*["\']?([^"\':\s]+)["\']?\s*:\s*["\']?([^"\']+)["\']?\s*$', pair)
+        if kv_match:
+            key = kv_match.group(1).strip()
+            value = kv_match.group(2).strip()
+            params[key] = value
+
+    return params if params else None
+
 def determine_file_extension(content):
     """Determine appropriate file extension based on content."""
     content_lower = content.lower().strip()
@@ -60,6 +89,200 @@ def get_panel_info(root_data, current_path):
 
     return panel_id, dashboard_id
 
+def split_multi_external_content(value):
+    """
+    Split content that contains multiple EXTERNAL markers.
+
+    Returns a list of tuples: [(first_line, content), ...]
+    where first_line contains the EXTERNAL marker and content is the rest.
+    """
+    lines = value.split('\n')
+    segments = []
+    current_first_line = None
+    current_content = []
+
+    for line in lines:
+        if 'EXTERNAL' in line:
+            # Check if there's content before EXTERNAL on the same line
+            external_pos = line.find('EXTERNAL')
+            before_external = line[:external_pos]
+
+            # Look for comment markers (// or /* or #) right before EXTERNAL
+            # If there's a comment marker, include it with EXTERNAL, not the previous segment
+            comment_start = before_external.rfind('//')
+            if comment_start == -1:
+                comment_start = before_external.rfind('/*')
+            if comment_start == -1:
+                comment_start = before_external.rfind('#')
+
+            if comment_start != -1:
+                # There's a comment marker - split there
+                actual_content = before_external[:comment_start].rstrip()
+                external_line_start = before_external[comment_start:]
+            else:
+                # No comment marker - all before EXTERNAL is content
+                actual_content = before_external.rstrip()
+                external_line_start = ''
+
+            # If there's actual content before the comment/EXTERNAL, add it to current segment
+            if actual_content and current_first_line is not None:
+                current_content.append(actual_content)
+
+            # Save previous segment if exists
+            if current_first_line is not None:
+                segments.append((current_first_line, '\n'.join(current_content)))
+
+            # Start new segment with the EXTERNAL part (including any comment marker)
+            current_first_line = external_line_start + line[external_pos:]
+            current_content = []
+        else:
+            # Add to current segment
+            if current_first_line is not None:
+                current_content.append(line)
+
+    # Save last segment
+    if current_first_line is not None:
+        segments.append((current_first_line, '\n'.join(current_content)))
+
+    return segments
+
+def generate_filename_for_segment(seg_first_line, seg_content, key, current_path, root_data):
+    """
+    Generate filename for a single segment.
+
+    Returns: (filename, content_with_marker)
+    """
+    params = parse_external_params(seg_first_line)
+
+    # Check if it's already EXTERNAL:filename format
+    if "EXTERNAL:" in seg_first_line:
+        external_start = seg_first_line.find("EXTERNAL:")
+        filename_part = seg_first_line[external_start + 9:]
+
+        delimiters = [' ', '\t', '\n', ')', ']', '}']
+        end_pos = len(filename_part)
+        for delimiter in delimiters:
+            pos = filename_part.find(delimiter)
+            if pos != -1 and pos < end_pos:
+                end_pos = pos
+
+        filename = filename_part[:end_pos].strip()
+        # Reconstruct full content
+        content = seg_first_line + "\n" + seg_content
+        return filename, content
+
+    # Generate filename
+    panel_id, dashboard_id = get_panel_info(root_data, current_path)
+
+    # Override with parsed parameters if they exist
+    if params:
+        dashboard_id = params.get('dashboard_id', dashboard_id)
+        panel_id = params.get('panel_id', panel_id)
+        key_override = params.get('key')
+        ext_override = params.get('ext')
+    else:
+        key_override = None
+        ext_override = None
+
+    # Use key_override if provided, otherwise use the current key
+    filename_key = key_override if key_override else key
+
+    # Don't add segment index - parameters should make filenames unique
+    # if segment_idx is not None:
+    #     filename_key = f"{filename_key}-{segment_idx}"
+
+    # Generate file extension
+    if ext_override:
+        ext = ext_override if ext_override.startswith('.') else f".{ext_override}"
+    else:
+        ext = determine_file_extension(seg_content)
+
+    # Generate filename
+    if panel_id:
+        if dashboard_id:
+            filename = f"{dashboard_id}-{panel_id}-{filename_key}{ext}"
+        else:
+            filename = f"panel-{panel_id}-{filename_key}{ext}"
+    else:
+        # Fallback naming
+        safe_path = current_path.replace('.', '-').replace('[', '-').replace(']', '')
+        filename = f"{safe_path}{ext}"
+
+    # Create new first line with filename, preserving parameters
+    external_pos = seg_first_line.find("EXTERNAL")
+    before_external = seg_first_line[:external_pos]
+    after_external_start = external_pos + len("EXTERNAL")
+    after_external = seg_first_line[after_external_start:]
+
+    # Build the new EXTERNAL line with filename
+    if params:
+        # Keep the params in the output: EXTERNAL({...}):filename
+        # Find the closing paren of EXTERNAL({...})
+        paren_match = re.search(r'\([^)]*\{[^}]+\}\s*\)', after_external)
+        if paren_match:
+            params_part = paren_match.group(0)  # The ({...}) part
+            after_params = after_external[paren_match.end():]
+            new_first_line = f"{before_external}EXTERNAL{params_part}:{filename}{after_params}"
+        else:
+            # Fallback if pattern doesn't match
+            new_first_line = f"{before_external}EXTERNAL:{filename}{after_external}"
+    else:
+        # No params, just add filename
+        new_first_line = f"{before_external}EXTERNAL:{filename}{after_external}"
+
+    content = new_first_line + "\n" + seg_content
+
+    return filename, content
+
+def process_multi_external_segments(segments, key, current_path, assets_dir, root_data, modifications, obj):
+    """
+    Process multiple EXTERNAL segments in a single value.
+    Creates multiple asset files and a concatenation expression in jsonnet.
+    """
+    filenames = []
+    local_var_names = []
+
+    # Process each segment
+    for idx, (seg_first_line, seg_content) in enumerate(segments):
+        filename, content = generate_filename_for_segment(
+            seg_first_line, seg_content, key, current_path, root_data
+        )
+
+        # Create assets directory if it doesn't exist
+        assets_dir.mkdir(exist_ok=True)
+
+        # Write content to file
+        asset_file = assets_dir / filename
+        with open(asset_file, 'w') as f:
+            f.write(content)
+        print(f"  Wrote segment {idx} to: {asset_file}")
+
+        filenames.append(filename)
+
+        # Generate local variable name (sanitize filename)
+        var_name = filename.replace('-', '_').replace('.', '_')
+        # Ensure variable name doesn't start with a number
+        if var_name[0].isdigit():
+            var_name = 'f_' + var_name
+        local_var_names.append(var_name)
+
+    # Create concatenation expression: var1 + var2 + var3
+    concat_expr = ' + '.join(local_var_names)
+    placeholder = f"__JSONNET_MULTI_IMPORT__{concat_expr}__"
+
+    # Track modification with special multi-import marker
+    modifications.append({
+        'path': current_path,
+        'original_value': None,  # Not needed for multi
+        'new_value': placeholder,
+        'filenames': filenames,
+        'local_var_names': local_var_names,
+        'is_multi': True
+    })
+
+    # Update the value in place
+    obj[key] = placeholder
+
 def extract_external_content(obj, path="", assets_dir=None, root_data=None, modifications=None):
     """
     Recursively traverse JSON and extract EXTERNAL content to files.
@@ -91,6 +314,21 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
                 if "EXTERNAL" in first_line:
                     print(f"Found EXTERNAL at: {current_path}")
 
+                    # Check for multiple EXTERNAL markers in the value
+                    segments = split_multi_external_content(value)
+
+                    if len(segments) > 1:
+                        print(f"  Found {len(segments)} EXTERNAL segments")
+                        # Handle multiple EXTERNAL markers
+                        process_multi_external_segments(
+                            segments, key, current_path, assets_dir,
+                            root_data, modifications, obj
+                        )
+                        continue  # Skip to next key
+
+                    # Single EXTERNAL - process normally
+                    params = parse_external_params(first_line)
+
                     # Check if it's EXTERNAL:filename format
                     if "EXTERNAL:" in first_line:
                         # Extract filename from first line, stopping at common delimiters
@@ -109,19 +347,38 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
                         content = value  # Keep the entire original content including EXTERNAL line
                         print(f"  Named external reference: {filename}")
                     else:
-                        # Just EXTERNAL, generate filename and convert to named format
+                        # Just EXTERNAL or EXTERNAL({...}), generate filename and convert to named format
                         original_content = lines[1] if len(lines) > 1 else ""
 
-                        # Get panel info from root data and path
+                        # Get panel info from root data and path (default values)
                         panel_id, dashboard_id = get_panel_info(root_data, current_path)
 
+                        # Override with parsed parameters if they exist
+                        if params:
+                            print(f"  Parsed params: {params}")
+                            dashboard_id = params.get('dashboard_id', dashboard_id)
+                            panel_id = params.get('panel_id', panel_id)
+                            key_override = params.get('key')
+                            ext_override = params.get('ext')
+                        else:
+                            key_override = None
+                            ext_override = None
+
+                        # Use key_override if provided, otherwise use the current key
+                        filename_key = key_override if key_override else key
+
+                        # Generate file extension
+                        if ext_override:
+                            ext = ext_override if ext_override.startswith('.') else f".{ext_override}"
+                        else:
+                            ext = determine_file_extension(original_content)
+
                         # Generate filename
-                        ext = determine_file_extension(original_content)
                         if panel_id:
                             if dashboard_id:
-                                filename = f"{dashboard_id}-{panel_id}-{key}{ext}"
+                                filename = f"{dashboard_id}-{panel_id}-{filename_key}{ext}"
                             else:
-                                filename = f"panel-{panel_id}-{key}{ext}"
+                                filename = f"panel-{panel_id}-{filename_key}{ext}"
                         else:
                             # Fallback naming
                             safe_path = current_path.replace('.', '-').replace('[', '-').replace(']', '')
@@ -129,17 +386,30 @@ def extract_external_content(obj, path="", assets_dir=None, root_data=None, modi
 
                         print(f"  Generated filename: {filename}")
 
-                        # Find EXTERNAL and replace it with EXTERNAL:filename, preserving surrounding text
-                        # Handle cases like "EXTERNAL )" or just "EXTERNAL"
+                        # Find EXTERNAL and replace it with EXTERNAL:filename, preserving surrounding text and params
+                        # Handle cases like "EXTERNAL )" or "EXTERNAL({...})" or just "EXTERNAL"
                         external_pos = first_line.find("EXTERNAL")
                         before_external = first_line[:external_pos]
 
-                        # Find what comes after EXTERNAL (like " )" or "")
+                        # Find what comes after EXTERNAL (like " )" or "({...})" or "")
                         after_external_start = external_pos + len("EXTERNAL")
                         after_external = first_line[after_external_start:]
 
-                        # Create new first line with filename, preserving the structure
-                        new_first_line = f"{before_external}EXTERNAL:{filename}{after_external}"
+                        # Build the new EXTERNAL line with filename, preserving parameters
+                        if params:
+                            # Keep the params in the output: EXTERNAL({...}):filename
+                            # Find the closing paren of EXTERNAL({...})
+                            paren_match = re.search(r'\([^)]*\{[^}]+\}\s*\)', after_external)
+                            if paren_match:
+                                params_part = paren_match.group(0)  # The ({...}) part
+                                after_params = after_external[paren_match.end():]
+                                new_first_line = f"{before_external}EXTERNAL{params_part}:{filename}{after_params}"
+                            else:
+                                # Fallback if pattern doesn't match
+                                new_first_line = f"{before_external}EXTERNAL:{filename}{after_external}"
+                        else:
+                            # No params, just add filename
+                            new_first_line = f"{before_external}EXTERNAL:{filename}{after_external}"
 
                         # Reconstruct content with new first line
                         if len(lines) > 1:
@@ -243,12 +513,56 @@ def process_json_file(json_file_path, base_dir=None):
     json_content = json.dumps(data, indent=2)
 
     if modifications:
-        # Replace special markers with proper jsonnet importstr syntax
-        jsonnet_content = re.sub(
-            r'"__JSONNET_IMPORTSTR__([^_]+)__"',
-            r"importstr '\1'",
-            json_content
-        )
+        # Collect all unique imports (both single and multi)
+        # Use a dict to track unique filename -> var_name mappings
+        unique_imports = {}  # filename -> var_name
+
+        # First, collect all files that need to be imported
+        for mod in modifications:
+            if mod.get('is_multi'):
+                # Multi-import: add each file
+                for var_name, filename in zip(mod['local_var_names'], mod['filenames']):
+                    if filename not in unique_imports:
+                        unique_imports[filename] = var_name
+            else:
+                # Single import: extract filename from placeholder
+                filename = mod.get('filename')
+                if filename:
+                    var_name = filename.replace('-', '_').replace('.', '_')
+                    # Ensure variable name doesn't start with a number
+                    if var_name[0].isdigit():
+                        var_name = 'f_' + var_name
+                    if filename not in unique_imports:
+                        unique_imports[filename] = var_name
+
+        # Generate local variable declarations (sorted for consistency)
+        local_vars = []
+        for filename in sorted(unique_imports.keys()):
+            var_name = unique_imports[filename]
+            local_vars.append(f"local {var_name} = importstr './assets/{filename}';")
+
+        # Replace multi-import placeholders with concatenation expressions
+        for mod in modifications:
+            if mod.get('is_multi'):
+                # Replace __JSONNET_MULTI_IMPORT__var1 + var2__  with  var1 + var2
+                placeholder = mod['new_value']
+                concat_expr = placeholder.replace('__JSONNET_MULTI_IMPORT__', '').replace('__', '')
+                json_content = json_content.replace(f'"{placeholder}"', concat_expr)
+
+        # Replace single import markers with variable references
+        for mod in modifications:
+            if not mod.get('is_multi'):
+                filename = mod.get('filename')
+                if filename and filename in unique_imports:
+                    placeholder = mod['new_value']
+                    var_name = unique_imports[filename]
+                    json_content = json_content.replace(f'"{placeholder}"', var_name)
+
+        # Add local variables at the top if there are any
+        if local_vars:
+            jsonnet_content = '\n'.join(local_vars) + '\n\n' + json_content
+        else:
+            jsonnet_content = json_content
     else:
         # No modifications, just use the JSON as-is for jsonnet
         jsonnet_content = json_content
@@ -260,7 +574,10 @@ def process_json_file(json_file_path, base_dir=None):
     if modifications:
         print(f"Extracted {len(modifications)} external references:")
         for mod in modifications:
-            print(f"  {mod['path']} -> {mod['filename']}")
+            if mod.get('is_multi'):
+                print(f"  {mod['path']} -> {len(mod['filenames'])} segments: {', '.join(mod['filenames'])}")
+            else:
+                print(f"  {mod['path']} -> {mod['filename']}")
     else:
         print("No EXTERNAL references found - created jsonnet file without external assets.")
 

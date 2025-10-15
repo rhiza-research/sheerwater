@@ -1,3 +1,16 @@
+local f_2016_2022_precip_sql = importstr './assets/2016-2022-precip.sql';
+local colors_js = importstr './assets/colors.js';
+local ee2jzeymn1o8wf_1_script_js = importstr './assets/ee2jzeymn1o8wf-1-script.js';
+local ee2jzeymn1o8wf_2_script_js = importstr './assets/ee2jzeymn1o8wf-2-script.js';
+local ee2jzeymn1o8wf_3_script_js = importstr './assets/ee2jzeymn1o8wf-3-script.js';
+local ee2jzeymn1o8wf_4_script_js = importstr './assets/ee2jzeymn1o8wf-4-script.js';
+local ee2jzeymn1o8wf_5_afterRender_js = importstr './assets/ee2jzeymn1o8wf-5-afterRender.js';
+local ee2jzeymn1o8wf_5_content_md = importstr './assets/ee2jzeymn1o8wf-5-content.md';
+local ee2jzeymn1o8wf_7_afterRender_js = importstr './assets/ee2jzeymn1o8wf-7-afterRender.js';
+local ee2jzeymn1o8wf_7_content_txt = importstr './assets/ee2jzeymn1o8wf-7-content.txt';
+local ee2jzeymn1o8wf_weekly_precipitation_results_params_txt = importstr './assets/ee2jzeymn1o8wf-weekly-precipitation-results-params.txt';
+local ee2jzeymn1o8wf_weekly_temperature_results_params_txt = importstr './assets/ee2jzeymn1o8wf-weekly-temperature-results-params.txt';
+
 {
   "annotations": {
     "list": [
@@ -18,7 +31,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 15,
+  "id": 23,
   "links": [],
   "panels": [
     {
@@ -51,8 +64,8 @@
       },
       "id": 5,
       "options": {
-        "afterRender": importstr './assets/ee2jzeymn1o8wf-5-afterRender.js',
-        "content": importstr './assets/ee2jzeymn1o8wf-5-content.md',
+        "afterRender": ee2jzeymn1o8wf_5_afterRender_js,
+        "content": ee2jzeymn1o8wf_5_content_md,
         "contentPartials": [],
         "defaultContent": "The query didn't return any results.",
         "editor": {
@@ -117,8 +130,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -137,8 +149,8 @@
           },
           "id": 8,
           "options": {
-            "afterRender": importstr './assets/ee2jzeymn1o8wf-7-afterRender.js',
-            "content": importstr './assets/ee2jzeymn1o8wf-7-content.txt',
+            "afterRender": ee2jzeymn1o8wf_7_afterRender_js,
+            "content": ee2jzeymn1o8wf_7_content_txt,
             "contentPartials": [],
             "defaultContent": "The query didn't return any results.",
             "editor": {
@@ -277,7 +289,7 @@
         },
         "onclick": "",
         "resScale": 2,
-        "script": importstr './assets/ee2jzeymn1o8wf-1-script.js',
+        "script": ee2jzeymn1o8wf_weekly_temperature_results_params_txt + colors_js + ee2jzeymn1o8wf_1_script_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -423,7 +435,7 @@
         },
         "onclick": "",
         "resScale": 0,
-        "script": importstr './assets/ee2jzeymn1o8wf-2-script.js',
+        "script": ee2jzeymn1o8wf_weekly_precipitation_results_params_txt + colors_js + ee2jzeymn1o8wf_2_script_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -567,7 +579,7 @@
         },
         "onclick": "",
         "resScale": 0,
-        "script": importstr './assets/ee2jzeymn1o8wf-4-script.js',
+        "script": ee2jzeymn1o8wf_4_script_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -711,7 +723,7 @@
         },
         "onclick": "",
         "resScale": 0,
-        "script": importstr './assets/ee2jzeymn1o8wf-3-script.js',
+        "script": ee2jzeymn1o8wf_3_script_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -1077,12 +1089,12 @@
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": importstr './assets/2016-2022-precip.sql',
+        "definition": f_2016_2022_precip_sql,
         "hide": 2,
         "includeAll": false,
         "name": "precip_tab_name",
         "options": [],
-        "query": importstr './assets/2016-2022-precip.sql',
+        "query": f_2016_2022_precip_sql,
         "refresh": 2,
         "regex": "",
         "type": "query"
@@ -1211,12 +1223,12 @@
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": importstr './assets/2016-2022-precip.sql',
+        "definition": f_2016_2022_precip_sql,
         "hide": 2,
         "includeAll": false,
         "name": "precip_tab_name_baseline",
         "options": [],
-        "query": importstr './assets/2016-2022-precip.sql',
+        "query": f_2016_2022_precip_sql,
         "refresh": 2,
         "regex": "",
         "type": "query"
@@ -1233,6 +1245,6 @@
   "timezone": "utc",
   "title": "Forecast Evaluation",
   "uid": "ee2jzeymn1o8wf",
-  "version": 9,
+  "version": 11,
   "weekStart": ""
 }
