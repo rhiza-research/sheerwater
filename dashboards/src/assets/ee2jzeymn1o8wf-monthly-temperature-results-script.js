@@ -1,4 +1,4 @@
-// EXTERNAL:ee2jzeymn1o8wf-4-script.js
+// EXTERNAL({panel_id:"monthly-temperature-results"}):ee2jzeymn1o8wf-monthly-temperature-results-script.js
 // Utility function to convert hex color to an RGB object
 function hexToRgb(hex) {
     const bigint = parseInt(hex.slice(1), 16);

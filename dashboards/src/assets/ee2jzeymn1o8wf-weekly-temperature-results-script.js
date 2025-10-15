@@ -1,5 +1,4 @@
-// EXTERNAL:ee2jzeymn1o8wf-1-script.js
-
+// EXTERNAL({panel_id:"weekly-temperature-results"}):ee2jzeymn1o8wf-weekly-temperature-results-script.js
 let series = data.series[0]
 if (series.length == 0) {
     return {

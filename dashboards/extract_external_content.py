@@ -45,7 +45,8 @@ def determine_file_extension(content):
     in EXTERNAL parameters.
 
     Detection patterns:
-    - .js: Starts with 'function' or contains 'function(' or starts with '//'
+    - .js: JS keywords (function, const, let, var), comments (//), arrow functions (=>),
+           console.log, or return statements
     - .html: Starts with '<' or contains '<html'
     - .md: Starts with '#' or '##' (markdown headers)
     - .sql: Contains both 'select' and 'from' keywords
@@ -59,8 +60,21 @@ def determine_file_extension(content):
     """
     content_lower = content.lower().strip()
 
-    # JavaScript: function declarations or JS comments
-    if content_lower.startswith('function') or 'function(' in content_lower or content_lower.startswith('//'):
+    # JavaScript: multiple indicators
+    # Check for JS keywords, syntax patterns, and comments
+    js_indicators = [
+        content_lower.startswith('function'),
+        content_lower.startswith('const '),
+        content_lower.startswith('let '),
+        content_lower.startswith('var '),
+        content_lower.startswith('//'),
+        'function(' in content_lower,
+        '=>' in content_lower,  # Arrow functions
+        'console.log' in content_lower,
+        content_lower.startswith('return {'),
+        ' = {' in content_lower and '\n' in content,  # Object assignment (multi-line)
+    ]
+    if any(js_indicators):
         return '.js'
     # HTML: angle brackets or html tag
     elif content_lower.startswith('<') or '<html' in content_lower:
