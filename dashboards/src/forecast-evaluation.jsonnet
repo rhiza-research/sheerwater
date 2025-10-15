@@ -581,7 +581,7 @@ local ee2jzeymn1o8wf_weekly_temperature_results_script_js = importstr './assets/
         },
         "onclick": "",
         "resScale": 0,
-        "script": ee2jzeymn1o8wf_monthly_temperature_results_params_js + ee2jzeymn1o8wf_monthly_temperature_results_script_js,
+        "script": ee2jzeymn1o8wf_monthly_temperature_results_params_js + colors_js + ee2jzeymn1o8wf_monthly_temperature_results_script_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -725,7 +725,7 @@ local ee2jzeymn1o8wf_weekly_temperature_results_script_js = importstr './assets/
         },
         "onclick": "",
         "resScale": 0,
-        "script": ee2jzeymn1o8wf_monthly_precipitation_results_params_js + ee2jzeymn1o8wf_monthly_precipitation_results_script_js,
+        "script": ee2jzeymn1o8wf_monthly_precipitation_results_params_js + colors_js + ee2jzeymn1o8wf_monthly_precipitation_results_script_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -1247,6 +1247,6 @@ local ee2jzeymn1o8wf_weekly_temperature_results_script_js = importstr './assets/
   "timezone": "utc",
   "title": "Forecast Evaluation",
   "uid": "ee2jzeymn1o8wf",
-  "version": 8,
+  "version": 9,
   "weekStart": ""
 }
