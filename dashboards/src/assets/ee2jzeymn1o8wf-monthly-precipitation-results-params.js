@@ -6,4 +6,7 @@ params = {
     "enable_maximize": true,
     "enable_links": false,
     "time_grouping": "Month",
+    "bias_colormap": "BrBG",
+    "skill_score_range": [-1, 1],
+    "divider_column": 2,
 }

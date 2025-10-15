@@ -6,4 +6,7 @@ params = {
     "enable_maximize": false,
     "enable_links": true,
     "time_grouping": "Week",
+    "bias_colormap": "BuRd",
+    "skill_score_range": [0, 1],
+    "divider_column": 3,
 }

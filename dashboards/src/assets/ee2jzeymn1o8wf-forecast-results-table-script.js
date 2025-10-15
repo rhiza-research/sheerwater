@@ -1,4 +1,16 @@
-// EXTERNAL({panel_id:"monthly-temperature-results"}):ee2jzeymn1o8wf-monthly-temperature-results-script.js
+// EXTERNAL({panel_id:"forecast-results-table", key: "script"}):ee2jzeymn1o8wf-forecast-results-table-script.js
+// Unified forecast results table script
+// Used by weekly/monthly temperature/precipitation panels
+// Differences controlled via params object
+
+// Validate required params
+const requiredParams = ['title', 'units', 'columnwidth', 'enable_maximize', 'enable_links',
+                        'time_grouping', 'bias_colormap', 'skill_score_range', 'divider_column'];
+for (const param of requiredParams) {
+    if (params[param] === undefined) {
+        throw new Error(`Missing required parameter: ${param}`);
+    }
+}
 
 let series = data.series[0]
 if (series.length == 0) {
@@ -65,7 +77,7 @@ for (var i = 2 + idx; i < series.fields.length; i = i + 1) {
     values.push(v)
     skills.push(skill_values)
     header.push(params.time_grouping + " " + (i - 1 - idx))
-    orig_header.push(lower(params.time_grouping) + (i - 1 - idx))
+    orig_header.push(params.time_grouping.toLowerCase() + (i - 1 - idx))
 }
 
 console.log(skills)
@@ -110,7 +122,8 @@ let colorMap, cmax, cmin;
 // Determine color map and ranges based on metric
 switch (variables['metric'].current.value) {
     case 'bias':
-        colorMap = 'BuRd';
+        // Use param to control bias colormap (BrBG for precip, BuRd for temp)
+        colorMap = params.bias_colormap;
         [cmin, cmax] = [min, max];
         break;
     case 'acc':
@@ -135,14 +148,16 @@ switch (variables['metric'].current.value) {
     case 'ets-5':
     case 'ets-10':
         colorMap = 'RdBu';
-        [cmin, cmax] = [-1, 1];
+        // Use param to control skill score range
+        [cmin, cmax] = params.skill_score_range;
         break;
     // FAR metrics - smaller is better
     case 'far-1':
     case 'far-5':
     case 'far-10':
         colorMap = 'RdBu';
-        [cmin, cmax] = [-1, 1]
+        // Use param to control FAR range (same as skill_score_range)
+        [cmin, cmax] = params.skill_score_range;
         break;
     default:
         colorMap = 'RdBu';
@@ -183,11 +198,15 @@ if (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse')
     units = " (" + params.units + ")"
 }
 
+// Use param to control divider column position
+// Weekly: 3, Monthly: 2
+let dividerCol = params.divider_column;
+
 return {
     data: [{
         type: 'table',
         header: {
-            values: [...header.slice(0, 2), '', ...header.slice(2)], // Add empty column for divider
+            values: [...header.slice(0, dividerCol), '', ...header.slice(dividerCol)], // Add empty column for divider
             align: ['left', 'right', 'right', 'right', 'right', 'right'],
             line: { width: 0, color: '#DBDDDE' },
             font: { family: "Inter, sans-serif", size: 14, weight: "bold" },
@@ -196,16 +215,16 @@ return {
             }
         },
         cells: {
-            values: [...values.slice(0, 2), Array(values[0].length).fill(''), ...values.slice(2)], // Add empty column
+            values: [...values.slice(0, dividerCol), Array(values[0].length).fill(''), ...values.slice(dividerCol)], // Add empty column
             align: ['left', 'right', 'right', 'right', 'right', 'right'],
             line: { width: 1, color: "#DBDDDE" },
             font: { family: "Inter, sans-serif", size: 14, color: ["black"] },
             fill: {
                 color: [
-                    forecast_colors, 
-                    ...skill_colors.slice(0, 1), 
+                    forecast_colors,
+                    ...skill_colors.slice(0, dividerCol - 1),
                     Array(forecasts.length).fill('grey'), // Divider column
-                    ...skill_colors.slice(1)
+                    ...skill_colors.slice(dividerCol - 1)
                 ]
             },
             height: 35
@@ -221,28 +240,28 @@ return {
     }
 }
 // return {
-//     data: [{
-//         type: 'table',
-//         header: {
-//             values: header,
-//             align: ['left', 'right', 'right', 'right', 'right'],
-//             line: { width: 0, color: '#DBDDDE' },
-//             font: { family: "Inter, sans-serif", size: 14, weight: "bold" },
-//             fill: {
-//                 color: ['rgba(0,0,0,0)']
-//             }
-//         },
-//         cells: {
-//             values: values,
-//             align: ['left', 'right', 'right', 'right', 'right'],
-//             line: { color: "#DBDDDE", width: 1 },
-//             font: { family: "Inter, sans-serif", size: 14, color: ["black"] },
-//             fill: {
-//                 color: [forecast_colors, ...skill_colors]
-//             },
-//             height: 35
-
-//         },
-//         columnwidth: [1.2, 0.5, 0.5, 0.5, 0.5, 0.5]
-//     }]
+    // data: [{
+    //     type: 'table',
+    //     header: {
+    //         values: header,
+    //         align: ['left', 'right', 'right', 'right', 'right'],
+    //         line: { width: 0, color: '#DBDDDE' },
+    //         font: { family: "Inter, sans-serif", size: 14, weight: "bold" },
+    //         fill: {
+    //             color: ['rgba(0,0,0,0)']
+    //         }
+    //     },
+    //     cells: {
+    //         values: values,
+    //         align: ['left', 'right', 'right', 'right', 'right'],
+    //         line: { color: "#DBDDDE", width: 1 },
+    //         font: { family: "Inter, sans-serif", size: 14, color: ["black"] },
+    //         fill: {
+    //             color: [forecast_colors, ...skill_colors]
+    //         },
+    //         height: 35
+    //
+    //     },
+    //     columnwidth: [1.2, 0.5, 0.5, 0.5, 0.5, 0.5]
+    // }]
 // }
