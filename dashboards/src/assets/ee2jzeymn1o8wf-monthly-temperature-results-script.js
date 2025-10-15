@@ -7,11 +7,13 @@ if (series.length == 0) {
     }
 }
 let maximize;
-let metric = variables['metric'].current.value;
-if (metric.startsWith('heidke') || metric.startsWith('pod') || metric.startsWith('ets')) {
-    maximize = true; // these metrics are maximized
-} else {
-    maximize = false;
+if (params.enable_maximize) {
+    let metric = variables['metric'].current.value;
+    if (metric.startsWith('heidke') || metric.startsWith('pod') || metric.startsWith('ets')) {
+        maximize = true; // these metrics are maximized
+    } else {
+        maximize = false;
+    }
 }
 
 if (variables.time_grouping.current.value != 'None') {
@@ -26,6 +28,7 @@ header = ["Forecast"]
 orig_header = ["forecast"]
 let max = -Infinity;
 let min = Infinity;
+
 skill_baseline_idx = null;
 for (var i = 0; i < forecasts.length; i = i + 1) {
     if (variables.baseline.current.value == forecasts[i]) {
@@ -51,10 +54,9 @@ for (var i = 2 + idx; i < series.fields.length; i = i + 1) {
             min = val;
         }
 
-        if (maximize){
+        if (params.enable_maximize & maximize){
             // Compute the skill of the distance from 1
             skill_val = (1 - ((1-val) / (1-baseline_values[(i - 2 - idx)])));
-
         } else {
             skill_val = (1 - (val / baseline_values[(i - 2 - idx)]));
         }
@@ -62,8 +64,8 @@ for (var i = 2 + idx; i < series.fields.length; i = i + 1) {
     }
     values.push(v)
     skills.push(skill_values)
-    header.push("Month " + (i - 1 - idx))
-    orig_header.push("month" + (i - 1 - idx))
+    header.push(params.time_grouping + " " + (i - 1 - idx))
+    orig_header.push(lower(params.time_grouping) + (i - 1 - idx))
 }
 
 console.log(skills)
@@ -161,22 +163,24 @@ for (var i = 0; i < skills.length; i++) {
 }
 
 // Turn the metrics into links
-// orig_forecasts = series.fields[1 + idx].values
-// metric = variables.metric.current.value
-// grid = variables.grid.current.value
-// region = variables.region.current.value
-// time_grouping = variables.time_grouping.current.value
-// time_filter = variables.time_filter.current.value
-// for (var i = 1; i < values.length; i++) {
-//     for (var j = 0; j < values[i].length; j++) {
-//         url = `d/ae39q2k3jv668d/plotly-maps?orgId=1&var-forecast=${orig_forecasts[j]}&var-metric=${metric}&var-lead=${orig_header[i]}&var-truth=era5&var-grid=${grid}&var-region=${region}&var-time_grouping=${time_grouping}&var-time_filter=${time_filter}`
-//         values[i][j] = `<a href="${url}">` + values[i][j] + '</a>'
-//     }
-// }
+if (params.enable_links) {
+    orig_forecasts = series.fields[1 + idx].values
+    metric = variables.metric.current.value
+    grid = variables.grid.current.value
+    region = variables.region.current.value
+    time_grouping = variables.time_grouping.current.value
+    time_filter = variables.time_filter.current.value
+    for (var i = 1; i < values.length; i++) {
+        for (var j = 0; j < values[i].length; j++) {
+            url = `d/ae39q2k3jv668d/plotly-maps?orgId=1&var-forecast=${orig_forecasts[j]}&var-metric=${metric}&var-lead=${orig_header[i]}&var-truth=era5&var-grid=${grid}&var-region=${region}&var-time_grouping=${time_grouping}&var-time_filter=${time_filter}`
+            values[i][j] = `<a href="${url}">` + values[i][j] + '</a>'
+        }
+    }
+}
 
 var units = ""
 if (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {
-    units = " (C)"
+    units = " (" + params.units + ")"
 }
 
 return {
@@ -206,11 +210,11 @@ return {
             },
             height: 35
         },
-        columnwidth: [1.2, 0.5, 0.03, 0.5, 0.5, 0.5] // Make divider column very thin
+        columnwidth: params.columnwidth // Make divider column very thin
     }],
     layout: {
         title: {
-            text: "Monthy temperature results" + units,
+            text: params.title + units,
             xanchor: 'left',
             x: 0
         }

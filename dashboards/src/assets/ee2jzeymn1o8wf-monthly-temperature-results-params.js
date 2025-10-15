@@ -2,6 +2,8 @@
 params = {
     "title": "Monthly temperature results",
     "units": "C",
-    "columnwidth": [1.4, 0.5, 0.5, 0.05, 0.5, 0.5, 0.5],
-    "enable_maximize": false,
+    "columnwidth": [1.2, 0.5, 0.03, 0.5, 0.5, 0.5],
+    "enable_maximize": true,
+    "enable_links": false,
+    "time_grouping": "Month",
 }
