@@ -5,7 +5,7 @@ function hexToRgb(hex) {
     return {
         r: (bigint >> 16) & 255,
         g: (bigint >> 8) & 255,
-        b: bigint & 255
+        b: bigint & 255,
     };
 }
 
@@ -14,38 +14,51 @@ function getColor(value, cmin, cmax, colorMap) {
     let colors;
 
     // Define color scales based on the selected colormap
-    if (colorMap === 'BrBG') {
+    if (colorMap === "BrBG") {
         colors = [
             "#543005",
-            "#8C510A", "#BF812D", "#DFC27D", "#F6E8C3",
-            "#F5F5F5", "#C7EAE5", "#80CDC1", "#35978F", "#01665E",
-            "#003C30"
+            "#8C510A",
+            "#BF812D",
+            "#DFC27D",
+            "#F6E8C3",
+            "#F5F5F5",
+            "#C7EAE5",
+            "#80CDC1",
+            "#35978F",
+            "#01665E",
+            "#003C30",
         ];
-    } else if (colorMap === 'balance') {
+    } else if (colorMap === "balance") {
         colors = [
             "#2a0a0a",
-            "#751b1b", "#b73c3c", "#e88484", "#f3c3c3", // Negative side
-            "#ffffff",                                            // Neutral middle
-            "#c3e4f3", "#84c2e8", "#3c9fb7", "#1b5e75",  // Positive side
-            "#0a2a2a"
+            "#751b1b", // Negative side
+            "#b73c3c", // Negative side
+            "#e88484", // Negative side
+            "#f3c3c3", // Negative side
+            "#ffffff", // Neutral middle
+            "#c3e4f3", // Positive side
+            "#84c2e8", // Positive side
+            "#3c9fb7", // Positive side
+            "#1b5e75", // Positive side
+            "#0a2a2a",
         ];
-        colors = colors.reverse()
-    } else if (colorMap === 'RdBu') {
-        colors = ['#ff0000', '#ffffff', '#0000ff'];
-    } else if (colorMap === 'BuRd') {
-        colors = ['#0000ff', '#ffffff', '#ff0000'];
+        colors = colors.reverse();
+    } else if (colorMap === "RdBu") {
+        colors = ["#ff0000", "#ffffff", "#0000ff"];
+    } else if (colorMap === "BuRd") {
+        colors = ["#0000ff", "#ffffff", "#ff0000"];
     } else {
         throw new Error("Invalid colorMap. Choose 'BrBG', 'balance', 'BuRd', or 'RdBu'.");
     }
 
     let x;
     if (value > 0) {
-        x = 0.5 + (value / cmax) * 0.5;  // Map positive values from 0.5 to 1.0
+        x = 0.5 + (value / cmax) * 0.5; // Map positive values from 0.5 to 1.0
     } else if (value < 0) {
-        x = 0.5 + (value / (-cmin)) * 0.5;  // Map negative values from 0.0 to 0.5
+        x = 0.5 + (value / -cmin) * 0.5; // Map negative values from 0.0 to 0.5
     } else {
-        x = 0.5;  // Zero maps to middle
-    }    
+        x = 0.5; // Zero maps to middle
+    }
 
     // Clamp value between 0 and 1
     x = Math.min(1, Math.max(0, x));

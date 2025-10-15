@@ -1,9 +1,8 @@
 local f_2016_2022_precip_sql = importstr './assets/2016-2022-precip.sql';
 local colors_js = importstr './assets/colors.js';
-local ee2jzeymn1o8wf_5_afterRender_js = importstr './assets/ee2jzeymn1o8wf-5-afterRender.js';
 local ee2jzeymn1o8wf_5_content_md = importstr './assets/ee2jzeymn1o8wf-5-content.md';
-local ee2jzeymn1o8wf_7_afterRender_js = importstr './assets/ee2jzeymn1o8wf-7-afterRender.js';
 local ee2jzeymn1o8wf_7_content_txt = importstr './assets/ee2jzeymn1o8wf-7-content.txt';
+local ee2jzeymn1o8wf_afterRender_script_js = importstr './assets/ee2jzeymn1o8wf-afterRender-script.js';
 local ee2jzeymn1o8wf_forecast_results_table_script_js = importstr './assets/ee2jzeymn1o8wf-forecast-results-table-script.js';
 local ee2jzeymn1o8wf_monthly_precipitation_results_params_js = importstr './assets/ee2jzeymn1o8wf-monthly-precipitation-results-params.js';
 local ee2jzeymn1o8wf_monthly_temperature_results_params_js = importstr './assets/ee2jzeymn1o8wf-monthly-temperature-results-params.js';
@@ -63,7 +62,7 @@ local ee2jzeymn1o8wf_weekly_temperature_results_params_js = importstr './assets/
       },
       "id": 5,
       "options": {
-        "afterRender": ee2jzeymn1o8wf_5_afterRender_js,
+        "afterRender": ee2jzeymn1o8wf_afterRender_script_js,
         "content": ee2jzeymn1o8wf_5_content_md,
         "contentPartials": [],
         "defaultContent": "The query didn't return any results.",
@@ -148,7 +147,7 @@ local ee2jzeymn1o8wf_weekly_temperature_results_params_js = importstr './assets/
           },
           "id": 8,
           "options": {
-            "afterRender": ee2jzeymn1o8wf_7_afterRender_js,
+            "afterRender": ee2jzeymn1o8wf_afterRender_script_js,
             "content": ee2jzeymn1o8wf_7_content_txt,
             "contentPartials": [],
             "defaultContent": "The query didn't return any results.",
@@ -1244,6 +1243,6 @@ local ee2jzeymn1o8wf_weekly_temperature_results_params_js = importstr './assets/
   "timezone": "utc",
   "title": "Forecast Evaluation",
   "uid": "ee2jzeymn1o8wf",
-  "version": 13,
+  "version": 15,
   "weekStart": ""
 }
