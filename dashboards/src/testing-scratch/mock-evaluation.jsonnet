@@ -82,7 +82,7 @@
               "url": "https://terracotta.shared.rhizaresearch.org/singleband/spatial_metric_None_$forecast_global1_5_week1_lsm_mae_africa_era5_precip/{z}/{x}/{y}.png?colormap=bwr&tile_size=[256,256]"
             },
             "name": "Layer 2",
-            "opacity": 0.40000000000000002,
+            "opacity": 0.4,
             "tooltip": true,
             "type": "xyz"
           }
@@ -93,8 +93,8 @@
         "view": {
           "allLayers": true,
           "id": "coords",
-          "lat": 3.0195430000000001,
-          "lon": 32.631258000000003,
+          "lat": 3.019543,
+          "lon": 32.631258,
           "shared": true,
           "zoom": 2.29
         }

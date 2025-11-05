@@ -104,7 +104,7 @@
                 "color": {
                   "fixed": "super-light-purple"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -149,7 +149,7 @@
                 "color": {
                   "fixed": "dark-blue"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -639,7 +639,7 @@
             "autorange": false,
             "gridcolor": "rgba(0, 0, 0, 0.15)",
             "range": [
-              -0.10000000000000001,
+              -0.1,
               1
             ],
             "rangemode": "tozero",
@@ -842,7 +842,7 @@
             "autorange": false,
             "gridcolor": "rgba(0, 0, 0, 0.15)",
             "range": [
-              -0.10000000000000001,
+              -0.1,
               1
             ],
             "rangemode": "tozero",

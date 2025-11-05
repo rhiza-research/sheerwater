@@ -496,7 +496,7 @@
                 "color": {
                   "fixed": "super-light-purple"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -541,7 +541,7 @@
                 "color": {
                   "fixed": "dark-blue"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,

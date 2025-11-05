@@ -18,7 +18,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 51,
   "links": [],
   "panels": [
     {
@@ -1222,6 +1221,6 @@
   "timezone": "utc",
   "title": "Aim for Scale Benchmarking",
   "uid": "eeu7f55ajbvnkb",
-  "version": 5,
+  "version": 1,
   "weekStart": ""
 }
