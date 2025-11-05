@@ -65,7 +65,7 @@
         "styles": "",
         "wrap": true
       },
-      "pluginVersion": "6.0.0",
+      "pluginVersion": "5.6.0",
       "targets": [
         {
           "editorMode": "code",
@@ -150,7 +150,7 @@
             "styles": "",
             "wrap": true
           },
-          "pluginVersion": "6.0.0",
+          "pluginVersion": "5.6.0",
           "targets": [
             {
               "editorMode": "code",
@@ -1231,6 +1231,6 @@
   "timezone": "utc",
   "title": "Forecast Evaluation",
   "uid": "ee2jzeymn1o8wf",
-  "version": 17,
+  "version": 1,
   "weekStart": ""
 }
