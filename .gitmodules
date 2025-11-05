@@ -1,0 +1,3 @@
+[submodule "dynamic-dash"]
+	path = dynamic-dash
+	url = git@github.com:rhiza-research/dynamic-dash.git

@@ -106,7 +106,7 @@ resource "grafana_organization_preferences" "preferences" {
   #  ignore_changes = [home_dashboard_uid, ]
   #}
 
-  depends_on = [grafana_organization.org, grafana_dashboard.dashboards]
+  depends_on = [grafana_organization.org, module.dynamic-dash]
 
 }
 
@@ -135,3 +135,15 @@ resource "grafana_data_source" "postgres" {
 
 }
 
+module "dynamic-dash" {
+  source = "../../dynamic-dash/terraform_module"
+  dashboard_export_enabled = var.dashboard_export_enabled
+  org_id = grafana_organization.org.id
+  dashboards_base_path = var.dashboards_base_path
+  dashboard_export_dir = var.dashboard_export_dir
+  datasource_config = {
+    "grafana-postgresql-datasource" = grafana_data_source.postgres.uid
+  }
+  repo_name = local.repo_name
+  pr_number = local.pr_number
+}
