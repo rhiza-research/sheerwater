@@ -30,6 +30,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2
@@ -61,9 +64,16 @@ jobs:
           timeout 10m ./wait-for-grafana.sh $EPHEMERAL_GRAFANA_URL
           
       - name: Terraform Import
-        run: ./import.sh || true
+        continue-on-error: true
+        run: ./import.sh
 
-      - name: Terraform Apply
+      - name: Terraform Apply (first attempt)
+        id: apply_first
+        continue-on-error: true
+        run: terraform apply -input=false -auto-approve
+
+      - name: Terraform Apply (retry if first failed)
+        if: steps.apply_first.outcome == 'failure'
         run: terraform apply -input=false -auto-approve
 
       - name: Create or Update comment
