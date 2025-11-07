@@ -3,9 +3,9 @@
 import itertools
 import traceback
 
-from sheerwater_benchmarking.metrics import summary_metrics_table
 from sheerwater_benchmarking.utils import start_remote
 from jobs import parse_args, run_in_parallel, prune_metrics
+from dashboard_data import summary_metrics_table
 
 (start_time, end_time, forecasts, truth, metrics,
  variables, grids, regions, leads,
@@ -36,7 +36,7 @@ def run_metrics_table(combo):
         raise (e)
     except NotImplementedError:
         print(f"Metric {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
-        return "Not Impelemnted"
+        return "Not Implemented"
     except:  # noqa: E722
         print(f"Failed to run metric {grid} {variable} {metric} \
                 {region} {time_grouping}: {traceback.format_exc()}")

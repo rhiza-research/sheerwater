@@ -1,7 +1,7 @@
 """Verification metrics for forecasts."""
 
-from sheerwater_benchmarking.utils import (cacheable, dask_remote, start_remote, plot_ds)  # noqa: F401
-from sheerwater_benchmarking.metrics import grouped_metric, eval_metric, global_metric, summary_metrics_table  # noqa: F401
+from sheerwater_benchmarking.utils import start_remote
+from dashboard_data.metrics_tables import summary_metrics_table
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ def run_grouped(combo):
         raise (e)
     except NotImplementedError:
         print(f"Metric {forecast} {lead} {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
-        return "Not Impelemnted"
+        return "Not Implemented"
     except:  # noqa:E722
         print(f"Failed to run global metric {forecast} {lead} {grid} {variable} {metric}: {traceback.format_exc()}")
         return None

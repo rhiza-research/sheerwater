@@ -18,9 +18,10 @@ if remote:
 combos = itertools.product(metrics, variables, grids, regions, leads, forecasts, time_groupings, truth)
 combos = prune_metrics(combos, global_run=False)
 
-filepath_only=True
+filepath_only = True
 if backend is not None:
-    filepath_only=False
+    filepath_only = False
+
 
 def run_grouped(combo):
     """Run spatial metric."""
@@ -32,8 +33,8 @@ def run_grouped(combo):
                        time_grouping=time_grouping, grid=grid, region=region,
                        force_overwrite=True, filepath_only=filepath_only, recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
-        raise(e)
-    except: # noqa:E722
+        raise (e)
+    except:  # noqa:E722
         print(f"Failed to run global metric {forecast} {lead} {grid} {variable} {metric}: {traceback.format_exc()}")
 
 

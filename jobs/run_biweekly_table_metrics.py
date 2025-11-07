@@ -3,8 +3,8 @@
 import itertools
 import traceback
 
-from sheerwater_benchmarking.metrics import biweekly_summary_metrics_table
 from sheerwater_benchmarking.utils import start_remote
+from dashboard_data import biweekly_summary_metrics_table
 from jobs import parse_args, run_in_parallel
 
 (start_time, end_time, forecasts, metrics,
@@ -36,7 +36,7 @@ def run_metrics_table(combo):
                                        force_overwrite=True, filepath_only=filepath_only,
                                        recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
-        raise(e)
+        raise (e)
     except:  # noqa: E722
         print(f"Failed to run biweekly metric {grid} {variable} {metric} \
                 {region} {time_grouping}: {traceback.format_exc()}")

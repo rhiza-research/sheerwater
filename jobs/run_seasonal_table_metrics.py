@@ -3,9 +3,9 @@
 import itertools
 import traceback
 
-from sheerwater_benchmarking.metrics import seasonal_metrics_table
 from sheerwater_benchmarking.utils import start_remote
 from jobs import parse_args, run_in_parallel, prune_metrics
+from dashboard_data import seasonal_metrics_table
 
 (start_time, end_time, forecasts, truth, metrics,
  variables, grids, regions, leads,
@@ -29,13 +29,13 @@ def run_metrics_table(combo):
 
     try:
         return seasonal_metrics_table(start_time, end_time, variable, truth, metric,
-                              time_grouping=time_grouping, grid=grid, region=region,
-                              force_overwrite=True, filepath_only=filepath_only,
-                              recompute=recompute, storage_backend=backend)
+                                      time_grouping=time_grouping, grid=grid, region=region,
+                                      force_overwrite=True, filepath_only=filepath_only,
+                                      recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
-        raise(e)
+        raise (e)
     except NotImplementedError:
-        print(f"Metric {forecast} {lead} {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
+        print(f"Metric {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
         return "Not Impelemnted"
     except:  # noqa: E722
         print(f"Failed to run metric {grid} {variable} {metric} \
