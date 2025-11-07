@@ -1,7 +1,7 @@
 """Verification metrics for forecasts."""
 
 from sheerwater_benchmarking.utils import start_remote
-from dashboard_data.metrics_tables import summary_metrics_table
+from .metrics_tables import summary_metrics_table
 
 
 if __name__ == "__main__":
