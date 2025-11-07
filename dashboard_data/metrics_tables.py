@@ -18,7 +18,9 @@ def _summary_metrics_table(start_time, end_time, variable,
     for forecast in forecasts:
         for _, lead in enumerate(leads):
             print(
-                f"Running for {forecast} and {lead} with variable {variable}, metric {metric}, grid {grid}, and region {region}")
+                f"Running for {forecast} and {lead} with variable {variable}, "
+                f"metric {metric}, grid {grid}, region {region}, "
+                f"time grouping {time_grouping}")
             # First get the value without the baseline
             try:
                 ds = grouped_metric(start_time, end_time, variable,
