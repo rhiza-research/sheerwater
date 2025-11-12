@@ -10,6 +10,31 @@ import dateparser
 DATETIME_FORMAT = "%Y-%m-%d"
 
 
+def shift_by_days(date, days):
+    """Shifts a date by a given number of days."""
+    input_type = type(date)
+
+    # Convert input time to datetime object  for relative delta
+    if isinstance(date, str):
+        date_obj = dateparser.parse(date)
+    elif isinstance(date, np.datetime64):
+        date_obj = pd.Timestamp(date)
+    elif isinstance(date, datetime):
+        date_obj = date
+    else:
+        raise ValueError(f"Date type {type(date)} not supported.")
+
+    # Shift the date
+    new_date = date_obj + np.timedelta64(days, 'D')
+
+    # Convert back to original type
+    if np.issubdtype(input_type, str):
+        new_date = datetime.strftime(new_date, "%Y-%m-%d")
+    elif np.issubdtype(input_type, np.datetime64):
+        new_date = np.datetime64(new_date, 'ns')
+    return new_date
+
+
 def get_time_level(time_grouping):
     """Get the time level of a time grouping."""
     if time_grouping is None:

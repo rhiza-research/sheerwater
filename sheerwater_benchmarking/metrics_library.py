@@ -1,14 +1,13 @@
 """Library of metrics implementations for verification."""
 # flake8: noqa: D102
 from abc import ABC, abstractmethod
-from inspect import signature
 
 import xarray as xr
 import numpy as np
 import pandas as pd
 
 from sheerwater_benchmarking.statistics_library import statistic_factory
-from sheerwater_benchmarking.utils import (get_datasource_fn, get_lead_info,
+from sheerwater_benchmarking.utils import (get_datasource_fn,
                                            get_admin_level, get_time_level,
                                            get_mask)
 from sheerwater_benchmarking.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
@@ -19,114 +18,26 @@ from sheerwater_benchmarking.masks import region_labels
 SHEERWATER_METRIC_REGISTRY = {}
 
 
-def get_bins(bin_str: str) -> np.ndarray:
-    """Get the categorical bin string of the form 'edge-edge...'.
-
-    For example,
-        '5' returns [-np.inf, 5, np.inf]
-        '5-10' returns [-np.inf, 5, 10, np.inf]
-    """
-    if bin_str == 'none':
-        return np.array([])
-    try:
-        bins = [float(x) for x in bin_str.split('-')]
-    except ValueError:
-        raise ValueError(f'Invalid bins for metric {bin_str}. Bins must be integers.')
-    bins = [-np.inf] + bins + [np.inf]
-    return np.array(bins)
-
-
-def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
-    """A light wrapper around standard groupby aggregation functions."""
-    # Note, for some reason:
-    # ds.groupby('region').mean(['lat', 'lon'], skipna=True).compute()
-    # raises:
-    # *** AttributeError: 'bool' object has no attribute 'blockwise'
-    # or
-    # *** TypeError: reindex_intermediates() missing 1 required positional argument: 'array_type'
-    # So we have to do it via apply
-    if agg_fn == 'mean':
-        return ds.mean(dims, skipna=True)
-    else:
-        return ds.sum(dims, skipna=True)
-
-
-def groupby_time(ds, time_grouping, agg_fn='mean'):
-    """Aggregate a statistic over time."""
-    if time_grouping is not None:
-        if time_grouping == 'month_of_year':
-            coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
-        elif time_grouping == 'year':
-            coords = [f'Y{x:04d}' for x in ds.time.dt.year.values]
-        elif time_grouping == 'quarter_of_year':
-            coords = [f'Q{x:02d}' for x in ds.time.dt.quarter.values]
-        elif time_grouping == 'day_of_year':
-            coords = [f'D{x:03d}' for x in ds.time.dt.dayofyear.values]
-        elif time_grouping == 'month':
-            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds.time.values]
-        else:
-            raise ValueError("Invalid time grouping")
-        ds = ds.assign_coords(group=("time", coords))
-        ds = ds.groupby("group").apply(mean_or_sum, agg_fn=agg_fn, dims='time')
-        # Rename the group coordinate to time
-        ds = ds.rename({"group": "time"})
-    else:
-        # Average in time
-        if agg_fn == 'mean':
-            ds = ds.mean(dim="time")
-        elif agg_fn == 'sum':
-            ds = ds.sum(dim="time")
-        else:
-            raise ValueError(f"Invalid aggregation function {agg_fn}")
-    # TODO: we can convert this to a groupby_time call when we're ready
-    # ds = groupby_time(ds, grouping=time_grouping, agg_fn=xr.DataArray.mean, dim='time')
-    return ds
-
-
-def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
-    """Return latitude weights as an xarray DataArray.
-
-    This function weights each latitude band by the actual cell area,
-    which accounts for the fact that grid cells near the poles are smaller
-    in area than those near the equator.
-    """
-    # Calculate latitude cell bounds
-    lat_rad = np.deg2rad(ds[lat_dim].values)
-    # Get the centerpoint of each latitude band
-    pi_over_2 = np.array([np.pi / 2], dtype=lat_rad.dtype)
-    bounds = np.concatenate([-pi_over_2, (lat_rad[:-1] + lat_rad[1:]) / 2, pi_over_2])
-    # Calculate the area of each latitude band
-    # Calculate cell areas from latitude bounds
-    upper = bounds[1:]
-    lower = bounds[:-1]
-    # normalized cell area: integral from lower to upper of cos(latitude)
-    weights = np.sin(upper) - np.sin(lower)
-
-    # Normalize weights
-    weights /= np.mean(weights)
-    # Return an xarray DataArray with dimensions lat
-    weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
-    weights = weights.expand_dims({lon_dim: ds[lon_dim]})
-    return weights
-
-
 class Metric(ABC):
     """Abstract base class for metrics.
 
-    Based on the implementation in WeatherBenchX, a metric is defined
-    in terms of statistics and final computation.
+    Based on the implementation in WeatherBenchX, a metric is defined in terms of a nonlinear computation
+    involving the mean value of (multiple) statistics per grouping.
+    This enables the metric to be computed across all groupings at once in a a single pass, and enables the
+    caching and re-use of the statistics across metrics for efficiency.
 
     Metrics defined here are automatically registered with the metric registry, and can be used by the grouped_metric
     function in the metrics.py file by setting metric equal to the name of the metric class in lower camel case.
     For example, by defining a metric class MAE here, the grouped_metric function in the metrics.py file can be
     called with metric = 'mae'.
 
-    If you want to sum instead of mean the statistics, you can set self.statistics = [('mae', 'sum')].
-
-    If a metric depends on a non-linear calculation involving multiple statistics, simply define those statistics
-    in a list, e.g,.
+    By default, it is assumed that the metric is computed from a single statistic, and the metric will be computed
+    as the mean value of the statistic in each grouping. If a metric depends on a nonlinear calculation involving
+    multiple statistics, simply define those statistics in a list, e.g.,
         self.statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
-    Again, this assumes each of the statistics is implemented by the global_statistic function. The metric
+    and the metric will be computed as the mean value of the nonlinear calculation in each grouping.
+
+    Each of the statistics is implemented by the global_statistic function. The metric class
     will be provided with the mean value of each statistic in each grouping at runtime to operate on and return
     one metric value per grouping.
     """
@@ -137,102 +48,70 @@ class Metric(ABC):
         cls.name = cls.__name__.lower()
         SHEERWATER_METRIC_REGISTRY[cls.name] = cls
 
-    def __init__(self, start_time, end_time, variable, lead, forecast, truth, bin_str,
+    def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 mask='lsm', region='global'):
+                 mask='lsm', region='global', data_key='none'):
         """Initialize the metric."""
-        # Save the variables needed for spatial grouping
+        # Save the configuration kwargs for the metric
+        self.start_time = start_time
+        self.end_time = end_time
         self.variable = variable
-        self.region = region
-        self.spatial = spatial
+        self.agg_days = agg_days
         self.forecast = forecast
-        self.time_grouping = time_grouping
-        self.mask = mask
+        self.truth = truth
         self.grid = grid
-        self.bin_str = bin_str
-        self.bins = get_bins(bin_str)
+        self.time_grouping = time_grouping
+        self.spatial = spatial
+        self.mask = mask
+        self.region = region
 
-        # Save the kwargs needed for calling the statistics
-        self.statistic_kwargs = {
-            'start_time': start_time,
-            'end_time': end_time,
-            'variable': variable,
-            'lead': lead,
-            'forecast': forecast,
-            'truth': truth,
-            'bin_str': self.bin_str,
-            'grid': grid,
-        }
+        # Initialize the data dictionary, a place to store data about the metric calculation
+        # data is a dictionary containing a data key and a dictionary containing any data needed
+        # for the metric calculation, such as the forecasts dataframe, the array of bins, etc.
+        # The data key should uniquely identify the contents of the metric data dictionary.
+        self.metric_data = {'key': data_key, 'data': {}}
 
-        # Prepare the forecasting, observation, and auxiliary data for the metric
-        self.fcst, \
-            self.obs, \
-            self.aux_data = self.prepare_data(
-                start_time, end_time, variable, lead, forecast, truth, grid)
+        # If categorical, populate the data with the bin information
+        if self.categorical:
+            if data_key == 'none':
+                raise ValueError("A categorical metric must have a data_key that specifies the bins.")
+            # Get the bins
+            bins = [-np.inf] + [float(x) for x in data_key.split('-')] + [np.inf]
+            self.metric_data['data']['bins'] = bins
 
-        # Convert bin string to numpy bin thresholds
-        self.aux_data['bins'] = self.bins
-
-    def prepare_data(self, start_time, end_time, variable, lead, forecast, truth, grid):
-        """Prepare the data for the metric."""
-        # Auxiliary data for metric calculation
-        aux_data = {}
-
-        # Get the forecast and check validity
-        fcst_fn = get_datasource_fn(forecast)
-
-        # Decide if this is a forecast with a lead or direct datasource with just an agg
-        # Enables the same code to be used for both forecasts and truth sources
-        sparse = False  # A variable used to indicate whether the statistic is expected to be sparse
-        if 'lead' in signature(fcst_fn).parameters:
-            # TODO: this is no longer clearly true, since we can pass in daily, weekly to forecasters
-            # TODO: do we still want this check
-            # if lead_or_agg(lead) == 'agg':
-            #     raise ValueError("Evaluating the function {forecast} must be called with a lead, not an aggregation")
-            fcst = fcst_fn(start_time, end_time, variable, lead=lead,
-                           prob_type=self.prob_type, grid=grid, mask=None, region='global')
-            # Check to see the prob type attribute
+    def prepare_data(self):
+        """Prepare the data for the metric calculation, including the forecast, the observation, and the categorical bins."""
+        # Get the forecast dataframe
+        fcst_fn = get_datasource_fn(self.forecast)
+        fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
+                       prob_type=self.prob_type, grid=self.grid, mask=None, region='global')
+        # Check to see the prob type attribute
+        if 'prob_type' in fcst.attrs:
             enhanced_prob_type = fcst.attrs['prob_type']
         else:
-            # TODO: do we still want this check?
-            # if lead_or_agg(lead) == 'lead':
-            #     raise "Evaluating the function {forecast} must be called with an aggregation, but not at a lead."
-            fcst = fcst_fn(start_time, end_time, variable, agg_days=get_lead_info(lead)['agg_days'],
-                           grid=grid, mask=None, region='global')
-            # Prob type is always deterministic for truth sources
             enhanced_prob_type = "deterministic"
-
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
             raise ValueError("Cannot run probabilistic metric on deterministic forecasts.")
-        elif (enhanced_prob_type == 'ensemble' or enhanced_prob_type == 'quantile') \
-                and self.prob_type == 'deterministic':
+        elif (enhanced_prob_type == 'ensemble' or enhanced_prob_type == 'quantile') and self.prob_type == 'deterministic':
             raise ValueError("Cannot run deterministic metric on probabilistic forecasts.")
-        aux_data['prob_type'] = enhanced_prob_type
 
-        # If the metric is sparse, save a copy of the original forecast for validity checking
-        if self.sparse:
-            self.fcst_orig = fcst.copy()
+        # Get the truth dataframe
+        truth_fn = get_datasource_fn(self.truth)
+        obs = truth_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
+                       grid=self.grid, mask=None, region='global')
 
+        # We need a lead specific obs, so we know which times are valid for the forecast
+        leads = fcst.prediction_timedelta.values
+        obs = obs.expand_dims({'prediction_timedelta': leads})
+
+        sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
             sparse = fcst.attrs['sparse']
-
-        # Get the truth to compare against
-        truth_fn = get_datasource_fn(truth)
-        obs = truth_fn(start_time, end_time, variable, agg_days=get_lead_info(lead)['agg_days'],
-                       grid=grid, mask=None, region='global')
-
-        # We need a lead specific obs, so we know which times are valid for the forecast
-        lead_labels = get_lead_info(lead)['labels']
-        obs = obs.expand_dims({'lead_time': lead_labels})
-
         # Assign sparsity if it exists
         if 'sparse' in obs.attrs:
             sparse |= obs.attrs['sparse']
-
-        # Pack the final data for the statistics library
-        aux_data['sparse'] = sparse
 
         # Drop all times not in fcst
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
@@ -245,42 +124,36 @@ class Metric(ABC):
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
         no_null = obs.notnull() & fcst.notnull()
-        if 'member' in no_null.dims:
-            # TODO: This will probably break with sparse forecaster and dense observations
-            # Drop all vars except lat, lon, time, and lead_time from no_null
-            # Squeeze the member dimension. A note, things like ACC won't work well across members
+        if self.prob_type == 'probabilistic':
+            # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
-            # Drop all other coords except lat, lon, time, and lead_time
-            no_null = no_null.drop_vars([var for var in no_null.coords if var not in [
-                                        'lat', 'lon', 'time', 'lead_time']], errors='ignore')
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
         # For the case where obs and forecast are datetime objects, do a special conversion to seconds since epoch
         # TODO: This is a hack to get around the fact that the metrics library doesn't support datetime objects
-        if np.issubdtype(obs[variable].dtype, np.datetime64) or (obs[variable].dtype == np.dtype('<M8[ns]')):
+        if np.issubdtype(obs[self.variable].dtype, np.datetime64) or (obs[self.variable].dtype == np.dtype('<M8[ns]')):
             # Forecast must be datetime64
-            assert np.issubdtype(fcst[variable].dtype, np.datetime64) or (fcst[variable].dtype == np.dtype('<M8[ns]'))
+            assert np.issubdtype(fcst[self.variable].dtype, np.datetime64) or (
+                fcst[self.variable].dtype == np.dtype('<M8[ns]'))
             obs = obs.astype('int64') / 1e9
             fcst = fcst.astype('int64') / 1e9
             # NaT get's converted to -9.22337204e+09, so filter that to a proper nan
             obs = obs.where(obs > -1e9, np.nan)
             fcst = fcst.where(fcst > -1e9, np.nan)
 
-        if self.name == 'acc':
-            # Get the appropriate climatology dataframe for metric calculation
-            clim_ds = climatology_2020(start_time, end_time, variable, lead=lead, prob_type='deterministic',
-                                       grid=grid, mask=None, region='global')
-            clim_ds = clim_ds.sel(time=valid_times)
-            clim_ds = clim_ds.where(no_null, np.nan, drop=False)
-            aux_data['climatology'] = clim_ds.copy()
-        elif self.name == 'seeps':
-            aux_data['wet_threshold'] = seeps_wet_threshold(
-                first_year=1991, last_year=2020, agg_days=get_lead_info(lead)['agg_days'], grid=grid)
-            aux_data['dry_fraction'] = seeps_dry_fraction(
-                first_year=1991, last_year=2020, agg_days=get_lead_info(lead)['agg_days'], grid=grid)
-
-        return fcst, obs, aux_data
+        # Save the data into the metric data dictionary
+        self.metric_data['data']['obs'] = obs
+        self.metric_data['data']['fcst'] = fcst
+        self.metric_data['data']['prob_type'] = enhanced_prob_type
+        self.metric_data['data']['sparse'] = sparse
+        # If the metric is sparse, save a copy of the original forecast for validity checking
+        if sparse:
+            self.metric_data['data']['fcst_orig'] = fcst.copy()
+        # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
+        # properly compute the climatology
+        self.metric_data['data']['no_null'] = no_null
+        self.metric_data['data']['valid_times'] = valid_times
 
     @property
     @abstractmethod
@@ -318,28 +191,30 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         self.statistic_values = {}
-        for statistic in self.statistics:
-            # Statistics can be a tuple of (statistic, agg_fn), or just a statistic with default mean agg
-            if isinstance(statistic, tuple):
-                statistic, agg_fn = statistic
-            else:
-                agg_fn = 'mean'
+        for i, statistic in enumerate(self.statistics):
+            # Get the statistic function from the registry
+            stat_fn = statistic_factory(statistic)
 
-            if 'n_obs_bin' in statistic or 'n_fcst_bin' in statistic:
-                # Remove the category from the statistic name
-                category = int(statistic.split('_')[3])
-                statistic_name = statistic.replace(f'_{category}', '')
-                self.aux_data['category'] = category
-            else:
-                statistic_name = statistic
+            # Get any statistic-specific data from the statistic data dictionary
+            # If there are multiple statistics, use the index, otherwise use 0
 
-            stat_fn = statistic_factory(statistic_name)
-            ds = stat_fn(self.fcst, self.obs, self.aux_data, **self.statistic_kwargs)
+            # Call the statistic function
+            ds = stat_fn(data=self.metric_data['data'],
+                         start_time=self.start_time,
+                         end_time=self.end_time,
+                         variable=self.variable,
+                         agg_days=self.agg_days,
+                         forecast=self.forecast,
+                         truth=self.truth,
+                         data_key=self.metric_data['key'],
+                         grid=self.grid)
+
             if ds is None:
                 # If any statistic is None, return None
                 self.statistic_values = None
                 return
-            self.statistic_values[statistic] = (ds.copy(), agg_fn)
+
+            self.statistic_values[statistic] = ds
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -364,27 +239,28 @@ class Metric(ABC):
             ############################################################
             # Aggregate and and check validity of the statistic
             ############################################################
-            ds, agg_fn = self.statistic_values[statistic]
-            data_sparse = ds.attrs['sparse']  # Whether the input data to the statistic is expected to be sparse
+            ds = self.statistic_values[statistic]
 
             # Drop any extra random coordinates that shouldn't be there
             for coord in ds.coords:
-                if coord not in ['time', 'lead_time', 'lat', 'lon']:
+                if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                     ds = ds.reset_coords(coord, drop=True)
 
             # Prepare the check_ds for validity checking, considering sparsity
-            if data_sparse or self.sparse:
-                print("Metric is sparse, need to check the underlying forecast validity directly.")
-                check_ds = self.fcst_orig.copy()
+            if ds.attrs['sparse']:
+                print(f"Statistic is sparse, need to check the underlying forecast validity directly.")
+                check_ds = self.metric_data['data']['fcst_orig'].copy()
             else:
                 check_ds = ds.copy()
-            # Create a non_null indicator and add it to the statistic
-            ds['non_null'] = check_ds[self.variable].notnull().astype(float)
+
             ############################################################
             # Statistic aggregation
             ############################################################
+            # Create a non_null indicator and add it to the statistic
+            ds['non_null'] = check_ds[self.variable].notnull().astype(float)
+
             # Group by time
-            ds = groupby_time(ds, time_level, agg_fn=agg_fn)
+            ds = groupby_time(ds, time_level, agg_fn='mean')
 
             # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
             ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
@@ -396,22 +272,16 @@ class Metric(ABC):
 
             # Aggregate in space
             if not self.spatial:
-                if agg_fn == 'mean':
-                    # Group by region and average in space, while applying weighting for mask
-                    # and latitudes
-                    weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
-                    ds['weights'] = weights * mask_ds.mask
-                else:
-                    ds['weights'] = mask_ds.mask
+                # Group by region and average in space, while applying weighting for mask
+                weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
+                ds['weights'] = weights * mask_ds.mask
 
                 ds[self.variable] = ds[self.variable] * ds['weights']
-                ds['non_null'] = ds['non_null'] * mask_ds.mask
-                ds['indicator'] = ds['indicator'] * mask_ds.mask
+                ds['non_null'] = ds['non_null'] * ds['weights']
+                ds['indicator'] = ds['indicator'] * ds['weights']
 
                 ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
-                if agg_fn == 'mean':
-                    # Normalize by weights
-                    ds[self.variable] = ds[self.variable] / ds['weights']
+                ds[self.variable] = ds[self.variable] / ds['weights']
                 ds = ds.drop_vars(['weights'])
             else:
                 # If returning a spatial metric, mask and drop
@@ -442,6 +312,8 @@ class Metric(ABC):
         if self.valid_variables and self.variable not in self.valid_variables:
             raise ValueError(f"Variable {self.variable} is not valid for metric {self.name}")
 
+        # Prepare the forecasting, observation, and auxiliary data for the metric
+        self.prepare_data()
         # Gather the statistics
         self.gather_statistics()
         # Group and mean the statistics
@@ -533,6 +405,22 @@ class SEEPS(Metric):
     categorical = False
     statistics = ['seeps']
 
+    def prepare_data(self):
+        """Prepare specific data for the SEEPS metric."""
+        # Call the parent prepare_data method to get the forecast and observation
+        super().prepare_data()
+
+        first_year = 1991
+        last_year = 2020
+        # Get the wet threshold and dry fraction
+        self.metric_data['data']['wet_threshold'] = seeps_wet_threshold(
+            first_year=first_year, last_year=last_year, agg_days=self.agg_days, grid=self.grid)
+        self.metric_data['data']['dry_fraction'] = seeps_dry_fraction(
+            first_year=first_year, last_year=last_year, agg_days=self.agg_days, grid=self.grid)
+
+        # Update the metric data key to include the wet threshold and dry fraction year range
+        self.metric_data['key'] = f'{self.metric_data["key"]}-{first_year}-{last_year}'
+
 
 class ACC(Metric):
     """ACC (Anomaly Correlation Coefficient) metric."""
@@ -541,6 +429,29 @@ class ACC(Metric):
     valid_variables = None
     categorical = False
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
+
+    def prepare_data(self):
+        """Prepare specific data for the ACC metric."""
+        # Call the parent prepare_data method to get the forecast and observation
+        super().prepare_data()
+
+        # Get the appropriate climatology dataframe for metric calculation
+        clim_ds = climatology_2020(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
+                                   prob_type='deterministic',
+                                   grid=self.grid, mask=None, region='global')
+
+        import pdb; pdb.set_trace()
+        # Expand climatology to the same lead times as the forecast
+        leads = self.metric_data['data']['fcst'].prediction_timedelta.values
+        clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
+
+        # Subset the climatology to the valid times and non-null times of the forecaster
+        clim_ds = clim_ds.sel(time=self.metric_data['data']['valid_times'])
+        clim_ds = clim_ds.where(self.metric_data['data']['no_null'], np.nan, drop=False)
+        # Add the climatology to the metric data
+        self.metric_data['data']['climatology'] = clim_ds.copy()
+        # Update the metric data key to include the climatology year range
+        self.metric_data['key'] = f'{self.metric_data["key"]}-1990-2019'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -571,8 +482,7 @@ class Pearson(Metric):
     def compute_metric(self):
         gs = self.grouped_statistics
         numerator = gs['covariance'] - gs['fcst'] * gs['obs']
-        denominator = (gs['squared_fcst'] - gs['fcst']**2) ** 0.5 * \
-            (gs['squared_obs'] - gs['obs']**2) ** 0.5
+        denominator = (gs['squared_fcst'] - gs['fcst']**2) ** 0.5 * (gs['squared_obs'] - gs['obs']**2) ** 0.5
         return numerator / denominator
 
 
@@ -586,16 +496,16 @@ class Heidke(Metric):
     @property
     def statistics(self):
         stats = ['n_correct', 'n_valid']
-        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.bins))]
-        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.bins))]
+        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.metric_data['data']['bins']))]
+        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.metric_data['data']['bins']))]
         return stats
 
     def compute_metric(self):
         gs = self.grouped_statistics
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
-        right_by_chance = (gs['n_fcst_bin_1'] * gs['n_obs_bin_1']) / n2
-        for i in range(2, len(self.bins)):
+        right_by_chance = xr.zeros_like(gs['n_correct'])
+        for i in range(1, len(self.metric_data['data']['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
@@ -682,14 +592,14 @@ def metric_factory(metric_name: str, **init_kwargs) -> Metric:
     try:
         # Convert
         if '-' in metric_name:
-            mn = metric_name.split('-')[0]  # support for metric names of the form 'metric-edge-edge...'
-            bin_str = metric_name[metric_name.find('-')+1:]
+            mn = metric_name.split('-')[0]  # support for categorical metric names of the form 'metric-datakey...'
+            data_key = metric_name[metric_name.find('-')+1:]
         else:
             mn = metric_name
-            bin_str = 'none'
+            data_key = 'none'
         metric = SHEERWATER_METRIC_REGISTRY[mn.lower()]
         # Add runtime metric configuration to the metric class
-        return metric(bin_str=bin_str, **init_kwargs)
+        return metric(data_key=data_key, **init_kwargs)
 
     except KeyError:
         raise ValueError(f"Unknown metric: {metric_name}. Available metrics: {list_metrics()}")
@@ -698,3 +608,114 @@ def metric_factory(metric_name: str, **init_kwargs) -> Metric:
 def list_metrics():
     """List all available metrics in the registry."""
     return list(SHEERWATER_METRIC_REGISTRY.keys())
+
+
+def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
+    """A light wrapper around standard groupby aggregation functions."""
+    # Note, for some reason:
+    # ds.groupby('region').mean(['lat', 'lon'], skipna=True).compute()
+    # raises:
+    # *** AttributeError: 'bool' object has no attribute 'blockwise'
+    # or
+    # *** TypeError: reindex_intermediates() missing 1 required positional argument: 'array_type'
+    # So we have to do it via apply
+    if agg_fn == 'mean':
+        return ds.mean(dims, skipna=True)
+    else:
+        return ds.sum(dims, skipna=True)
+
+
+def groupby_time(ds, time_grouping, agg_fn='mean'):
+    """Aggregate a statistic over time."""
+    if time_grouping is not None:
+        if time_grouping == 'month_of_year':
+            coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
+        elif time_grouping == 'year':
+            coords = [f'Y{x:04d}' for x in ds.time.dt.year.values]
+        elif time_grouping == 'quarter_of_year':
+            coords = [f'Q{x:02d}' for x in ds.time.dt.quarter.values]
+        elif time_grouping == 'day_of_year':
+            coords = [f'D{x:03d}' for x in ds.time.dt.dayofyear.values]
+        elif time_grouping == 'month':
+            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds.time.values]
+        else:
+            raise ValueError("Invalid time grouping")
+        ds = ds.assign_coords(group=("time", coords))
+        ds = ds.groupby("group").apply(mean_or_sum, agg_fn=agg_fn, dims='time')
+        # Rename the group coordinate to time
+        ds = ds.rename({"group": "time"})
+    else:
+        # Average in time
+        if agg_fn == 'mean':
+            ds = ds.mean(dim="time")
+        elif agg_fn == 'sum':
+            ds = ds.sum(dim="time")
+        else:
+            raise ValueError(f"Invalid aggregation function {agg_fn}")
+    return ds
+
+
+# def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
+#     """Return latitude weights as an xarray DataArray.
+
+#     This function weights each latitude band by the actual cell area,
+#     which accounts for the fact that grid cells near the poles are smaller
+#     in area than those near the equator.
+#     """
+#     # Calculate latitude cell bounds
+#     lat_rad = np.deg2rad(ds[lat_dim].values)
+#     pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
+#     if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
+#         # Dealing with the full globe
+#         lower_bound = -pi_over_2
+#         upper_bound = pi_over_2
+#     else:
+#         # Compute the difference in between cells
+#         diff = np.diff(lat_rad)
+#         if diff.std() > 0.5:
+#             raise ValueError(
+#                 "Nonuniform grid! Need to think about spatial averaging more carefully.")
+#         diff = diff.mean()
+#         lower_bound = np.array([lat_rad[0] - diff / 2.0], dtype=lat_rad.dtype)
+#         upper_bound = np.array([lat_rad[-1] + diff / 2.0], dtype=lat_rad.dtype)
+
+#     bounds = np.concatenate([lower_bound, (lat_rad[:-1] + lat_rad[1:]) / 2, upper_bound])
+
+#     # Calculate cell areas from latitude bounds
+#     upper = bounds[1:]
+#     lower = bounds[:-1]
+#     # normalized cell area: integral from lower to upper of cos(latitude)
+#     weights = np.sin(upper) - np.sin(lower)
+
+#     # Normalize weights
+#     weights /= np.mean(weights)
+#     # Return an xarray DataArray with dimensions lat
+#     weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
+#     weights = weights.expand_dims({lon_dim: ds[lon_dim]})
+#     return weights
+
+def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
+    """Return latitude weights as an xarray DataArray.
+
+    This function weights each latitude band by the actual cell area,
+    which accounts for the fact that grid cells near the poles are smaller
+    in area than those near the equator.
+    """
+    # Calculate latitude cell bounds
+    lat_rad = np.deg2rad(ds[lat_dim].values)
+    # Get the centerpoint of each latitude band
+    pi_over_2 = np.array([np.pi / 2], dtype=lat_rad.dtype)
+    bounds = np.concatenate([-pi_over_2, (lat_rad[:-1] + lat_rad[1:]) / 2, pi_over_2])
+    # Calculate the area of each latitude band
+    # Calculate cell areas from latitude bounds
+    upper = bounds[1:]
+    lower = bounds[:-1]
+    # normalized cell area: integral from lower to upper of cos(latitude)
+    weights = np.sin(upper) - np.sin(lower)
+
+    # Normalize weights
+    weights /= np.mean(weights)
+    # Return an xarray DataArray with dimensions lat
+    weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
+    weights = weights.expand_dims({lon_dim: ds[lon_dim]})
+    return weights

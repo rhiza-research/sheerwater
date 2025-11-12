@@ -24,7 +24,7 @@ def grouped_metric(start_time, end_time, variable, lead, forecast, truth,
 
 @dask_remote
 @cacheable(data_type='array',
-           cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast', 'truth',
+           cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'forecast', 'truth',
                        'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
            chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'lead_time': -1},
            chunk_by_arg={
@@ -33,7 +33,7 @@ def grouped_metric(start_time, end_time, variable, lead, forecast, truth,
                },
            },
            cache=True)
-def grouped_metric_new(start_time, end_time, variable, lead, forecast, truth,
+def grouped_metric_new(start_time, end_time, variable, agg_days, forecast, truth,
                        metric, time_grouping=None, spatial=False, grid="global1_5",
                        mask='lsm', region='countries'):
     """Compute a grouped metric for a forecast at a specific lead."""
@@ -42,7 +42,7 @@ def grouped_metric_new(start_time, end_time, variable, lead, forecast, truth,
         'start_time': start_time,
         'end_time': end_time,
         'variable': variable,
-        'lead': lead,
+        'agg_days': agg_days,
         'forecast': forecast,
         'truth': truth,
         'time_grouping': time_grouping,

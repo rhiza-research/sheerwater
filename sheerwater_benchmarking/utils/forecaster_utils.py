@@ -1,10 +1,10 @@
 """Variable-related utility functions for all parts of the data pipeline."""
 
-from functools import wraps
-import numpy as np
-import pandas as pd
 from datetime import datetime
+from functools import wraps
 import dateparser
+import pandas as pd
+import numpy as np
 
 # Global forecast registry
 FORECAST_REGISTRY = {}
@@ -17,90 +17,21 @@ def forecast(func):
 
     @wraps(func)
     def forecast_wrapper(*args, **kwargs):
-        called_lead = kwargs.get('lead')
-        lead_group = get_lead_group(called_lead)
-        agg_period = get_lead_info(lead_group)['agg_period']
-
-        # Overwrite the called lead with the lead group
-        kwargs['lead'] = lead_group
         ds = func(*args, **kwargs)
-        # Assign agg period as time in seconds (timedeltas are not JSON serializable for storage)
-        ds = ds.assign_attrs(agg_period_secs=float(agg_period / np.timedelta64(1, 's')))
-
-        # Filter to the called lead
-        if called_lead != lead_group:
-            if not isinstance(called_lead, list):
-                called_lead = [called_lead]
-            ds = ds.sel(lead_time=called_lead)
+        ds = ds.assign_attrs(agg_days=float(kwargs['agg_days']))
         return ds
     return forecast_wrapper
 
 
-def lead_or_agg(lead):
-    """Return whether argument is a lead or an agg."""
-    if any(i.isdigit() for i in lead) or lead in ['daily', 'weekly', 'biweekly', 'monthly']:
-        return 'lead'
-    else:
-        return 'agg'
-
-
-def shift_forecast_date_to_target_date(ds, forecast_date_dim, lead):
-    """Shift a forecast date dimension to a target date coordinate from a lead time."""
-    ds = ds.assign_coords({forecast_date_dim: [
-        forecast_date_to_target_date(x, lead) for x in ds[forecast_date_dim].values]})
-    return ds
-
-
-def target_date_to_forecast_date(target_date, lead):
-    """Converts a target date to a forecast date."""
-    return _date_shift(target_date, lead, shift='backward')
-
-
-def forecast_date_to_target_date(forecast_date, lead):
-    """Converts a forecast date to a target date."""
-    return _date_shift(forecast_date, lead, shift='forward')
-
-
-def _date_shift(date, lead, shift='forward'):
-    """Converts a target date to a forecast date or visa versa."""
-    offset_timedelta = get_lead_info(lead)['lead_offsets']
-    assert len(offset_timedelta) == 1, "Only one lead offset is supported for date shifting"
-    offset_timedelta = offset_timedelta[0]
-    input_type = type(date)
-
-    # Convert input time to datetime object  for relative delta
-    if isinstance(date, str):
-        date_obj = dateparser.parse(date)
-    elif isinstance(date, np.datetime64):
-        date_obj = pd.Timestamp(date)
-    elif isinstance(date, datetime):
-        date_obj = date
-    else:
-        raise ValueError(f"Date type {type(date)} not supported.")
-
-    # Shift the date
-    if shift == 'forward':
-        new_date = date_obj + offset_timedelta
-    elif shift == 'backward':
-        new_date = date_obj - offset_timedelta
-    else:
-        raise ValueError(f"Shift direction {shift} not supported")
-
-    # Convert back to original type
-    if np.issubdtype(input_type, str):
-        new_date = datetime.strftime(new_date, "%Y-%m-%d")
-    elif np.issubdtype(input_type, np.datetime64):
-        new_date = np.datetime64(new_date, 'ns')
-    return new_date
-
-
-def convert_lead_to_valid_time(ds, initialization_date_dim='start_date',
-                               lead_time_dim='lead_time', valid_time_dim='time'):
+def convert_lead_to_valid_time(ds, initialization_time_dim='initialization_time',
+                               lead_time_dim='prediction_timedelta', valid_time_dim='valid_time'):
     """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
-    ds = ds.assign_coords({valid_time_dim: ds[initialization_date_dim] + ds[lead_time_dim]})
-    tmp = ds.stack(z=(initialization_date_dim, lead_time_dim))
+    ds = ds.assign_coords({valid_time_dim: ds[initialization_time_dim] + ds[lead_time_dim]})
+    tmp = ds.stack(z=(initialization_time_dim, lead_time_dim))
     tmp = tmp.set_index(z=(valid_time_dim, lead_time_dim))
     ds = tmp.unstack('z')
+    ds = ds.rename({lead_time_dim: 'prediction_timedelta'})
+    ds = ds.drop_vars(initialization_time_dim)
     return ds
 
 
@@ -260,32 +191,3 @@ def get_lead_info(lead):
         return data
     else:
         raise ValueError(f"Lead {lead} not supported")
-
-
-def get_forecast_start_end(lead, start_time, end_time):
-    """Get the start and end times for a forecast."""
-    lead_info = get_lead_info(lead)
-    all_labels = lead_info['labels']
-    forecast_start = min([target_date_to_forecast_date(start_time, ld) for ld in all_labels])
-    forecast_end = max([target_date_to_forecast_date(end_time, ld) for ld in all_labels])
-    return forecast_start, forecast_end
-
-
-def convert_to_standard_lead(ds, lead):
-    """Convert a lead time coordinate to a standard lead time coordinate."""
-    lead_info = get_lead_info(lead)
-    all_labels = lead_info['labels']
-    all_timedeltas = lead_info['lead_offsets']
-
-    # Select and label the appropriate lead times
-    tmp = zip(all_labels, all_timedeltas)
-    valid_labels = [(x, y) for x, y in tmp if y in ds.lead_time.values]
-    ds = ds.sel(lead_time=[y for x, y in valid_labels])
-
-    # Rename lead times to lead_timedelta and set the new labels to lead time
-    ds = ds.rename({'lead_time': 'lead_timedelta'})
-
-    # Add lead label as a new coordinate
-    ds = ds.assign_coords(lead_time=('lead_timedelta', [x for x, y in valid_labels]))
-    ds = ds.swap_dims({'lead_timedelta': 'lead_time'})
-    return ds
