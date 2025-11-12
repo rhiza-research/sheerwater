@@ -7,9 +7,7 @@ from sheerwater_benchmarking.utils import (dask_remote, cacheable,
                                            apply_mask, clip_region,
                                            lon_base_change,
                                            get_lead_info, roll_and_agg, regrid, forecast,
-                                           get_forecast_start_end,
-                                           convert_lead_to_valid_time,
-                                           convert_to_standard_lead)
+                                           shift_by_days)
 
 
 @dask_remote
@@ -173,30 +171,21 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def gencast(start_time, end_time, variable, lead, prob_type='deterministic',
+           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global1_5', mask='lsm', region="global"):
     """Final Gencast interface."""
     if variable != 'precip':
         raise NotImplementedError("Data error present in non-precip variables in Gencast. Skipping.")
 
     # Get the data with the right days
-    forecast_start, forecast_end = get_forecast_start_end(lead, start_time, end_time)
+    forecast_start = shift_by_days(forecast_start, -15)
+    forecast_end = shift_by_days(forecast_end, 15)
 
     # Get the data with the right days
-    agg_days = get_lead_info(lead)['agg_days']
     ds = gencast_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, prob_type=prob_type, grid=grid)
     ds = ds.assign_attrs(prob_type="ensemble")
 
-    # Create a new coordinate for valid_time, that is the start_date plus the lead time
-    ds = ds.rename({'time': 'start_date'})
-    ds = convert_lead_to_valid_time(ds)
-
-    # Convert to standard lead
-    ds = convert_to_standard_lead(ds, lead)
-
-    # Apply masking and clip to region
-    ds = apply_mask(ds, mask, var=variable, grid=grid)
-    ds = clip_region(ds, region=region)
-
+    # Rename to standard naming
+    ds = ds.rename({'time': 'initialization_time', 'lead_time': 'prediction_timedelta'})
     return ds

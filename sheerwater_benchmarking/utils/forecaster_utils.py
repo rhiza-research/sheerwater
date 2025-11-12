@@ -6,6 +6,8 @@ import dateparser
 import pandas as pd
 import numpy as np
 
+from .space_utils import apply_mask, clip_region
+
 # Global forecast registry
 FORECAST_REGISTRY = {}
 
@@ -18,13 +20,20 @@ def forecast(func):
     @wraps(func)
     def forecast_wrapper(*args, **kwargs):
         ds = func(*args, **kwargs)
+        # Create a new coordinate for valid_time, that is the start_date plus the lead time
+        ds = convert_lead_to_valid_time(ds)
+        # Assign attributes 
         ds = ds.assign_attrs(agg_days=float(kwargs['agg_days']))
+        # Apply masking
+        ds = apply_mask(ds, kwargs['mask'], grid=kwargs['grid'])
+        # Clip to specified region
+        ds = clip_region(ds, region=kwargs['region'])
         return ds
     return forecast_wrapper
 
 
 def convert_lead_to_valid_time(ds, initialization_time_dim='initialization_time',
-                               lead_time_dim='prediction_timedelta', valid_time_dim='valid_time'):
+                               lead_time_dim='prediction_timedelta', valid_time_dim='time'):
     """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
     ds = ds.assign_coords({valid_time_dim: ds[initialization_time_dim] + ds[lead_time_dim]})
     tmp = ds.stack(z=(initialization_time_dim, lead_time_dim))

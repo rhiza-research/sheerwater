@@ -369,20 +369,13 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     forecast_start = shift_by_days(start_time, -46)
     forecast_end = shift_by_days(end_time, 46)
 
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-
     ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
                                    agg_days=agg_days, grid=grid, debiased=debiased)
 
-    # Create a new coordinate for valid_time, that is the start_date plus the lead time
-    ds = convert_lead_to_valid_time(ds, initialization_time_dim='start_date',
-                                    lead_time_dim='lead_time', valid_time_dim='time')
-
-    # Apply masking and clip to region
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
-
+    # Rename to standard naming
+    ds = ds.rename({'start_date': 'initialization_time', 'lead_time': 'prediction_timedelta'})
     # Assign probability label
+    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
@@ -397,12 +390,12 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     return ds
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
@@ -410,12 +403,12 @@ def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='determinis
                                  grid=grid, mask=mask, region=region, debiased=False)
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""

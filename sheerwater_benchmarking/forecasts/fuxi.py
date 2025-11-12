@@ -17,10 +17,8 @@ from sheerwater_benchmarking.utils.secrets import huggingface_read_token
 from sheerwater_benchmarking.utils import (dask_remote, cacheable,
                                            apply_mask, clip_region,
                                            lon_base_change, forecast,
-                                           get_forecast_start_end,
-                                           convert_to_standard_lead,
-                                           shift_forecast_date_to_target_date, get_lead_info,
-                                           roll_and_agg, convert_lead_to_valid_time)
+                                           shift_by_days,
+                                           roll_and_agg)
 from sheerwater_benchmarking.tasks import spw_precip_preprocess, spw_rainy_onset
 
 
@@ -121,23 +119,6 @@ def fuxi_raw(start_time, end_time, delayed=False):
     ds = ds.rename({'tp': 'precip', 't2m': 'tmp2m'})
     return ds
 
-# Decided not to regrid fuxi data, but leaving this as a comment
-# @dask_remote
-# @cacheable(data_type='array',
-#           timeseries='time',
-#           cache_args=['grid'],
-#           cache_disable_if={'grid':'global1_5'},
-#           chunking={'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51})
-# def fuxi_gridded(start_time, end_time, grid='global1_5'):
-#
-#    ds = fuxi_raw(start_time, end_time)
-#
-#    if grid != 'global1_5':
-#        ds = regrid(ds, grid, base='base180', method='conservative',
-#                    output_chunks={"lat": 721, "lon": 1440})
-#
-#    return ds
-
 
 @dask_remote
 @cacheable(data_type='array',
@@ -178,87 +159,27 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 
 
 @dask_remote
-def fuxi_spw(start_time, end_time, lead,
-             prob_type='probabilistic', prob_threshold=0.6,
-             onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-             drought_condition=False,
-             grid='global1_5', mask='lsm', region="global"):
-    """The FuXi SPW forecasts."""
-    # Get rainy season onset forecast
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-
-    # Set up aggregation and shift functions for SPW
-    agg_fn = partial(fuxi_rolled, start_time, end_time, variable='precip', prob_type=prob_type)
-
-    def shift_fn(ds, shift_by_days):
-        """Helper function for selecting and shifting lead for FuXi forecasts."""
-        # Select the appropriate lead
-        lead_offset_days = get_lead_info(lead)['lead_offsets'] / np.timedelta64(1, 'D')
-        lead_sel = {'lead_time': np.timedelta64(lead_offset_days + shift_by_days, 'D')}
-        ds = ds.sel(**lead_sel)
-        # Time shift - we want target date, instead of forecast date
-        ds = shift_forecast_date_to_target_date(ds, 'time', lead)
-        return ds
-
-    roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-    shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-    data = spw_precip_preprocess(agg_fn, shift_fn, agg_days=roll_days, shift_days=shift_days,
-                                 mask=mask, region=region, grid=grid)
-
-    (prob_dim, prob_threshold) = ('member', prob_threshold) if prob_type == 'probabilistic' else (None, None)
-    ds = spw_rainy_onset(data,
-                         onset_group=onset_group, aggregate_group=aggregate_group,
-                         time_dim='time',
-                         prob_type=prob_label, prob_dim=prob_dim, prob_threshold=prob_threshold,
-                         drought_condition=drought_condition,
-                         mask=mask, region=region, grid=grid)
-    return ds
-
-
-@forecast
-@dask_remote
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def fuxi(start_time, end_time, variable, lead, prob_type='deterministic',
+           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
+def fuxi(start_time, end_time, variable, agg_days, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):
     """Final FuXi forecast interface."""
     if grid != 'global1_5':
         raise NotImplementedError("Only 1.5 grid implemented for FuXi.")
 
-    if lead not in ['weekly', 'biweekly'] and 'daily' not in lead:
-        raise ValueError(f"Lead {lead} not valid for variable {variable}")
-    lead_info = get_lead_info(lead)
-    agg_days = lead_info['agg_days']
-
     # The earliest and latest forecast dates for the set of all leads
-    forecast_start, forecast_end = get_forecast_start_end(lead, start_time, end_time)
+    forecast_start = shift_by_days(forecast_start, -46)
+    forecast_end = shift_by_days(forecast_end, 46)
 
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = variable == 'rainy_onset_no_drought'
-        ds = fuxi_spw(forecast_start, forecast_end, lead,
-                      prob_type=prob_type, prob_threshold=0.6,
-                      onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                      drought_condition=drought_condition,
-                      grid=grid, mask=mask, region=region)
-        # Rainy onset is sparse, so we need to set the sparse attribute
-        ds = ds.assign_attrs(sparse=True)
-    else:
-        ds = fuxi_rolled(forecast_start, forecast_end, variable=variable, prob_type=prob_type, agg_days=agg_days)
+    ds = fuxi_rolled(forecast_start, forecast_end, variable=variable, prob_type=prob_type, agg_days=agg_days)
 
-        # Create a new coordinate for valid_time, that is the start_date plus the lead time
-        ds = ds.rename({'time': 'start_date'})
-        ds = convert_lead_to_valid_time(ds)
-
-        # Convert to standard lead
-        ds = convert_to_standard_lead(ds, lead)
-
-        # Apply masking and clip to region
-        ds = apply_mask(ds, mask, var=variable, grid=grid)
-        ds = clip_region(ds, region=region)
+    # Reanme to standard naming
+    ds = ds.rename({'time': 'initialization_time', 'lead_time': 'prediction_timedelta'})
 
     # Assign probability label
+    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
     return ds

@@ -145,6 +145,8 @@ def test_multiple_combinations():  # noqa: E501
         # Have to test with spatial = True because old code had a spatial weighting bug
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "mae", "region": "east_africa",
         #     "mask": 'lsm', "variable": "precip", "spatial": True},
+        {"forecast": "salient", "metric": "mae", "region": "global",
+            "mask": 'lsm', "variable": "precip", "spatial": False},
 
         # Now test all the metrics
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "acc", "variable": "precip", "spatial": True},
@@ -154,7 +156,7 @@ def test_multiple_combinations():  # noqa: E501
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "bias", "variable": "precip", "spatial": True},
         # Test quantileCRPS, which can only be done with Salient in Africa
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "crps", "variable": "precip", "spatial": True},
-        # {"forecast": "salient", "metric": "crps", "variable": "precip", "spatial": True, 'region': 'africa'},
+        {"forecast": "salient", "metric": "crps", "variable": "precip", "spatial": True, 'region': 'africa'},
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "smape", "variable": "precip", "spatial": True},
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "mape", "variable": "precip", "spatial": False},
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "seeps", "variable": "precip", "spatial": True},
@@ -181,7 +183,7 @@ def test_multiple_combinations():  # noqa: E501
 
         # Non-spatial tests, on coupled metrics.
         # {"forecast": "ecmwf_ifs_er_debiased", "metric": "mae", "variable": "precip", "spatial": False},
-        {"forecast": "ecmwf_ifs_er_debiased", "metric": "acc", "variable": "precip", "spatial": False},
+        # {"forecast": "ecmwf_ifs_er_debiased", "metric": "acc", "variable": "precip", "spatial": False},
     ]
 
     results = []

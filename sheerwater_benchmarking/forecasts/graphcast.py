@@ -6,9 +6,8 @@ import pandas as pd
 from sheerwater_benchmarking.utils import (dask_remote, cacheable,
                                            apply_mask, clip_region,
                                            lon_base_change,
-                                           get_lead_info, roll_and_agg, regrid, forecast,
-                                           convert_lead_to_valid_time, convert_to_standard_lead,
-                                           get_forecast_start_end)
+                                           roll_and_agg, regrid, forecast,
+                                           shift_by_days)
 
 
 @dask_remote
@@ -211,34 +210,22 @@ def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def graphcast(start_time, end_time, variable, lead, prob_type='deterministic',
+           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def graphcast(start_time, end_time, variable, agg_days, prob_type='deterministic',
               grid='global1_5', mask='lsm', region="global"):
     """Final Graphcast interface."""
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecast implemented for graphcast")
 
     # Get the data with the right days
-    forecast_start, forecast_end = get_forecast_start_end(lead, start_time, end_time)
+    forecast_start = shift_by_days(forecast_start, -15)
+    forecast_end = shift_by_days(forecast_end, 15)
 
     # Get the data with the right days
-    agg_days = get_lead_info(lead)['agg_days']
     ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid)
     ds = ds.assign_attrs(prob_type="deterministic")
 
-    # Create a new coordinate for valid_time, that is the start_date plus the lead time
-    ds = ds.rename({'time': 'start_date'})
-    ds = convert_lead_to_valid_time(ds)
-
-    # Convert to standard lead
-    ds = convert_to_standard_lead(ds, lead)
-
-    # Round the lats/lons to two decimal places to fix the precision issue
-    # Can remove these once the caches are updates
-    ds['lat'] = np.round(ds.lat, decimals=2)
-    ds['lon'] = np.round(ds.lon, decimals=2)
-    # Apply masking and clip to region
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
+    # Rename to standard naming
+    ds = ds.rename({'time': 'initialization_time', 'lead_time': 'prediction_timedelta'})
 
     return ds

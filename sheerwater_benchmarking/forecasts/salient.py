@@ -48,12 +48,12 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
     return ds
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global0_25', mask='lsm', region='africa'):
     """Standard format forecast data for Salient."""
@@ -87,29 +87,17 @@ def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
 
     # Convert salient lead naming to match our standard
     if timescale == "sub-seasonal":
-        ds = ds.assign_coords(lead_time=('lead', [np.timedelta64(i-1, 'W') for i in ds.lead.values]))
+        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64(i-1, 'W') for i in ds.lead.values]))
     elif timescale == "long-range":
-        ds = ds.assign_coords(lead_time=('lead', [np.timedelta64((i-1)*120, 'D') for i in ds.lead.values]))
+        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64((i-1)*120, 'D') for i in ds.lead.values]))
     elif timescale == "seasonal":
         # TODO: salient's monthly leads are 31 days, but we define them as 30 days
-        ds = ds.assign_coords(lead_time=('lead', [i-np.timedelta64(1, 'D') for i in ds.lead.values]))
+        ds = ds.assign_coords(prediction_timedelta=('lead', [i-np.timedelta64(1, 'D') for i in ds.lead.values]))
     else:
         raise ValueError(f"Invalid timescale: {timescale}")
-    ds = ds.swap_dims({'lead': 'lead_time'})
+    ds = ds.sortby(ds.forecast_date)
+    ds = ds.swap_dims({'lead': 'prediction_timedelta'})
     ds = ds.drop_vars('lead')
-
-    # Create a new coordinate for valid_time, that is the start_date plus the lead time
-    ds = convert_lead_to_valid_time(ds, initialization_date_dim='forecast_date')
-
-    # Convert to standard lead
-    ds = convert_to_standard_lead(ds, lead)
-
-    # Time shift - we want target date, instead of forecast date
-    ds = ds.sortby(ds.time)
-
-    # Apply masking
-    ds = apply_mask(ds, mask, var=variable, grid=grid)
-    # Clip to specified region
-    ds = clip_region(ds, region=region)
+    ds = ds.rename({'forecast_date': 'initialization_time'})
 
     return ds

@@ -14,7 +14,7 @@ from sheerwater_benchmarking.utils import cacheable
 SHEERWATER_STATISTIC_REGISTRY = {}
 
 
-def statistic(cache=True, name=None,
+def statistic(cache=False, name=None,
               data_type='array', timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
                           'data_key', 'grid', 'statistic'],
@@ -147,7 +147,7 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
     return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
-@statistic(cache=True, name='obs_digitized')
+@statistic(cache=False, name='obs_digitized')
 def fn_obs_digitized(data, **cache_kwargs):  # noqa: F821
     # `np.digitize(x, bins, right=True)` returns index `i` such that:
     #   `bins[i-1] < x <= bins[i]`
@@ -164,7 +164,7 @@ def fn_obs_digitized(data, **cache_kwargs):  # noqa: F821
     return ds.where(data['obs'].notnull(), np.nan, drop=False).astype(float)
 
 
-@statistic(cache=True, name='fcst_digitized')
+@statistic(cache=False, name='fcst_digitized')
 def fn_fcst_digitized(data, **cache_kwargs):  # noqa: F821
     # `np.digitize(x, bins, right=True)` returns index `i` such that:
     #   `bins[i-1] < x <= bins[i]`
@@ -277,7 +277,7 @@ def fn_brier(data, **cache_kwargs):  # noqa: F821
     return (fcst_event_prob - obs_event_prob)**2
 
 
-@statistic(cache=False, name='seeps')
+@statistic(cache=True, name='seeps')
 def fn_seeps(data, **cache_kwargs):  # noqa: F821
     wet_threshold = data['wet_threshold']
     dry_fraction = data['dry_fraction']

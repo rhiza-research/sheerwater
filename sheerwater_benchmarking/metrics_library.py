@@ -130,18 +130,6 @@ class Metric(ABC):
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
-        # For the case where obs and forecast are datetime objects, do a special conversion to seconds since epoch
-        # TODO: This is a hack to get around the fact that the metrics library doesn't support datetime objects
-        if np.issubdtype(obs[self.variable].dtype, np.datetime64) or (obs[self.variable].dtype == np.dtype('<M8[ns]')):
-            # Forecast must be datetime64
-            assert np.issubdtype(fcst[self.variable].dtype, np.datetime64) or (
-                fcst[self.variable].dtype == np.dtype('<M8[ns]'))
-            obs = obs.astype('int64') / 1e9
-            fcst = fcst.astype('int64') / 1e9
-            # NaT get's converted to -9.22337204e+09, so filter that to a proper nan
-            obs = obs.where(obs > -1e9, np.nan)
-            fcst = fcst.where(fcst > -1e9, np.nan)
-
         # Save the data into the metric data dictionary
         self.metric_data['data']['obs'] = obs
         self.metric_data['data']['fcst'] = fcst
@@ -291,6 +279,7 @@ class Metric(ABC):
                 ds = ds.drop_vars('region')
 
             # Check if the statistic is valid per grouping
+            import pdb; pdb.set_trace()
             is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
             ds = ds.where(is_valid, np.nan, drop=False)
             ds = ds.drop_vars(['indicator', 'non_null'])
@@ -440,7 +429,6 @@ class ACC(Metric):
                                    prob_type='deterministic',
                                    grid=self.grid, mask=None, region='global')
 
-        import pdb; pdb.set_trace()
         # Expand climatology to the same lead times as the forecast
         leads = self.metric_data['data']['fcst'].prediction_timedelta.values
         clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
@@ -655,45 +643,6 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
     return ds
 
 
-# def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
-#     """Return latitude weights as an xarray DataArray.
-
-#     This function weights each latitude band by the actual cell area,
-#     which accounts for the fact that grid cells near the poles are smaller
-#     in area than those near the equator.
-#     """
-#     # Calculate latitude cell bounds
-#     lat_rad = np.deg2rad(ds[lat_dim].values)
-#     pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
-#     if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
-#         # Dealing with the full globe
-#         lower_bound = -pi_over_2
-#         upper_bound = pi_over_2
-#     else:
-#         # Compute the difference in between cells
-#         diff = np.diff(lat_rad)
-#         if diff.std() > 0.5:
-#             raise ValueError(
-#                 "Nonuniform grid! Need to think about spatial averaging more carefully.")
-#         diff = diff.mean()
-#         lower_bound = np.array([lat_rad[0] - diff / 2.0], dtype=lat_rad.dtype)
-#         upper_bound = np.array([lat_rad[-1] + diff / 2.0], dtype=lat_rad.dtype)
-
-#     bounds = np.concatenate([lower_bound, (lat_rad[:-1] + lat_rad[1:]) / 2, upper_bound])
-
-#     # Calculate cell areas from latitude bounds
-#     upper = bounds[1:]
-#     lower = bounds[:-1]
-#     # normalized cell area: integral from lower to upper of cos(latitude)
-#     weights = np.sin(upper) - np.sin(lower)
-
-#     # Normalize weights
-#     weights /= np.mean(weights)
-#     # Return an xarray DataArray with dimensions lat
-#     weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
-#     weights = weights.expand_dims({lon_dim: ds[lon_dim]})
-#     return weights
-
 def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
     """Return latitude weights as an xarray DataArray.
 
@@ -703,10 +652,23 @@ def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
     """
     # Calculate latitude cell bounds
     lat_rad = np.deg2rad(ds[lat_dim].values)
-    # Get the centerpoint of each latitude band
-    pi_over_2 = np.array([np.pi / 2], dtype=lat_rad.dtype)
-    bounds = np.concatenate([-pi_over_2, (lat_rad[:-1] + lat_rad[1:]) / 2, pi_over_2])
-    # Calculate the area of each latitude band
+    pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
+    if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
+        # Dealing with the full globe
+        lower_bound = -pi_over_2
+        upper_bound = pi_over_2
+    else:
+        # Compute the difference in between cells
+        diff = np.diff(lat_rad)
+        if diff.std() > 0.5:
+            raise ValueError(
+                "Nonuniform grid! Need to think about spatial averaging more carefully.")
+        diff = diff.mean()
+        lower_bound = np.array([lat_rad[0] - diff / 2.0], dtype=lat_rad.dtype)
+        upper_bound = np.array([lat_rad[-1] + diff / 2.0], dtype=lat_rad.dtype)
+
+    bounds = np.concatenate([lower_bound, (lat_rad[:-1] + lat_rad[1:]) / 2, upper_bound])
+
     # Calculate cell areas from latitude bounds
     upper = bounds[1:]
     lower = bounds[:-1]
