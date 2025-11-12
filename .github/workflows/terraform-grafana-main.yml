@@ -26,9 +26,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Auth to Google Cloud
         uses: google-github-actions/auth@v2

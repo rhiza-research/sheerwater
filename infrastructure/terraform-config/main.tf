@@ -71,6 +71,8 @@ locals {
   postgres_url = terraform.workspace == "default" ? "postgres:5432" : "postgres.shared.rhizaresearch.org:5432"
 
   home_dashboard_uid = "ee4mze492j0n4d"
+
+  absolute_dashboards_base_path = abspath("${path.module}/${var.dashboards_base_path}")
 }
 provider "grafana" {
   # Base URLs
@@ -106,7 +108,7 @@ resource "grafana_organization_preferences" "preferences" {
   #  ignore_changes = [home_dashboard_uid, ]
   #}
 
-  depends_on = [grafana_organization.org, module.dynamic-dash]
+  depends_on = [grafana_organization.org, module.grafana-weaver]
 
 }
 
@@ -135,15 +137,14 @@ resource "grafana_data_source" "postgres" {
 
 }
 
-module "dynamic-dash" {
-  source = "../../dynamic-dash/terraform_module"
-  dashboard_export_enabled = var.dashboard_export_enabled
-  org_id = grafana_organization.org.id
-  dashboards_base_path = var.dashboards_base_path
-  dashboard_export_dir = var.dashboard_export_dir
-  datasource_config = {
-    "grafana-postgresql-datasource" = grafana_data_source.postgres.uid
-  }
+module "grafana-weaver" {
+  source = "git::https://github.com/rhiza-research/grafana-weaver.git//terraform_module"
+  dashboard_upload_enabled = true
+  grafana_org_id = grafana_organization.org.id
+  dashboards_base_path = local.absolute_dashboards_base_path
   repo_name = local.repo_name
   pr_number = local.pr_number
+  grafana_url = local.grafana_url
+  grafana_password = data.google_secret_manager_secret_version.grafana_ephemeral_admin_password.secret_data
+  grafana_user = "admin"
 }

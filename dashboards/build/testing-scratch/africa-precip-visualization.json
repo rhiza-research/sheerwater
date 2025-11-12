@@ -104,7 +104,7 @@
                 "color": {
                   "fixed": "super-light-purple"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -149,7 +149,7 @@
                 "color": {
                   "fixed": "orange"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -198,7 +198,7 @@
                 "color": {
                   "fixed": "light-red"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -247,7 +247,7 @@
                 "color": {
                   "fixed": "dark-blue"
                 },
-                "opacity": 0.40000000000000002,
+                "opacity": 0.4,
                 "rotation": {
                   "fixed": 0,
                   "max": 360,
@@ -294,9 +294,9 @@
         "view": {
           "allLayers": true,
           "id": "coords",
-          "lat": 31.515841999999999,
-          "lon": -23.183433000000001,
-          "zoom": 1.6299999999999999
+          "lat": 31.515842,
+          "lon": -23.183433,
+          "zoom": 1.63
         }
       },
       "pluginVersion": "11.1.0",
