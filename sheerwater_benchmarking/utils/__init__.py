@@ -6,6 +6,8 @@ from .data_utils import (roll_and_agg, get_anomalies, regrid)
 from .general_utils import (load_netcdf, write_zarr, load_zarr, load_object, plot_ds,
                             plot_ds_map, run_in_parallel, get_datasource_fn)
 
+from .admin_regions import get_region_data
+
 from .space_utils import (get_grid, get_grid_ds, is_wrapped, get_region,
                           base360_to_base180, base180_to_base360, check_bases, clip_region,
                           lon_base_change, get_globe_slice, apply_mask, get_admin_level,

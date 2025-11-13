@@ -5,6 +5,7 @@ import geopandas as gpd
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from .general_utils import load_object
+from .admin_regions import get_region_data
 
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
@@ -100,21 +101,17 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False, keep_shape
     if region == 'global':
         return ds
 
-    region_data = get_region(region)
-    if len(region_data) == 2:
-        lon_slice, lat_slice = region_data
-    else:
-        # Set up dataframe for clipping
-        lon_slice, lat_slice, gdf = region_data
-        ds = ds.rio.write_crs("EPSG:4326")
-        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+    _, region_data = get_region_data(region)
+    if len(region_data) != 1:
+        raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
 
-        # Clip the grid to the boundary of Shapefile
-        ds = ds.rio.clip(gdf.geometry, gdf.crs, drop=drop)
+    # Set up dataframe for clipping
+    ds = ds.rio.write_crs("EPSG:4326")
+    ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
 
-    # Slice the globe
-    if not keep_shape:
-        ds = get_globe_slice(ds, lon_slice, lat_slice, lon_dim=lon_dim, lat_dim=lat_dim, base='base180')
+    # Clip the grid to the boundary of Shapefile
+    ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
+
     return ds
 
 
@@ -251,112 +248,6 @@ def get_grid(grid, base="base180"):
     lons = np.round(lons, 5).astype(np.float32)
     lats = np.round(lats, 5).astype(np.float32)
     return lons, lats, grid_size
-
-
-def get_region(region):
-    """Get the longitudes, latitudes boundaries and/or shapefile for a given region.
-
-    Note: assumes longitude in base180 format.
-
-    Args:
-        region (str): The region to get the data for. Can be a country, region, continent, or global.
-
-    Returns:
-        data: The longitudes and latitudes of the region as a tuple,
-            or the shapefile defining the region.
-    """
-    # Get which admin level the region is at (e.g., countries, continents, etc.)
-    admin_level = get_admin_level(region)[0]
-    valid_labels = get_region_labels(admin_level)
-    if region not in valid_labels:
-        raise NotImplementedError(f"Region {region} has not been implemented.")
-
-    # If the region does not specify countries, then just return the lats and lons bounding box
-    from .region_defs import valid_regions
-    if admin_level != 'countries' and len(valid_regions[admin_level][region]['countries']) == 0:
-        return (valid_regions[admin_level][region]['lons'], valid_regions[admin_level][region]['lats'])
-
-    # Get the geojson of world countries
-    tol = 0.01
-    filepath = 'gs://sheerwater-datalake/regions/world_countries.geojson'
-    gdf = gpd.read_file(load_object(filepath))
-    # Get the countries, lats and lons for the region
-    if admin_level == 'countries':
-        gdf = gdf[gdf['name'].apply(clean_country_name) == clean_country_name(region)]
-        lons = np.array([gdf['geometry'].bounds['minx'].values[0]-tol, gdf['geometry'].bounds['maxx'].values[0] + tol])
-        lats = np.array([gdf['geometry'].bounds['miny'].values[0]-tol, gdf['geometry'].bounds['maxy'].values[0] + tol])
-        return (lons, lats, gdf)
-
-    # Read and merge multiple countries from the regions to get a unified regional gdf
-    countries = valid_regions[admin_level][region]['countries']
-    lats = valid_regions[admin_level][region]['lats']
-    lons = valid_regions[admin_level][region]['lons']
-
-    countries = [clean_country_name(country) for country in countries]
-    region_gdf = gdf[gdf['name'].apply(clean_country_name).isin(countries)]
-    geometry = region_gdf.geometry.unary_union
-    region_gdf = gpd.GeoDataFrame(geometry=[geometry], crs=region_gdf.crs, columns=['name'])
-    region_gdf['name'] = region
-
-    # Get the bounding box of the region
-    if lons is None:
-        lons = np.array([region_gdf['geometry'].bounds['minx'].values[0]-tol,
-                        region_gdf['geometry'].bounds['maxx'].values[0] + tol])
-    if lats is None:
-        lats = np.array([region_gdf['geometry'].bounds['miny'].values[0]-tol,
-                        region_gdf['geometry'].bounds['maxy'].values[0] + tol])
-    return (lons, lats, region_gdf)
-
-
-def get_admin_level(region):
-    """Get the admin level of a region.
-
-    Returns the admin level and a boolean indicating if the region is
-    already at the admin level.
-
-    Args:
-        region (str): The region to get the admin level of.
-    """
-    if region == 'countries':
-        return 'countries', 1
-    if region in get_region_labels('countries'):
-        return 'countries', 0
-
-    from .region_defs import valid_regions
-    for admin_level, data in valid_regions.items():
-        if region == admin_level:
-            return admin_level, 1
-        if region in data.keys():
-            return admin_level, 0
-
-    raise NotImplementedError(
-        f"Region {region} has not been implemented.")
-
-
-def get_region_labels(admin_level='countries'):
-    """Get default names for administrative levels.
-
-    Args:
-        admin_level (str): The administrative level to get labels for.
-            One of: 'countries', 'african_regions', 'continents', 'meterological_zones', 'hemispheres', 'global'
-
-    Returns:
-        list: List of region names for the specified admin level
-
-    Raises:
-        NotImplementedError: If the admin level is not supported
-    """
-    if admin_level == 'countries':
-        from .region_defs import countries
-        return [clean_country_name(country) for country in countries]
-
-    from .region_defs import valid_regions
-    try:
-        return list(valid_regions[admin_level].keys())
-    except KeyError:
-        # Check if the region is a subregion of a valid region
-        new_admin_level = get_admin_level(admin_level)
-        return list(valid_regions[new_admin_level].keys())
 
 
 def base360_to_base180(lons):

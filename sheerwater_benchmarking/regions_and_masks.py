@@ -3,9 +3,9 @@ import os
 import cdsapi
 import xarray as xr
 import numpy as np
-
+import geopandas as gpd
 from sheerwater_benchmarking.utils import (cacheable, cdsapi_secret, get_grid, clip_region,
-                                           lon_base_change, get_region_labels, get_grid_ds)
+                                           lon_base_change, get_region_data, get_grid_ds)
 
 
 @cacheable(data_type='array', cache_args=['grid'])
@@ -91,21 +91,22 @@ def region_labels(grid='global1_5', admin_level='countries'):
         xarray.Dataset: Dataset with added region coordinate
     """
     # Get the list of regions for the specified admin level
-    region_names = get_region_labels(admin_level)
+    admin, region_data = get_region_data(admin_level)
+    if admin != admin_level:
+        raise ValueError(f"Region labels should be called with the admin level, not a specific region.")
+    
     ds = get_grid_ds(grid)
     world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
     # Assign a dummy region coordinate to all grid cells
     ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype=object).data))
 
     # Loop through each region and label grid cells
-    for i, rn in enumerate(region_names):
-        print(i, '/', len(region_names), rn)
+    for i, rn in enumerate(region_data.region_name):
+        print(i, '/', len(region_data.region_name), rn)
         # Clip dataset to this region
         region_ds = clip_region(world_ds, rn, keep_shape=True)
-        # Create a mask where the region exists (non-NaN values)
-        region_mask = ~region_ds.isnull()
         # Assign region name where the mask is True
-        ds['region'] = ds.region.where(~region_mask, rn)
+        ds['region'] = ds.region.where(~region_ds.isnull(), rn)
     return ds
 
 
