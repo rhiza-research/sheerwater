@@ -7,11 +7,6 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 from .general_utils import load_object
 
 
-def clean_country_name(country):
-    """Clean a country name to match the geojson file."""
-    return country.lower().replace(' ', '_')
-
-
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
     """Get a slice of the globe from the dataset.
 

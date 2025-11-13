@@ -104,6 +104,7 @@ dependencies = [
     "tqdm",
     "numcodecs<0.16.0",
     "autopep8>=2.3.2",
+    "wkls>=0.4.5",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
