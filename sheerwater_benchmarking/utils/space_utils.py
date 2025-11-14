@@ -1,11 +1,9 @@
 """Space and geography utility functions for all parts of the data pipeline."""
 import numpy as np
 import xarray as xr
-import geopandas as gpd
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
-from .general_utils import load_object
-from .admin_regions import get_region_data
+from .region_utils import get_region_data
 
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
@@ -101,7 +99,7 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False, keep_shape
     if region == 'global':
         return ds
 
-    _, region_data = get_region_data(region)
+    region_data = get_region_data(region)
     if len(region_data) != 1:
         raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
 

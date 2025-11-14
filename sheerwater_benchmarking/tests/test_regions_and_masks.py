@@ -1,8 +1,8 @@
-"""Test the masking functions."""
+"""Test the regions and masking functions."""
 from itertools import product
-from sheerwater_benchmarking.masks import land_sea_mask
+from sheerwater_benchmarking.regions_and_masks import land_sea_mask
 from sheerwater_benchmarking.utils.space_utils import get_grid
-from sheerwater_benchmarking.utils.admin_regions import get_region_data
+from sheerwater_benchmarking.utils.region_utils import get_region_data
 
 
 def test_masks():
@@ -67,27 +67,20 @@ def test_region_labels():
     """Test the region labels function."""
     # Get region data for a single country
     region_data = get_region_data("indonesia")
-    assert region_data[0] == "country"
-    assert len(region_data[1]) == 1
-    assert region_data[1].iloc[0]['region_name'] == "indonesia"
+    assert region_data.iloc[0]['region_name'] == "indonesia"
 
     region_data = get_region_data("country")
-    assert region_data[0] == "country"
-    assert len(region_data[1]) == 242
+    assert len(region_data) == 242
 
     # Get for all continents
     region_data = get_region_data("continent")
-    assert region_data[0] == "continent"
-    assert len(region_data[1]) == 8
+    assert len(region_data) == 8
 
     region_data = get_region_data("eastern_africa")
-    assert region_data[0] == "subregion"
-    assert len(region_data[1]) == 1
+    assert len(region_data) == 1
 
     region_data = get_region_data("meteorological_zones")
-    assert region_data[0] == "meteorological_zones"
-    assert len(region_data[1]) == 3
+    assert len(region_data) == 3
 
     region_data = get_region_data("sheerwater_areas")
-    assert region_data[0] == "sheerwater_areas"
-    assert len(region_data[1]) == 3
+    assert len(region_data) == 3

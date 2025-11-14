@@ -8,10 +8,10 @@ import pandas as pd
 
 from sheerwater_benchmarking.statistics_library import statistic_factory
 from sheerwater_benchmarking.utils import (get_datasource_fn,
-                                           get_admin_level, get_time_level,
+                                           get_time_level, get_region_level,
                                            get_mask)
 from sheerwater_benchmarking.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
-from sheerwater_benchmarking.masks import region_labels
+from sheerwater_benchmarking.regions_and_masks import region_labels
 
 
 # Global metric registry dictionary
@@ -211,12 +211,11 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         self.grouped_statistics = {}
-        # Get admin level for grouping
-        admin_level, is_admin = get_admin_level(self.region)
-        if is_admin and self.spatial:
-            raise ValueError(f"Cannot compute spatial metrics for admin level '{self.region}'. " +
+        region_level, _ = get_region_level(self.region)
+        if self.spatial and region_level != self.region:
+            raise ValueError(f"Cannot compute spatial metrics for region level '{self.region}'. " +
                              "Pass in a specific region instead.")
-        region_ds = region_labels(grid=self.grid, admin_level=admin_level)
+        region_ds = region_labels(grid=self.grid, region_level=region_level)
         mask_ds = get_mask(self.mask, self.grid)
 
         # Get time level for grouping
@@ -279,7 +278,8 @@ class Metric(ABC):
                 ds = ds.drop_vars('region')
 
             # Check if the statistic is valid per grouping
-            import pdb; pdb.set_trace()
+            import pdb
+            pdb.set_trace()
             is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
             ds = ds.where(is_valid, np.nan, drop=False)
             ds = ds.drop_vars(['indicator', 'non_null'])

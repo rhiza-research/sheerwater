@@ -32,7 +32,7 @@ The regions are defined as follows:
 from shapely.geometry import box
 import geopandas as gpd
 
-from sheerwater_benchmarking.utils import load_object
+from .general_utils import load_object
 
 
 def clean_name(name):
@@ -89,23 +89,8 @@ custom_regions = {
 }
 
 
-def get_region_data(region):
-    """Get the boundary shapefile for a given region.
-
-    Args:
-        region (str): The region to get the data for. Can be either
-        an administrative level or a specific region within that level. So, for exmaple, 
-        both 'countries' and 'indonesia' are valid regions. Returns a 
-        GeoDataFrame defining the region.
-
-    Returns:
-        admin_level (str): The administrative level corresponding to the region.
-        gdf (gpd.GeoDataFrame): A GeoDataFrame describing the region, with:
-            - 'region_name': the name of the region,
-            - 'region_geometry': its geometry as a shapely object.
-    """
-    # Standardize input region name
-    region = clean_name(region)
+def get_country_gdf():
+    """Get the country GeoDataFrame."""
     # World geojson downloaded from https://geojson-maps.kyd.au
     filepath = 'gs://sheerwater-datalake/regions/world_50m.geojson'
     country_gdf = gpd.read_file(load_object(filepath))
@@ -114,46 +99,75 @@ def get_region_data(region):
     for col in ["name_en", "continent", "region_un", "subregion", "region_wb"]:
         cleaned_col = "country" if col == "name_en" else col
         country_gdf[cleaned_col] = country_gdf[col].apply(clean_name)
+    return country_gdf
 
-    # Find which admin level the region is in, and get a list of regions at those admin levels
+
+def get_region_level(region):
+    """Get the level of a region and the regions at that level."""
+    country_gdf = get_country_gdf()
+
+    # Find which region level the region is in, and get a list of regions at that level
+    # If a region could possibly match several region levels, it will return the first
     found = False
     for level in standard_regions:
-        # If a region could possibly match several admin levels, it will return the first
         if found:
             break
         if region == level:
-            admin_level = level
-            regions = country_gdf[admin_level].unique()
+            region_level = level
+            regions = country_gdf[region_level].unique()
             found = True
         if region in country_gdf[level].unique():
-            admin_level = level
+            region_level = level
             regions = [region]
             found = True
     for level, data in custom_regions.items():
         if found:
             break
         if region == level:
-            admin_level = level
+            region_level = level
             regions = data.keys()
             found = True
         elif region in data.keys():
-            admin_level = level
+            region_level = level
             regions = [region]
             found = True
     if not found:
         raise ValueError(f"Region {region} not found")
+    return region_level, regions
 
+
+def get_region_data(region):
+    """Get the boundary shapefile for a given region.
+
+    Args:
+        region (str): The region to get the data for. Can be either
+            an region level or a specific region within that level. So, for exmaple, 
+            both 'countries' and 'indonesia' are valid regions. 
+
+    Returns:
+        gdf (gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:
+            - 'region_name': the name of the region,
+            - 'region_geometry': its geometry as a shapely object.
+    """
+    # Standardize input region name
+    region = clean_name(region)
+
+    # Get the region data needed to form the GeoDataFrame
+    country_gdf = get_country_gdf()
+    region_level, regions = get_region_level(region)
+
+    # Form the GeoDataFrame for the region
     region_names = []
     region_geometries = []
     for reg in regions:
-        if admin_level in standard_regions:
+        if region_level in standard_regions:
             # Handle standard regions
             region_names.append(reg)
-            geometry = country_gdf[country_gdf[admin_level] == reg].geometry.union_all()
+            geometry = country_gdf[country_gdf[region_level] == reg].geometry.union_all()
             region_geometries.append(geometry)
         else:
             # Handle custom regions
-            data = custom_regions[admin_level][reg]
+            data = custom_regions[region_level][reg]
             if 'lats' in data and 'lons' in data:
                 # Create a shapefile (GeoDataFrame) from lat/lon boundaries as a rectangular Polygon
                 lons = data['lons']
@@ -175,5 +189,4 @@ def get_region_data(region):
     gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
-    # gpd.GeoSeries([geometry]).plot()
-    return admin_level, gdf
+    return gdf

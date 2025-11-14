@@ -4,6 +4,8 @@ import cdsapi
 import xarray as xr
 import numpy as np
 import geopandas as gpd
+import rioxarray  # noqa: F401 - needed to enable .rio attribute
+
 from sheerwater_benchmarking.utils import (cacheable, cdsapi_secret, get_grid, clip_region,
                                            lon_base_change, get_region_data, get_grid_ds)
 
@@ -72,15 +74,17 @@ def land_sea_mask(grid="global1_5"):
 
 
 @cacheable(data_type='array',
-           cache_args=['grid', 'admin_level'],
+           cache_args=['grid', 'region_level'],
            chunking={'lat': 1000, 'lon': 1000})
-def region_labels(grid='global1_5', admin_level='countries'):
-    """Generate a dataset with a region coordinate at a specific admin level.
+def region_labels(grid='global1_5', region_level='countries'):
+    """Generate a dataset with a region coordinate at a specific region level.
 
-    Available admin levels are 'country', 'region', 'continent', and 'world'.
+    Available region levels are 
+     - 'countries', 'continents', 'subregions', 'region_un', 'region_wb', 'meteorological_zones', 
+        'hemispheres', 'global', and 'sheerwater_areas'.
 
     # NOTE: this is a slow function. Doesn't really matter, b/c we
-    compute it once and cache, but lots of benefit of parallelizing better.
+    compute it once and cache, but could parallelize better.
 
     Args:
         grid (str): The grid to fetch the data at.  Note that only
@@ -91,22 +95,24 @@ def region_labels(grid='global1_5', admin_level='countries'):
         xarray.Dataset: Dataset with added region coordinate
     """
     # Get the list of regions for the specified admin level
-    admin, region_data = get_region_data(admin_level)
-    if admin != admin_level:
-        raise ValueError(f"Region labels should be called with the admin level, not a specific region.")
-    
+    region_data = get_region_data(region_level)
+
+    # Get the grid dataframe
     ds = get_grid_ds(grid)
-    world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
     # Assign a dummy region coordinate to all grid cells
     ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype=object).data))
 
     # Loop through each region and label grid cells
-    for i, rn in enumerate(region_data.region_name):
-        print(i, '/', len(region_data.region_name), rn)
-        # Clip dataset to this region
-        region_ds = clip_region(world_ds, rn, keep_shape=True)
-        # Assign region name where the mask is True
-        ds['region'] = ds.region.where(~region_ds.isnull(), rn)
+    for i, rn in region_data.iterrows():
+        print(i, '/', len(region_data.region_name), rn.region_name)
+        # Clip the grid to the boundary of Shapefile
+        world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
+        #  Add geometry to the dataframe and clip
+        world_ds = world_ds.rio.write_crs("EPSG:4326")
+        world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
+        region_ds = world_ds.rio.clip(rn, region_data.crs, drop=False)
+        # Assign the region name to the region coordinate
+        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
     return ds
 
 
