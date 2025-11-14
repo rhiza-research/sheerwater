@@ -103,7 +103,6 @@ dependencies = [
     "py7zr",
     "tqdm",
     "numcodecs<0.16.0",
-    "autopep8>=2.3.2",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"

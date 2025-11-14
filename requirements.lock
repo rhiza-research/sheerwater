@@ -61,8 +61,6 @@ attrs==25.1.0
     # via jsonschema
     # via rasterio
     # via referencing
-autopep8==2.3.2
-    # via sheerwater-benchmarking
 babel==2.17.0
     # via jupyterlab-server
 backoff==2.2.1
@@ -635,8 +633,6 @@ pyasn1-modules==0.4.1
     # via google-auth
 pybcj==1.0.3
     # via py7zr
-pycodestyle==2.14.0
-    # via autopep8
 pycparser==2.22
     # via cffi
 pycryptodome==3.21.0
