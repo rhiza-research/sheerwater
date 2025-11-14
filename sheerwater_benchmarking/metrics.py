@@ -26,7 +26,7 @@ def grouped_metric(start_time, end_time, variable, lead, forecast, truth,
 @cacheable(data_type='array',
            cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'forecast', 'truth',
                        'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
-           chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'lead_time': -1},
+           chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
            chunk_by_arg={
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
