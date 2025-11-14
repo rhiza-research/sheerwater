@@ -1,5 +1,4 @@
 """Test the metrics library functions."""
-
 from sheerwater_benchmarking.utils import start_remote
 from sheerwater_benchmarking.metrics_library import metric_factory
 

@@ -354,7 +354,7 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
         ds = ds.assign_attrs(prob_type="ensemble")
 
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "D")]})
+    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})  # nanosecond precision
     ds = ds.rename({"time": "initialization_time"})
     return ds
 

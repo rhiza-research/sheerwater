@@ -18,14 +18,14 @@ from sheerwater_benchmarking.utils import start_remote, cacheable, dask_remote
                },
            },
            cache=True)
-def grouped_metric_reference(start_time, end_time, variable, lead, forecast, truth,
+def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
                              metric, time_grouping=None, spatial=False, grid="global1_5",
                              mask='lsm', region='africa'):  # noqa
     """Stub function providing gold standard reference for testing."""
     pass
 
 
-def test_single_comparison(forecast="ecmwf_ifs_er_debiased",
+def single_comparison(forecast="ecmwf_ifs_er_debiased",
                            metric="mae",
                            variable="precip",
                            region="global",
@@ -51,7 +51,7 @@ def test_single_comparison(forecast="ecmwf_ifs_er_debiased",
         mask=mask,
         grid='global1_5',
         recompute=recompute,
-        force_overwrite=False,
+        force_overwrite=True,
     )
     if region in ds_new.dims and len(ds_new.region.values) > 1:
         ds_new = ds_new.sel(region=region)
@@ -70,7 +70,7 @@ def test_single_comparison(forecast="ecmwf_ifs_er_debiased",
         ds_new.lead_time.values = lead
 
     # Run grouped_metric
-    ds_old = grouped_metric(
+    ds_old = grouped_metric_test(
         start_time="2016-01-01",
         end_time="2022-12-31",
         variable=variable,
@@ -194,11 +194,12 @@ def test_multiple_combinations():  # noqa: E501
         # Set defaults
         test_case.setdefault("region", "global")
         test_case.setdefault("lead", "week3")
-        test_case.setdefault("recompute", ['global_statistic', 'grouped_metric_new'])
+        # test_case.setdefault("recompute", ['global_statistic', 'grouped_metric_new'])
+        test_case.setdefault("recompute", False)
         test_case.setdefault("spatial", True)
         test_case.setdefault("mask", "lsm")
 
-        ds_new, ds_old, result = test_single_comparison(**test_case)
+        ds_new, ds_old, result = single_comparison(**test_case)
         results.append({
             "test_case": i+1,
             "params": test_case,
@@ -230,11 +231,15 @@ def test_multiple_combinations():  # noqa: E501
     failed_tests = [r['params'] for r in results if r["result"] in [0, 1, 5]]
     print(f"Failed tests: {failed_tests}")
 
+    # If tests have failed, fail the test
+    if len(failed_tests) > 0:
+        assert False
+
 
 def plot_comparison(forecast="ecmwf_ifs_er_debiased", metric="mae", variable="precip",
                     region="global", lead="week3", mask='lsm', spatial=True):
     """Create a plot comparing the results of both functions."""
-    ds_new, ds_old = test_single_comparison(forecast, metric, variable, region, lead, mask, spatial)
+    ds_new, ds_old = single_comparison(forecast, metric, variable, region, lead, mask, spatial)
 
     if ds_new is None or ds_old is None:
         print("Cannot plot - one or both datasets are None")

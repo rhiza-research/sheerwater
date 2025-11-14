@@ -262,7 +262,10 @@ class Metric(ABC):
                 ds['non_null'] = ds['non_null'] * ds['weights']
                 ds['indicator'] = ds['indicator'] * ds['weights']
 
-                ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
+                if self.region != 'global':
+                    ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
+                else:
+                    ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
                 ds[self.variable] = ds[self.variable] / ds['weights']
                 ds['non_null'] = ds['non_null'] / ds['weights']
                 ds['indicator'] = ds['indicator'] / ds['weights']
@@ -427,8 +430,9 @@ class ACC(Metric):
 
         # Expand climatology to the same lead times as the forecast
         leads = self.metric_data['data']['fcst'].prediction_timedelta.values
-        if 'prediction_timedelta' in clim_ds.coords:
-            clim_ds = clim_ds.drop_vars('prediction_timedelta')
+        # Remove the prediction_timedelta coordinate
+        clim_ds = clim_ds.squeeze('prediction_timedelta')
+        # Add in a matching prediction_timedelta coordinate
         clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 
         # Subset the climatology to the valid times and non-null times of the forecaster
