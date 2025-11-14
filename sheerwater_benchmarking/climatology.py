@@ -348,14 +348,15 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
                             trend=trend,
                             prob_type=prob_type,
                             agg_days=agg_days, grid=grid)
-    # Apply masking and clip to region
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
 
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
         ds = ds.assign_attrs(prob_type="ensemble")
+
+    # To match the standard forecast format, add a prediction_timedelta coordinate
+    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "D")]})
+    ds = ds.rename({"time": "initialization_time"})
     return ds
 
 
@@ -365,6 +366,7 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                      grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -377,6 +379,7 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                      grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -389,6 +392,7 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
                            grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -401,6 +405,7 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
                         grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -422,13 +427,7 @@ def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='det
     times = [x + pd.DateOffset(years=1) for x in ds.time.values]
     ds = ds.assign_coords(time=times)
 
-    # Handle duplicate values due to leap years
-    # TODO: handle this in a more general way
-    ds = ds.drop_duplicates(dim='time')
-    ds = ds.assign_attrs(prob_type="deterministic")
-
-    # Apply masking
-    ds = apply_mask(ds, mask, grid=grid)
-    # Clip to specified region
-    ds = clip_region(ds, region=region)
+    # To match the standard forecast format, add a prediction_timedelta coordinate
+    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "D")]})
+    ds = ds.rename({"time": "initialization_time"})
     return ds
