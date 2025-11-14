@@ -254,7 +254,6 @@ class Metric(ABC):
             # Create an indicator variable that is 1 for all dimensions
             ds['indicator'] = xr.ones_like(ds['non_null'])
 
-            import pdb; pdb.set_trace()
             # Add the region coordinate to the statistic
             ds = ds.assign_coords(region=region_ds.region)
 

@@ -139,7 +139,6 @@ def test_single_comparison(forecast="ecmwf_ifs_er_debiased",
 def test_multiple_combinations():  # noqa: E501
     """Test multiple combinations of parameters."""
     test_cases = [
-        {"forecast": "salient", "metric": "crps", "variable": "precip", "spatial": False, 'region': 'region_wb'},
         # Our basic test, does lat-weighted averaging and masking globally
         {"forecast": "ecmwf_ifs_er_debiased", "metric": "mae", "region": "global",
             "mask": 'lsm', "variable": "precip", "spatial": False},
@@ -207,7 +206,6 @@ def test_multiple_combinations():  # noqa: E501
             "new_result": ds_new is not None,
             "old_result": ds_old is not None
         })
-        break
 
     # Summary
     print(f"\n{'='*60}")
