@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sheerwater_benchmarking.metrics import grouped_metric_new, grouped_metric
+from sheerwater_benchmarking.metrics import grouped_metric_new
 from sheerwater_benchmarking.utils import start_remote, cacheable, dask_remote
 
 
