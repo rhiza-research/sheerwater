@@ -148,7 +148,7 @@
           }
         }
       ],
-      "title": "${region} Suitable Planting Window Results (days)",
+      "title": "${region} Suitable Planting Window Error (days)",
       "transparent": true,
       "type": "nline-plotlyjs-panel"
     },
@@ -178,7 +178,7 @@
         ]
       },
       "gridPos": {
-        "h": 14,
+        "h": 9,
         "w": 14,
         "x": 10,
         "y": 0
@@ -235,7 +235,7 @@
           },
           "yaxis": {
             "automargin": true,
-            "autorange": true,
+            "autorange": false,
             "gridcolor": "rgba(0, 0, 0, 0.15)",
             "range": [
               -10,
@@ -257,7 +257,7 @@
         },
         "onclick": "// Event handling\n/*\n// 'data', 'variables', 'options', 'utils', and 'event' are passed as arguments\n\ntry {\n  const { type: eventType, data: eventData } = event;\n  const { timeZone, dayjs, locationService, getTemplateSrv } = utils;\n\n  switch (eventType) {\n    case 'click':\n      console.log('Click event:', eventData.points);\n      break;\n    case 'select':\n      console.log('Selection event:', eventData.range);\n      break;\n    case 'zoom':\n      console.log('Zoom event:', eventData);\n      break;\n    default:\n      console.log('Unhandled event type:', eventType, eventData);\n  }\n\n  console.log('Current time zone:', timeZone);\n  console.log('From time:', dayjs(variables.__from).format());\n  console.log('To time:', dayjs(variables.__to).format());\n\n  // Example of using locationService\n  // locationService.partial({ 'var-example': 'test' }, true);\n\n} catch (error) {\n  console.error('Error in onclick handler:', error);\n}\n*/\n  ",
         "resScale": 2,
-        "script": "// Helper function to check if field has values\nfunction hasValues(field) {\n    return field && field.values && field.values.length > 0;\n}\n\n// Helper function to get field values\nfunction getValues(field) {\n    return field.values || field.values.buffer;\n}\n\n// Add viridis color mapping function\nfunction getViridisColor(value, min, max) {\n    const viridisColors = [\n        '#440154', '#443982', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725'\n    ];\n    const normalizedValue = (value - min) / (max - min);\n    const index = Math.floor(normalizedValue * (viridisColors.length - 1));\n    return viridisColors[Math.min(viridisColors.length - 1, Math.max(0, index))];\n}\n\nlet traces = [];\nlet shapes_verify = [];\nlet shapes_fcst = [];\nlet shapes_ltn = [];   \nconst rain_primary = data.series[0];\nconst rain_secondary = data.series[1];\nconst truth_onset = data.series[2];\nconst forecast_onset = data.series[3];\nconst ltn_onset = data.series[4];\n\nconst year = Number(variables.verify_year.current.value);\nconst yearStart = new Date(year, 0, 1).getTime();\nconst yearEnd = new Date(year, 12, 31).getTime();\nconst show_compare = Boolean(variables.compare.current.value == \"True\");\n\n// Get time range for threshold lines (if time series exists)\nlet timeRange = [];\nif (hasValues(rain_primary.fields[0])) {\n    const timeValues = getValues(rain_primary.fields[0]);\n    timeRange = [Math.min(...timeValues), Math.max(...timeValues)];\n}\n\n// Define trace configurations for precipitation data\nconst traceConfigs = [\n{\n    data: rain_primary.fields[1],  // daily precip\n    name: \"Source 1: Avg. 2m Temp\",\n    color: '#73A580',\n    mode: 'markers',\n    marker: {\n        size: 8  \n    },\n},\n{\n    data: rain_secondary.fields[1],  // daily precip\n    name: \"Source 2: Avg. 2m Temp\",\n    color: '#F4A261',\n    mode: 'line'\n}\n];\n\n\n// Add precipitation traces if they have data\ntraceConfigs.forEach(config => {\n    if (hasValues(config.data)) {\n        traces.push({\n            x: getValues(rain_primary.fields[0]),\n            y: getValues(config.data),\n            type: 'scatter',\n            mode: config.mode,\n            marker: {\n                size: 4 \n            },            \n            name: config.name,\n            line: { color: config.color }\n        });\n    }\n});\n\n// Add threshold lines if we have a time range\nif (timeRange.length) {\n    const thresholds = [\n        { value: 10, name: 'Cap 35', color: '#118AB2', dash: 'dash' },\n        { value: 35, name: 'Floor 10', color: '#EF476F', dash: 'dashdot' }\n    ];\n\n    thresholds.forEach(threshold => {\n        traces.push({\n            x: timeRange,\n            y: [threshold.value, threshold.value],\n            type: 'scatter',\n            mode: 'lines',\n            name: threshold.name,\n            line: {\n                color: threshold.color,\n                width: 2,\n                dash: threshold.dash\n            }\n        });\n    });\n}\n    // Process forecast onset dates with leads (converting seconds to days)\nif (hasValues(forecast_onset?.fields[0])) {\n    const leadValues = getValues(forecast_onset.fields[1]).map(lead => lead);  // Convert seconds to days\n    const onsetDates = getValues(forecast_onset.fields[2]);  // forecast onset dates\n    const uniqueLeads = [...new Set(leadValues)].sort((a, b) => a - b);\n    \n    uniqueLeads.forEach(lead => {\n        const leadIndices = leadValues.map((v, i) => v === lead ? i : -1).filter(i => i !== -1);\n        const leadTimes = leadIndices.map(i => onsetDates[i]);  // Use onset dates instead of issue times\n        const color = getViridisColor(lead, Math.min(...uniqueLeads), Math.max(...uniqueLeads));\n\n        traces.push({\n            x: leadTimes,\n            y: Array(leadTimes.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: `Forecast Lead ${lead+1}`,\n            marker: {\n                symbol: 'x',\n                color: color,\n                size: 10\n            }\n        });\n        \n        shapes_fcst =  shapes_fcst.concat(\n            leadTimes.map(time => ({\n                type: 'line',\n                x0: time,\n                x1: time,\n                y0: 0,\n                y1: 1,\n                xref: 'x',\n                yref: 'paper',\n                line: {\n                    color: color,\n                    width: 1,\n                    dash: 'solid'\n                }\n            }))\n        );\n    });\n}\n\n\n// Process onset dates\nconst onsets = truth_onset?.fields[0];\nif (hasValues(onsets)) {\n    const onsetDates = getValues(onsets).map(timestamp => new Date(timestamp));\n    \n    // Separate verification year dates and historical dates\n    const dates_verify = [];\n    const historicalDates = [];\n    \n    onsetDates.forEach(date => {\n        if (date.getFullYear() === year) {\n            dates_verify.push(date);\n        } else {\n            const normalizedDate = new Date(year, date.getMonth(), date.getDate());\n            historicalDates.push(normalizedDate);\n        }\n    });\n\n    // Add historical onset markers (black)\n    if (historicalDates.length > 0  && false ) {\n        traces.push({\n            x: historicalDates,\n            y: Array(historicalDates.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: 'Historical Onsets',\n            marker: {\n                color: 'black',\n                symbol: 'x',\n                size: 10\n            }\n        });\n    }\n\n    // Add verify year onset markers (red)\n    if (dates_verify.length > 0) {\n        traces.push({\n            x: dates_verify,\n            y: Array(dates_verify.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: `${year} Onsets`,\n            marker: {\n                color: 'red',\n                symbol: 'x',\n                size: 10\n            }\n        });\n    }\n\n    // Create vertical lines for verify dates (red)\n    shapes_verify = dates_verify.map(date => ({\n        type: 'line',\n        x0: date,\n        x1: date,\n        y0: 0,\n        y1: 1,\n        xref: 'x',\n        yref: 'paper',\n        line: {\n            color: 'red',\n            width: 1,\n            dash: 'solid'\n        }\n    }));\n}\n\n// Process ltn onset dates\nconst ltn_onsets = ltn_onset?.fields[0];\nif (hasValues(ltn_onsets) && false) {\n    const ltnOnsetDates = getValues(ltn_onsets).map(timestamp => new Date(timestamp));\n    \n    const ltnDates = [];\n    \n    ltnOnsetDates.forEach(date => {\n        const ltnDate = new Date(year, date.getMonth(), date.getDate());\n        ltnDates.push(ltnDate);\n    });\n\n    if (ltnDates.length > 0) {\n        traces.push({\n            x: ltnDates,\n            y: Array(ltnDates.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: '2004-2015 LTN Onset',\n            marker: {\n                color: 'gold',\n                symbol: 'x',\n                size: 10\n            }\n        });\n    }\n\n    shapes_ltn = ltnDates.map(date => ({\n        type: 'line',\n        x0: date,\n        x1: date,\n        y0: 0,\n        y1: 1,\n        xref: 'x',\n        yref: 'paper',\n        line: {\n            color: 'gold',\n            width: 1,\n            dash: 'solid'\n        }\n    }));\n}\n\nreturn {\n    data: traces,\n    layout: {\n        shapes: [...shapes_verify],\n        // shapes: [...shapes_fcst, ...shapes_verify],\n        xaxis: {\n            range: [yearStart, yearEnd],\n            type: 'date',\n            title: 'Time'\n        },        \n        yaxis: { \n            title: 'Precipitation (mm)'\n        },\n        showlegend: true\n    }\n};",
+        "script": "// Helper function to check if field has values\nfunction hasValues(field) {\n    return field && field.values && field.values.length > 0;\n}\n\n// Helper function to get field values\nfunction getValues(field) {\n    return field.values || field.values.buffer;\n}\n\n// Add viridis color mapping function\nfunction getViridisColor(value, min, max) {\n    const viridisColors = [\n        '#440154', '#443982', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725'\n    ];\n    const normalizedValue = (value - min) / (max - min);\n    const index = Math.floor(normalizedValue * (viridisColors.length - 1));\n    return viridisColors[Math.min(viridisColors.length - 1, Math.max(0, index))];\n}\n\nlet traces = [];\nlet shapes_verify = [];\nlet shapes_fcst = [];\nlet shapes_ltn = [];   \nconst rain_primary = data.series[0];\nconst rain_secondary = data.series[1];\nconst truth_onset = data.series[2];\nconst forecast_onset = data.series[3];\nconst ltn_onset = data.series[4];\n\nconst year = Number(variables.verify_year.current.value);\nconst yearStart = new Date(year, 0, 1).getTime();\nconst yearEnd = new Date(year, 12, 31).getTime();\nconst show_compare = Boolean(variables.compare.current.value == \"True\");\n\n// Get time range for threshold lines (if time series exists)\nlet timeRange = [];\nif (hasValues(rain_primary.fields[0])) {\n    const timeValues = getValues(rain_primary.fields[0]);\n    timeRange = [Math.min(...timeValues), Math.max(...timeValues)];\n}\n\n// Define trace configurations for precipitation data\nconst traceConfigs = [\n    {\n        data: rain_primary.fields[2], // precip_8d\n        name: \"Precip 8d\",\n        color: '#6C7B56',\n        mode: 'lines'\n    },\n    {\n        data: rain_primary.fields[3], // precip_11d\n        name: \"Precip 11d\",\n        color: '#F5A7B8',\n        mode: 'lines'\n    },\n    {\n        data: rain_primary.fields[1], // daily precip\n        name: \"Daily Precip\",\n        color: '#4A90E2',\n        mode: 'markers',\n        marker: {\n            size: 1,\n            symbol: 'circle'\n        }    \n    }\n];\n\nif (show_compare) {\n    traceConfigs.push(\n        {\n            data: rain_secondary.fields[2],\n            name: \"Compare Precip 8d\",\n            color: '#4A3244',\n            mode: 'lines'\n        },\n        {\n            data: rain_secondary.fields[3],\n            name: \"Compare Precip 11d\",\n            color: '#722F37',\n            mode: 'lines'\n        }         \n    );\n}\n\n// Add precipitation traces if they have data\ntraceConfigs.forEach(config => {\n    if (hasValues(config.data)) {\n        traces.push({\n            x: getValues(rain_primary.fields[0]),\n            y: getValues(config.data),\n            type: 'scatter',\n            mode: config.mode,\n            name: config.name,\n            line: { color: config.color }\n        });\n    }\n});\n\n// Add threshold lines if we have a time range\nif (timeRange.length) {\n    const thresholds = [\n        { value: 30, name: 'Threshold 30', color: '#6C7B56', dash: 'dash' },\n        { value: 40, name: 'Threshold 40', color: '#F5A7B8', dash: 'dashdot' }\n    ];\n\n    thresholds.forEach(threshold => {\n        traces.push({\n            x: timeRange,\n            y: [threshold.value, threshold.value],\n            type: 'scatter',\n            mode: 'lines',\n            name: threshold.name,\n            line: {\n                color: threshold.color,\n                width: 2,\n                dash: threshold.dash\n            }\n        });\n    });\n}\n    // Process forecast onset dates with leads (converting seconds to days)\nif (hasValues(forecast_onset?.fields[0])) {\n    const leadValues = getValues(forecast_onset.fields[1]).map(lead => lead);  // Convert seconds to days\n    const onsetDates = getValues(forecast_onset.fields[2]);  // forecast onset dates\n    const uniqueLeads = [...new Set(leadValues)].sort((a, b) => a - b);\n    \n    uniqueLeads.forEach(lead => {\n        const leadIndices = leadValues.map((v, i) => v === lead ? i : -1).filter(i => i !== -1);\n        const leadTimes = leadIndices.map(i => onsetDates[i]);  // Use onset dates instead of issue times\n        const color = getViridisColor(lead, Math.min(...uniqueLeads), Math.max(...uniqueLeads));\n\n        traces.push({\n            x: leadTimes,\n            y: Array(leadTimes.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: `Forecast Lead ${lead+1}`,\n            marker: {\n                symbol: 'x',\n                color: color,\n                size: 10\n            }\n        });\n        \n        shapes_fcst =  shapes_fcst.concat(\n            leadTimes.map(time => ({\n                type: 'line',\n                x0: time,\n                x1: time,\n                y0: 0,\n                y1: 1,\n                xref: 'x',\n                yref: 'paper',\n                line: {\n                    color: color,\n                    width: 1,\n                    dash: 'solid'\n                }\n            }))\n        );\n    });\n}\n\n\n// Process onset dates\nconst onsets = truth_onset?.fields[0];\nif (hasValues(onsets)) {\n    const onsetDates = getValues(onsets).map(timestamp => new Date(timestamp));\n    \n    // Separate verification year dates and historical dates\n    const dates_verify = [];\n    const historicalDates = [];\n    \n    onsetDates.forEach(date => {\n        if (date.getFullYear() === year) {\n            dates_verify.push(date);\n        } else {\n            const normalizedDate = new Date(year, date.getMonth(), date.getDate());\n            historicalDates.push(normalizedDate);\n        }\n    });\n\n    // Add historical onset markers (black)\n    if (historicalDates.length > 0  && false ) {\n        traces.push({\n            x: historicalDates,\n            y: Array(historicalDates.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: 'Historical Onsets',\n            marker: {\n                color: 'black',\n                symbol: 'x',\n                size: 10\n            }\n        });\n    }\n\n    // Add verify year onset markers (red)\n    if (dates_verify.length > 0) {\n        traces.push({\n            x: dates_verify,\n            y: Array(dates_verify.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: `${year} Onsets`,\n            marker: {\n                color: 'red',\n                symbol: 'x',\n                size: 10\n            }\n        });\n    }\n\n    // Create vertical lines for verify dates (red)\n    shapes_verify = dates_verify.map(date => ({\n        type: 'line',\n        x0: date,\n        x1: date,\n        y0: 0,\n        y1: 1,\n        xref: 'x',\n        yref: 'paper',\n        line: {\n            color: 'red',\n            width: 1,\n            dash: 'solid'\n        }\n    }));\n}\n\n// Process ltn onset dates\nconst ltn_onsets = ltn_onset?.fields[0];\nif (hasValues(ltn_onsets) && false) {\n    const ltnOnsetDates = getValues(ltn_onsets).map(timestamp => new Date(timestamp));\n    \n    const ltnDates = [];\n    \n    ltnOnsetDates.forEach(date => {\n        const ltnDate = new Date(year, date.getMonth(), date.getDate());\n        ltnDates.push(ltnDate);\n    });\n\n    if (ltnDates.length > 0) {\n        traces.push({\n            x: ltnDates,\n            y: Array(ltnDates.length).fill(0),\n            type: 'scatter',\n            mode: 'markers',\n            name: '2004-2015 LTN Onset',\n            marker: {\n                color: 'gold',\n                symbol: 'x',\n                size: 10\n            }\n        });\n    }\n\n    shapes_ltn = ltnDates.map(date => ({\n        type: 'line',\n        x0: date,\n        x1: date,\n        y0: 0,\n        y1: 1,\n        xref: 'x',\n        yref: 'paper',\n        line: {\n            color: 'gold',\n            width: 1,\n            dash: 'solid'\n        }\n    }));\n}\n\nreturn {\n    data: traces,\n    layout: {\n        shapes: [...shapes_verify],\n        // shapes: [...shapes_fcst, ...shapes_verify],\n        xaxis: {\n            range: [yearStart, yearEnd],\n            type: 'date',\n            title: 'Time'\n        },        \n        yaxis: { \n            title: 'Precipitation (mm)'\n        },\n        showlegend: true\n    }\n};",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -271,7 +271,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \"time\", \"tmp2m\"\nFROM \"$data_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\n  AND (tmp2m IS NOT NULL)\nORDER BY \"time\";",
+          "rawSql": "SELECT \"time\", \"precip_1d\", \"precip_8d\", \"precip_11d\"\nFROM \"$rainfall_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\n  AND (precip_1d IS NOT NULL OR precip_8d IS NOT NULL OR precip_11d IS NOT NULL)\nORDER BY \"time\";",
           "refId": "A",
           "sql": {
             "columns": [
@@ -300,7 +300,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT \"time\", \"tmp2m\"\nFROM \"$data2_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\n  AND (tmp2m IS NOT NULL)\nORDER BY \"time\";",
+          "rawSql": "SELECT \"time\", \"precip_1d\", \"precip_8d\", \"precip_11d\"\nFROM \"$rainfall2_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\n  AND (precip_1d IS NOT NULL OR precip_8d IS NOT NULL OR precip_11d IS NOT NULL)\nORDER BY \"time\";",
           "refId": "B",
           "sql": {
             "columns": [
@@ -329,7 +329,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "-- SELECT \"${task}\"\n-- FROM \"$onset_tab_name\"\n-- WHERE lat = ${lat} \n--   AND lon = ${lon}\n-- ORDER BY \"${task}\";",
+          "rawSql": "SELECT \"${task}\"\nFROM \"$onset_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\nORDER BY \"${task}\";",
           "refId": "C",
           "sql": {
             "columns": [
@@ -358,7 +358,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "-- SELECT time, lead_time, \"${task}\"\n-- FROM \"$fcst_onset_tab_name\"\n-- WHERE lat = ${lat} \n--   AND lon = ${lon}\n--   AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\n-- ORDER BY \"time\", \"lead_time\";",
+          "rawSql": "SELECT time, lead_time, \"${task}\"\nFROM \"$fcst_onset_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\nORDER BY \"time\", \"lead_time\";",
           "refId": "D",
           "sql": {
             "columns": [
@@ -387,7 +387,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "-- dummy query to ensure that plot refreshes when the variable changes\n-- SELECT $group_by_lead_time\nselect '${forecast} ${baseline}'",
+          "rawSql": "-- dummy query to ensure that plot refreshes when the variable changes\n-- SELECT $group_by_lead_time\nselect '${forecast} ${baseline} ${compare}'",
           "refId": "F",
           "sql": {
             "columns": [
@@ -408,7 +408,7 @@
           }
         }
       ],
-      "title": "Daily 2m Temperature (C)",
+      "title": "Daily Rainfall (mm)",
       "transparent": true,
       "type": "nline-plotlyjs-panel"
     },
@@ -434,7 +434,7 @@
             {
               "targetBlank": false,
               "title": "View Location",
-              "url": "/d/aecw2vlsh11q8f?var-lat=${__data.fields[0]}&var-lon=${__data.fields[1]}&${__all_variables}"
+              "url": "/d/bednyx72ix4owf?var-lat=${__data.fields[0]}&var-lon=${__data.fields[1]}\n\n\n"
             }
           ],
           "mappings": [],
@@ -468,7 +468,7 @@
         ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 10,
         "x": 0,
         "y": 7
@@ -593,7 +593,7 @@
           "zoom": 5
         }
       },
-      "pluginVersion": "11.1.0",
+      "pluginVersion": "11.5.0-pre",
       "targets": [
         {
           "datasource": {
@@ -603,7 +603,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT lat as latitude, lon as longitude\nFROM \"$data_tab_name\"\nWHERE tmp2m IS NOT NULL;\n",
+          "rawSql": "SELECT DISTINCT lat as latitude, lon as longitude\nFROM \"$rainfall_tab_name\"\nWHERE precip_1d IS NOT NULL;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -655,10 +655,243 @@
       ],
       "title": "Select Location",
       "type": "geomap"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 14,
+        "x": 10,
+        "y": 9
+      },
+      "id": 9,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "barmode": "group",
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "hoverlabel": {
+            "bgcolor": "rgba(255, 255, 255, 0.95)"
+          },
+          "hovermode": "x unified",
+          "margin": {
+            "b": 30,
+            "l": 40,
+            "r": 10,
+            "t": 5
+          },
+          "modebar": {
+            "activecolor": "grey",
+            "bgcolor": "rgba(255, 255, 255, 0)",
+            "color": "lightgray",
+            "orientation": "v",
+            "remove": [
+              "zoom2d",
+              "pan2d",
+              "select2d",
+              "lasso2d",
+              "zoomIn2d",
+              "zoomOut2d"
+            ]
+          },
+          "paper_bgcolor": "white",
+          "plot_bgcolor": "white",
+          "title": {
+            "automargin": true
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": false,
+            "tickfont": {
+              "size": 14
+            },
+            "ticklen": 4,
+            "tickwidth": 1,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": false,
+            "gridcolor": "rgba(0, 0, 0, 0.15)",
+            "range": [
+              -0.1,
+              1
+            ],
+            "rangemode": "tozero",
+            "tickfont": {
+              "size": 14
+            },
+            "title": {
+              "font": {
+                "size": 16
+              },
+              "standoff": 20,
+              "text": "Precipitation (mm)"
+            },
+            "type": "linear"
+          }
+        },
+        "onclick": "// Event handling\n/*\n// 'data', 'variables', 'options', 'utils', and 'event' are passed as arguments\n\ntry {\n  const { type: eventType, data: eventData } = event;\n  const { timeZone, dayjs, locationService, getTemplateSrv } = utils;\n\n  switch (eventType) {\n    case 'click':\n      console.log('Click event:', eventData.points);\n      break;\n    case 'select':\n      console.log('Selection event:', eventData.range);\n      break;\n    case 'zoom':\n      console.log('Zoom event:', eventData);\n      break;\n    default:\n      console.log('Unhandled event type:', eventType, eventData);\n  }\n\n  console.log('Current time zone:', timeZone);\n  console.log('From time:', dayjs(variables.__from).format());\n  console.log('To time:', dayjs(variables.__to).format());\n\n  // Example of using locationService\n  // locationService.partial({ 'var-example': 'test' }, true);\n\n} catch (error) {\n  console.error('Error in onclick handler:', error);\n}\n*/\n  ",
+        "resScale": 2,
+        "script": "// Helper functions\nfunction hasValues(field) {\n    return field && field.values && field.values.length > 0;\n}\n\nfunction getValues(field) {\n    return field.values || field.values.buffer;\n}\n\n// Add viridis color mapping function\nfunction getViridisColor(value, min, max) {\n    const viridisColors = [\n        '#440154', '#443982', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725'\n    ];\n    const normalizedValue = (value - min) / (max - min);\n    const index = Math.floor(normalizedValue * (viridisColors.length - 1));\n    return viridisColors[Math.min(viridisColors.length - 1, Math.max(0, index))];\n}\n\n\n// Get panel variables\nconst year = Number(variables.verify_year.current.value);\nconst yearStart = new Date(year, 0, 1).getTime();\nconst yearEnd = new Date(year, 11, 31).getTime();\n\nlet series1 = data.series[0];  // Probability forecasts\nlet series2 = data.series[1];  // Truth onsets\nlet series3 = data.series[2];  // Onset dates by lead\n\nlet shapes_fcst = [];\n\n\n// Viridis color map\nconst viridisColors = [\n    '#440154', '#481567', '#482677', '#453781', '#404788', '#39568C', '#33638D',\n    '#2D708E', '#287D8E', '#238A8D', '#1F968B', '#20A387', '#29AF7F', '#3CBB75',\n    '#55C667', '#73D055', '#95D840', '#B8DE29', '#DCE319', '#FDE725'\n];\n\nlet traces = [];\nlet shapes = [];\n\n// Get unique leads from probability series\nconst uniqueLeads = [...new Set(getValues(series1.fields[1]))].sort((a, b) => a - b);\n\n// Create traces for each lead time\nuniqueLeads.forEach((leadTime, index) => {\n    const colorIndex = Math.floor((index / (uniqueLeads.length - 1)) * (viridisColors.length - 1));\n    const leadTimeDays = Math.round(leadTime); // Convert seconds to days\n    const color = viridisColors[colorIndex];\n\n    // Add probability line trace\n    const points = getValues(series1.fields[0]).map((t, i) => ({\n        time: t,\n        prob: series1.fields[2].values[i],\n        lead: series1.fields[1].values[i]\n    })).filter(p => p.lead === leadTime);\n\n    // Sort by time\n    points.sort((a, b) => a.time - b.time);\n\n    traces.push({\n        x: points.map(p => p.time),\n        y: points.map(p => p.prob),\n        type: 'scatter',\n        mode: 'lines',\n        name: `Lead: ${leadTimeDays+1}`,\n        line: { color }\n    });\n\n    // Add x markers for onset dates from series3\n    if (hasValues(series3.fields[0])) {\n  \n        const leadValues = getValues(series3.fields[1]).map(lead => lead);  // Convert seconds to days\n        const onsetDates = getValues(series3.fields[2]);  // forecast onset dates\n        const uniqueLeads = [...new Set(leadValues)].sort((a, b) => a - b);\n        \n        uniqueLeads.forEach(lead => {\n            const leadIndices = leadValues.map((v, i) => v === lead ? i : -1).filter(i => i !== -1);\n            const leadTimes = leadIndices.map(i => onsetDates[i]);  // Use onset dates instead of issue times\n            const color = getViridisColor(lead, Math.min(...uniqueLeads), Math.max(...uniqueLeads));\n\n            traces.push({\n                x: leadTimes,\n                y: Array(leadTimes.length).fill(0),\n                type: 'scatter',\n                mode: 'markers',\n                showlegend: false,\n                name: `Forecast Lead ${lead+1}`,\n                marker: {\n                    symbol: 'x',\n                    color: color,\n                    size: 10\n                }\n            });\n            \n            shapes_fcst =  shapes_fcst.concat(\n                leadTimes.map(time => ({\n                    type: 'line',\n                    x0: time,\n                    x1: time,\n                    y0: 0,\n                    y1: 1,\n                    xref: 'x',\n                    yref: 'paper',\n                    line: {\n                        color: color,\n                        width: 1,\n                        dash: 'solid'\n                    }\n                }))\n            );\n        });\n    }\n});\n\n// Add truth onsets if they exist\nif (hasValues(series2?.fields[0])) {\n    // Add onset markers\n    traces.push({\n        x: getValues(series2.fields[0]),\n        y: Array(series2.fields[0].values.length).fill(0),\n        type: 'scatter',\n        mode: 'markers',\n        name: `${year} Onsets`,\n        marker: {\n            color: 'red',\n            symbol: 'x',\n            size: 10\n        }\n    });\n\n    // Create vertical lines for truth onsets\n    shapes = shapes.concat(\n        getValues(series2.fields[0]).map(timestamp => ({\n            type: 'line',\n            x0: timestamp,\n            x1: timestamp,\n            y0: 0,\n            y1: 1,\n            xref: 'x',\n            yref: 'paper',\n            line: {\n                color: 'red',\n                width: 1,\n                dash: 'solid'\n            }\n        }))\n    );\n}\n\nreturn {\n    data: traces,\n    layout: {\n        shapes: [...shapes_fcst, ...shapes],        \n        xaxis: {\n            range: [yearStart, yearEnd],\n            type: 'date',\n            title: 'Time'\n        },\n        yaxis: {\n            range: [0, 1],\n            title: 'Probability'\n        }\n    }\n};",
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, lead_time, \"${task}\"\nFROM \"$fcst_onset_prob_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\nORDER BY \"time\", \"lead_time\";\n-- SELECT time, lead_time, rainy_forecast\n-- FROM \"$fcst_onset_prob_tab_name\"\n-- WHERE lat = ${lat} \n--   AND lon = ${lon}\n--   AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\n--   -- AND lead_time < 3110400000000000\n-- ORDER BY \"time\", \"lead_time\";",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT \"${task}\"\nFROM \"$onset_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\nORDER BY \"${task}\";",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, lead_time, ${task}\nFROM \"$fcst_onset_tab_name\"\nWHERE lat = ${lat} \n  AND lon = ${lon}\n  AND EXTRACT(YEAR FROM \"time\") IN (${verify_year})\nORDER BY \"time\", \"lead_time\";",
+          "refId": "C",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "-- dummy query to ensure that plot refreshes when the variable changes\n-- SELECT $group_by_lead_time\nselect '${forecast} ${baseline}'",
+          "refId": "D",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Daily Rainfall (mm)",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
     }
   ],
+  "preload": false,
   "refresh": "",
-  "schemaVersion": 39,
+  "schemaVersion": 40,
   "tags": [],
   "templating": {
     "list": [
@@ -680,6 +913,11 @@
             "selected": false,
             "text": "Bias",
             "value": "bias"
+          },
+          {
+            "selected": false,
+            "text": "RMSE",
+            "value": "rmse"
           }
         ],
         "query": "MAE : mae, Bias : bias, RMSE : rmse",
@@ -687,41 +925,27 @@
       },
       {
         "current": {
-          "text": "ecmwf_ifs_er_debiased",
-          "value": "ecmwf_ifs_er_debiased"
+          "text": "ecmwf_ifs_er",
+          "value": "ecmwf_ifs_er"
         },
+        "hide": 2,
         "includeAll": false,
         "label": "Baseline",
         "name": "baseline",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
-          },
-          {
-            "selected": true,
-            "text": "ECMWF IFS ER Debiased",
-            "value": "ecmwf_ifs_er_debiased"
-          },
-          {
-            "selected": false,
-            "text": "LTN",
-            "value": "climatology_2015"
-          },
-          {
-            "selected": false,
-            "text": "FuXi",
-            "value": "fuxi"
           }
         ],
-        "query": "ECMWF IFS ER : ecmwf_ifs_er, ECMWF IFS ER Debiased : ecmwf_ifs_er_debiased, Clim. 2004-2015 : climatology_2015, FuXi : fuxi",
+        "query": "ECMWF IFS ER : ecmwf_ifs_er",
         "type": "custom"
       },
       {
         "current": {
-          "text": "IMERG",
-          "value": "imerg"
+          "text": "ghcn",
+          "value": "ghcn"
         },
         "includeAll": false,
         "label": "Ground Truth",
@@ -733,17 +957,50 @@
             "value": "era5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "IMERG",
             "value": "imerg"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "GHCN",
             "value": "ghcn"
+          },
+          {
+            "selected": false,
+            "text": "CHIRPS",
+            "value": "chirps"
+          },
+          {
+            "selected": false,
+            "text": "TAHMO",
+            "value": "tahmo"
           }
         ],
-        "query": "ERA5 : era5, GHCN : ghcn, Clim. 2004-2015 : climatology_2015",
+        "query": "ERA5 : era5, IMERG : imerg, GHCN : ghcn, CHIRPS : chirps, TAHMO : tahmo",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "False",
+          "value": "False"
+        },
+        "includeAll": false,
+        "label": "Compare?",
+        "name": "compare",
+        "options": [
+          {
+            "selected": false,
+            "text": "True",
+            "value": "True"
+          },
+          {
+            "selected": true,
+            "text": "False",
+            "value": "False"
+          }
+        ],
+        "query": "True,False",
         "type": "custom"
       },
       {
@@ -752,7 +1009,7 @@
           "value": "era5"
         },
         "includeAll": false,
-        "label": "Ground Truth",
+        "label": "Compare with",
         "name": "truth2",
         "options": [
           {
@@ -782,39 +1039,16 @@
           },
           {
             "selected": false,
-            "text": "LTN",
+            "text": "Clim. 2004-2015",
             "value": "ltn"
           }
         ],
-        "query": "ERA5 : era5, GHCN : ghcn, Clim. 2004-2015 : climatology_2015",
+        "query": "ERA5 : era5, IMERG : imerg, GHCN : ghcn, CHIRPS : chirps, TAHMO : tahmo, Clim. 2004-2015 : ltn",
         "type": "custom"
       },
       {
         "current": {
-          "text": "False",
-          "value": "False"
-        },
-        "includeAll": false,
-        "label": "Compare?",
-        "name": "compare",
-        "options": [
-          {
-            "selected": false,
-            "text": "True",
-            "value": "True"
-          },
-          {
-            "selected": true,
-            "text": "False",
-            "value": "False"
-          }
-        ],
-        "query": "True,False",
-        "type": "custom"
-      },
-      {
-        "current": {
-          "text": "1.5",
+          "text": "global1_5",
           "value": "global1_5"
         },
         "hide": 2,
@@ -826,11 +1060,6 @@
             "selected": true,
             "text": "1.5",
             "value": "global1_5"
-          },
-          {
-            "selected": false,
-            "text": "0.25",
-            "value": "global0_25"
           }
         ],
         "query": "1.5 : global1_5",
@@ -838,7 +1067,7 @@
       },
       {
         "current": {
-          "text": "Kenya",
+          "text": "kenya",
           "value": "kenya"
         },
         "hide": 2,
@@ -895,8 +1124,8 @@
       },
       {
         "current": {
-          "text": "7d9a68ebaeb9a254823ce591b428820c",
-          "value": "7d9a68ebaeb9a254823ce591b428820c"
+          "text": "3ab5965d0a510533886347865bececda",
+          "value": "3ab5965d0a510533886347865bececda"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -914,46 +1143,46 @@
       },
       {
         "current": {
-          "text": "5e152d9434d0db25671d25e346d689d8",
-          "value": "5e152d9434d0db25671d25e346d689d8"
+          "text": "fecd39dd56b1f4e97eb41d8a8cd7341a",
+          "value": "fecd39dd56b1f4e97eb41d8a8cd7341a"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select * from md5('daily_tmp2m_prise/${grid}_lsm_kenya_${truth}')",
+        "definition": "select * from md5('rain_windowed_spw/${grid}_lsm_kenya_${truth}')",
         "hide": 2,
         "includeAll": false,
-        "name": "data_tab_name",
+        "name": "rainfall_tab_name",
         "options": [],
-        "query": "select * from md5('daily_tmp2m_prise/${grid}_lsm_kenya_${truth}')",
+        "query": "select * from md5('rain_windowed_spw/${grid}_lsm_kenya_${truth}')",
         "refresh": 2,
         "regex": "",
         "type": "query"
       },
       {
         "current": {
-          "text": "37acf9a6f514f3ca20bb738496dd5bd9",
-          "value": "37acf9a6f514f3ca20bb738496dd5bd9"
+          "text": "5362bdc9d0bbbeb7a94ea5b92de4657e",
+          "value": "5362bdc9d0bbbeb7a94ea5b92de4657e"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select * from md5('daily_tmp2m_prise/${grid}_lsm_kenya_${truth2}')",
+        "definition": "select * from md5('rain_windowed_spw/${grid}_lsm_kenya_${truth2}')",
         "hide": 2,
         "includeAll": false,
-        "name": "data2_tab_name",
+        "name": "rainfall2_tab_name",
         "options": [],
-        "query": "select * from md5('daily_tmp2m_prise/${grid}_lsm_kenya_${truth2}')",
+        "query": "select * from md5('rain_windowed_spw/${grid}_lsm_kenya_${truth2}')",
         "refresh": 2,
         "regex": "",
         "type": "query"
       },
       {
         "current": {
-          "text": "959d6a5d370e100eb0c39426fd0dd35b",
-          "value": "959d6a5d370e100eb0c39426fd0dd35b"
+          "text": "eb3899ee9503da754540ebcafb578404",
+          "value": "eb3899ee9503da754540ebcafb578404"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -971,8 +1200,8 @@
       },
       {
         "current": {
-          "text": "fe86855b7b0437b7665a39a8fbd4eea9",
-          "value": "fe86855b7b0437b7665a39a8fbd4eea9"
+          "text": "afb9d2dbe924a3fd0bebab5e964b4365",
+          "value": "afb9d2dbe924a3fd0bebab5e964b4365"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -990,8 +1219,8 @@
       },
       {
         "current": {
-          "text": "6b86793ca796d20f8afb5473fe3ae1da",
-          "value": "6b86793ca796d20f8afb5473fe3ae1da"
+          "text": "f8a545b9c2d427f482f6a4598496ab99",
+          "value": "f8a545b9c2d427f482f6a4598496ab99"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -1009,8 +1238,8 @@
       },
       {
         "current": {
-          "text": "65f7accc5e005991b411ff2ffe78babb",
-          "value": "65f7accc5e005991b411ff2ffe78babb"
+          "text": "e7a9b6a636bd70b5cba5bef7a57d4567",
+          "value": "e7a9b6a636bd70b5cba5bef7a57d4567"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -1028,8 +1257,8 @@
       },
       {
         "current": {
-          "text": "afab2c65fda360b9f5393321bd0bb8cf",
-          "value": "afab2c65fda360b9f5393321bd0bb8cf"
+          "text": "5655fde1c80b8488f852d57e814cd76e",
+          "value": "5655fde1c80b8488f852d57e814cd76e"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -1060,11 +1289,6 @@
         "multi": true,
         "name": "years",
         "options": [
-          {
-            "selected": false,
-            "text": "All",
-            "value": "$__all"
-          },
           {
             "selected": false,
             "text": "2015",
@@ -1116,15 +1340,15 @@
       },
       {
         "current": {
-          "text": "2016",
-          "value": "2016"
+          "text": "2021",
+          "value": "2021"
         },
         "includeAll": false,
         "label": "Verify Year",
         "name": "verify_year",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "2016",
             "value": "2016"
           },
@@ -1149,7 +1373,7 @@
             "value": "2020"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "2021",
             "value": "2021"
           },
@@ -1164,27 +1388,32 @@
       },
       {
         "current": {
-          "text": "ECMWF IFS ER Debiased",
-          "value": "ecmwf_ifs_er_debiased"
+          "text": "ecmwf_ifs_er",
+          "value": "ecmwf_ifs_er"
         },
         "includeAll": false,
         "label": "Forecast",
         "name": "forecast",
         "options": [
           {
-            "selected": false,
-            "text": "Salient",
-            "value": "salient"
-          },
-          {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "ECMWF IFS ER Debiased",
             "value": "ecmwf_ifs_er_debiased"
+          },
+          {
+            "selected": false,
+            "text": "Clim. 2004-2015",
+            "value": "climatology_2015"
+          },
+          {
+            "selected": false,
+            "text": "FuXi",
+            "value": "fuxi"
           }
         ],
         "query": "ECMWF IFS ER : ecmwf_ifs_er, ECMWF IFS ER Debiased : ecmwf_ifs_er_debiased, Clim. 2004-2015 : climatology_2015, FuXi : fuxi",
@@ -1192,26 +1421,25 @@
       },
       {
         "current": {
-          "text": "rainy_onset",
-          "value": "rainy_onset"
+          "text": "rainy_onset_no_drought",
+          "value": "rainy_onset_no_drought"
         },
-        "hide": 2,
         "includeAll": false,
         "label": "Task",
         "name": "task",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "Rainy Onset",
             "value": "rainy_onset"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Rainy Onset w/o Drought",
             "value": "rainy_onset_no_drought"
           }
         ],
-        "query": "pesticide_date",
+        "query": "Rainy Onset : rainy_onset,Rainy Onset w/o Drought : rainy_onset_no_drought",
         "type": "custom"
       }
     ]
@@ -1220,10 +1448,12 @@
     "from": "now-6h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "hidden": true
+  },
   "timezone": "utc",
-  "title": "Prise Pesticide Explor",
-  "uid": "aecw2vlsh11q8f",
+  "title": "Suitable Planting Window Explorer",
+  "uid": "bednyx72ix4owf",
   "version": 1,
   "weekStart": ""
 }
