@@ -3,7 +3,7 @@
 
 The regions are defined as follows:
 - countries
-    - 242 unique countries 
+    - 242 unique countries
 - subregions:
   - 'central_america', 'caribbean', 'north_america',
   - 'south_eastern_asia', 'western_asia', 'south_asia',
@@ -22,7 +22,7 @@ The regions are defined as follows:
 - continents
     - 'north_america', 'asia', 'south_america', 'africa', 'europe',
     - 'oceania', 'antarctica', 'seven_seas_open_ocean'
-- meteorological_zones 
+- meteorological_zones
   - 'tropics', 'extratropics'
 - hemispheres
   - 'northern_hemisphere', 'southern_hemisphere'
@@ -141,8 +141,8 @@ def get_region_data(region):
 
     Args:
         region (str): The region to get the data for. Can be either
-            an region level or a specific region within that level. So, for exmaple, 
-            both 'countries' and 'indonesia' are valid regions. 
+            a region level or a specific region within that level. So, for example,
+            both 'countries' and 'indonesia' are valid regions.
 
     Returns:
         gdf (gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:

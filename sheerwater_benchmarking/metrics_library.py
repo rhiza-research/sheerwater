@@ -80,7 +80,7 @@ class Metric(ABC):
             self.metric_data['data']['bins'] = bins
 
     def prepare_data(self):
-        """Prepare the data for the metric calculation, including the forecast, the observation, and the categorical bins."""
+        """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Get the forecast dataframe
         fcst_fn = get_datasource_fn(self.forecast)
         fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
@@ -93,7 +93,8 @@ class Metric(ABC):
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
             raise ValueError("Cannot run probabilistic metric on deterministic forecasts.")
-        elif (enhanced_prob_type == 'ensemble' or enhanced_prob_type == 'quantile') and self.prob_type == 'deterministic':
+        elif (enhanced_prob_type == 'ensemble' or enhanced_prob_type == 'quantile') \
+                and self.prob_type == 'deterministic':
             raise ValueError("Cannot run deterministic metric on probabilistic forecasts.")
 
         # Get the truth dataframe
@@ -235,7 +236,7 @@ class Metric(ABC):
 
             # Prepare the check_ds for validity checking, considering sparsity
             if ds.attrs['sparse']:
-                print(f"Statistic is sparse, need to check the underlying forecast validity directly.")
+                print("Statistic is sparse, need to check the underlying forecast validity directly.")
                 check_ds = self.metric_data['data']['fcst_orig'].copy()
             else:
                 check_ds = ds.copy()

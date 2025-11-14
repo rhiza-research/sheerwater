@@ -4,9 +4,8 @@ import numpy as np
 import gcsfs
 
 from sheerwater_benchmarking.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
                                            lon_base_change,
-                                           get_lead_info, roll_and_agg, regrid, forecast,
+                                           roll_and_agg, regrid, forecast,
                                            shift_by_days)
 
 
@@ -173,14 +172,14 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
-            grid='global1_5', mask='lsm', region="global"):
+            grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""
     if variable != 'precip':
         raise NotImplementedError("Data error present in non-precip variables in Gencast. Skipping.")
 
     # Get the data with the right days
-    forecast_start = shift_by_days(forecast_start, -15)
-    forecast_end = shift_by_days(forecast_end, 15)
+    forecast_start = shift_by_days(start_time, -15)
+    forecast_end = shift_by_days(end_time, 15)
 
     # Get the data with the right days
     ds = gencast_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, prob_type=prob_type, grid=grid)

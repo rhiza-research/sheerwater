@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 
 from sheerwater_benchmarking.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
                                            lon_base_change,
                                            roll_and_agg, regrid, forecast,
                                            shift_by_days)
@@ -212,14 +211,14 @@ def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def graphcast(start_time, end_time, variable, agg_days, prob_type='deterministic',
-              grid='global1_5', mask='lsm', region="global"):
+              grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Graphcast interface."""
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecast implemented for graphcast")
 
     # Get the data with the right days
-    forecast_start = shift_by_days(forecast_start, -15)
-    forecast_end = shift_by_days(forecast_end, 15)
+    forecast_start = shift_by_days(start_time, -15)
+    forecast_end = shift_by_days(end_time, 15)
 
     # Get the data with the right days
     ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid)

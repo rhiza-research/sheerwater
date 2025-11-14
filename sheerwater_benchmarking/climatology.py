@@ -9,7 +9,7 @@ import dask
 from functools import partial
 from sheerwater_benchmarking.reanalysis import era5_daily, era5_rolled
 from sheerwater_benchmarking.utils import (dask_remote, cacheable, get_dates,
-                                           apply_mask, clip_region, pad_with_leapdays,
+                                           pad_with_leapdays,
                                            add_dayofyear, forecast)
 from sheerwater_benchmarking.tasks import spw_rainy_onset, spw_precip_preprocess
 
@@ -340,8 +340,7 @@ def climatology_spw(start_time, end_time, first_year=1985, last_year=2014, trend
 @dask_remote
 def _climatology_unified(start_time, end_time, variable, agg_days,
                          first_year=1985, last_year=2014, trend=False,
-                         prob_type='deterministic',
-                         grid='global0_25', mask='lsm', region='global'):
+                         prob_type='deterministic', grid='global0_25'):
     """Standard format forecast data for climatology forecast."""
     ds = climatology_rolled(start_time, end_time, variable,
                             first_year=first_year, last_year=last_year,
@@ -368,10 +367,10 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
 def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
-                     grid='global0_25', mask='lsm', region='global'):
+                     grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1985, last_year=2014,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                trend=False, prob_type=prob_type, grid=grid)
 
 
 @dask_remote
@@ -381,10 +380,10 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
 def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
-                     grid='global0_25', mask='lsm', region='global'):
+                     grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1990, last_year=2019,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                trend=False, prob_type=prob_type, grid=grid)
 
 
 @dask_remote
@@ -394,10 +393,10 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
 def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
-                           grid='global0_25', mask='lsm', region='global'):
+                           grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1985, last_year=2014,
-                                trend=True, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                trend=True, prob_type=prob_type, grid=grid)
 
 
 @dask_remote
@@ -407,7 +406,7 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
 def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
-                        grid='global0_25', mask='lsm', region='global'):
+                        grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecasts are available for rolling climatology.")

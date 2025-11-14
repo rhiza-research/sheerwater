@@ -5,10 +5,8 @@ from dateutil.relativedelta import relativedelta
 import xarray as xr
 from sheerwater_benchmarking.reanalysis import era5_rolled
 from sheerwater_benchmarking.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
                                            lon_base_change,
                                            roll_and_agg,
-                                           convert_lead_to_valid_time,
                                            regrid, get_variable,
                                            shift_by_days,
                                            forecast)
@@ -361,7 +359,7 @@ def ifs_extended_range_rolled(start_time, end_time, variable,
 
 @dask_remote
 def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='deterministic',
-                          grid="global1_5", mask='lsm', region="global", debiased=True):
+                          grid="global1_5", mask='lsm', region="global", debiased=True):  # noqa: ARG001
     """Unified API accessor for ECMWF raw and debiased forecasts."""
     # The earliest and latest forecast dates for the set of all leads
     # ECMWF extended range forecasts have 46 days, so we shift to include all forecasters who could

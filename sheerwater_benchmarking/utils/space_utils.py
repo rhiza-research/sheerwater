@@ -83,7 +83,7 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False, keep_shape=False):
+def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False):
     """Clip a dataset to a region.
 
     Args:
@@ -93,7 +93,6 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False, keep_shape
         lon_dim (str): The name of the longitude dimension.
         lat_dim (str): The name of the latitude dimension.
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
-        keep_shape (bool): Whether to keep the shape of the region.
     """
     # No clipping needed
     if region == 'global':

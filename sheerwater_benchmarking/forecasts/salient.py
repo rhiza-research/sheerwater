@@ -2,9 +2,8 @@
 import xarray as xr
 import numpy as np
 
-from sheerwater_benchmarking.utils import (cacheable, dask_remote, get_variable, apply_mask, clip_region, regrid,
-                                           forecast, convert_lead_to_valid_time,
-                                           shift_by_days)
+from sheerwater_benchmarking.utils import (cacheable, dask_remote, get_variable, regrid,
+                                           forecast, shift_by_days)
 
 
 @dask_remote
@@ -55,9 +54,8 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
 def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
-            grid='global0_25', mask='lsm', region='africa'):
+            grid='global0_25', mask='lsm', region='africa'):  # noqa: ARG001
     """Standard format forecast data for Salient."""
-
     lead_params = {
         7: "sub-seasonal",
         30: "seasonal",

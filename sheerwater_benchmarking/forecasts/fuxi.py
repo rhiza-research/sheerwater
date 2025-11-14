@@ -8,18 +8,15 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import py7zr
-from functools import partial
 
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError
 
 from sheerwater_benchmarking.utils.secrets import huggingface_read_token
 from sheerwater_benchmarking.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
                                            lon_base_change, forecast,
                                            shift_by_days,
                                            roll_and_agg)
-from sheerwater_benchmarking.tasks import spw_precip_preprocess, spw_rainy_onset
 
 
 @dask_remote
@@ -165,14 +162,14 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
 def fuxi(start_time, end_time, variable, agg_days, prob_type='deterministic',
-         grid='global1_5', mask='lsm', region="global"):
+         grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""
     if grid != 'global1_5':
         raise NotImplementedError("Only 1.5 grid implemented for FuXi.")
 
     # The earliest and latest forecast dates for the set of all leads
-    forecast_start = shift_by_days(forecast_start, -46)
-    forecast_end = shift_by_days(forecast_end, 46)
+    forecast_start = shift_by_days(start_time, -46)
+    forecast_end = shift_by_days(end_time, 46)
 
     ds = fuxi_rolled(forecast_start, forecast_end, variable=variable, prob_type=prob_type, agg_days=agg_days)
 

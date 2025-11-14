@@ -3,10 +3,9 @@ import os
 import cdsapi
 import xarray as xr
 import numpy as np
-import geopandas as gpd
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
-from sheerwater_benchmarking.utils import (cacheable, cdsapi_secret, get_grid, clip_region,
+from sheerwater_benchmarking.utils import (cacheable, cdsapi_secret, get_grid,
                                            lon_base_change, get_region_data, get_grid_ds)
 
 
@@ -79,8 +78,8 @@ def land_sea_mask(grid="global1_5"):
 def region_labels(grid='global1_5', region_level='countries'):
     """Generate a dataset with a region coordinate at a specific region level.
 
-    Available region levels are 
-     - 'countries', 'continents', 'subregions', 'region_un', 'region_wb', 'meteorological_zones', 
+    Available region levels are
+     - 'countries', 'continents', 'subregions', 'region_un', 'region_wb', 'meteorological_zones',
         'hemispheres', 'global', and 'sheerwater_areas'.
 
     # NOTE: this is a slow function. Doesn't really matter, b/c we
@@ -89,7 +88,7 @@ def region_labels(grid='global1_5', region_level='countries'):
     Args:
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
-        admin_level (str): The admin level to add to the dataset
+        region_level (str): The region level to add to the dataset
 
     Returns:
         xarray.Dataset: Dataset with added region coordinate
@@ -100,7 +99,7 @@ def region_labels(grid='global1_5', region_level='countries'):
     # Get the grid dataframe
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
-    # Fixed data type of strings of lengh 100 
+    # Fixed data type of strings of length 100
     ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
 
     # Loop through each region and label grid cells
