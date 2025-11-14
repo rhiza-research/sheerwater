@@ -7,9 +7,7 @@ import numpy as np
 import pandas as pd
 
 from sheerwater_benchmarking.statistics_library import statistic_factory
-from sheerwater_benchmarking.utils import (get_datasource_fn,
-                                           get_time_level, get_region_level,
-                                           get_mask)
+from sheerwater_benchmarking.utils import get_datasource_fn, get_region_level, get_mask
 from sheerwater_benchmarking.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater_benchmarking.regions_and_masks import region_labels
 
