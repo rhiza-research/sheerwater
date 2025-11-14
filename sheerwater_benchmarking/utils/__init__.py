@@ -16,7 +16,7 @@ from .space_utils import (get_grid, get_grid_ds, is_wrapped,
 from .time_utils import (is_valid_forecast_date, generate_dates_in_between, get_dates,
                          pad_with_leapdays, add_dayofyear, shift_by_days,
                          groupby_time, assign_grouping_coordinates,
-                         convert_group_to_time, date_mean, doy_mean, get_time_level)
+                         convert_group_to_time, date_mean, doy_mean)
 
 from .forecaster_utils import (get_variable, get_lead_info, forecast,
                                convert_lead_to_valid_time, get_lead_group)
@@ -69,7 +69,6 @@ __all__ = [
     "convert_group_to_time",
     "date_mean",
     "doy_mean",
-    "get_time_level",
     "forecast",
     "get_variable",
     "get_lead_info",

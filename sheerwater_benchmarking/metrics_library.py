@@ -427,6 +427,8 @@ class ACC(Metric):
 
         # Expand climatology to the same lead times as the forecast
         leads = self.metric_data['data']['fcst'].prediction_timedelta.values
+        if 'prediction_timedelta' in clim_ds.coords:
+            clim_ds = clim_ds.drop_vars('prediction_timedelta')
         clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 
         # Subset the climatology to the valid times and non-null times of the forecaster
