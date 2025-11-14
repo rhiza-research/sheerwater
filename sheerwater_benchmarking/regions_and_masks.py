@@ -82,9 +82,6 @@ def region_labels(grid='global1_5', region_level='countries'):
      - 'countries', 'continents', 'subregions', 'region_un', 'region_wb', 'meteorological_zones',
         'hemispheres', 'global', and 'sheerwater_areas'.
 
-    # NOTE: this is a slow function. Doesn't really matter, b/c we
-    compute it once and cache, but could parallelize better.
-
     Args:
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.

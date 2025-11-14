@@ -226,11 +226,6 @@ def make_fn_n_obs_bin(category):
     return fn_n_obs_bin
 
 
-dynamic_n_obs_bin_fns = [make_fn_n_obs_bin(cat) for cat in range(1, 10)]
-
-# Dynamically generate functions for each category and bind it with the correct category
-
-
 def make_fn_n_fcst_bin(category):
     @statistic(cache=False, name=f'n_fcst_bin_{category}')
     def fn_n_fcst_bin(data, **cache_kwargs):
@@ -239,6 +234,8 @@ def make_fn_n_fcst_bin(category):
     return fn_n_fcst_bin
 
 
+# Generate 10 categorical obserations by default for the categorical metrics
+dynamic_n_obs_bin_fns = [make_fn_n_obs_bin(cat) for cat in range(1, 10)]
 dynamic_n_fcst_bin_fns = [make_fn_n_fcst_bin(cat) for cat in range(1, 10)]
 
 
@@ -311,19 +308,10 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
 
 def statistic_factory(statistic_name: str):
     """Get a statistic function by name from the registry."""
-    return SHEERWATER_STATISTIC_REGISTRY[statistic_name.lower()]
-    # try:
-    #     # Convert
-    #     if '-' in statistic_name:
-    #         sn = statistic_name.split('-')[0]  # support for statistic names of the form 'statistic-metadatakey...'
-    #     else:
-    #         sn = statistic_name
-    #     statistic = SHEERWATER_STATISTIC_REGISTRY[sn.lower()]
-    #     # Add runtime metric configuration to the metric class
-    #     return statistic
-
-    # except KeyError:
-    #     raise ValueError(f"Unknown statistic: {statistic_name}. Available statistics: {list_statistics()}")
+    try:
+        return SHEERWATER_STATISTIC_REGISTRY[statistic_name.lower()]
+    except KeyError:
+        raise ValueError(f"Unknown statistic: {statistic_name}. Available statistics: {list_statistics()}")
 
 
 def list_statistics():

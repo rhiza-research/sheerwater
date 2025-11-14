@@ -38,20 +38,9 @@ def grouped_metric_new(start_time, end_time, variable, agg_days, forecast, truth
                        mask='lsm', region='countries'):
     """Compute a grouped metric for a forecast at a specific lead."""
     # Use the metric registry to get the metric class
-    cache_kwargs = {
-        'start_time': start_time,
-        'end_time': end_time,
-        'variable': variable,
-        'agg_days': agg_days,
-        'forecast': forecast,
-        'truth': truth,
-        'time_grouping': time_grouping,
-        'spatial': spatial,
-        'grid': grid,
-        'mask': mask,
-        'region': region,
-    }
-    metric_obj = metric_factory(metric, **cache_kwargs)
+    metric_obj = metric_factory(metric, start_time=start_time, end_time=end_time, variable=variable, agg_days=agg_days,
+                                forecast=forecast, truth=truth, time_grouping=time_grouping,
+                                spatial=spatial, grid=grid, mask=mask, region=region)
     m_ds = metric_obj.compute()
     return m_ds
 

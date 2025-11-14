@@ -19,7 +19,7 @@ from sheerwater_benchmarking.tasks import spw_rainy_onset, spw_precip_preprocess
            cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
            chunking={"lat": 721, "lon": 1440, "dayofyear": 30},
            auto_rechunk=False)
-def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):  # noqa: F821
+def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
     end_time = f"{last_year}-12-31"

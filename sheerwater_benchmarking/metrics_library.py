@@ -77,6 +77,8 @@ class Metric(ABC):
                 raise ValueError("A categorical metric must have a data_key that specifies the bins.")
             # Get the bins
             bins = [-np.inf] + [float(x) for x in data_key.split('-')] + [np.inf]
+            if len(bins) > 10:
+                raise ValueError("Categorical metrics can only have up to 10 bins.")
             self.metric_data['data']['bins'] = bins
 
     def prepare_data(self):
@@ -180,12 +182,9 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         self.statistic_values = {}
-        for i, statistic in enumerate(self.statistics):
+        for statistic in self.statistics:
             # Get the statistic function from the registry
             stat_fn = statistic_factory(statistic)
-
-            # Get any statistic-specific data from the statistic data dictionary
-            # If there are multiple statistics, use the index, otherwise use 0
 
             # Call the statistic function
             ds = stat_fn(data=self.metric_data['data'],
@@ -219,9 +218,6 @@ class Metric(ABC):
         region_ds = region_labels(grid=self.grid, region_level=region_level)
         mask_ds = get_mask(self.mask, self.grid)
 
-        # Get time level for grouping
-        time_level = get_time_level(self.time_grouping)
-
         # Iterate through the statistics and compute them
         for statistic in self.statistics:
             ############################################################
@@ -248,7 +244,7 @@ class Metric(ABC):
             ds['non_null'] = check_ds[self.variable].notnull().astype(float)
 
             # Group by time
-            ds = groupby_time(ds, time_level, agg_fn='mean')
+            ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
 
             # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
             ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
@@ -281,8 +277,6 @@ class Metric(ABC):
                 ds = ds.drop_vars('region')
 
             # Check if the statistic is valid per grouping
-            import pdb
-            pdb.set_trace()
             is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
             ds = ds.where(is_valid, np.nan, drop=False)
             ds = ds.drop_vars(['indicator', 'non_null'])
@@ -296,7 +290,8 @@ class Metric(ABC):
         By default, returns the single statistic value.
         Subclasses can override this for more complex computations.
         """
-        assert len(self.statistics) == 1, "Metric must have exactly one statistic to use default compute."
+        if len(self.statistics) != 1:
+            raise ValueError("Metric must have exactly one statistic to use default compute.")
         return self.grouped_statistics[self.statistics[0]]
 
     def compute(self) -> xr.DataArray:
