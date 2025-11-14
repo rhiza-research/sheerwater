@@ -372,7 +372,6 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
                                 trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
@@ -385,7 +384,6 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
                                 trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
@@ -398,7 +396,6 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
                                 trend=True, prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',

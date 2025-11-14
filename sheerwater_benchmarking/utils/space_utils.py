@@ -129,7 +129,7 @@ def get_mask(mask, grid='global1_5'):
         return get_grid_ds(grid)
     elif 'lsm' in mask:
         # Import here to avoid circular imports
-        from sheerwater_benchmarking.masks import land_sea_mask
+        from sheerwater_benchmarking.regions_and_masks import land_sea_mask
         if grid == 'global1_5' or grid == 'global0_25':
             mask_ds = land_sea_mask(grid=grid).compute()
         else:

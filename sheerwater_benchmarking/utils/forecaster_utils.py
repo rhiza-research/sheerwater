@@ -22,7 +22,7 @@ def forecast(func):
         ds = func(*args, **kwargs)
         # Create a new coordinate for valid_time, that is the start_date plus the lead time
         ds = convert_lead_to_valid_time(ds)
-        # Assign attributes 
+        # Assign attributes
         ds = ds.assign_attrs(agg_days=float(kwargs['agg_days']))
         # Apply masking
         ds = apply_mask(ds, kwargs['mask'], grid=kwargs['grid'])

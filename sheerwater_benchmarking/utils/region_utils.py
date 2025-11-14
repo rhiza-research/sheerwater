@@ -170,9 +170,10 @@ def get_region_data(region):
             data = custom_regions[region_level][reg]
             if 'lats' in data and 'lons' in data:
                 # Create a shapefile (GeoDataFrame) from lat/lon boundaries as a rectangular Polygon
+                tol = 0.005
                 lons = data['lons']
                 lats = data['lats']
-                region_box = box(lons[0], lats[0], lons[1], lats[1])
+                region_box = box(lons[0] - tol, lats[0] - tol, lons[1] + tol, lats[1] + tol)
                 region_names.append(reg)
                 region_geometries.append(region_box)
             elif 'countries' in data:

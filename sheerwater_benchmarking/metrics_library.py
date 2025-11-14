@@ -212,7 +212,7 @@ class Metric(ABC):
         """
         self.grouped_statistics = {}
         region_level, _ = get_region_level(self.region)
-        if self.spatial and region_level != self.region:
+        if self.spatial and (region_level == self.region and self.region != 'global'):
             raise ValueError(f"Cannot compute spatial metrics for region level '{self.region}'. " +
                              "Pass in a specific region instead.")
         region_ds = region_labels(grid=self.grid, region_level=region_level)
@@ -254,6 +254,7 @@ class Metric(ABC):
             # Create an indicator variable that is 1 for all dimensions
             ds['indicator'] = xr.ones_like(ds['non_null'])
 
+            import pdb; pdb.set_trace()
             # Add the region coordinate to the statistic
             ds = ds.assign_coords(region=region_ds.region)
 
@@ -269,6 +270,8 @@ class Metric(ABC):
 
                 ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
                 ds[self.variable] = ds[self.variable] / ds['weights']
+                ds['non_null'] = ds['non_null'] / ds['weights']
+                ds['indicator'] = ds['indicator'] / ds['weights']
                 ds = ds.drop_vars(['weights'])
             else:
                 # If returning a spatial metric, mask and drop

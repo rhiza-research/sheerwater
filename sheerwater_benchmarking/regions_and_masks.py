@@ -100,11 +100,12 @@ def region_labels(grid='global1_5', region_level='countries'):
     # Get the grid dataframe
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype=object).data))
+    # Fixed data type of strings of lengh 100 
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
 
     # Loop through each region and label grid cells
     for i, rn in region_data.iterrows():
-        print(i, '/', len(region_data.region_name), rn.region_name)
+        print(i+1, '/', len(region_data.region_name), rn.region_name)
         # Clip the grid to the boundary of Shapefile
         world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
         #  Add geometry to the dataframe and clip
