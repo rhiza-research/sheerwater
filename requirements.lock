@@ -185,8 +185,6 @@ distributed==2025.1.0
     # via coiled
     # via dask
     # via dask-kubernetes
-duckdb==1.4.2
-    # via wkls
 durationpy==0.9
     # via kubernetes
 ecmwf-api-client==1.6.3
@@ -562,7 +560,6 @@ pandas==2.2.3
     # via salientsdk
     # via statsmodels
     # via weatherbench2
-    # via wkls
     # via xarray
 pandocfilters==1.5.1
     # via nbconvert
@@ -912,8 +909,6 @@ wheel==0.45.1
     # via coiled
 widgetsnbextension==4.0.13
     # via ipywidgets
-wkls==0.4.5
-    # via sheerwater-benchmarking
 wrapt==1.17.2
     # via aiobotocore
     # via deprecated
