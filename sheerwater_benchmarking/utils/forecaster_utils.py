@@ -1,7 +1,6 @@
 """Variable-related utility functions for all parts of the data pipeline."""
 
 from functools import wraps
-import numpy as np
 
 from .space_utils import apply_mask, clip_region
 
@@ -26,7 +25,7 @@ def forecast(func):
             ds = apply_mask(ds, kwargs['mask'], grid=kwargs['grid'])
             # Clip to specified region
             ds = clip_region(ds, region=kwargs['region'])
-        except Exception as e:
+        except Exception:
             import pdb
             pdb.set_trace()
         return ds
