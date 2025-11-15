@@ -174,7 +174,7 @@ def fuxi(start_time, end_time, variable, agg_days, prob_type='deterministic',
     ds = fuxi_rolled(forecast_start, forecast_end, variable=variable, prob_type=prob_type, agg_days=agg_days)
 
     # Reanme to standard naming
-    ds = ds.rename({'time': 'initialization_time', 'lead_time': 'prediction_timedelta'})
+    ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'

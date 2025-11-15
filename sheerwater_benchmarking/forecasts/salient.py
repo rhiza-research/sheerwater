@@ -96,6 +96,6 @@ def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
     ds = ds.sortby(ds.forecast_date)
     ds = ds.swap_dims({'lead': 'prediction_timedelta'})
     ds = ds.drop_vars('lead')
-    ds = ds.rename({'forecast_date': 'initialization_time'})
+    ds = ds.rename({'forecast_date': 'init_time'})
 
     return ds

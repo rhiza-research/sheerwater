@@ -63,21 +63,13 @@ class Metric(ABC):
         self.mask = mask
         self.region = region
 
-        # Initialize the data dictionary, a place to store data about the metric calculation
-        # data is a dictionary containing a data key and a dictionary containing any data needed
+        # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
+        # This is a dictionary that contains a data entry and a key entry.
+        # data is a dictionary containing any data needed
         # for the metric calculation, such as the forecasts dataframe, the array of bins, etc.
-        # The data key should uniquely identify the contents of the metric data dictionary.
+        # key is a string and should uniquely identify the contents of the metric data dictionary,
+        # other than the standard cache args.
         self.metric_data = {'key': data_key, 'data': {}}
-
-        # If categorical, populate the data with the bin information
-        if self.categorical:
-            if data_key == 'none':
-                raise ValueError("A categorical metric must have a data_key that specifies the bins.")
-            # Get the bins
-            bins = [-np.inf] + [float(x) for x in data_key.split('-')] + [np.inf]
-            if len(bins) > 10:
-                raise ValueError("Categorical metrics can only have up to 10 bins.")
-            self.metric_data['data']['bins'] = bins
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
@@ -143,6 +135,16 @@ class Metric(ABC):
         # properly compute the climatology
         self.metric_data['data']['no_null'] = no_null
         self.metric_data['data']['valid_times'] = valid_times
+
+        # If categorical, populate the data with the bin information
+        if self.categorical:
+            if self.metric_data['key'] == 'none':
+                raise ValueError("A categorical metric must have a key that specifies the bins.")
+            # Get the bins
+            bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
+            if len(bins) > 10:
+                raise ValueError("Categorical metrics can only have up to 10 bins.")
+            self.metric_data['data']['bins'] = bins
 
     @property
     @abstractmethod

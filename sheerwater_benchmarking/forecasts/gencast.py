@@ -165,12 +165,12 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
     return ds
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
            cache=False,
            cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
 def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""
@@ -186,5 +186,5 @@ def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
     ds = ds.assign_attrs(prob_type="ensemble")
 
     # Rename to standard naming
-    ds = ds.rename({'time': 'initialization_time', 'lead_time': 'prediction_timedelta'})
+    ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds

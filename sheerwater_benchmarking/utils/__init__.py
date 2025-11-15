@@ -18,8 +18,7 @@ from .time_utils import (is_valid_forecast_date, generate_dates_in_between, get_
                          groupby_time, assign_grouping_coordinates,
                          convert_group_to_time, date_mean, doy_mean)
 
-from .forecaster_utils import (get_variable, get_lead_info, forecast,
-                               convert_lead_to_valid_time, get_lead_group)
+from .forecaster_utils import (get_variable, forecast, convert_init_time_to_pred_time)
 
 from .task_utils import first_satisfied_date
 
@@ -71,8 +70,6 @@ __all__ = [
     "doy_mean",
     "forecast",
     "get_variable",
-    "get_lead_info",
-    "convert_lead_to_valid_time",
-    "get_lead_group",
+    "convert_init_time_to_pred_time",
     "first_satisfied_date",
 ]

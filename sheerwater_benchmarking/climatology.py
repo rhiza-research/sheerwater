@@ -355,11 +355,10 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
 
     # To match the standard forecast format, add a prediction_timedelta coordinate
     ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})  # nanosecond precision
-    ds = ds.rename({"time": "initialization_time"})
+    ds = ds.rename({"time": "init_time"})
     return ds
 
 
-@forecast
 @dask_remote
 @cacheable(data_type='array',
            timeseries='time',
@@ -428,5 +427,5 @@ def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='det
 
     # To match the standard forecast format, add a prediction_timedelta coordinate
     ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "D")]})
-    ds = ds.rename({"time": "initialization_time"})
+    ds = ds.rename({"time": "init_time"})
     return ds

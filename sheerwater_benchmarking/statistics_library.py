@@ -235,8 +235,9 @@ def make_fn_n_fcst_bin(category):
 
 
 # Generate 10 categorical obserations by default for the categorical metrics
-dynamic_n_obs_bin_fns = [make_fn_n_obs_bin(cat) for cat in range(1, 10)]
-dynamic_n_fcst_bin_fns = [make_fn_n_fcst_bin(cat) for cat in range(1, 10)]
+for cat in range(1, 10):
+    make_fn_n_obs_bin(cat)
+    make_fn_n_fcst_bin(cat)
 
 
 @statistic(cache=False, name='mae')

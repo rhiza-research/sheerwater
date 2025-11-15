@@ -46,10 +46,10 @@ standard_regions = ['country', 'continent', 'subregion', 'region_un', 'region_wb
 # Additionally, allow the construction of custom regions by country list or lat / lon bounding box
 custom_regions = {
     'sheerwater_areas': {
-        'east_africa': {
+        'nimbus_east_africa': {
             'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
         },
-        'west_africa': {
+        'nimbus_west_africa': {
             'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
         },
         'conus': {
