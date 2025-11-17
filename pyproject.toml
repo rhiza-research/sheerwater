@@ -84,6 +84,10 @@ source = "vcs"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build]
+# Necessary to include nuthatch.toml
+include = ["sheerwater_benchmarking/", "jobs/"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["./sheerwater", "./jobs"]
 
