@@ -1,15 +1,39 @@
 """Cahable Grafana tables for metrics."""
 import xarray as xr
+import numpy as np
 
-from sheerwater_benchmarking.utils import cacheable, dask_remote
+from sheerwater_benchmarking.utils import cacheable, dask_remote, start_remote
 from sheerwater_benchmarking.metrics import metric
 
-agg_days_to_labels = {
-    7: 'weekly',
-    14: 'biweekly',
-    30: 'monthly',
-    90: 'seasonal',
+# Lead labels for standrad aggregrations
+lead_dict = {
+    7: ('weekly',
+        ['week1', 'week2', 'week3', 'week4', 'week5', 'week6'],
+        [np.timedelta64(0, 'D'), np.timedelta64(7, 'D'), np.timedelta64(14, 'D'), np.timedelta64(21, 'D'), np.timedelta64(28, 'D'), np.timedelta64(35, 'D')]),
+    14: ('biweekly',
+         ['weeks12', 'weeks34', 'weeks56'],
+         [np.timedelta64(0, 'D'), np.timedelta64(14, 'D'), np.timedelta64(28, 'D')]),
+    30: ('monthly',
+         ['month1', 'month2', 'month3'],
+         [np.timedelta64(0, 'D'), np.timedelta64(30, 'D'), np.timedelta64(60, 'D')]),
+    90: ('quarterly',
+         ['quarter1', 'quarter2', 'quarter3', 'quarter4'],
+         [np.timedelta64(0, 'D'), np.timedelta64(90, 'D'), np.timedelta64(180, 'D'), np.timedelta64(270, 'D')]),
 }
+
+
+def get_lead_labels(agg_values):
+    lead_labels = []
+    try:
+        if len(agg_values) == 1:
+            return lead_dict[agg_values[0]][1]
+        else:
+            for agg in agg_values:
+                lead_labels.append(lead_dict[agg][0])
+    except KeyError:
+        raise ValueError(f"Invalid aggregation days {agg}")
+    return lead_labels
+
 
 @dask_remote
 def _summary_metrics_table(start_time, end_time, variable,
@@ -21,38 +45,51 @@ def _summary_metrics_table(start_time, end_time, variable,
     # forecast and time, which we instantiate
     results_ds = xr.Dataset(coords={'forecast': forecasts, 'time': None})
 
-    for forecast in forecasts:
-        print(
-            f"Running for {forecast} and {agg_days} with variable {variable}, "
-            f"metric {metric_name}, grid {grid}, region {region}, "
-            f"time grouping {time_grouping}")
-        # First get the value without the baseline
-        try:
-            ds = metric(start_time, end_time, variable,
-                        agg_days=agg_days, forecast=forecast, truth=truth,
-                        metric_name=metric_name, time_grouping=time_grouping, spatial=False,
-                        grid=grid, region=region,
-                        retry_null_cache=True)
-        except NotImplementedError:
-            ds = None
+    # Agg days can either by a single value or a list of values.
+    if not isinstance(agg_days, list):
+        agg_days = [agg_days]
 
-        if ds:
-            import pdb; pdb.set_trace()
-            ds = ds.rename({variable: agg_days})
-            ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
-            results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
+    for forecast in forecasts:
+        for _, agg in enumerate(agg_days):
+            print(
+                f"Running for {forecast} and {agg} with variable {variable}, "
+                f"metric {metric_name}, grid {grid}, region {region}, "
+                f"time grouping {time_grouping}")
+            # First get the value without the baseline
+            try:
+                ds = metric(start_time, end_time, variable,
+                            agg_days=agg, forecast=forecast, truth=truth,
+                            metric_name=metric_name, time_grouping=time_grouping, spatial=False,
+                            grid=grid, region=region,
+                            retry_null_cache=True)
+            except NotImplementedError:
+                ds = None
+
+            if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
+                raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
+
+            if ds:
+                ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
+                results_ds = results_ds.merge(ds)
 
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)
+
+    if len(agg_days) > 1:
+        agg_values = agg_days
+    else:
+        agg_values = results_ds.prediction_timedelta.values
+
+    lead_labels = get_lead_labels(agg_values)
 
     df = results_ds.to_dataframe()
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
     if 'time' in df.columns:
-        order = ['time', 'forecast'] + leads
+        order = ['time', 'forecast'] + lead_labels
     else:
-        order = ['forecast'] + leads
+        order = ['forecast'] + lead_labels
 
     # Reorder the columns if necessary
     df = df[order]
@@ -62,29 +99,21 @@ def _summary_metrics_table(start_time, end_time, variable,
 
 @dask_remote
 @cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'leads', 'forecasts', 'time_grouping', 'grid', 'region'],
+           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
            hash_postgres_table_name=True,
            backend='postgres',
            cache=True,
            primary_keys=['time', 'forecast'])
 def summary_metrics_table(start_time, end_time, variable,
-                          truth, metric, time_grouping=None,
+                          truth, metric_name, time_grouping=None,
                           grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        forecasts = ['climatology_2015', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased',  'fuxi']
-        if variable == 'rainy_onset_no_drought':
-            leads = ['day1', 'day8', 'day15', 'day20']
-        else:
-            leads = ['day1', 'day8', 'day15', 'day20', 'day29', 'day36']
-    else:
-        forecasts = ['fuxi', 'salient', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
-                     'climatology_trend_2015', 'climatology_rolling', 'gencast', 'graphcast']
-        leads = ["week1", "week2", "week3", "week4", "week5", "week6"]
-    df = _summary_metrics_table(start_time, end_time, variable, truth, metric, leads, forecasts,
-                                time_grouping=time_grouping,
-                                grid=grid, region=region)
+    # forecasts = ['fuxi', 'salient', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
+    #             #  'climatology_trend_2015', 'climatology_rolling', 'gencast', 'graphcast']
+    forecasts = ['ecmwf_ifs_er_debiased', 'climatology_2015']
+    df = _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
+                                agg_days=7, forecasts=forecasts,
+                                time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
@@ -92,19 +121,17 @@ def summary_metrics_table(start_time, end_time, variable,
 
 @dask_remote
 @cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'region'],
+           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
            cache=True,
            primary_keys=['time', 'forecast'])
 def seasonal_metrics_table(start_time, end_time, variable,
-                           truth, metric, time_grouping=None,
+                           truth, metric_name, time_grouping=None,
                            grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['salient', 'climatology_2015']
-    leads = ["month1", "month2", "month3"]
-    df = _summary_metrics_table(start_time, end_time, variable, truth, metric, leads, forecasts,
-                                time_grouping=time_grouping,
-                                grid=grid, region=region)
+    df = _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
+                                agg_days=30, forecasts=forecasts,
+                                time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
@@ -112,19 +139,18 @@ def seasonal_metrics_table(start_time, end_time, variable,
 
 @dask_remote
 @cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'region'],
+           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
            cache=True,
            primary_keys=['time', 'forecast'])
 def station_metrics_table(start_time, end_time, variable,
-                          truth, metric, time_grouping=None,
+                          truth, metric_name, time_grouping=None,
                           grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['era5', 'chirps', 'imerg', 'cbam']
-    leads = ["daily", "weekly", "biweekly", "monthly"]
-    df = _summary_metrics_table(start_time, end_time, variable, truth, metric, leads, forecasts,
-                                time_grouping=time_grouping,
-                                grid=grid, region=region)
+    agg_days = [1, 7, 14, 30]
+    df = _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
+                                agg_days, forecasts,
+                                time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
@@ -132,19 +158,37 @@ def station_metrics_table(start_time, end_time, variable,
 
 @dask_remote
 @cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'region'],
+           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
            cache=True)
 def biweekly_summary_metrics_table(start_time, end_time, variable,
-                                   truth, metric, time_grouping=None,
+                                   truth, metric_name, time_grouping=None,
                                    grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
                  'climatology_trend_2015', 'climatology_rolling']
-    leads = ["weeks34", "weeks56"]
-    df = _summary_metrics_table(start_time, end_time, variable, truth, metric, leads, forecasts,
-                                time_grouping=time_grouping,
-                                grid=grid, region=region)
+    df = _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
+                                agg_days=14, forecasts=forecasts,
+                                time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
+
+
+if __name__ == "__main__":
+    start_remote(remote_config='xlarge_cluster')
+    start_time = "2016-01-01"
+    end_time = "2022-12-31"
+    variable = "precip"
+    truth = "era5"
+    metric_name = "mae"
+    time_grouping = None
+    grid = "global1_5"
+    region = "global"
+    df = summary_metrics_table(start_time, end_time, variable, truth, metric_name, time_grouping, grid, region)
+    print(df)
+    df = seasonal_metrics_table(start_time, end_time, variable, truth, metric_name, time_grouping, grid, region)
+    print(df)
+    df = station_metrics_table(start_time, end_time, variable, truth, metric_name, time_grouping, grid, region)
+    print(df)
+    df = biweekly_summary_metrics_table(start_time, end_time, variable, truth, metric_name, time_grouping, grid, region)
+    print(df)
