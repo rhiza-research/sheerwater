@@ -44,7 +44,6 @@ def chirps_gridded(year, grid):
     return ds
 
 
-@dask_remote
 @timeseries()
 @cache(cache_args=['grid', 'agg_days'],
        backend_kwargs = {
