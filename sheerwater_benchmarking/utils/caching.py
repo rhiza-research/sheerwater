@@ -1072,7 +1072,10 @@ def cacheable(data_type, cache_args, timeseries=None, chunking=None, chunk_by_ar
             # Check for memoized land-sea mask
             if cache_key in memoized and memoized[cache_key] is not None:
                 print(f"Found memoized result for {cache_key}")
-                return memoized[cache_key]
+                # Set cache and skip the rest of the computation until filtering
+                ds = memoized[cache_key]
+                compute_result = False
+                cache = False
 
             # Now check if the cache exists
             if not recompute and not upsert and cache:

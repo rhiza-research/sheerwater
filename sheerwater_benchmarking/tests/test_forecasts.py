@@ -4,7 +4,7 @@
 from sheerwater_benchmarking.utils import start_remote, get_datasource_fn
 
 
-def test_function(function_name, test_params):
+def run_forecasting_function(function_name, test_params):
     """Test a single function with minimal parameters."""
     print(f"\n--- Testing {function_name} ---")
 
@@ -38,12 +38,10 @@ def test_function(function_name, test_params):
 
             return result
         else:
-            print(f"   ⚠ {function_name} returned None")
-            return None
+            raise ValueError(f"   ✗ {function_name} returned None")
 
     except Exception as e:
-        print(f"   ✗ {function_name} failed: {e}")
-        return None
+        raise ValueError(f"   ✗ {function_name} failed: {e}")
 
 
 def test_all_forecasts():
@@ -63,7 +61,7 @@ def test_all_forecasts():
         'start_time': "2016-01-01",
         'end_time': "2022-12-31",
         'variable': "precip",
-        'lead': 'weekly',
+        'agg_days': 7,
         'region': 'kenya',
         'grid': 'global1_5',
         'mask': 'lsm',
@@ -73,7 +71,7 @@ def test_all_forecasts():
     results = {}
 
     for forecast_name in forecasts_to_test:
-        result = test_function(forecast_name, test_params)
+        result = run_forecasting_function(forecast_name, test_params)
         results[forecast_name] = result
 
     return results
@@ -83,7 +81,7 @@ def test_regions():
     """Test a few key regions with a simple forecast."""
     print("\n=== Testing Different Regions ===")
 
-    regions_to_test = ['kenya', 'africa', 'conus', 'east_africa']
+    regions_to_test = ['kenya', 'africa', 'conus',  'nimbus_east_africa']
 
     try:
         # Use get_datasource_fn for ecmwf_ifs_er_debiased
@@ -96,7 +94,7 @@ def test_regions():
                     "2020-01-01",  # start_time as positional
                     "2020-01-31",  # end_time as positional
                     variable="precip",
-                    lead='week1',
+                    agg_days=7,
                     region=region,
                     grid='global1_5',
                     mask='lsm',
@@ -119,38 +117,39 @@ def test_lead_times():
     """Test different lead times with a simple forecast."""
     print("\n=== Testing Different Lead Times ===")
 
-    leads_to_test = ['week1', 'week2', 'weeks12', 'month1']
+    leads_to_test = [7, 30]
 
     try:
         # Use get_datasource_fn for ecmwf_ifs_er_debiased
         ecmwf_fn = get_datasource_fn('ecmwf_ifs_er_debiased')
 
-        for lead in leads_to_test:
+        for agg_days in leads_to_test:
             try:
-                print(f"\n   Testing lead: {lead}")
+                print(f"\n   Testing agg_days: {agg_days}")
                 result = ecmwf_fn(
                     "2016-01-01",
                     "2022-12-31",
                     variable="precip",
-                    lead=lead,
+                    agg_days=agg_days,
                     region='kenya',
                     grid='global1_5',
                     mask='lsm',
                     recompute=False
                 )
-
                 if result is not None:
-                    print(f"   ✓ {lead} succeeded - Shape: {result.dims}")
-                    if hasattr(result, 'lead_time'):
-                        print(f"   ✓ Lead times: {result.lead_time.values}")
+                    print(f"   ✓ {agg_days} succeeded - Shape: {result.dims}")
+                    if 'prediction_timedelta' in result.dims:
+                        print(f"   ✓ Prediction timedeltas: {result.prediction_timedelta.values}")
+                    else:
+                        raise ValueError(f"   ✗ {agg_days} did not have prediction_timedelta dimension")
                 else:
-                    print(f"   ⚠ {lead} returned None")
+                    raise ValueError(f"   ✗ {agg_days} failed to return a result")
 
             except Exception as e:
-                print(f"   ✗ {lead} failed: {e}")
+                raise ValueError(f"   ✗ {agg_days} failed: {e}")
 
     except Exception as e:
-        print(f"   ✗ Failed to test lead times: {e}")
+        raise ValueError(f"   ✗ Failed to test agg_days: {e}")
 
 
 def main():
@@ -188,4 +187,5 @@ def main():
 
 
 if __name__ == "__main__":
+    start_remote(remote_config='large_cluster', remote_name='test_forecasts')
     main()

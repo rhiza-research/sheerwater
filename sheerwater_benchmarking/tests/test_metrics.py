@@ -14,20 +14,18 @@ def test_metric_factory():
         'agg_days': 7,
         'forecast': 'ecmwf_ifs_er_debiased',
         'truth': 'era5',
-        'time_grouping': None,
+        'time_grouping': 'month',
         'spatial': False,
         'grid': 'global1_5',
         'mask': 'lsm',
-        'region': 'countries',
+        'region': 'country',
     }
 
     met = metric_factory('heidke-1-5-10-20', **cache_kwargs)
     test = met.compute()
-    import pdb
-    pdb.set_trace()
     assert test is not None
 
 
 if __name__ == "__main__":
-    start_remote(remote_config='large_cluster')
+    start_remote(remote_config='large_cluster', remote_name='test_metrics')
     test_metric_factory()

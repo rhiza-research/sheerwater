@@ -85,12 +85,15 @@ def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
 
     # Convert salient lead naming to match our standard
     if timescale == "sub-seasonal":
-        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64(i-1, 'W') for i in ds.lead.values]))
+        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64(
+            i-1, 'W').astype('timedelta64[ns]') for i in ds.lead.values]))
     elif timescale == "long-range":
-        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64((i-1)*120, 'D') for i in ds.lead.values]))
+        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64(
+            (i-1)*120, 'D').astype('timedelta64[ns]') for i in ds.lead.values]))
     elif timescale == "seasonal":
         # TODO: salient's monthly leads are 31 days, but we define them as 30 days
-        ds = ds.assign_coords(prediction_timedelta=('lead', [i-np.timedelta64(1, 'D') for i in ds.lead.values]))
+        ds = ds.assign_coords(prediction_timedelta=(
+            'lead', [i-np.timedelta64(1, 'D').astype('timedelta64[ns]') for i in ds.lead.values]))
     else:
         raise ValueError(f"Invalid timescale: {timescale}")
     ds = ds.sortby(ds.forecast_date)

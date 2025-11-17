@@ -2,12 +2,18 @@
 import xarray as xr
 
 from sheerwater_benchmarking.utils import cacheable, dask_remote
-from sheerwater_benchmarking.metrics import grouped_metric
+from sheerwater_benchmarking.metrics import metric
 
+agg_days_to_labels = {
+    7: 'weekly',
+    14: 'biweekly',
+    30: 'monthly',
+    90: 'seasonal',
+}
 
 @dask_remote
 def _summary_metrics_table(start_time, end_time, variable,
-                           truth, metric, leads, forecasts,
+                           truth, metric_name, agg_days, forecasts,
                            time_grouping=None,
                            grid='global1_5', region='global'):
     """Internal function to compute summary metrics table for flexible leads and forecasts."""
@@ -16,25 +22,25 @@ def _summary_metrics_table(start_time, end_time, variable,
     results_ds = xr.Dataset(coords={'forecast': forecasts, 'time': None})
 
     for forecast in forecasts:
-        for _, lead in enumerate(leads):
-            print(
-                f"Running for {forecast} and {lead} with variable {variable}, "
-                f"metric {metric}, grid {grid}, region {region}, "
-                f"time grouping {time_grouping}")
-            # First get the value without the baseline
-            try:
-                ds = grouped_metric(start_time, end_time, variable,
-                                    lead=lead, forecast=forecast, truth=truth,
-                                    metric=metric, time_grouping=time_grouping, spatial=False,
-                                    grid=grid, region=region,
-                                    retry_null_cache=True)
-            except NotImplementedError:
-                ds = None
+        print(
+            f"Running for {forecast} and {agg_days} with variable {variable}, "
+            f"metric {metric_name}, grid {grid}, region {region}, "
+            f"time grouping {time_grouping}")
+        # First get the value without the baseline
+        try:
+            ds = metric(start_time, end_time, variable,
+                        agg_days=agg_days, forecast=forecast, truth=truth,
+                        metric_name=metric_name, time_grouping=time_grouping, spatial=False,
+                        grid=grid, region=region,
+                        retry_null_cache=True)
+        except NotImplementedError:
+            ds = None
 
-            if ds:
-                ds = ds.rename({variable: lead})
-                ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
-                results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
+        if ds:
+            import pdb; pdb.set_trace()
+            ds = ds.rename({variable: agg_days})
+            ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
+            results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
 
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)

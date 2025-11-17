@@ -25,15 +25,18 @@ def forecast(func):
             ds = apply_mask(ds, kwargs['mask'], grid=kwargs['grid'])
             # Clip to specified region
             ds = clip_region(ds, region=kwargs['region'])
-        except Exception:
-            import pdb
-            pdb.set_trace()
+            # Remove all unneeded dimensions
+            ds = ds.drop_vars([var for var in ds.coords if var not in [
+                              'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+
+        except Exception as e:
+            raise ValueError(f"Error in forecast {func.__name__}: {e}")
         return ds
     return forecast_wrapper
 
 
 def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
-                               lead_time_dim='prediction_timedelta', valid_time_dim='time'):
+                                   lead_time_dim='prediction_timedelta', valid_time_dim='time'):
     """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
     ds = ds.assign_coords({valid_time_dim: ds[init_time_dim] + ds[lead_time_dim]})
     tmp = ds.stack(z=(init_time_dim, lead_time_dim))

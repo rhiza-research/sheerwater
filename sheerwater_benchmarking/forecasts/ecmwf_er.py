@@ -370,8 +370,6 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
                                    agg_days=agg_days, grid=grid, debiased=debiased)
 
-    # Rename to standard naming
-    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
@@ -385,6 +383,8 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
         print("Warning: Dividing precip by days to get daily values. Do you still want to do this?")
         ds['precip'] /= agg_days
 
+    # Rename to standard naming
+    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
 
 

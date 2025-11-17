@@ -425,7 +425,9 @@ def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='det
     times = [x + pd.DateOffset(years=1) for x in ds.time.values]
     ds = ds.assign_coords(time=times)
 
+    # TODO: need to think through the padding with leap days, as we're getting duplicates
+    ds = ds.drop_duplicates('time')
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "D")]})
+    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})
     ds = ds.rename({"time": "init_time"})
     return ds
