@@ -1140,7 +1140,10 @@ def cacheable(data_type, cache_args, timeseries=None, chunking=None, chunk_by_ar
                             # Check for memoized land-sea mask
                             if cache_key not in memoized and ds is not None:
                                 print(f"Memoizing {cache_key}")
-                                memoized[cache_key] = ds.persist()
+                                try:
+                                    memoized[cache_key] = ds.persist()
+                                except Exception as e:
+                                    print(f"Error memoizing {cache_key}: {e}")
 
                             if validate_cache_timeseries and timeseries is not None:
                                 # Check to see if the dataset extends roughly the full time series set
@@ -1254,7 +1257,10 @@ def cacheable(data_type, cache_args, timeseries=None, chunking=None, chunk_by_ar
                     ds = func(*args, **kwargs)
                     if cache_key not in memoized and ds is not None:
                         print(f"Memoizing {cache_key}")
-                        memoized[cache_key] = ds.persist()
+                        try:
+                            memoized[cache_key] = ds.persist()
+                        except Exception as e:
+                            print(f"Error memoizing {cache_key}: {e}")
                     ##########################
 
                 # Store the result
