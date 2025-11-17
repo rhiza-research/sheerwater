@@ -1,17 +1,19 @@
 """CHIRPS data product."""
 import xarray as xr
 from functools import partial
-from sheerwater.utils import regrid, dask_remote, cacheable, roll_and_agg, apply_mask, clip_region
+from sheerwater.utils import regrid, dask_remote, roll_and_agg, apply_mask, clip_region
 from dateutil import parser
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 import datetime
 import fsspec
-
+from nuthatch import cache
+from nuthatch.processors import timeseries
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['year', 'grid'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@cache(cache_args=['year', 'grid'],
+       backend_kwargs = {
+           'chunking': {'lat': 300, 'lon': 300, 'time': 365}
+       })
 def chirps_gridded(year, grid):
     """CHIRPS regridded by year."""
     # Open the datastore
@@ -43,10 +45,11 @@ def chirps_gridded(year, grid):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries=['time'],
-           cache_args=['grid', 'agg_days'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@timeseries()
+@cache(cache_args=['grid', 'agg_days'],
+       backend_kwargs = {
+           'chunking': {'lat': 300, 'lon': 300, 'time': 365}
+       })
 def chirps_rolled(start_time, end_time, agg_days, grid):
     """CHIRPS rolled and aggregated."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
@@ -65,10 +68,12 @@ def chirps_rolled(start_time, end_time, agg_days, grid):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries=['time'],
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       backend_kwargs = {
+           'chunking': {'lat': 300, 'lon': 300, 'time': 365}
+       })
 def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Final access function for chirps."""
     if variable not in ['precip', 'rainy_onset', 'rainy_onset_no_drought']:
