@@ -5,42 +5,6 @@ import numpy as np
 from sheerwater_benchmarking.utils import cacheable, dask_remote, start_remote
 from sheerwater_benchmarking.metrics import metric
 
-# Lead labels for standrad aggregrations
-agg_days_to_lead_labels = {
-    1: ('daily',
-        {
-            **{np.timedelta64(i, 'D').astype('timedelta64[ns]'): f'day{i+1}' for i in range(45)}
-        }),
-    7: ('weekly',
-        {
-            np.timedelta64(0, 'D').astype('timedelta64[ns]'): 'week1',
-            np.timedelta64(7, 'D').astype('timedelta64[ns]'): 'week2',
-            np.timedelta64(14, 'D').astype('timedelta64[ns]'): 'week3',
-            np.timedelta64(21, 'D').astype('timedelta64[ns]'): 'week4',
-            np.timedelta64(28, 'D').astype('timedelta64[ns]'): 'week5',
-            np.timedelta64(35, 'D').astype('timedelta64[ns]'): 'week6'
-        }),
-    14: ('biweekly',
-         {
-             np.timedelta64(0, 'D').astype('timedelta64[ns]'): 'weeks12',
-             np.timedelta64(14, 'D').astype('timedelta64[ns]'): 'weeks34',
-             np.timedelta64(28, 'D').astype('timedelta64[ns]'): 'weeks56'
-         }),
-    30: ('monthly',
-         {
-             np.timedelta64(0, 'D').astype('timedelta64[ns]'): 'month1',
-             np.timedelta64(30, 'D').astype('timedelta64[ns]'): 'month2',
-             np.timedelta64(60, 'D').astype('timedelta64[ns]'): 'month3'
-         }),
-    90: ('quarterly',
-         {
-             np.timedelta64(0, 'D').astype('timedelta64[ns]'): 'quarter1',
-             np.timedelta64(90, 'D').astype('timedelta64[ns]'): 'quarter2',
-             np.timedelta64(180, 'D').astype('timedelta64[ns]'): 'quarter3',
-             np.timedelta64(270, 'D').astype('timedelta64[ns]'): 'quarter4'
-         }),
-}
-
 
 @dask_remote
 def _metric_table(start_time, end_time, variable,
@@ -52,14 +16,12 @@ def _metric_table(start_time, end_time, variable,
     # forecast and time, which we instantiate
     results_ds = xr.Dataset(coords={'forecast': forecasts, 'time': None})
 
-    # Agg days can either by a single value or a list of values.
+    # Make sure agg_days is a list
     if not isinstance(agg_days, list):
         agg_days = [agg_days]
-        lead_dict = agg_days_to_lead_labels[agg_days[0]][1]
-    lead_labels = [agg_days_to_lead_labels[agg][0] for agg in agg_days]
 
     for forecast in forecasts:
-        for i, agg in enumerate(agg_days):
+        for _, agg in enumerate(agg_days):
             print(
                 f"Running for {forecast} and {agg} with variable {variable}, "
                 f"metric {metric_name}, grid {grid}, region {region}, "
@@ -77,23 +39,21 @@ def _metric_table(start_time, end_time, variable,
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
             if ds:
-                ds = ds.rename({variable: lead_labels[i]})
+                ds = ds.rename({variable: agg})
                 ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
                 # For climatology forecasts, we need to expand the prediction_timedelta coordinate
                 if 'prediction_timedelta' in ds.coords and 'climatology' in forecast:
                     ds = ds.squeeze('prediction_timedelta')
-                    ds = ds.expand_dims({'lead_time': list(lead_dict.values())})
+                    ds = ds.expand_dims({'lead_day': np.arange(100)})  # 100 lead days for climatology forecasts
                 elif 'prediction_timedelta' in ds.coords:
-                    # Get the intersection of the prediction_timedelta coordinate and the lead_sel
-                    lead_sel = np.intersect1d(ds.prediction_timedelta.values, list(lead_dict.keys()))
-                    # Select the approriate leads
-                    ds = ds.sel(prediction_timedelta=lead_sel)
-                    # Map lead values to labels using the lead_dict
-                    timedelta_labels = [lead_dict[x] for x in ds.prediction_timedelta.values]
-                    ds = ds.rename({'prediction_timedelta': 'lead_time'})
-                    ds = ds.assign_coords(lead_time=timedelta_labels)
+                    lead_values = ds.prediction_timedelta.values / np.timedelta64(1, 'D')
+                    ds = ds.assign_coords(prediction_timedelta=lead_values)
+                    ds = ds.rename({'prediction_timedelta': 'lead_day'})
                 # results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
                 results_ds = results_ds.merge(ds)
+
+    import pdb
+    pdb.set_trace()
 
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)
@@ -104,9 +64,9 @@ def _metric_table(start_time, end_time, variable,
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
     if 'time' in df.columns:
-        order = ['time', 'forecast'] + lead_labels
+        order = ['time', 'forecast'] + agg_days
     else:
-        order = ['forecast'] + lead_labels
+        order = ['forecast'] + agg_days
 
     # Reorder the columns if necessary
     df = df[order]
@@ -200,15 +160,6 @@ if __name__ == "__main__":
     time_grouping = None
     grid = "global1_5"
     region = "global"
-    df = weekly_metric_table(start_time, end_time, variable, truth,
-                             metric_name, time_grouping, grid, region=region, recompute=True, force_overwrite=True)
-    print(df)
-    df = monthly_metric_table(start_time, end_time, variable, truth,
-                              metric_name, time_grouping, grid, region=region)
-    print(df)
-    df = ground_truth_metric_table(start_time, end_time, variable, truth,
-                                   metric_name, time_grouping, grid, region=region)
-    print(df)
-    df = biweekly_metric_table(start_time, end_time, variable, truth,
-                               metric_name, time_grouping, grid, region=region)
+    df = weekly_metric_table(start_time, end_time, variable, truth, metric_name,
+                             time_grouping=time_grouping, grid=grid, region=region)
     print(df)
