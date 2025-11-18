@@ -1,7 +1,7 @@
 """Generate land-sea masks for all grids and bases."""
 from itertools import product
 # from importlib import import_module
-from sheerwater_benchmarking.baselines import climatology_2015
+from sheerwater.baselines import climatology_2015
 
 # import argparse
 
@@ -25,7 +25,7 @@ from sheerwater_benchmarking.baselines import climatology_2015
 
 # # Get the function
 # func = args.function
-# mod = import_module("sheerwater_benchmarking.baselines")
+# mod = import_module("sheerwater.baselines")
 # fn = getattr(mod, func)
 
 # Define a set of parameters to iterate through

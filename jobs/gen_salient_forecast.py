@@ -1,6 +1,6 @@
 """Generate Salient forecasts / reforecasts for all time."""
 from itertools import product
-from sheerwater_benchmarking.forecasts.salient import salient_blend
+from sheerwater.forecasts.salient import salient_blend
 
 
 if __name__ == "__main__":

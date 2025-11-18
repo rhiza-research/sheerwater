@@ -1,6 +1,6 @@
 """Re-run and re-cache the ECMWF aggregation and masking pipeline."""
 from itertools import product
-from sheerwater_benchmarking.forecasts.ecmwf_er import (ifs_extended_range_debiased,
+from sheerwater.forecasts.ecmwf_er import (ifs_extended_range_debiased,
                                                         ifs_extended_range, ecmwf_abc_wb)
 
 

@@ -8,9 +8,9 @@ from sqlalchemy import text
 import xarray as xr
 import pandas as pd
 
-from sheerwater_benchmarking.utils import dask_remote
-from sheerwater_benchmarking.utils.secrets import postgres_write_password
-from sheerwater_benchmarking.utils.caching import read_from_postgres
+from sheerwater.utils import dask_remote
+from sheerwater.utils.secrets import postgres_write_password
+from sheerwater.utils.caching import read_from_postgres
 
 
 @dask_remote

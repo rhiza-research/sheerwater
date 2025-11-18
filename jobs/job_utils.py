@@ -5,8 +5,8 @@ import itertools
 import multiprocessing
 import tqdm
 
-from sheerwater_benchmarking.metrics import is_precip_only
-from sheerwater_benchmarking.metrics import is_coupled
+from sheerwater.metrics import is_precip_only
+from sheerwater.metrics import is_coupled
 
 def parse_args():
     """Parses arguments for jobs."""

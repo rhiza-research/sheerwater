@@ -1,52 +1,79 @@
-# Sheerwater Benchmarking
+# Sheerwater
 
-This repository holds all the analysis and visualization infrastructure for Sheerwater's benchmarking
-project. The goal of the project is to benchmark ML- and physics-based weather and climate forecast regionally
+This repository holds all the analysis and visualization infrastructure for the Sheerwater
+project. The goal of the project is to benchmark ML- and physics-based weather and climate forecasts regionally
 around the globe, with a specific focus on model performance on the African continent.
 
+## Getting started
 
-## Benchmarking
+To run this code you need read access to sheerwater forecasts and ground truth data. Please request access from Rhiza
+if you would like to execute this code. Once you have access, you can read data and run metrics by importing
+sheerwater and running.
 
-Benchmarking code is run using python. Python packages and versions are managed by Rye. Install
-Rye to get started.
+1) In your environment install sheerwater - i.e.
 
-### Install Rye
-
-```
-curl -sSf https://rye.astral.sh/get | bash
-```
-
-### Install non-python dependencies
-
-```
-brew install hdf5 netcdf
+```console
+pip install sheerwater
 ```
 
-### Install python dependencies
-
-```
-cd sheerwater-benchmarking
-rye sync
-```
-
-To add new python dependencies, run
-```
-rye add --sync <PACKAGE>
-```
-and push the updated project files. 
-
-### Configure Google Cloud (optional, for cloud-based workflows) 
-Install the Google Cloud CLI following instructions [here](https://cloud.google.com/sdk/docs/install). 
-
-To set your default credentials for other applictions, like the gcloud Python API, run the following command and login to set up Application Default Credentials (ADC): 
-```
+2) Install google cloud CLI and login
+```console
+curl https://sdk.cloud.google.com | bash
 gcloud auth application-default login
 ```
 
-### Getting Started
-To run python code in our python environment, use `rye run python <script.py> <args>`. To start a Jupyter notebook using an approriate kernel, run `rye run jupyter lab`. Our environment makes use of the `jupytext` package to run python files in a notebook environment. You can open any python script as a notebook by right clicking on the file within the jupyter lab environment and selecting `Open with' and `Notebook`.
+2) Use sheerwater to access forecasts or data
+```py
+from sheerwater.forecasts import fuxi
+from sheerwater.data import ghcn
+from sheerwater.metrics import grouped_metric
 
-## Deployment and Infrastructure
+# Get the fuxi forecast as an xarray
+ds_fuxi = fuxi("2020-01-01", "2022-01-01", lead="week2", variable="precip", grid="global1_5",)
+
+# Get gridded GHCN data
+ds_ghcn = ghcn("2020-01-01", "2022-01-01", agg_days=7, variable="precip", grid="global0_25")
+
+# Fetch an evaluation metric - note, already computed metrics are defined from 2016-01-01 to 2022-12-31
+# Computing new metrics can be compute intensive
+metric = grouped_metric("2016-01-01", "2022-12-31", forecast="fuxi", truth="era5", variable="precip", lead="week2", metric="mae", region="kenya", grid="global1_5")
+print(metric)
+```
+
+### Developing on sheerwater
+
+1) Install UV
+
+```console
+curl -Ls https://astral.sh/uv/install.sh | sh
+```
+
+2) Install google cloud and login
+```console
+curl https://sdk.cloud.google.com | bash
+gcloud auth application-default login
+```
+
+3) Install non-python dependencies
+```console
+brew install hdf5 netcdf
+```
+
+4) Install python dependencies
+```console
+uv sync
+```
+
+5) Run on UV
+```console
+uv run python ...
+```
+or
+```console
+uv run jupyter lab
+```
+
+## Deployment and Infastructure
 
 This repository is integrated with the Rhiza infrastructure for deployments:
 
@@ -83,6 +110,3 @@ This module is imported and executed by the infrastructure repository's `terrafo
 ### ArgoCD Integration
 
 This repository is monitored by ArgoCD ApplicationSets configured in the [rhiza-research/infrastructure](https://github.com/rhiza-research/infrastructure) repository for PR environments. Pull requests with the `PR-env` label trigger ephemeral environment creation/destruction. 
-
-
-

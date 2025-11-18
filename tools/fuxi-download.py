@@ -1,5 +1,5 @@
 """Download FuXi S2S data."""
-from sheerwater_benchmarking.forecasts.fuxi import fuxi_raw
+from sheerwater.forecasts.fuxi import fuxi_raw
 import argparse
 
 if __name__ == "__main__":

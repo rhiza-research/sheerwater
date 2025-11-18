@@ -1,8 +1,8 @@
 """Generate land-sea masks for all grids and bases."""
 from itertools import product
-from sheerwater_benchmarking.reanalysis import era5_agg
-from sheerwater_benchmarking.reanalysis.era5 import era5_rolled, era5_daily, era5_daily_regrid
-from sheerwater_benchmarking.utils import start_remote
+from sheerwater.reanalysis import era5_agg
+from sheerwater.reanalysis.era5 import era5_rolled, era5_daily, era5_daily_regrid
+from sheerwater.utils import start_remote
 
 
 vars = ["tmp2m", "precip"]

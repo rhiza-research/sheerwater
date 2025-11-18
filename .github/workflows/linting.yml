@@ -21,13 +21,6 @@ jobs:
       - name: Lint Code Base
         uses: chartboost/ruff-action@v1
         with: 
-          src: sheerwater_benchmarking 
+          src: sheerwater
           args: 
             check
-            --fix
-
-      - name: Commit Safe Fixes
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: 'style fixes by ruff'
-

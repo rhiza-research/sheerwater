@@ -4,8 +4,8 @@ import itertools
 import traceback
 
 
-from sheerwater_benchmarking.metrics import grouped_metric
-from sheerwater_benchmarking.utils import start_remote
+from sheerwater.metrics import grouped_metric
+from sheerwater.utils import start_remote
 from jobs import parse_args, run_in_parallel, prune_metrics
 
 (start_time, end_time, forecasts, truth, metrics, variables,

@@ -1,8 +1,8 @@
 """Cache tables in postgres for the SPW dashboard."""
 import xarray as xr
 
-from sheerwater_benchmarking.utils import cacheable, dask_remote, start_remote
-from sheerwater_benchmarking.metrics import get_datasource_fn
+from sheerwater.utils import cacheable, dask_remote, start_remote
+from sheerwater.metrics import get_datasource_fn
 
 
 @dask_remote
