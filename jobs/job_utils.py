@@ -111,24 +111,19 @@ def prune_metrics(combos, global_run=False):
     """
     pruned_combos = []
     for combo in combos:
-        metric, variable, grid, region, agg_days, forecast, time_grouping, truth = combo
+        forecast, truth, variable, grid, agg_days, region, time_grouping, metric_name = combo
 
-        metric_obj = metric_factory(metric)
+        metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
+                                    agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
+                                    spatial=False, grid=grid, mask=None, region=region)
 
-        if not global_run and 'tahmo' in truth and region != 'east_africa':
+        if not global_run and 'tahmo' in truth and region != 'nimbus_east_africa':
             continue
-
-        if global_run:
-            if metric_obj.coupled:
-                continue
-        else:
-            if metric_obj.coupled and time_grouping is not None:
-                continue
 
         if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
             continue
 
-        if metric == 'seeps' and grid == 'global0_25':
+        if metric_name == 'seeps' and grid == 'global0_25':
             continue
 
         pruned_combos.append(combo)
