@@ -36,7 +36,8 @@ def run_grouped(combo):
         return "Not Implemented"
     except:  # noqa:E722
         print(
-            f"Failed to run global metric {forecast} {agg_days} {grid} {variable} {metric_name}: {traceback.format_exc()}")
+            f"Failed to run global metric {forecast} {agg_days}"
+            f"{grid} {variable} {metric_name}: {traceback.format_exc()}")
         return None
 
 

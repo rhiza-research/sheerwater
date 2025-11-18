@@ -29,7 +29,8 @@ def run_metric(combo):
     metric_name, variable, grid, region, agg, forecast, time_grouping, truth = combo
 
     try:
-        metric(start_time, end_time, variable, agg_days=agg, forecast=forecast, truth=truth, metric_name=metric_name, spatial=True,
+        metric(start_time, end_time, variable, agg_days=agg, forecast=forecast,
+               truth=truth, metric_name=metric_name, spatial=True,
                time_grouping=time_grouping, grid=grid, region=region,
                force_overwrite=True, filepath_only=filepath_only, recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:

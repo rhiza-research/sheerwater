@@ -4,7 +4,7 @@ import itertools
 import traceback
 
 from sheerwater_benchmarking.utils import start_remote
-from dashboard_data import biweekly_metric_table 
+from dashboard_data import biweekly_metric_table
 from jobs import parse_args, run_in_parallel
 
 (start_time, end_time, forecasts, metrics,

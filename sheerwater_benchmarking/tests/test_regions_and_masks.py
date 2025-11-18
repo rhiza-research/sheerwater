@@ -1,5 +1,4 @@
 """Test the regions and masking functions."""
-from itertools import product
 from sheerwater_benchmarking.regions_and_masks import land_sea_mask
 from sheerwater_benchmarking.utils.space_utils import get_grid
 from sheerwater_benchmarking.utils.region_utils import get_region_data
