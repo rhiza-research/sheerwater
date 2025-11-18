@@ -5,10 +5,10 @@ import traceback
 
 from sheerwater_benchmarking.utils import start_remote
 from jobs import parse_args, run_in_parallel, prune_metrics
-from dashboard_data import summary_metrics_table
+from dashboard_data import metric_table
 
 (start_time, end_time, forecasts, truth, metrics,
- variables, grids, regions, leads,
+ variables, grids, regions, agg_days,
  time_groupings, parallelism, recompute,
  backend, remote_name, remote, remote_config) = parse_args()
 
@@ -28,10 +28,10 @@ def run_metrics_table(combo):
     metric, variable, grid, region, _, _, time_grouping, truth = combo
 
     try:
-        return summary_metrics_table(start_time, end_time, variable, truth, metric,
-                                     time_grouping=time_grouping, grid=grid, region=region,
-                                     force_overwrite=True, filepath_only=filepath_only,
-                                     recompute=recompute, storage_backend=backend)
+        return metric_table(start_time, end_time, variable, truth, metric,
+                            time_grouping=time_grouping, grid=grid, region=region,
+                            force_overwrite=True, filepath_only=filepath_only,
+                            recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:

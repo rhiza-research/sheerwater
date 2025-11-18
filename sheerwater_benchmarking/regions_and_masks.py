@@ -79,8 +79,8 @@ def region_labels(grid='global1_5', region_level='countries'):
     """Generate a dataset with a region coordinate at a specific region level.
 
     Available region levels are
-     - 'countries', 'continents', 'subregions', 'region_un', 'region_wb', 'meteorological_zones',
-        'hemispheres', 'global', and 'sheerwater_areas'.
+     - 'country', 'continent', 'subregion', 'region_un', 'region_wb', 'meteorological_zone',
+        'hemisphere', 'global', and 'sheerwater_region'.
 
     Args:
         grid (str): The grid to fetch the data at.  Note that only

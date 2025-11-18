@@ -224,6 +224,7 @@ def graphcast(start_time, end_time, variable, agg_days, prob_type='deterministic
     ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid)
     ds = ds.assign_attrs(prob_type="deterministic")
 
+
     # Rename to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})
 

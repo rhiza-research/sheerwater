@@ -5,7 +5,7 @@ import itertools
 import multiprocessing
 import tqdm
 
-from sheerwater_benchmarking.metric_factory import metric_factory
+from sheerwater_benchmarking.metrics_library import metric_factory
 
 
 def parse_args():
@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--metric", type=str, nargs='*')
     parser.add_argument("--grid", type=str, nargs='*')
     parser.add_argument("--region", type=str, nargs='*')
-    parser.add_argument("--lead", type=str, nargs='*')
+    parser.add_argument("--agg_days", type=str, nargs='*')
     parser.add_argument("--time-grouping", type=str, nargs='*')
     parser.add_argument("--backend", type=str, default=None)
     parser.add_argument("--parallelism", type=int, default=1)
@@ -76,19 +76,19 @@ def parse_args():
     if args.grid:
         grids = args.grid
 
-    regions = ["africa", "east_africa", "global", "conus"]
+    regions = ["continent", "subregion", "global", "country", "sheerwater_regions"]
     if args.region:
         regions = args.region
 
     if args.station_evaluation:
-        leads = ["daily", "weekly", "biweekly", "monthly"]
+        agg_days = [1, 7, 14, 30]
     elif args.seasonal:
-        leads = ["month1", "month2", "month3"]
+        agg_days = [30]
     else:
-        leads = ["week1", "week2", "week3", "week4", "week5", "week6"]
+        agg_days = [7]
 
-    if args.lead:
-        leads = args.lead
+    if args.agg_days:
+        agg_days = args.agg_days
 
     time_groupings = [None, "month_of_year", "year"]
     if args.time_grouping:
@@ -100,7 +100,7 @@ def parse_args():
         remote_config = args.remote_config
 
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
-            regions, leads, time_groupings, args.parallelism,
+            regions, agg_days, time_groupings, args.parallelism,
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
 
 
@@ -111,7 +111,7 @@ def prune_metrics(combos, global_run=False):
     """
     pruned_combos = []
     for combo in combos:
-        metric, variable, grid, region, lead, forecast, time_grouping, truth = combo
+        metric, variable, grid, region, agg_days, forecast, time_grouping, truth = combo
 
         metric_obj = metric_factory(metric)
 

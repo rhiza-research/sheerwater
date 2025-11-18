@@ -183,7 +183,10 @@ def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
 
     # Get the data with the right days
     ds = gencast_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, prob_type=prob_type, grid=grid)
-    ds = ds.assign_attrs(prob_type="ensemble")
+    if prob_type == 'deterministic':
+        ds = ds.assign_attrs(prob_type="deterministic")
+    else:
+        ds = ds.assign_attrs(prob_type="ensemble")
 
     # Rename to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})

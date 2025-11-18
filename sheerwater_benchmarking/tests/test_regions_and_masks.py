@@ -7,10 +7,9 @@ from sheerwater_benchmarking.utils.region_utils import get_region_data
 
 def test_masks():
     """Test the land sea mask function."""
-    bases = ["base360", "base180"]
-    grids = ["global0_25", "global1_5", "africa0_25", "africa1_5"]
+    grids = ["global0_25", "global1_5"]
 
-    for base, grid in product(bases, grids):
+    for grid in grids:
         lsm = land_sea_mask(grid=grid)
         assert len(lsm.lat.values) > 0
 
@@ -82,5 +81,5 @@ def test_region_labels():
     region_data = get_region_data("meteorological_zones")
     assert len(region_data) == 3
 
-    region_data = get_region_data("sheerwater_areas")
+    region_data = get_region_data("sheerwater_region")
     assert len(region_data) == 3

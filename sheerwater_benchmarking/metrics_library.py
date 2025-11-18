@@ -1,6 +1,7 @@
 """Library of metrics implementations for verification."""
 # flake8: noqa: D102
 from abc import ABC, abstractmethod
+from inspect import signature
 
 import xarray as xr
 import numpy as np
@@ -75,12 +76,16 @@ class Metric(ABC):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Get the forecast dataframe
         fcst_fn = get_datasource_fn(self.forecast)
-        fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                       prob_type=self.prob_type, grid=self.grid, mask=None, region='global')
-        # Check to see the prob type attribute
-        if 'prob_type' in fcst.attrs:
+        # TODO: could update with a forecast or truth decorator to handle more consistantly
+        if 'prob_type' in signature(fcst_fn).parameters:
+            forecast_or_truth = 'forecast'
+            fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
+                           prob_type=self.prob_type, grid=self.grid, mask=None, region='global')
             enhanced_prob_type = fcst.attrs['prob_type']
         else:
+            forecast_or_truth = 'truth'
+            fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
+                           grid=self.grid, mask=None, region='global')
             enhanced_prob_type = "deterministic"
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
@@ -95,8 +100,9 @@ class Metric(ABC):
                        grid=self.grid, mask=None, region='global')
 
         # We need a lead specific obs, so we know which times are valid for the forecast
-        leads = fcst.prediction_timedelta.values
-        obs = obs.expand_dims({'prediction_timedelta': leads})
+        if forecast_or_truth == 'forecast':
+            leads = fcst.prediction_timedelta.values
+            obs = obs.expand_dims({'prediction_timedelta': leads})
 
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
@@ -110,6 +116,13 @@ class Metric(ABC):
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
         valid_times = list(valid_times)
         valid_times.sort()
+        # Cast the longitude and latitude coordinates to floats with precision 4
+        # This fixs a bug where the long and lat don't match deep in their floating point precision
+        # TODO: this is mysterious, and I feel like we've fixed this before ...
+        obs['lon'] = obs['lon'].astype(np.float32).round(4)
+        obs['lat'] = obs['lat'].astype(np.float32).round(4)
+        fcst['lon'] = fcst['lon'].astype(np.float32).round(4)
+        fcst['lat'] = fcst['lat'].astype(np.float32).round(4)
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
 

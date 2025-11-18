@@ -6,7 +6,11 @@ from sheerwater_benchmarking.utils import cacheable, dask_remote, start_remote
 from sheerwater_benchmarking.metrics import metric
 
 # Lead labels for standrad aggregrations
-lead_dict_standard = {
+agg_days_to_lead_labels = {
+    1: ('daily',
+        {
+            **{np.timedelta64(i, 'D').astype('timedelta64[ns]'): f'day{i+1}' for i in range(45)}
+        }),
     7: ('weekly',
         {
             np.timedelta64(0, 'D').astype('timedelta64[ns]'): 'week1',
@@ -39,10 +43,10 @@ lead_dict_standard = {
 
 
 @dask_remote
-def _summary_metrics_table(start_time, end_time, variable,
-                           truth, metric_name, agg_days, forecasts,
-                           time_grouping=None,
-                           grid='global1_5', region='global'):
+def _metric_table(start_time, end_time, variable,
+                  truth, metric_name, agg_days, forecasts,
+                  time_grouping=None,
+                  grid='global1_5', region='global'):
     """Internal function to compute summary metrics table for flexible leads and forecasts."""
     # For the time grouping we are going to store it in an xarray with dimensions
     # forecast and time, which we instantiate
@@ -51,8 +55,8 @@ def _summary_metrics_table(start_time, end_time, variable,
     # Agg days can either by a single value or a list of values.
     if not isinstance(agg_days, list):
         agg_days = [agg_days]
-        lead_dict = lead_dict_standard[agg_days[0]][1]
-    lead_labels = [lead_dict_standard[agg][0] for agg in agg_days]
+        lead_dict = agg_days_to_lead_labels[agg_days[0]][1]
+    lead_labels = [agg_days_to_lead_labels[agg][0] for agg in agg_days]
 
     for forecast in forecasts:
         for i, agg in enumerate(agg_days):
@@ -65,8 +69,7 @@ def _summary_metrics_table(start_time, end_time, variable,
                 ds = metric(start_time, end_time, variable,
                             agg_days=agg, forecast=forecast, truth=truth,
                             metric_name=metric_name, time_grouping=time_grouping, spatial=False,
-                            grid=grid, region=region, recompute=True,
-                            retry_null_cache=True)
+                            grid=grid, region=region, recompute=False, retry_null_cache=True)
             except NotImplementedError:
                 ds = None
 
@@ -118,70 +121,70 @@ def _summary_metrics_table(start_time, end_time, variable,
            backend='postgres',
            cache=True,
            primary_keys=['time', 'forecast'])
-def summary_metrics_table(start_time, end_time, variable,
-                          truth, metric_name, time_grouping=None,
-                          grid='global1_5', region='global'):
-    """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
+def weekly_metric_table(start_time, end_time, variable,
+                        truth, metric_name, time_grouping=None,
+                        grid='global1_5', region='global'):
+    """Runs metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['fuxi', 'salient', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
                  'climatology_trend_2015', 'climatology_rolling', 'gencast', 'graphcast']
-    df= _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
-                                agg_days=7, forecasts=forecasts,
-                                time_grouping=time_grouping, grid=grid, region=region)
+    df = _metric_table(start_time, end_time, variable, truth, metric_name,
+                       agg_days=7, forecasts=forecasts,
+                       time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
 
 
-@ dask_remote
-@ cacheable(data_type='tabular',
+@dask_remote
+@cacheable(data_type='tabular',
            cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
            cache=True,
            primary_keys=['time', 'forecast'])
-def seasonal_metrics_table(start_time, end_time, variable,
-                           truth, metric_name, time_grouping=None,
-                           grid='global1_5', region='global'):
+def monthly_metric_table(start_time, end_time, variable,
+                         truth, metric_name, time_grouping=None,
+                         grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts= ['salient', 'climatology_2015']
-    df= _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
-                                agg_days=30, forecasts=forecasts,
-                                time_grouping=time_grouping, grid=grid, region=region)
+    forecasts = ['salient', 'climatology_2015']
+    df = _metric_table(start_time, end_time, variable, truth, metric_name,
+                       agg_days=30, forecasts=forecasts,
+                       time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
 
 
-@ dask_remote
-@ cacheable(data_type='tabular',
+@dask_remote
+@cacheable(data_type='tabular',
            cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
            cache=True,
            primary_keys=['time', 'forecast'])
-def station_metrics_table(start_time, end_time, variable,
+def ground_truth_metric_table(start_time, end_time, variable,
+                              truth, metric_name, time_grouping=None,
+                              grid='global1_5', region='global'):
+    """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
+    forecasts = ['era5', 'chirps', 'imerg', 'cbam']
+    agg_days = [1, 7, 14, 30]
+    df = _metric_table(start_time, end_time, variable, truth, metric_name,
+                       agg_days, forecasts,
+                       time_grouping=time_grouping, grid=grid, region=region)
+
+    print(df)
+    return df
+
+
+@dask_remote
+@cacheable(data_type='tabular',
+           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
+           cache=True)
+def biweekly_metric_table(start_time, end_time, variable,
                           truth, metric_name, time_grouping=None,
                           grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts= ['era5', 'chirps', 'imerg', 'cbam']
-    agg_days= [1, 7, 14, 30]
-    df= _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
-                                agg_days, forecasts,
-                                time_grouping=time_grouping, grid=grid, region=region)
-
-    print(df)
-    return df
-
-
-@ dask_remote
-@ cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-           cache=True)
-def biweekly_summary_metrics_table(start_time, end_time, variable,
-                                   truth, metric_name, time_grouping=None,
-                                   grid='global1_5', region='global'):
-    """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts= ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
+    forecasts = ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
                  'climatology_trend_2015', 'climatology_rolling']
-    df= _summary_metrics_table(start_time, end_time, variable, truth, metric_name,
-                                agg_days=14, forecasts=forecasts,
-                                time_grouping=time_grouping, grid=grid, region=region)
+    df = _metric_table(start_time, end_time, variable, truth, metric_name,
+                       agg_days=14, forecasts=forecasts,
+                       time_grouping=time_grouping, grid=grid, region=region)
 
     print(df)
     return df
@@ -189,23 +192,23 @@ def biweekly_summary_metrics_table(start_time, end_time, variable,
 
 if __name__ == "__main__":
     start_remote(remote_config='xlarge_cluster')
-    start_time= "2016-01-01"
-    end_time= "2022-12-31"
-    variable= "precip"
-    truth= "era5"
-    metric_name= "mae"
-    time_grouping= None
-    grid= "global1_5"
-    region= "global"
-    df= summary_metrics_table(start_time, end_time, variable, truth,
-                               metric_name, time_grouping, grid, region=region, recompute=True, force_overwrite=True)
+    start_time = "2016-01-01"
+    end_time = "2022-12-31"
+    variable = "precip"
+    truth = "era5"
+    metric_name = "mae"
+    time_grouping = None
+    grid = "global1_5"
+    region = "global"
+    df = weekly_metric_table(start_time, end_time, variable, truth,
+                             metric_name, time_grouping, grid, region=region, recompute=True, force_overwrite=True)
     print(df)
-    df= seasonal_metrics_table(start_time, end_time, variable, truth,
-                                metric_name, time_grouping, grid, region=region)
+    df = monthly_metric_table(start_time, end_time, variable, truth,
+                              metric_name, time_grouping, grid, region=region)
     print(df)
-    df= station_metrics_table(start_time, end_time, variable, truth,
+    df = ground_truth_metric_table(start_time, end_time, variable, truth,
+                                   metric_name, time_grouping, grid, region=region)
+    print(df)
+    df = biweekly_metric_table(start_time, end_time, variable, truth,
                                metric_name, time_grouping, grid, region=region)
-    print(df)
-    df= biweekly_summary_metrics_table(start_time, end_time, variable, truth,
-                                        metric_name, time_grouping, grid, region=region)
     print(df)

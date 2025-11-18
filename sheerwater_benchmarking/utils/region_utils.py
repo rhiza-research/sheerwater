@@ -45,7 +45,7 @@ standard_regions = ['country', 'continent', 'subregion', 'region_un', 'region_wb
 
 # Additionally, allow the construction of custom regions by country list or lat / lon bounding box
 custom_regions = {
-    'sheerwater_areas': {
+    'sheerwater_region': {
         'nimbus_east_africa': {
             'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
         },
@@ -56,7 +56,7 @@ custom_regions = {
             'countries': ['united_states_of_america'],
         }
     },
-    'meteorological_zones': {
+    'meteorological_zone': {
         'tropics': {
             'lons': [-180.0, 180.0],
             'lats': [-23.5, 23.5]
@@ -70,7 +70,7 @@ custom_regions = {
             'lats': [23.5, 90.0],
         }
     },
-    'hemispheres': {
+    'hemisphere': {
         'northern_hemisphere': {
             'lons': [-180.0, 180.0],
             'lats': [0.0, 90.0]

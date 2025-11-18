@@ -4,11 +4,11 @@ import itertools
 import traceback
 
 from sheerwater_benchmarking.utils import start_remote
-from dashboard_data import biweekly_summary_metrics_table
+from dashboard_data import biweekly_metric_table 
 from jobs import parse_args, run_in_parallel
 
 (start_time, end_time, forecasts, metrics,
- variables, grids, regions, leads,
+ variables, grids, regions, agg_days,
  time_groupings, parallelism, recompute,
  backend, remote_name, remote, remote_config) = parse_args()
 
@@ -24,21 +24,17 @@ if backend is not None:
 
 def run_metrics_table(combo):
     """Run table metrics."""
-    metric, variable, grid, region, time_grouping = combo
-
-    if metric == 'acc' and time_grouping is not None:
-        print("Cannot run ACC for time groupings.")
-        return
+    metric_name, variable, grid, region, time_grouping = combo
 
     try:
-        biweekly_summary_metrics_table(start_time, end_time, variable, "era5", metric,
-                                       time_grouping=time_grouping, grid=grid, region=region,
-                                       force_overwrite=True, filepath_only=filepath_only,
-                                       recompute=recompute, storage_backend=backend)
+        biweekly_metric_table(start_time, end_time, variable, "era5", metric_name,
+                              time_grouping=time_grouping, grid=grid, region=region,
+                              force_overwrite=True, filepath_only=filepath_only,
+                              recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
         raise (e)
     except:  # noqa: E722
-        print(f"Failed to run biweekly metric {grid} {variable} {metric} \
+        print(f"Failed to run biweekly metric {grid} {variable} {metric_name} \
                 {region} {time_grouping}: {traceback.format_exc()}")
 
 
