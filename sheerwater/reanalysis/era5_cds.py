@@ -8,12 +8,13 @@ import os
 import xarray as xr
 import dateparser
 
-from sheerwater.utils import (dask_remote, cacheable,
-                                           cdsapi_secret,
-                                           get_grid, get_variable)
+from nuthatch import cache
+from sheerwater.utils import (dask_remote,
+                              cdsapi_secret,
+                              get_grid, get_variable)
 
 
-@cacheable(data_type='array', cache_args=['year', 'variable', 'grid'])
+@cache(cache_args=['year', 'variable', 'grid'])
 def single_era5(year, variable, grid="global1_5"):
     """Fetches a single year of hourly ERA5 data.
 
@@ -68,9 +69,8 @@ def single_era5(year, variable, grid="global1_5"):
     return ds
 
 
-@cacheable(data_type='array',
-           cache_args=['year', 'variable', 'grid'],
-           chunking={"lat": 121, "lon": 240, "time": 1000})
+@cache(cache_args=['year', 'variable', 'grid'],
+       backend_kwargs={'chunking': {"lat": 121, "lon": 240, "time": 1000}})
 def single_era5_cleaned(year, variable, grid="global1_5"):
     """Fetches a single year of ERA5 data and cleans it up.
 

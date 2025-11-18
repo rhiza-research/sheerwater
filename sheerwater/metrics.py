@@ -9,8 +9,10 @@ import weatherbench2
 import xarray as xr
 
 from sheerwater.baselines import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
-from sheerwater.utils import (cacheable, dask_remote, clip_region, is_valid,
-                                           lead_to_agg_days, lead_or_agg)
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (dask_remote, clip_region, is_valid,
+                              lead_to_agg_days, lead_or_agg)
 from weatherbench2.metrics import _spatial_average
 
 PROB_METRICS = ['crps']  # a list of probabilistic metrics
@@ -342,18 +344,17 @@ def eval_metric(start_time, end_time, variable, lead, forecast, truth,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'lead', 'forecast',
-                       'truth', 'metric', 'grid', 'mask', 'region'],
-           chunking={"lat": 121, "lon": 240, "time": 1000},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'lead', 'forecast',
+                   'truth', 'metric', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                },
-           },
-           cache=True,
-           validate_cache_timeseries=False)
+           }
+       })
 def global_metric(start_time, end_time, variable, lead, forecast, truth,
                   metric, grid="global1_5", mask='lsm', region='global'):
     """Compute a metric without aggregating in space or time at a specific lead."""
@@ -366,16 +367,16 @@ def global_metric(start_time, end_time, variable, lead, forecast, truth,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast',
-                       'truth', 'metric', 'grid', 'mask', 'region'],
-           chunking={"lat": 121, "lon": 240, "time": 1000},
-           chunk_by_arg={
+@cache(cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast',
+                   'truth', 'metric', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                },
-           },
-           cache=True)
+           }
+       })
 def aggregated_global_metric(start_time, end_time, variable, lead, forecast, truth,
                              metric, grid="global1_5", mask='lsm', region='global'):
     """Compute a metric without aggregating space, but aggregate in time at a specific lead."""
@@ -389,16 +390,16 @@ def aggregated_global_metric(start_time, end_time, variable, lead, forecast, tru
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast',
-                       'truth', 'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
-           chunking={"lat": 121, "lon": 240, "time": -1},
-           chunk_by_arg={
+@cache(cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast',
+                   'truth', 'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": -1},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
                },
-           },
-           cache=True)
+           }
+       })
 def grouped_metric(start_time, end_time, variable, lead, forecast, truth,
                    metric, time_grouping=None, spatial=False, grid="global1_5",
                    mask='lsm', region='africa'):
@@ -506,10 +507,9 @@ def grouped_metric(start_time, end_time, variable, lead, forecast, truth,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'lead', 'forecast', 'truth', 'metric', 'baseline',
-                       'time_grouping', 'spatial', 'grid', 'mask', 'region'],
-           cache=False)
+@cache(cache=False,
+       cache_args=['variable', 'lead', 'forecast', 'truth', 'metric', 'baseline',
+                   'time_grouping', 'spatial', 'grid', 'mask', 'region'])
 def skill_metric(start_time, end_time, variable, lead, forecast, truth,
                  metric, baseline, time_grouping=None, spatial=False, grid="global1_5",
                  mask='lsm', region='global'):
@@ -587,10 +587,8 @@ def _summary_metrics_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'mask', 'region'],
-           cache=True)
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
+                   'time_grouping', 'grid', 'mask', 'region'])
 def summary_metrics_table(start_time, end_time, variable,
                           truth, metric, time_grouping=None,
                           grid='global1_5', mask='lsm', region='global'):
@@ -614,10 +612,8 @@ def summary_metrics_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'mask', 'region'],
-           cache=True)
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
+                   'time_grouping', 'grid', 'mask', 'region'])
 def seasonal_metrics_table(start_time, end_time, variable,
                           truth, metric, time_grouping=None,
                           grid='global1_5', mask='lsm', region='global'):
@@ -633,10 +629,8 @@ def seasonal_metrics_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'mask', 'region'],
-           cache=True)
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
+                   'time_grouping', 'grid', 'mask', 'region'])
 def station_metrics_table(start_time, end_time, variable,
                           truth, metric, time_grouping=None,
                           grid='global1_5', mask='lsm', region='global'):
@@ -652,10 +646,8 @@ def station_metrics_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
-                       'time_grouping', 'grid', 'mask', 'region'],
-           cache=True)
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric',
+                   'time_grouping', 'grid', 'mask', 'region'])
 def biweekly_summary_metrics_table(start_time, end_time, variable,
                                    truth, metric, time_grouping=None,
                                    grid='global1_5', mask='lsm', region='global'):

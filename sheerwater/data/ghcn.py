@@ -7,14 +7,15 @@ import dask.dataframe as dd
 import dask
 import xarray as xr
 
-from sheerwater.utils.caching import cacheable
+from nuthatch import cache
+from nuthatch.processors import timeseries
 from sheerwater.utils import get_grid_ds, get_grid, get_variable, roll_and_agg, apply_mask, clip_region
 from sheerwater.utils.time_utils import generate_dates_in_between
 from sheerwater.utils.remote import dask_remote
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
 
-@cacheable(data_type='tabular', cache_args=[])
+@cache(cache_args=[])
 def station_list():
     """Gets GHCN station metadata."""
     df = pd.read_table('https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-inventory.txt',
@@ -26,7 +27,8 @@ def station_list():
     return df
 
 
-@cacheable(data_type='array', cache_args=['ghcn_id', 'drop_flagged'], cache=True, timeseries='time')
+@timeseries()
+@cache(cache_args=['ghcn_id', 'drop_flagged'])
 def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global0_25'):  # noqa:  ARG001
     """Get GHCNd observed data timeseries for a single station.
 
@@ -141,12 +143,14 @@ def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=['year', 'grid', 'cell_aggregation'],
-           chunking={
+@cache(cache_args=['year', 'grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {
                'time': 365,
                'lat': 300,
                'lon': 300,
-})
+           }
+       })
 def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     """Get a by year station data and save it as a zarr."""
     obs = dd.read_csv(f"s3://noaa-ghcn-pds/csv/by_year/{year}.csv",
@@ -247,10 +251,9 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['grid', 'cell_aggregation'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first'):
     """Final gridded station data before aggregation."""
     # Get years between start time and end time
@@ -272,11 +275,9 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first'):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
-           validate_cache_timeseries=False,
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@timeseries()
+@cache(cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd_rolled(start_time, end_time, agg_days,
                  grid='global0_25', missing_thresh=0.5, cell_aggregation='first'):
     """GHCND rolled and aggregated."""
@@ -338,11 +339,10 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn(start_time, end_time, variable, agg_days,
          grid='global0_25', mask='lsm', region='global',
          missing_thresh=0.5):
@@ -353,11 +353,10 @@ def ghcn(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
              missing_thresh=0.5):
     """Standard interface for ghcn data."""

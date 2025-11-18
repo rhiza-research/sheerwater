@@ -2,7 +2,8 @@
 import xarray as xr
 import numpy as np
 from functools import partial
-from sheerwater.utils import cacheable, dask_remote, start_remote
+from nuthatch import cache
+from sheerwater.utils import dask_remote, start_remote
 from sheerwater.reanalysis import era5_rolled
 from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_spw
 from sheerwater.forecasts.fuxi import fuxi_spw
@@ -17,9 +18,8 @@ from sheerwater.tasks import spw_precip_preprocess
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           cache_args=['truth', 'grid', 'mask', 'region'],
-           backend='postgres')
+@cache(cache_args=['truth', 'grid', 'mask', 'region'],
+       backend='sql')
 def rain_windowed_spw(start_time, end_time,
                       truth='era5',
                       grid='global1_5', mask='lsm', region='global'):
@@ -49,9 +49,8 @@ def rain_windowed_spw(start_time, end_time,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           backend='postgres',
-           cache_args=['truth', 'variable', 'grid', 'mask', 'region'])
+@cache(backend='sql',
+       cache_args=['truth', 'variable', 'grid', 'mask', 'region'])
 def ea_rainy_onset_truth(start_time, end_time,
                          truth='era5',
                          variable='rainy_onset',
@@ -69,9 +68,8 @@ def ea_rainy_onset_truth(start_time, end_time,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           backend='postgres',
-           cache_args=['forecast', 'variable', 'grid', 'mask', 'region'])
+@cache(backend='sql',
+       cache_args=['forecast', 'variable', 'grid', 'mask', 'region'])
 def ea_rainy_onset_forecast(start_time, end_time,
                             forecast='ecmwf_ifs_er_debiased',
                             variable='rainy_onset',
@@ -101,9 +99,8 @@ def ea_rainy_onset_forecast(start_time, end_time,
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           backend='postgres',
-           cache_args=['forecast', 'variable', 'grid', 'mask', 'region'])
+@cache(backend='sql',
+       cache_args=['forecast', 'variable', 'grid', 'mask', 'region'])
 def ea_rainy_onset_probabilities(start_time, end_time,
                                  forecast='ecmwf_ifs_er_debiased',
                                  variable='rainy_onset',
@@ -163,13 +160,13 @@ if __name__ == "__main__":
                                          variable=variable,
                                          grid=grid, mask=mask, region=region,
                                          #  recompute=True, force_overwrite=True,
-                                         backend='postgres')
+                                         backend='sql')
 
             df = ea_rainy_onset_probabilities(start_time, end_time, forecast,
                                               variable=variable,
                                               grid=grid, mask=mask, region=region,
                                               #   recompute=True, force_overwrite=True,
-                                              backend='postgres')
+                                              backend='sql')
 
         # Generate for all data sources
         for truth in ["era5", "chirps", "ghcn", "imerg", "tahmo"]:
@@ -178,7 +175,7 @@ if __name__ == "__main__":
                                        grid=grid, mask=mask, region=region,
                                        #    recompute=True,
                                        #    force_overwrite=True,
-                                       backend='postgres')
+                                       backend='sql')
             # df3 = rain_windowed_spw(start_time, end_time, truth,
             # grid=grid, mask=mask, region=region,
-            # backend='postgres', recompute=True, force_overwrite=True)
+            # backend='sql', recompute=True, force_overwrite=True)

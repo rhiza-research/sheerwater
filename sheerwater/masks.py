@@ -3,11 +3,12 @@ import os
 import cdsapi
 import xarray as xr
 
-from sheerwater.utils import (cacheable, cdsapi_secret, get_grid,
-                                           lon_base_change)
+from nuthatch import cache
+from sheerwater.utils import (cdsapi_secret, get_grid,
+                              lon_base_change)
 
 
-@cacheable(data_type='array', cache_args=['grid'])
+@cache(cache_args=['grid'])
 def land_sea_mask(grid="global1_5"):
     """Get the ECMWF global land sea mask for the given grid.
 

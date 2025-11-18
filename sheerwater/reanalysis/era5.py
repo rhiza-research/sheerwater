@@ -2,17 +2,18 @@
 import xarray as xr
 import numpy as np
 from functools import partial
-from sheerwater.utils import (dask_remote, cacheable,
-                                           get_variable, apply_mask, clip_region,
-                                           roll_and_agg, lon_base_change, regrid)
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (dask_remote,
+                              get_variable, apply_mask, clip_region,
+                              roll_and_agg, lon_base_change, regrid)
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'grid'],
-           timeseries='time',
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'grid'])
 def era5_raw(start_time, end_time, variable, grid="global0_25"):  # noqa ARG001
     """ERA5 function that returns data from Google ARCO."""
     if grid != 'global0_25':
@@ -39,11 +40,11 @@ def era5_raw(start_time, end_time, variable, grid="global0_25"):  # noqa ARG001
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "time": 30},
-           auto_rechunk=False)
+@timeseries()
+@cache(cache_args=['variable', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "time": 30}
+       })
 def era5_daily(start_time, end_time, variable, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data.
 
@@ -92,17 +93,17 @@ def era5_daily(start_time, end_time, variable, grid="global1_5"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'grid'],
-           cache_disable_if={'grid': 'global0_25'},
-           chunking={"lat": 121, "lon": 240, "time": 1000},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'grid'],
+       cache_disable_if={'grid': 'global0_25'},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
-           },
-           auto_rechunk=False)
+           }
+       })
 def era5_daily_regrid(start_time, end_time, variable, grid="global0_25"):
     """ERA5 daily reanalysis with regridding."""
     ds = era5_daily(start_time, end_time, variable, grid='global0_25')
@@ -120,16 +121,17 @@ def era5_daily_regrid(start_time, end_time, variable, grid="global0_25"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid'],
-           chunking={"lat": 121, "lon": 240, "time": 1000},
-           cache_disable_if={'agg_days': 1},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'agg_days', 'grid'],
+       cache_disable_if={'agg_days': 1},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
-           })
+           }
+       })
 def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
@@ -151,10 +153,9 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def era5(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis.
 

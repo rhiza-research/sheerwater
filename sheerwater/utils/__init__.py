@@ -1,5 +1,4 @@
 """Utility functions for benchmarking."""
-from .caching import cacheable
 from .remote import dask_remote, start_remote
 from .secrets import cdsapi_secret, ecmwf_secret, salient_secret, salient_auth, tahmo_secret, gap_secret
 from .data_utils import (apply_mask, roll_and_agg, regrid, clip_region,
@@ -21,7 +20,6 @@ from .task_utils import first_satisfied_date
 
 # Use __all__ to define what is part of the public API.
 __all__ = [
-    "cacheable",
     "dask_remote",
     "cdsapi_secret",
     "ecmwf_secret",

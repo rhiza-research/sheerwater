@@ -3,15 +3,16 @@
 
 import xarray as xr
 
-from sheerwater.utils import (cacheable, dask_remote,
-                                           get_variable, apply_mask, clip_region, regrid)
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (dask_remote,
+                              get_variable, apply_mask, clip_region, regrid)
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='start_date',
-           cache_args=['variable', 'lead'],
-           cache=False)
+@timeseries(timeseries='start_date')
+@cache(cache=False,
+       cache_args=['variable', 'lead'])
 def perpp_ecmwf_raw(start_time, end_time, variable, lead="weeks56"):  # noqa: ARG001
     """ABC function that returns data from GCP mirror.
 
@@ -44,16 +45,16 @@ def perpp_ecmwf_raw(start_time, end_time, variable, lead="weeks56"):  # noqa: AR
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='start_date',
-           cache_args=['variable', 'lead', 'grid'],
-           chunking={"lat": 121, "lon": 240, "start_date": 1000},
-           chunk_by_arg={
+@timeseries(timeseries='start_date')
+@cache(cache_args=['variable', 'lead', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "start_date": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'start_date': 30}
                },
-           },
-           auto_rechunk=False)
+           }
+       })
 def perpp_ecmwf(start_time, end_time, variable, lead="weeks56", grid="global1_5"):
     """Processed ABC forecast files."""
     ds = perpp_ecmwf_raw(start_time, end_time, variable, lead=lead)
@@ -64,10 +65,9 @@ def perpp_ecmwf(start_time, end_time, variable, lead="weeks56", grid="global1_5"
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
 def perpp(start_time, end_time, variable, lead, prob_type='deterministic',
           grid='global1_5', mask='lsm', region='global'):
     """Standard format forecast data for Persistence++ Model."""

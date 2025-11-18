@@ -2,14 +2,15 @@
 import dask.dataframe as dd
 import xarray as xr
 from functools import partial
-from sheerwater.utils.caching import cacheable
+from nuthatch import cache
+from nuthatch.processors import timeseries
 from sheerwater.utils import get_grid_ds, get_grid, roll_and_agg, apply_mask, clip_region
 from sheerwater.utils.remote import dask_remote
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
 
 @dask_remote
-@cacheable(data_type='tabular', cache_args=['station_code'], cache=True)
+@cache(cache_args=['station_code'])
 def tahmo_station(station_code):
     """Get Tahmo station data."""
     obs = dd.read_csv(f"gs://sheerwater-datalake/tahmo-data/tahmo_qc_stations_v2/{station_code}.csv",
@@ -34,13 +35,15 @@ def tahmo_station(station_code):
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=['grid', 'cell_aggregation'],
-           timeseries='time',
-           chunking={
+@timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {
                'time': 365,
                'lat': 300,
                'lon': 300,
-}, validate_cache_timeseries=False)
+           }
+       })
 def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
     # Get the station list
@@ -117,11 +120,9 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['agg_days', 'grid', 'missing_thresh', 'cell_aggregation'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           validate_cache_timeseries=False)
+@timeseries()
+@cache(cache_args=['agg_days', 'grid', 'missing_thresh', 'cell_aggregation'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo_rolled(start_time, end_time, agg_days,
                  grid='global0_25',
                  missing_thresh=0.5, cell_aggregation='first'):
@@ -168,11 +169,10 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
           missing_thresh=0.5):
     """Standard interface for TAHMO data."""
@@ -182,11 +182,10 @@ def tahmo(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
               missing_thresh=0.5):
     """Standard interface for TAHMO data."""

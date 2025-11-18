@@ -4,14 +4,15 @@ import gcsfs
 from dateutil import parser
 from functools import partial
 
-from sheerwater.utils import cacheable, dask_remote, regrid, roll_and_agg, apply_mask, clip_region
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import dask_remote, regrid, roll_and_agg, apply_mask, clip_region
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['year'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@cache(cache_args=['year'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_raw(year):
     """Concatted imerge netcdf files by year."""
     fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
@@ -23,9 +24,8 @@ def imerg_raw(year):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['grid'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@cache(cache_args=['grid'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_gridded(start_time, end_time, grid):
     """Regridded version of whole imerg dataset."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
@@ -51,10 +51,9 @@ def imerg_gridded(start_time, end_time, grid):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries=['time'],
-           cache_args=['grid', 'agg_days'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@timeseries()
+@cache(cache_args=['grid', 'agg_days'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_rolled(start_time, end_time, agg_days, grid):
     """Imerg rolled and aggregated."""
     ds = imerg_gridded(start_time, end_time, grid)
@@ -63,10 +62,10 @@ def imerg_rolled(start_time, end_time, agg_days, grid):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries=['time'],
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Final imerg product."""
     if variable not in ['precip', 'rainy_onset', 'rainy_onset_no_drought']:

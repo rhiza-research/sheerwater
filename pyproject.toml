@@ -56,7 +56,7 @@ dependencies = [
     "py7zr",
     "tqdm",
     "numcodecs<0.16.0",
-    "nuthatch @ git+https://github.com/rhiza-research/nuthatch"
+    "nuthatch"
 ]
 
 [dependency-groups]

@@ -14,16 +14,18 @@ from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError
 
 from sheerwater.utils.secrets import huggingface_read_token
-from sheerwater.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
-                                           lon_base_change,
-                                           target_date_to_forecast_date,
-                                           shift_forecast_date_to_target_date, lead_to_agg_days, roll_and_agg)
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (dask_remote,
+                              apply_mask, clip_region,
+                              lon_base_change,
+                              target_date_to_forecast_date,
+                              shift_forecast_date_to_target_date, lead_to_agg_days, roll_and_agg)
 from sheerwater.tasks import spw_precip_preprocess, spw_rainy_onset
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=['date'])
+@cache(cache_args=['date'])
 def fuxi_single_forecast(date):
     """Download a single forecast from the FuXi dataset."""
     token = huggingface_read_token()
@@ -86,9 +88,9 @@ def fuxi_single_forecast(date):
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=[], timeseries='time',
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51},
-           validate_cache_timeseries=False)
+@timeseries()
+@cache(cache_args=[],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
 def fuxi_raw(start_time, end_time, delayed=False):
     """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries."""
     dates = pd.date_range(start_time, end_time)
@@ -138,9 +140,8 @@ def fuxi_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'agg_days', 'prob_type'],
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51})
+@cache(cache_args=['variable', 'agg_days', 'prob_type'],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
 def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabilistic'):
     """Roll and aggregate the FuXi data."""
     ds = fuxi_raw(start_time, end_time)
@@ -237,10 +238,9 @@ def fuxi_spw(start_time, end_time, lead,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
 def fuxi(start_time, end_time, variable, lead, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):
     """Final FuXi forecast interface."""

@@ -3,20 +3,20 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-from sheerwater.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
-                                           lon_base_change,
-                                           target_date_to_forecast_date,
-                                           shift_forecast_date_to_target_date,
-                                           lead_to_agg_days, roll_and_agg, regrid)
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (dask_remote,
+                              apply_mask, clip_region,
+                              lon_base_change,
+                              target_date_to_forecast_date,
+                              shift_forecast_date_to_target_date,
+                              lead_to_agg_days, roll_and_agg, regrid)
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'init_hour', 'grid'],
-           timeseries='time',
-           chunking={"lat": 721, "lon": 1440, "lead_time": 1, "time": 30},
-           validate_cache_timeseries=False)
+@timeseries()
+@cache(cache_args=['variable', 'init_hour', 'grid'],
+       backend_kwargs={'chunking': {"lat": 721, "lon": 1440, "lead_time": 1, "time": 30}})
 def graphcast_daily(start_time, end_time, variable, init_hour=0, grid='global0_25'):  # noqa: ARG001
     """A daily Graphcast forecast."""
     if init_hour != 0:
@@ -82,16 +82,16 @@ def graphcast_daily(start_time, end_time, variable, init_hour=0, grid='global0_2
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'init_hour', 'grid'],
-           timeseries='time',
-           chunking={"lat": 121, "lon": 240, "lead_time": 1, "time": 1000},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'init_hour', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
                },
-           },
-           validate_cache_timeseries=False)
+           }
+       })
 def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global0_25'):  # noqa: ARG001
     """A daily Graphcast forecast."""
     if init_hour != 0:
@@ -163,17 +163,17 @@ def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'init_hour', 'grid'],
-           timeseries='time',
-           chunking={"lat": 121, "lon": 240, "lead_time": 1, "time": 1000},
-           cache_disable_if={'grid': 'global0_25'},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'init_hour', 'grid'],
+       cache_disable_if={'grid': 'global0_25'},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
                },
-           },
-           validate_cache_timeseries=False)
+           }
+       })
 def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0, grid='global0_25'):  # noqa: ARG001
     """Regrid for the original weathernext datasource."""
     ds = graphcast_daily(start_time, end_time, variable, init_hour=init_hour, grid='global0_25')
@@ -187,17 +187,17 @@ def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0, grid='gl
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'agg_days', 'grid'],
-           timeseries='time',
-           cache_disable_if={'agg_days': 1},
-           chunking={"lat": 121, "lon": 240, "lead_time": 10, "time": 100},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'agg_days', 'grid'],
+       cache_disable_if={'agg_days': 1},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 100},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
                },
-           },
-           validate_cache_timeseries=False)
+           }
+       })
 def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_25'):
     """A rolled and aggregated Graphcast forecast."""
     # Grab the init 0 forecast; don't need to regrid
@@ -222,10 +222,9 @@ def _process_lead(variable, lead):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
 def graphcast(start_time, end_time, variable, lead, prob_type='deterministic',
               grid='global1_5', mask='lsm', region="global"):
     """Final Graphcast interface."""
