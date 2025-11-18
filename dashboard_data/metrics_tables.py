@@ -145,18 +145,3 @@ def biweekly_metric_table(start_time, end_time, variable,
 
     print(df)
     return df
-
-
-if __name__ == "__main__":
-    start_remote(remote_config='xlarge_cluster')
-    start_time = "2016-01-01"
-    end_time = "2022-12-31"
-    variable = "precip"
-    truth = "era5"
-    metric_name = "mae"
-    time_grouping = None
-    grid = "global1_5"
-    region = "global"
-    df = weekly_metric_table(start_time, end_time, variable, truth, metric_name,
-                             time_grouping=time_grouping, grid=grid, region=region)
-    print(df)
