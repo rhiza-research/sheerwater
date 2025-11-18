@@ -2,13 +2,15 @@
 from sheerwater.utils import cacheable
 from sheerwater.reanalysis.era5 import era5
 
+
 @cacheable(data_type='array', cache_args=['variable'])
 def terra(variable='tmp2m'):
     """Test function for terracotta caching."""
-    ds = era5("2000-01-01 00:00:00", "2000-02-01 00:00:00", variable=variable, lead='week1')
+    ds = era5("2000-01-01 00:00:00", "2000-02-01 00:00:00", variable=variable, agg_days=7)
     ds = ds.mean('time')
 
     return ds
+
 
 def test_terra():
     """Call the terracotta test function."""

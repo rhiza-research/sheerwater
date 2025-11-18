@@ -6,12 +6,11 @@ from sheerwater.utils import cacheable, dask_remote, start_remote
 from sheerwater.reanalysis import era5_rolled
 from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_spw
 from sheerwater.forecasts.fuxi import fuxi_spw
-from sheerwater.baselines.climatology import climatology_spw
+from sheerwater.climatology import climatology_spw, climatology_rolled
 from sheerwater.data.imerg import imerg_rolled
 from sheerwater.data.chirps import chirps_rolled
 from sheerwater.data.ghcn import _ghcn_rolled_unified
 from sheerwater.data.tahmo import tahmo_rolled
-from sheerwater.baselines.climatology import climatology_rolled
 from sheerwater.metrics import get_datasource_fn
 from sheerwater.tasks import spw_precip_preprocess
 
