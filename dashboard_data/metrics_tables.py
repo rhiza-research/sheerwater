@@ -52,9 +52,6 @@ def _metric_table(start_time, end_time, variable,
                 # results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
                 results_ds = results_ds.merge(ds)
 
-    import pdb
-    pdb.set_trace()
-
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)
 
