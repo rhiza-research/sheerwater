@@ -13,7 +13,7 @@ sheerwater and running.
 1) In your environment install sheerwater - i.e.
 
 ```console
-pip install sheerwater
+pip install git+https://github.com/rhiza-research/sheerwater
 ```
 
 2) Install google cloud CLI and login
