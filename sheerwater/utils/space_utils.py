@@ -1,9 +1,194 @@
 """Space and geography utility functions for all parts of the data pipeline."""
 import numpy as np
 import xarray as xr
-import geopandas as gpd
+import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
-from .general_utils import load_object
+from .region_utils import get_region_data
+
+
+def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
+    """Get a slice of the globe from the dataset.
+
+    Handle the wrapping of the globe when slicing.
+
+    Args:
+        ds (xr.Dataset): Dataset to slice.
+        lon_slice (np.ndarray): The longitude slice.
+        lat_slice (np.ndarray): The latitude slice.
+        lon_dim (str): The longitude column name.
+        lat_dim (str): The latitude column name.
+        base (str): The base of the longitudes. One of:
+            - base180, base360
+    """
+    if base == "base360" and (lon_slice < 0.0).any():
+        raise ValueError("Longitude slice not in base 360 format.")
+    if base == "base180" and (lon_slice > 180.0).any():
+        raise ValueError("Longitude slice not in base 180 format.")
+
+    # Ensure that latitude is sorted before slicing
+    ds = ds.sortby(lat_dim)
+
+    wrapped = is_wrapped(lon_slice)
+    if not wrapped:
+        return ds.sel(**{lon_dim: slice(lon_slice[0], lon_slice[-1]),
+                         lat_dim: slice(lat_slice[0], lat_slice[-1])})
+    # A single wrapping discontinuity
+    if base == "base360":
+        slices = [[lon_slice[0], 360.0], [0.0, lon_slice[-1]]]
+    else:
+        slices = [[lon_slice[0], 180.0], [-180.0, lon_slice[-1]]]
+    ds_subs = []
+    for s in slices:
+        ds_subs.append(ds.sel(**{
+            lon_dim: slice(s[0], s[-1]),
+            lat_dim: slice(lat_slice[0], lat_slice[-1])
+        }))
+    return xr.concat(ds_subs, dim=lon_dim)
+
+
+def lon_base_change(ds, to_base="base180", lon_dim='lon'):
+    """Change the base of the dataset from base 360 to base 180 or vice versa.
+
+    Args:
+        ds (xr.Dataset): Dataset to change.
+        to_base (str): The base to change to. One of:
+            - base180
+            - base360
+        lon_dim (str): The longitude column name.
+    """
+    if to_base == "base180":
+        if (ds[lon_dim] < 0.0).any():
+            print("Longitude already in base 180 format.")
+            return ds
+        lons = base360_to_base180(ds[lon_dim].values)
+    elif to_base == "base360":
+        if (ds[lon_dim] > 180.0).any():
+            print("Longitude already in base 360 format.")
+            return ds
+        lons = base180_to_base360(ds[lon_dim].values)
+    else:
+        raise ValueError(f"Invalid base {to_base}.")
+
+    # Check if original data is wrapped
+    wrapped = is_wrapped(ds.lon.values)
+
+    # Then assign new coordinates
+    ds = ds.assign_coords({lon_dim: lons})
+
+    # Sort the lons after conversion, unless the slice
+    # you're considering wraps around the meridian
+    # in the resultant base.
+    if not wrapped:
+        ds = ds.sortby('lon')
+    return ds
+
+
+def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False):
+    """Clip a dataset to a region.
+
+    Args:
+        ds (xr.Dataset): The dataset to clip to a specific region.
+        region (str): The region to clip to. One of:
+            - africa, conus, global
+        lon_dim (str): The name of the longitude dimension.
+        lat_dim (str): The name of the latitude dimension.
+        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
+    """
+    # No clipping needed
+    if region == 'global':
+        return ds
+
+    region_data = get_region_data(region)
+    if len(region_data) != 1:
+        raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
+
+    # Set up dataframe for clipping
+    ds = ds.rio.write_crs("EPSG:4326")
+    ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+
+    # Clip the grid to the boundary of Shapefile
+    ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
+
+    return ds
+
+
+def get_mask(mask, grid='global1_5'):
+    """Get a mask dataset.
+
+    Args:
+        mask (str): The mask to apply. One of: 'lsm', None
+            To get different land-sea masks, use 'lsm-<value>'. For example, 'lsm-0.5' will return a mask
+            where the mask is greater than 0.5. Defaults to 0.0.
+        grid (str): The grid resolution of the dataset.
+
+    Returns:
+        xr.Dataset: Mask dataset.
+    """
+    if mask is None:
+        return get_grid_ds(grid)
+    elif 'lsm' in mask:
+        # Import here to avoid circular imports
+        from sheerwater.regions_and_masks import land_sea_mask
+        if grid == 'global1_5' or grid == 'global0_25':
+            mask_ds = land_sea_mask(grid=grid).compute()
+        else:
+            # TODO: Should implement a more resolved land-sea mask for the other grids
+            from sheerwater.utils.data_utils import regrid
+            mask_ds = land_sea_mask(grid='global0_25')
+            mask_ds = regrid(mask_ds, grid, method='nearest').compute()
+
+        val = 0.0
+        if '-' in mask:
+            # Convert to boolean mask
+            val = float(mask.split('-')[1])
+        mask_ds['mask'] = mask_ds['mask'] > val
+        return mask_ds
+    else:
+        raise NotImplementedError("Only land-sea or None mask is implemented.")
+
+
+def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
+    """Apply a mask to a dataset.
+
+    Args:
+        ds (xr.Dataset): Dataset to apply mask to.
+        mask (str): The mask to apply. One of: 'lsm', None
+        var (str): Variable to mask. If None, applies to apply to all variables.
+        val (int): Value to mask below (any value that is
+            strictly less than this value will be masked).
+        grid (str): The grid resolution of the dataset.
+    """
+    # No masking needed
+    if mask is None:
+        return ds
+
+    if isinstance(mask, str):
+        mask_ds = get_mask(mask, grid)
+    else:
+        mask_ds = mask
+
+    # Check that the mask and dataset have the same dimensions
+    if not all([dim in ds.dims for dim in mask_ds.dims]):
+        raise ValueError("Mask and dataset must have the same dimensions.")
+
+    if check_bases(ds, mask_ds) == -1:
+        raise ValueError("Datasets have different longitude bases. Cannot mask.")
+
+    # Ensure that the mask and the dataset don't have different precision
+    # This MUST be np.float32 as of 4/28/25...unsure why?
+    # Otherwise the mask doesn't match and lat/lons get dropped
+    mask_ds['lon'] = np.round(mask_ds.lon, 5).astype(np.float32)
+    mask_ds['lat'] = np.round(mask_ds.lat, 5).astype(np.float32)
+    ds['lon'] = np.round(ds.lon, 5).astype(np.float32)
+    ds['lat'] = np.round(ds.lat, 5).astype(np.float32)
+
+    if isinstance(var, str):
+        # Mask a single variable
+        ds[var] = ds[var].where(mask_ds['mask'] > val, drop=False)
+    else:
+        # Mask multiple variables
+        ds = ds.where(mask_ds['mask'] > val, drop=False)
+    return ds
 
 
 def get_grid_ds(grid_id, base="base180"):
@@ -60,70 +245,6 @@ def get_grid(grid, base="base180"):
     lons = np.round(lons, 5).astype(np.float32)
     lats = np.round(lats, 5).astype(np.float32)
     return lons, lats, grid_size
-
-
-def get_region(region):
-    """Get the longitudes, latitudes boundaries or shapefile for a given region.
-
-    Note: assumes longitude in base180 format.
-
-    Args:
-        region (str): The resolution to get the grid for. One of:
-            - africa: the African continent
-            - conus: the CONUS region
-            - global: the global region
-
-    Returns:
-        data: The longitudes and latitudes of the region as a tuple,
-            or the shapefile defining the region.
-    """
-    if region == "africa":
-        # Get the countries of Africa shapefile
-        lons = np.array([-23.0, 58.0])
-        lats = np.array([-35.0, 37.5])
-        filepath = 'gs://sheerwater-datalake/africa.geojson'
-        gdf = gpd.read_file(load_object(filepath))
-        data = (lons, lats, gdf)
-    elif region == "east_africa":
-        # Get the countries of Africa shapefile
-        lons = np.array([28.2, 42.6])
-        lats = np.array([-12.1, 5.6])
-        filepath = 'gs://sheerwater-datalake/regions/africa.geojson'
-        gdf = gpd.read_file(load_object(filepath))
-
-        # Filter the gdf
-        gdf = gdf.where(gdf['sovereignt'].isin(['Kenya',
-                                                'Burundi',
-                                                'Rwanda',
-                                                'United Republic of Tanzania',
-                                                'Uganda'])).dropna(how='all')
-        data = (lons, lats, gdf)
-    elif region == "kenya":
-        # Get the countries of Africa shapefile
-        lons = np.array([33.5, 42.0])
-        lats = np.array([-5.0, 5.2])
-        filepath = 'gs://sheerwater-datalake/regions/africa.geojson'
-        gdf = gpd.read_file(load_object(filepath))
-
-        # Filter the gdf
-        gdf = gdf.where(gdf['sovereignt'].isin(['Kenya'])).dropna(how='all')
-        data = (lons, lats, gdf)
-    elif region == "conus":
-        lons = np.array([-125.0, -67.0])
-        lats = np.array([25.0, 50.0])
-        filepath = 'gs://sheerwater-datalake/regions/usa.geojson'
-        gdf = gpd.read_file(load_object(filepath))
-        # Remove non-CONUS states
-        gdf = gdf[~gdf['NAME'].isin(['Alaska', 'Hawaii', 'Puerto Rico'])]
-        data = (lons, lats, gdf)
-    elif region == "global":
-        lons = np.array([-180.0, 180.0])
-        lats = np.array([-90.0, 90.0])
-        data = (lons, lats)
-    else:
-        raise NotImplementedError(
-            f"Region {region} has not been implemented.")
-    return data
 
 
 def base360_to_base180(lons):

@@ -3,12 +3,12 @@
 import itertools
 import traceback
 
-from sheerwater.metrics import station_metrics_table
 from sheerwater.utils import start_remote
 from jobs import parse_args, run_in_parallel, prune_metrics
+from dashboard_data import ground_truth_metric_table
 
 (start_time, end_time, forecasts, truth, metrics,
- variables, grids, regions, leads,
+ variables, grids, regions, agg_days,
  time_groupings, parallelism, recompute,
  backend, remote_name, remote, remote_config) = parse_args()
 
@@ -26,20 +26,21 @@ if 'crps' in metrics:
 combos = itertools.product(metrics, variables, grids, regions, [None], [None], time_groupings, truth)
 combos = prune_metrics(combos)
 
+
 def run_metrics_table(combo):
     """Run table metrics."""
     metric, variable, grid, region, _, _, time_grouping, truth = combo
 
     try:
-        return station_metrics_table(start_time, end_time, variable, truth, metric,
-                              time_grouping=time_grouping, grid=grid, region=region,
-                              force_overwrite=True, filepath_only=filepath_only,
-                              recompute=recompute, storage_backend=backend)
+        return ground_truth_metric_table(start_time, end_time, variable, truth, metric,
+                                         time_grouping=time_grouping, grid=grid, region=region,
+                                         force_overwrite=True, filepath_only=filepath_only,
+                                         recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
-        raise(e)
+        raise (e)
     except NotImplementedError:
-        print(f"Metric {forecast} {lead} {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
-        return "Not Impelemnted"
+        print(f"Metric {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
+        return "Not Implemented"
     except:  # noqa: E722
         print(f"Failed to run metric {grid} {variable} {metric} \
                 {region} {time_grouping}: {traceback.format_exc()}")

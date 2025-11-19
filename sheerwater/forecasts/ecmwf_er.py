@@ -3,19 +3,14 @@ import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 import xarray as xr
-from functools import partial
 from sheerwater.reanalysis import era5_rolled
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote,
-                              apply_mask, clip_region,
-                              lon_base_change,
-                              roll_and_agg,
-                              lead_to_agg_days,
-                              regrid, get_variable,
-                              target_date_to_forecast_date,
-                              shift_forecast_date_to_target_date)
+from sheerwater.utils import (dask_remote, lon_base_change,
+                                           roll_and_agg,
+                                           regrid, get_variable,
+                                           shift_by_days,
+                                           forecast)
 
 
 @dask_remote
@@ -357,131 +352,56 @@ def ifs_extended_range_rolled(start_time, end_time, variable,
     return ds
 
 
-def _process_lead(variable, lead):
-    """Helper function for interpreting lead for ECMWF forecasts."""
-    lead_params = {}
-    if variable == 'rainy_onset':  # rainy onset only has daily leads out to day 36
-        lead_params = {f"day{i+1}": i for i in range(36)}
-    elif variable == 'rainy_onset_no_drought':
-        # need to add 11 days to the lead to handle drought condition
-        lead_params = {f"day{i+1}": i for i in range(25)}
-    else:
-        for i in range(45):
-            lead_params[f"day{i+1}"] = i
-        for i in [0, 7, 14, 21, 28, 35]:
-            lead_params[f"week{i//7+1}"] = i
-        for i in [0, 7, 14, 21, 28]:
-            lead_params[f"weeks{(i//7)+1}{(i//7)+2}"] = i
-    lead_offset_days = lead_params.get(lead, None)
-    if lead_offset_days is None:
-        raise NotImplementedError(f"Lead {lead} not implemented for ECMWF {variable} forecasts.")
-
-    agg_days = lead_to_agg_days(lead)
-    return agg_days, lead_offset_days
-
-
 @dask_remote
-def ecmwf_ifs_spw(start_time, end_time, lead, debiased=True,
-                  prob_type='probabilistic', prob_threshold=0.6,
-                  onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                  drought_condition=False,
-                  grid='global1_5', mask='lsm', region="global"):
-    """The ECMWF SPW forecasts."""
-    # Get rainy season onset forecast
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-
-    # Set up aggregation and shift functions for SPW
-    agg_fn = partial(ifs_extended_range_rolled, start_time, end_time, variable='precip',
-                     prob_type=prob_type, grid=grid, debiased=debiased)
-
-    def shift_fn(ds, shift_by_days):
-        """Helper function for selecting and shifting lead for ECMWF forecasts."""
-        # Select the appropriate lead
-        lead_offset_days = _process_lead('precip', lead)[1]
-        lead_sel = {'lead_time': np.timedelta64(lead_offset_days + shift_by_days, 'D')}
-        ds = ds.sel(**lead_sel)
-        # Time shift - we want target date, instead of forecast date
-        ds = shift_forecast_date_to_target_date(ds, 'start_date', lead)
-        ds = ds.rename({'start_date': 'time'})
-        return ds
-
-    roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-    shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-    data = spw_precip_preprocess(agg_fn, shift_fn, agg_days=roll_days, shift_days=shift_days,
-                                 mask=mask, region=region, grid=grid)
-
-    (prob_dim, prob_threshold) = ('member', prob_threshold) if prob_type == 'probabilistic' else (None, None)
-    ds = spw_rainy_onset(data,
-                         onset_group=onset_group, aggregate_group=aggregate_group,
-                         time_dim='time',
-                         prob_type=prob_label, prob_dim=prob_dim, prob_threshold=prob_threshold,
-                         drought_condition=drought_condition,
-                         mask=mask, region=region, grid=grid)
-    return ds
-
-
-@dask_remote
-def _ecmwf_ifs_er_unified(start_time, end_time, variable, lead, prob_type='deterministic',
-                          grid="global1_5", mask='lsm', region="global", debiased=True):
+def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='deterministic',
+                          grid="global1_5", mask='lsm', region="global", debiased=True):  # noqa: ARG001
     """Unified API accessor for ECMWF raw and debiased forecasts."""
-    agg_days, lead_offset_days = _process_lead(variable, lead)
+    # The earliest and latest forecast dates for the set of all leads
+    # ECMWF extended range forecasts have 46 days, so we shift to include all forecasters who could
+    # overlaps with the start and end period
+    forecast_start = shift_by_days(start_time, -46)
+    forecast_end = shift_by_days(end_time, 46)
 
-    forecast_start = target_date_to_forecast_date(start_time, lead)
-    forecast_end = target_date_to_forecast_date(end_time, lead)
-
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = variable == 'rainy_onset_no_drought'
-        ds = ecmwf_ifs_spw(forecast_start, forecast_end, lead, debiased=debiased,
-                           prob_type=prob_type, prob_threshold=0.6,
-                           onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                           drought_condition=drought_condition,
-                           grid=grid, mask=mask, region=region)
-        # Rainy onset is sparse, so we need to set the sparse attribute
-        ds = ds.assign_attrs(sparse=True)
-    else:
-        ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
-                                       agg_days=agg_days, grid=grid, debiased=debiased)
-        # Select the appropriate lead
-        lead_sel = {'lead_time': np.timedelta64(lead_offset_days, 'D')}
-        ds = ds.sel(**lead_sel)
-        ds = shift_forecast_date_to_target_date(ds, 'start_date', lead)
-        ds = ds.rename({'start_date': 'time'})
-
-        # Apply masking and clip to region
-        ds = apply_mask(ds, mask, grid=grid)
-        ds = clip_region(ds, region=region)
+    ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
+                                   agg_days=agg_days, grid=grid, debiased=debiased)
 
     # Assign probability label
+    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
 
     # TODO: remove this once we update ECMWF caches
-    if variable == 'precip' and agg_days in [7, 14]:
+    if variable == 'precip' and agg_days in [7, 14] and \
+            not (grid == 'global1_5' and not debiased):
+        # The dataframes for un-debiased, global1_5 are already divided by days
         print("Warning: Dividing precip by days to get daily values. Do you still want to do this?")
         ds['precip'] /= agg_days
 
+    # Rename to standard naming
+    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
 
 
 @dask_remote
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def ecmwf_ifs_er(start_time, end_time, variable, lead, prob_type='deterministic',
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
+def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return _ecmwf_ifs_er_unified(start_time, end_time, variable, lead, prob_type=prob_type,
+    return _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days=agg_days, prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=False)
 
 
 @dask_remote
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def ecmwf_ifs_er_debiased(start_time, end_time, variable, lead, prob_type='deterministic',
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
+def ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return _ecmwf_ifs_er_unified(start_time, end_time, variable, lead, prob_type=prob_type,
+    return _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days=agg_days, prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=True)

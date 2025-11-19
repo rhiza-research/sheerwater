@@ -5,12 +5,9 @@ import gcsfs
 
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote,
-                              apply_mask, clip_region,
-                              lon_base_change,
-                              target_date_to_forecast_date,
-                              shift_forecast_date_to_target_date,
-                              lead_to_agg_days, roll_and_agg, regrid)
+from sheerwater.utils import (dask_remote, lon_base_change,
+                                           roll_and_agg, regrid, forecast,
+                                           shift_by_days)
 
 
 @dask_remote
@@ -168,51 +165,28 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
     return ds
 
 
-def _process_lead(variable, lead):
-    """Helper function for interpreting lead for gencast forecasts."""
-    if variable not in ['precip', 'tmp2m']:
-        raise NotImplementedError(f"Variable {variable} not implemented for gencast forecasts.")
-    lead_params = {}
-    for i in range(15):
-        lead_params[f"day{i+1}"] = i
-    lead_params["week1"] = 0
-    lead_params["week2"] = 7
-    lead_offset_days = lead_params.get(lead, None)
-    if lead_offset_days is None:
-        raise NotImplementedError(f"Lead {lead} not implemented for gencast {variable} forecasts.")
-    agg_days = lead_to_agg_days(lead)
-    return agg_days, lead_offset_days
-
-
 @dask_remote
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def gencast(start_time, end_time, variable, lead, prob_type='deterministic',
-            grid='global1_5', mask='lsm', region="global"):
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@forecast
+def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
+            grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""
     if variable != 'precip':
         raise NotImplementedError("Data error present in non-precip variables in Gencast. Skipping.")
 
-    # Process the lead
-    agg_days, lead_offset_days = _process_lead(variable, lead)
-
-    # Convert start and end time to forecast start and end based on lead time
-    forecast_start = target_date_to_forecast_date(start_time, lead)
-    forecast_end = target_date_to_forecast_date(end_time, lead)
+    # Get the data with the right days
+    forecast_start = shift_by_days(start_time, -15)
+    forecast_end = shift_by_days(end_time, 15)
 
     # Get the data with the right days
     ds = gencast_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, prob_type=prob_type, grid=grid)
+    if prob_type == 'deterministic':
+        ds = ds.assign_attrs(prob_type="deterministic")
+    else:
+        ds = ds.assign_attrs(prob_type="ensemble")
 
-    # Get specific lead
-    lead_shift = np.timedelta64(lead_offset_days, 'D')
-    ds = ds.sel(lead_time=lead_shift)
-
-    # Time shift - we want target date, instead of forecast date
-    ds = shift_forecast_date_to_target_date(ds, 'time', lead)
-
-    # Apply masking and clip to region
-    ds = apply_mask(ds, mask, var=variable, grid=grid)
-    ds = clip_region(ds, region=region)
-
+    # Rename to standard naming
+    ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds

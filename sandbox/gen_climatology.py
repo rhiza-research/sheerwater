@@ -1,8 +1,7 @@
 """Generate land-sea masks for all grids and bases."""
 from itertools import product
-from sheerwater.baselines.climatology import (
-    climatology_raw,  climatology_rolling_agg, climatology_linear_weights, climatology_agg_raw,
-    climatology_abc, climatology_rolling_abc)
+from sheerwater.climatology import (
+    climatology_raw,  climatology_rolling_agg, climatology_linear_weights, climatology_agg_raw)
 from sheerwater.utils import start_remote
 
 

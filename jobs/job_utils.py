@@ -5,8 +5,8 @@ import itertools
 import multiprocessing
 import tqdm
 
-from sheerwater.metrics import is_precip_only
-from sheerwater.metrics import is_coupled
+from sheerwater.metrics_library import metric_factory
+
 
 def parse_args():
     """Parses arguments for jobs."""
@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--metric", type=str, nargs='*')
     parser.add_argument("--grid", type=str, nargs='*')
     parser.add_argument("--region", type=str, nargs='*')
-    parser.add_argument("--lead", type=str, nargs='*')
+    parser.add_argument("--agg_days", type=str, nargs='*')
     parser.add_argument("--time-grouping", type=str, nargs='*')
     parser.add_argument("--backend", type=str, default=None)
     parser.add_argument("--parallelism", type=int, default=1)
@@ -52,15 +52,19 @@ def parse_args():
         truth = args.truth
 
     if args.station_evaluation:
-        metrics = ["mae", "rmse", "bias", "acc", "smape", "seeps", "pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        metrics = ["mae", "rmse", "bias", "acc", "smape", "seeps", "pod-1", "pod-5", "pod-10",
+                   "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
     else:
-        metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5",
+                   "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
 
     if args.metric:
         if args.metric == ['contingency']:
-            metrics = ["pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+            metrics = ["pod-1", "pod-5", "pod-10", "far-1", "far-5",
+                       "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
         elif args.metric == ['coupled']:
-            metrics = ["acc", "pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+            metrics = ["acc", "pod-1", "pod-5", "pod-10", "far-1", "far-5",
+                       "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
         else:
             metrics = args.metric
 
@@ -72,19 +76,19 @@ def parse_args():
     if args.grid:
         grids = args.grid
 
-    regions = ["africa", "east_africa", "global", "conus"]
+    regions = ["continent", "subregion", "global", "country", "sheerwater_regions"]
     if args.region:
         regions = args.region
 
     if args.station_evaluation:
-        leads = ["daily", "weekly", "biweekly", "monthly"]
+        agg_days = [1, 7, 14, 30]
     elif args.seasonal:
-        leads = ["month1", "month2", "month3"]
+        agg_days = [30]
     else:
-        leads = ["week1", "week2", "week3", "week4", "week5", "week6"]
+        agg_days = [7]
 
-    if args.lead:
-        leads = args.lead
+    if args.agg_days:
+        agg_days = args.agg_days
 
     time_groupings = [None, "month_of_year", "year"]
     if args.time_grouping:
@@ -96,8 +100,9 @@ def parse_args():
         remote_config = args.remote_config
 
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
-            regions, leads, time_groupings, args.parallelism,
+            regions, agg_days, time_groupings, args.parallelism,
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
+
 
 def prune_metrics(combos, global_run=False):
     """Prunes a list of metrics combinations.
@@ -106,22 +111,19 @@ def prune_metrics(combos, global_run=False):
     """
     pruned_combos = []
     for combo in combos:
-        metric, variable, grid, region, lead, forecast, time_grouping, truth = combo
+        forecast, truth, variable, grid, agg_days, region, time_grouping, metric_name = combo
 
-        if not global_run and 'tahmo' in truth and region != 'east_africa':
+        metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
+                                    agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
+                                    spatial=False, grid=grid, mask=None, region=region)
+
+        if not global_run and 'tahmo' in truth and region != 'nimbus_east_africa':
             continue
 
-        if global_run:
-            if is_coupled(metric):
-                continue
-        else:
-            if is_coupled(metric) and time_grouping is not None:
-                continue
-
-        if is_precip_only(metric) and variable != 'precip':
+        if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
             continue
 
-        if metric == 'seeps' and grid == 'global0_25':
+        if metric_name == 'seeps' and grid == 'global0_25':
             continue
 
         pruned_combos.append(combo)

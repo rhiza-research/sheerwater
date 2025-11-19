@@ -2,10 +2,12 @@
 import os
 import cdsapi
 import xarray as xr
+import numpy as np
+import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from nuthatch import cache
 from sheerwater.utils import (cdsapi_secret, get_grid,
-                              lon_base_change)
+                                           lon_base_change, get_region_data, get_grid_ds)
 
 
 @cache(cache_args=['grid'])
@@ -71,5 +73,44 @@ def land_sea_mask(grid="global1_5"):
     return ds
 
 
-# Use __all__ to define what is part of the public API.
-__all__ = [land_sea_mask]
+@cache(cache_args=['grid', 'region_level'],
+       backend_kwargs={'chunking': {'lat': 1000, 'lon': 1000}})
+def region_labels(grid='global1_5', region_level='countries'):
+    """Generate a dataset with a region coordinate at a specific region level.
+
+    Available region levels are
+     - 'country', 'continent', 'subregion', 'region_un', 'region_wb', 'meteorological_zone',
+        'hemisphere', 'global', and 'sheerwater_region'.
+
+    Args:
+        grid (str): The grid to fetch the data at.  Note that only
+            the resolution of the specified grid is used.
+        region_level (str): The region level to add to the dataset
+
+    Returns:
+        xarray.Dataset: Dataset with added region coordinate
+    """
+    # Get the list of regions for the specified admin level
+    region_data = get_region_data(region_level)
+
+    # Get the grid dataframe
+    ds = get_grid_ds(grid)
+    # Assign a dummy region coordinate to all grid cells
+    # Fixed data type of strings of length 100
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
+
+    # Loop through each region and label grid cells
+    for i, rn in region_data.iterrows():
+        print(i+1, '/', len(region_data.region_name), rn.region_name)
+        # Clip the grid to the boundary of Shapefile
+        world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
+        #  Add geometry to the dataframe and clip
+        world_ds = world_ds.rio.write_crs("EPSG:4326")
+        world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
+        region_ds = world_ds.rio.clip(rn, region_data.crs, drop=False)
+        # Assign the region name to the region coordinate
+        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
+    return ds
+
+
+__all__ = ['land_sea_mask', 'region_labels']

@@ -3,7 +3,7 @@ import numpy as np
 from sheerwater.metrics import get_datasource_fn
 from sheerwater.utils import start_remote
 from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_spw
-from sheerwater.baselines.climatology import climatology_spw
+from sheerwater.forecasts.climatology import climatology_spw
 
 
 def test_spw():
