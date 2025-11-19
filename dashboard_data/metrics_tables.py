@@ -76,7 +76,7 @@ def _metric_table(start_time, end_time, variable,
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
        backend='sql',
        backend_kwargs={
-           'hash_postgres_table_name': True,
+           'hash_table_name': True,
        })
 def weekly_metric_table(start_time, end_time, variable,
                         truth, metric_name, time_grouping=None,
@@ -94,7 +94,10 @@ def weekly_metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql')
+       backend='sql',
+       backend_kwargs={
+           'hash_table_name': True,
+       })
 def monthly_metric_table(start_time, end_time, variable,
                          truth, metric_name, time_grouping=None,
                          grid='global1_5', region='global'):
@@ -110,7 +113,10 @@ def monthly_metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql')
+       backend='sql',
+       backend_kwargs={
+           'hash_table_name': True,
+       })
 def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
                               grid='global1_5', region='global'):
@@ -127,7 +133,10 @@ def ground_truth_metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql')
+       backend='sql',
+       backend_kwargs={
+           'hash_table_name': True,
+       })
 def biweekly_metric_table(start_time, end_time, variable,
                           truth, metric_name, time_grouping=None,
                           grid='global1_5', region='global'):

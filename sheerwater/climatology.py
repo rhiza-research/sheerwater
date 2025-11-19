@@ -11,7 +11,7 @@ from sheerwater.reanalysis import era5_daily, era5_rolled
 from nuthatch import cache
 from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote, get_dates,
-                              apply_mask, clip_region, pad_with_leapdays, add_dayofyear, forecast)
+                              pad_with_leapdays, add_dayofyear, forecast)
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
 

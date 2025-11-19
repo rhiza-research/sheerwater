@@ -8,7 +8,7 @@ from functools import wraps
 import xskillscore
 from weatherbench2.metrics import SpatialQuantileCRPS, SpatialSEEPS
 
-from nuthatch import cache
+from nuthatch import cache as cache_decorator
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -37,9 +37,9 @@ def statistic(cache=False, name=None,
         # Register the statistic function with the registry
         # We'll register the wrapped function instead of the original
         @timeseries
-        @cache(cache=cache, cache_args=cache_args,
+        @cache_decorator(cache=cache, cache_args=cache_args,
                backend_kwargs={
-                   'chunking': chunking
+                   'chunking': chunking,
                    'chunk_by_arg': chunk_by_arg
                })
         def global_statistic(

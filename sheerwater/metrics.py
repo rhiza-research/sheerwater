@@ -1,6 +1,5 @@
 """Verification metrics for forecasters and reanalyses."""
 from nuthatch import cache
-from nuthatch.processors import timeseries
 from sheerwater.utils import dask_remote
 from sheerwater.metrics_library import metric_factory
 
