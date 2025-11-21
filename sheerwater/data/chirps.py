@@ -46,7 +46,8 @@ def chirps_raw(year, grid, stations=True, version=2):
             ds = ds.reset_coords('band', drop=True)
             return ds
 
-        ds = xr.open_mfdataset(urls, engine='rasterio', preprocess=preprocess, chunks={'y': 1200, 'x': 1200, 'time': 365}, concat_dim=["time"], compat="override", coords="minimal", combine="nested")
+        ds = xr.open_mfdataset(urls, engine='rasterio', preprocess=preprocess, chunks={'y': 1200, 'x': 1200, 'time': 365},
+                               concat_dim=["time"], compat="override", coords="minimal", combine="nested")
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data':'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
@@ -92,7 +93,7 @@ def chirps_raw(year, grid, stations=True, version=2):
             try:
                 f = fs.open(url)
                 files.append(f)
-            except:
+            except FileNotFoundError:
                 pass
 
         ds = xr.open_mfdataset(files, chunks={'lat': 300, 'lon': 300, 'time': 365})
@@ -103,7 +104,7 @@ def chirps_raw(year, grid, stations=True, version=2):
         if not stations and version==2:
             url = f'https://data.chc.ucsb.edu/products/CHIRP/daily/netcdf/chirp.{year}.days_p05.nc'
         else:
-            raise ValueError(f"No chirps dataset found for stations:{stations}, version:{version}, prelim:{prelim}")
+            raise ValueError(f"No chirps dataset found for stations:{stations}, version:{version}")
 
         fs = fsspec.filesystem("https", timeout=7200, block_size=10*10*1024*1024)
         fobj = fs.open(url, block_size=10*10*1024*1024)
@@ -130,7 +131,6 @@ def chirps_raw(year, grid, stations=True, version=2):
        })
 def chirps_gridded(start_time, end_time, grid, stations=True, version=2):
     """CHIRPS regridded by year."""
-
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
     datasets = []

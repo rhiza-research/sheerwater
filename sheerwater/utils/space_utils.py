@@ -190,10 +190,13 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         ds = ds.where(mask_ds['mask'] > val, drop=False)
     return ds
 
+def snap_point_to_grid(point, grid_size, offset):
+    """Snap a point to a provided grid and offset."""
+    return round(float(point+offset)/grid_size) * grid_size - offset
 
 def get_grid_ds(grid_id, base="base180"):
     """Get a dataset equal to ones for a given region."""
-    lons, lats, _ = get_grid(grid_id, base=base)
+    lons, lats, _, _ = get_grid(grid_id, base=base)
     data = np.ones((len(lons), len(lats)))
     ds = xr.Dataset(
         {"mask": (['lon', 'lat'], data)},
@@ -247,7 +250,7 @@ def get_grid(grid, base="base180"):
     # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
     lons = np.round(lons, 5).astype(np.float32)
     lats = np.round(lats, 5).astype(np.float32)
-    return lons, lats, grid_size
+    return lons, lats, grid_size, offset
 
 
 def base360_to_base180(lons):

@@ -18,7 +18,7 @@ def land_sea_mask(grid="global1_5"):
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
     """
-    _, _, grid_size = get_grid(grid, base="base360")
+    _, _, grid_size, _ = get_grid(grid, base="base360")
 
     # Get data from the CDS API
     times = ['00:00']

@@ -75,7 +75,7 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     obs['time'] = dd.to_datetime(obs['time'])
 
     # Round the coordinates to the nearest grid
-    lats, lons, grid_size = get_grid(grid)
+    lats, lons, grid_size, _ = get_grid(grid)
     # This rounding only works for divisible, uniform grids
     assert (lats[0] % grid_size == 0)
     assert (lons[0] % grid_size == 0)

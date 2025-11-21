@@ -15,6 +15,10 @@ config_options = {
         'scheduler_cpu': 16,
         'scheduler_memory': "64GiB"
     },
+    'xlarge_scheduler': {
+        'scheduler_cpu': 32,
+        'scheduler_memory': "128GiB"
+    },
     'on_demand': {
         'spot_policy': 'on-demand'
     },

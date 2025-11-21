@@ -38,7 +38,7 @@ def single_era5(year, variable, grid="global1_5"):
     months = ["01", "02", "03", "04", "05", "06",
               "07", "08", "09", "10", "11", "12"]
 
-    _, _, grid_size = get_grid(grid)
+    _, _, grid_size, _ = get_grid(grid)
 
     url, key = cdsapi_secret()
     c = cdsapi.Client(url=url, key=key)

@@ -10,7 +10,7 @@ from .region_utils import get_region_level, get_region_data
 from .space_utils import (get_grid, get_grid_ds, is_wrapped,
                           base360_to_base180, base180_to_base360, check_bases, clip_region,
                           lon_base_change, get_globe_slice, apply_mask,
-                          get_mask)
+                          get_mask, snap_point_to_grid)
 
 from .time_utils import (is_valid_forecast_date, generate_dates_in_between, get_dates,
                          pad_with_leapdays, add_dayofyear, shift_by_days,
@@ -70,4 +70,5 @@ __all__ = [
     "get_variable",
     "convert_init_time_to_pred_time",
     "first_satisfied_date",
+    "snap_point_to_grid",
 ]
