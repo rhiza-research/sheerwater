@@ -12,12 +12,13 @@ logger.setLevel(logging.INFO)
 
 config_options = {
     'large_scheduler': {
-        'scheduler_cpu': 16,
-        'scheduler_memory': "64GiB"
+        'scheduler_vm_types': ['c2-standard-16', 'c3-standard-22']
     },
     'xlarge_scheduler': {
-        'scheduler_cpu': 32,
-        'scheduler_memory': "128GiB"
+        'scheduler_vm_types': ['c2-standard-30', 'c3-standard-44']
+    },
+    'xxlarge_scheduler': {
+        'scheduler_vm_types': ['c3-standard-88']
     },
     'on_demand': {
         'spot_policy': 'on-demand'
@@ -63,8 +64,7 @@ def start_remote(remote_name=None, remote_config=None):
         'name': default_name,
         'n_workers': [3, 8],
         'idle_timeout': "120 minutes",
-        'scheduler_cpu': 8,
-        'scheduler_memory': "32GiB",
+        'scheduler_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'worker_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'spot_policy': 'spot_with_fallback',
     }
