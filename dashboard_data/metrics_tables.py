@@ -121,8 +121,8 @@ def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
                               grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['era5', 'chirps', 'imerg', 'cbam']
-    agg_days = [1, 7, 14, 30]
+    forecasts = ['era5_land', 'chirps_v3', 'chirp_v3', 'chirps_v2', 'chirp_v2', 'imerg_final', 'imerg_late', 'cbam']
+    agg_days = [1, 5, 7, 10, 14, 30]
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days, forecasts,
                        time_grouping=time_grouping, grid=grid, region=region)

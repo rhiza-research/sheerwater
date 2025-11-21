@@ -8,6 +8,7 @@ from functools import wraps
 import xskillscore
 from weatherbench2.metrics import SpatialQuantileCRPS, SpatialSEEPS
 
+from nuthatch.processors import timeseries as timeseries_decorator
 from nuthatch import cache as cache_decorator
 
 # Global metric registry dictionary
@@ -36,7 +37,7 @@ def statistic(cache=False, name=None,
     def create_statistic(func):
         # Register the statistic function with the registry
         # We'll register the wrapped function instead of the original
-        @timeseries
+        @timeseries_decorator(timeseries=timeseries)
         @cache_decorator(cache=cache, cache_args=cache_args,
                backend_kwargs={
                    'chunking': chunking,
@@ -54,6 +55,7 @@ def statistic(cache=False, name=None,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
                 'data_key': data_key, 'grid': grid,
                 'statistic': statistic, 'start_time': start_time, 'end_time': end_time,
+                'memoize': True
             }
             ds = func(data=data, **cache_kwargs)
             # Assign attributes in one call

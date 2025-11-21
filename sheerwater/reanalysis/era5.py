@@ -7,7 +7,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote,
                               get_variable, apply_mask, clip_region,
-                              roll_and_agg, lon_base_change, regrid, get_grid)
+                              roll_and_agg, lon_base_change, regrid, get_grid, get_grid_ds)
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 from sheerwater.utils.secrets import earth_data_hub_token
 
@@ -126,11 +126,14 @@ def era5_land_daily(start_time, end_time, variable):
 def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1"):
     """ERA5 daily reanalysis with regridding."""
     ds = era5_land_daily(start_time, end_time, variable)
+    _, _, size, _ = get_grid(grid)
+    grid_ds = get_grid_ds(grid)
+
+    ds = ds.reindex_like(grid_ds)
 
     if grid == 'global0_1':
         return ds
 
-    _, _, size, _ = get_grid(grid)
 
     if size < 0.1:
         raise NotImplementedError("Unable to regrid ERA5 Land smaller than 0.1x0.1")
@@ -169,6 +172,8 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 
 @dask_remote
 @timeseries()
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis.
 
@@ -183,7 +188,7 @@ def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='
     """
     _, _, size, _ = get_grid(grid)
 
-    if size < 0.1:
+    if size < 0.1 or (size == 0.1 and grid != 'global0_1'):
         raise NotImplementedError("Unable to regrid ERA5 Land smaller than 0.1x0.1")
 
 
@@ -340,6 +345,8 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 @dask_remote
 @timeseries()
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def era5(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis.
 

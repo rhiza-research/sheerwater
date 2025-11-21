@@ -5,6 +5,8 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from .region_utils import get_region_data
 
+from nuthatch import cache
+
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
     """Get a slice of the globe from the dataset.
@@ -112,6 +114,7 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False):
     return ds
 
 
+@cache(cache_args=['mask', 'grid'])
 def get_mask(mask, grid='global1_5'):
     """Get a mask dataset.
 
@@ -130,11 +133,11 @@ def get_mask(mask, grid='global1_5'):
         # Import here to avoid circular imports
         from sheerwater.regions_and_masks import land_sea_mask
         if grid == 'global1_5' or grid == 'global0_25':
-            mask_ds = land_sea_mask(grid=grid).compute()
+            mask_ds = land_sea_mask(grid=grid, memoize=True).compute()
         else:
             # TODO: Should implement a more resolved land-sea mask for the other grids
             from sheerwater.utils.data_utils import regrid
-            mask_ds = land_sea_mask(grid='global0_25')
+            mask_ds = land_sea_mask(grid='global0_25', memoize=True)
             mask_ds = regrid(mask_ds, grid, method='nearest').compute()
 
         val = 0.0

@@ -3,6 +3,7 @@ import pandas as pd
 from functools import partial
 from dateutil import parser
 import numpy as np
+import math
 import dask.dataframe as dd
 import dask
 import xarray as xr
@@ -284,13 +285,13 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', del
 @cache(cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd_rolled(start_time, end_time, agg_days,
-                 grid='global0_25', missing_thresh=0.5, cell_aggregation='first'):
+                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
     """GHCND rolled and aggregated."""
     # Get the data
     ds = ghcnd(start_time, end_time, grid, cell_aggregation)
 
     # Roll and agg
-    agg_thresh = max(int(agg_days*missing_thresh), 1)
+    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
 
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
     return ds
@@ -298,7 +299,7 @@ def ghcnd_rolled(start_time, end_time, agg_days,
 
 @dask_remote
 def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
-                         grid='global0_25', missing_thresh=0.5, cell_aggregation='mean'):
+                         grid='global0_25', missing_thresh=0.9, cell_aggregation='mean'):
     """Standard interface for ghcn data."""
     ds = ghcnd_rolled(start_time, end_time, agg_days=agg_days, grid=grid,
                       missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
@@ -317,7 +318,7 @@ def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
 @dask_remote
 def _ghcn_unified(start_time, end_time, variable, agg_days,
                   grid='global0_25', mask='lsm', region='global',
-                  missing_thresh=0.5, cell_aggregation='first'):
+                  missing_thresh=0.9, cell_aggregation='first'):
     """Standard interface for ghcn data."""
     if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
         drought_condition = variable == 'rainy_onset_no_drought'
@@ -350,7 +351,7 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn(start_time, end_time, variable, agg_days,
          grid='global0_25', mask='lsm', region='global',
-         missing_thresh=0.5):
+         missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
                          grid=grid, mask=mask, region=region,
@@ -363,7 +364,7 @@ def ghcn(start_time, end_time, variable, agg_days,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
-             missing_thresh=0.5):
+             missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
                          grid=grid, mask=mask, region=region,

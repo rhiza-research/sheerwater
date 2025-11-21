@@ -80,12 +80,12 @@ class Metric(ABC):
         if 'prob_type' in signature(fcst_fn).parameters:
             forecast_or_truth = 'forecast'
             fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                           prob_type=self.prob_type, grid=self.grid, mask=None, region='global')
+                           prob_type=self.prob_type, grid=self.grid, mask=None, region='global', memoize=True)
             enhanced_prob_type = fcst.attrs['prob_type']
         else:
             forecast_or_truth = 'truth'
             fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                           grid=self.grid, mask=None, region='global')
+                           grid=self.grid, mask=None, region='global', memoize=True)
             enhanced_prob_type = "deterministic"
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
@@ -97,7 +97,7 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_datasource_fn(self.truth)
         obs = truth_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                       grid=self.grid, mask=None, region='global')
+                       grid=self.grid, mask=None, region='global', memoize=True)
 
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
@@ -228,8 +228,8 @@ class Metric(ABC):
         if self.spatial and (region_level == self.region and self.region != 'global'):
             raise ValueError(f"Cannot compute spatial metrics for region level '{self.region}'. " +
                              "Pass in a specific region instead.")
-        region_ds = region_labels(grid=self.grid, region_level=region_level)
-        mask_ds = get_mask(self.mask, self.grid)
+        region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True)
+        mask_ds = get_mask(self.mask, self.grid, memoize=True)
 
         # Iterate through the statistics and compute them
         for statistic in self.statistics:
@@ -444,11 +444,12 @@ class ACC(Metric):
                                    grid=self.grid, mask=None, region='global')
 
         # Expand climatology to the same lead times as the forecast
-        leads = self.metric_data['data']['fcst'].prediction_timedelta.values
-        # Remove the prediction_timedelta coordinate
-        clim_ds = clim_ds.squeeze('prediction_timedelta')
-        # Add in a matching prediction_timedelta coordinate
-        clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
+        if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
+            leads = self.metric_data['data']['fcst'].prediction_timedelta.values
+            # Remove the prediction_timedelta coordinate
+            clim_ds = clim_ds.squeeze('prediction_timedelta')
+            # Add in a matching prediction_timedelta coordinate
+            clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 
         # Subset the climatology to the valid times and non-null times of the forecaster
         clim_ds = clim_ds.sel(time=self.metric_data['data']['valid_times'])

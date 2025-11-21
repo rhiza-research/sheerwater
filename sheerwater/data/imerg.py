@@ -75,18 +75,24 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
     return ds
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def imerg_final(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """IMERG Final."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
                           mask=mask, region=region, version='final')
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def imerg_late(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """IMERG late."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
                           mask=mask, region=region, version='late')
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def imerg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Alias for IMERG final."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,

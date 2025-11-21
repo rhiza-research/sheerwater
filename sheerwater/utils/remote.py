@@ -50,6 +50,9 @@ config_options = {
     'xxlarge_node': {
         'worker_vm_types': ['c3-standard-88']
     },
+    'xxxlarge_node': {
+        'worker_vm_types': ['c3-standard-176']
+    },
     'large_disk': {
         'worker_disk_size': '150GiB'
     },

@@ -11,8 +11,8 @@ from sheerwater.metrics_library import metric_factory
 def parse_args():
     """Parses arguments for jobs."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start-time", default="2016-01-01", type=str)
-    parser.add_argument("--end-time", default="2022-12-31", type=str)
+    parser.add_argument("--start-time", default="1998-01-01", type=str)
+    parser.add_argument("--end-time", default="2024-12-31", type=str)
     parser.add_argument("--forecast", type=str, nargs='*')
     parser.add_argument("--truth", type=str, nargs='*')
     parser.add_argument("--variable", type=str, nargs='*')
@@ -32,7 +32,7 @@ def parse_args():
     args = parser.parse_args()
 
     if args.station_evaluation:
-        forecasts = ["era5", "chirps", "imerg", "cbam"]
+        forecasts = ["era5_land", "chirps_v3", "chirp_v3", "chirps_v2", "chirp_v2", "imerg_late", "imerg_final", "cbam"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
@@ -52,7 +52,7 @@ def parse_args():
         truth = args.truth
 
     if args.station_evaluation:
-        metrics = ["mae", "rmse", "bias", "acc", "smape", "seeps", "pod-1", "pod-5", "pod-10",
+        metrics = ["mae", "rmse", "bias", "acc", "smape", "pod-1", "pod-5", "pod-10",
                    "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
     else:
         metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5",
@@ -72,7 +72,10 @@ def parse_args():
     if args.variable:
         variables = args.variable
 
-    grids = ["global0_25", "global1_5"]
+    if args.station_evaluation:
+        grids = ["global1_5", "imerg", "global0_1", "global0_25"]
+    else:
+        grids = ["global0_25", "global1_5"]
     if args.grid:
         grids = args.grid
 
@@ -81,7 +84,7 @@ def parse_args():
         regions = args.region
 
     if args.station_evaluation:
-        agg_days = [1, 7, 14, 30]
+        agg_days = [1, 5, 7, 10, 14, 30]
     elif args.seasonal:
         agg_days = [30]
     else:

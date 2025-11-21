@@ -176,30 +176,40 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
     return ds
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            mask=mask, region=region, stations=False, version=2)
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            mask=mask, region=region, stations=False, version=3)
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            mask=mask, region=region, stations=True, version=2)
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            mask=mask, region=region, stations=True, version=3)
 
 @dask_remote
+@cache(cache=False,
+       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Final access function for chirps."""
     if variable not in ['precip', 'rainy_onset', 'rainy_onset_no_drought']:
