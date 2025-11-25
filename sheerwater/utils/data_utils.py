@@ -41,9 +41,6 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
     # Check to see if coord is a time value
     assert np.issubdtype(ds[agg_col].dtype, np.timedelta64) or np.issubdtype(ds[agg_col].dtype, np.datetime64)
 
-    # Drop the nan values added by the rolling aggregation at the end
-    ds_agg = ds_agg.dropna(agg_col, how="all")
-
     # Correct coords to left-align the aggregated forecast window
     # (default is right aligned)
     ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-np.timedelta64(agg-1, 'D')})

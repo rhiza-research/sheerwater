@@ -8,6 +8,7 @@ import tqdm
 from sheerwater.metrics_library import metric_factory
 
 
+
 def parse_args():
     """Parses arguments for jobs."""
     parser = argparse.ArgumentParser()
@@ -32,7 +33,7 @@ def parse_args():
     args = parser.parse_args()
 
     if args.station_evaluation:
-        forecasts = ["era5_land", "chirps_v3", "chirp_v3", "chirps_v2", "chirp_v2", "imerg_late", "imerg_final", "cbam"]
+        forecasts = ["chirps_v3", "chirp_v3", "chirps_v2", "chirp_v2", "imerg_late", "imerg_final", "cbam"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
@@ -79,7 +80,7 @@ def parse_args():
     if args.grid:
         grids = args.grid
 
-    regions = ["continent", "subregion", "global", "country", "sheerwater_regions"]
+    regions = ["continent", "subregion", "global", "country", "sheerwater_region"]
     if args.region:
         regions = args.region
 

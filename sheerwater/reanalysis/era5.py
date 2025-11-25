@@ -166,6 +166,7 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
     ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid)
     if agg_days == 1:
         return ds
+
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
 

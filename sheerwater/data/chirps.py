@@ -77,7 +77,7 @@ def chirps_raw(year, grid, stations=True, version=2):
         base_url = f"https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/final/sat/netcdf/byMonth/chirps-v3.0.{year}"
         urls = []
         if year < 2000:
-            raise ValueError("chirpv3 not valid before 2000")
+            return None
         elif year == 2000:
             for month in range(6,13):
                 full_url = base_url + f".{month:02}.days_p05.nc"
@@ -135,8 +135,9 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2):
 
     datasets = []
     for year in years:
-        ds = chirps_raw(year, grid, stations=stations, version=version, filepath_only=True)
-        datasets.append(ds)
+        ds = chirps_raw(year, 'chirps', stations=stations, version=version, filepath_only=True)
+        if ds is not None:
+            datasets.append(ds)
 
     ds = xr.open_mfdataset(datasets,
                            engine='zarr',
