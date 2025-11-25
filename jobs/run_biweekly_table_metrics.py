@@ -7,7 +7,7 @@ from sheerwater.utils import start_remote
 from dashboard_data import biweekly_metric_table
 from jobs import parse_args, run_in_parallel
 
-(start_time, end_time, forecasts, metrics,
+(start_time, end_time, forecasts, _truth, metrics,
  variables, grids, regions, agg_days,
  time_groupings, parallelism, recompute,
  backend, remote_name, remote, remote_config) = parse_args()
