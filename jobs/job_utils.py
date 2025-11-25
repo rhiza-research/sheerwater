@@ -7,7 +7,7 @@ import tqdm
 
 from sheerwater.metrics_library import metric_factory
 
-
+skip = 0
 
 def parse_args():
     """Parses arguments for jobs."""
@@ -30,7 +30,11 @@ def parse_args():
     parser.add_argument("--seasonal", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--remote-name", type=str, default=None)
     parser.add_argument("--remote-config", type=str, nargs='*')
+    parser.add_argument("--skip", type=int, default=0)
     args = parser.parse_args()
+
+    global skip
+    skip = args.skip
 
     if args.station_evaluation:
         forecasts = ["chirps_v3", "chirp_v3", "chirps_v2", "chirp_v2", "imerg_late", "imerg_final", "cbam"]
@@ -151,6 +155,9 @@ def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
     failed = []
     if parallelism <= 1:
         for i, it in enumerate(iterable):
+            if i < skip:
+                continue
+
             print(f"Running {i+1}/{length}")
             out = func(it)
             if out is not None:
@@ -167,18 +174,29 @@ def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
                         success_count += 1
         else:
             for it in itertools.batched(iterable, parallelism):
+                if counter < skip:
+                    counter = counter + parallelism
+                    continue
+
                 output = []
                 print(f"Running {counter+1}...{counter+parallelism}/{length}")
                 for i in it:
                     out = dask.delayed(func)(i)
-                    if out is not None:
-                        success_count += 1
-                    else:
+                    if out is None:
                         failed.append(i)
 
                     output.append(out)
 
-                dask.compute(output)
+                results = dask.compute(output)[0]
+                ls_count = 0
+                for i, r in enumerate(results):
+                    if r is not None:
+                        ls_count += 1
+                        success_count +=1
+                    else:
+                        failed.append(it[i])
+                        print(f"Failed metric: {it[i]}")
+                print(f"{ls_count} succeeded.")
                 counter = counter + parallelism
 
     print(f"{success_count}/{length} returned non-null values. Runs that failed: {failed}")
