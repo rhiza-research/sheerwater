@@ -3,13 +3,21 @@ import argparse
 import dask
 import itertools
 import multiprocessing
+import os
+import sys
+import time
 import tqdm
+from contextlib import contextmanager
+from datetime import datetime
 
 from sheerwater.metrics_library import metric_factory
 
 skip = 0
 station_eval = False
 
+
+# Global benchmark context
+_benchmark_context = None
 
 def parse_args():
     """Parses arguments for jobs."""
@@ -32,6 +40,13 @@ def parse_args():
     parser.add_argument("--seasonal", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--remote-name", type=str, default=None)
     parser.add_argument("--remote-config", type=str, nargs='*')
+    parser.add_argument("--gpu", type=str, nargs='?', const='t4', default=None,
+                        choices=['t4', 't4_cluster', 'a100', 'a100_large', 'a100_cluster', 'a100_xlarge_cluster'],
+                        help="Enable GPU workers. Options: t4 (default), t4_cluster, a100, a100_large, a100_cluster, a100_xlarge_cluster")
+    parser.add_argument("--benchmark", action=argparse.BooleanOptionalAction, default=False,
+                        help="Enable performance benchmarking (generates HTML report)")
+    parser.add_argument("--benchmark-file", type=str, default=None,
+                        help="Output filename for benchmark report (default: auto-generated)")
     parser.add_argument("--skip", type=int, default=0)
     args = parser.parse_args()
 
@@ -129,9 +144,37 @@ def parse_args():
     if args.remote_config:
         remote_config = args.remote_config
 
+    # Add GPU config if --gpu flag is set
+    use_gpu = args.gpu is not None
+    if use_gpu:
+        # Map GPU type to config preset
+        gpu_config_map = {
+            't4': 'gpu',
+            't4_cluster': 'gpu_cluster',
+            'a100': 'gpu_a100',
+            'a100_large': 'gpu_a100_large',
+            'a100_cluster': 'gpu_a100_cluster',
+            'a100_xlarge_cluster': 'gpu_a100_xlarge_cluster',
+        }
+        gpu_config = gpu_config_map.get(args.gpu, 'gpu')
+        remote_config = list(remote_config) + [gpu_config]
+
+        # Set GPU environment variable early so it's available when start_remote() is called
+        # This allows the env var to be propagated to Coiled workers
+        os.environ["SHEERWATER_GPU_ENABLED"] = "1"
+
+    # Generate benchmark filename if not provided
+    benchmark_file = args.benchmark_file
+    if args.benchmark and not benchmark_file:
+        script_name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        gpu_suffix = f"_{args.gpu}" if use_gpu else "_cpu"
+        benchmark_file = f"benchmark_{script_name}{gpu_suffix}_{timestamp}.html"
+
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
             regions, agg_days, time_groupings, args.parallelism,
-            args.recompute, args.backend, args.remote_name, args.remote, remote_config)
+            args.recompute, args.backend, args.remote_name, args.remote, remote_config,
+            use_gpu, args.benchmark, benchmark_file)
 
 
 def prune_metrics(combos, global_run=False):
@@ -240,3 +283,129 @@ def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
                 counter = counter + parallelism
 
     print(f"{success_count}/{length} returned non-null values. Runs that failed: {failed}")
+
+
+@contextmanager
+def benchmark_context(enabled=False, filename=None, use_gpu=False):
+    """Context manager for benchmarking job execution.
+
+    Wraps job execution with Dask performance reporting and timing.
+
+    Args:
+        enabled: Whether benchmarking is enabled.
+        filename: Output HTML filename for the report.
+        use_gpu: Whether GPU mode is enabled (for logging).
+
+    Yields:
+        dict: Benchmark results dictionary.
+
+    Example:
+        >>> with benchmark_context(do_benchmark, benchmark_file, use_gpu) as results:
+        ...     run_in_parallel(run_metric, combos, parallelism)
+        >>> print(f"Total time: {results['elapsed']:.2f}s")
+    """
+    global _benchmark_context
+
+    results = {
+        "enabled": enabled,
+        "filename": filename,
+        "gpu_enabled": use_gpu,
+        "start_time": datetime.now().isoformat(),
+    }
+
+    if not enabled:
+        yield results
+        return
+
+    # Print benchmark info
+    mode = "GPU" if use_gpu else "CPU"
+    print(f"\n{'='*60}")
+    print(f"BENCHMARKING ENABLED ({mode} mode)")
+    print(f"Report will be saved to: {filename}")
+    print(f"{'='*60}\n")
+
+    start = time.perf_counter()
+
+    try:
+        # Try to use Dask performance report
+        from dask.distributed import performance_report
+        with performance_report(filename=filename):
+            _benchmark_context = results
+            yield results
+    except ImportError:
+        print("Warning: dask.distributed not available, timing only")
+        _benchmark_context = results
+        yield results
+    except Exception as e:
+        print(f"Warning: Could not create performance report: {e}")
+        print("Continuing with timing only...")
+        _benchmark_context = results
+        yield results
+    finally:
+        elapsed = time.perf_counter() - start
+        results["elapsed"] = elapsed
+        results["end_time"] = datetime.now().isoformat()
+        _benchmark_context = None
+
+        # Print summary
+        print(f"\n{'='*60}")
+        print(f"BENCHMARK COMPLETE ({mode} mode)")
+        print(f"Total elapsed time: {elapsed:.2f}s ({elapsed/60:.2f} min)")
+        if filename and os.path.exists(filename):
+            print(f"Performance report saved to: {filename}")
+            print(f"Open in browser to view task stream, worker profiles, etc.")
+        print(f"{'='*60}\n")
+
+
+def setup_job(use_gpu=False, do_benchmark=False, benchmark_file=None):
+    """Setup job environment with GPU and benchmarking.
+
+    Call this at the start of your job's main block.
+
+    Args:
+        use_gpu: Whether to enable GPU mode.
+        do_benchmark: Whether benchmarking is enabled.
+        benchmark_file: Output filename for benchmark report.
+
+    Returns:
+        Context manager for benchmarking (use with 'with' statement).
+
+    Example:
+        >>> if __name__ == "__main__":
+        ...     with setup_job(use_gpu, do_benchmark, benchmark_file):
+        ...         run_in_parallel(run_metric, combos, parallelism)
+    """
+    from sheerwater.utils import (enable_gpu, is_gpu_available, is_gpu_enabled,
+                                   print_dask_dashboard_link, check_worker_gpu_status)
+
+    # Enable GPU if requested
+    if use_gpu:
+        enable_gpu(True)
+        gpu_available_locally = is_gpu_available()
+        print(f"\n{'='*60}")
+        print(f"GPU MODE REQUESTED")
+        print(f"  SHEERWATER_GPU_ENABLED env var: {os.environ.get('SHEERWATER_GPU_ENABLED', 'not set')}")
+        print(f"  cupy-xarray available locally: {gpu_available_locally}")
+        if not gpu_available_locally:
+            print(f"  NOTE: cupy requires CUDA (not available on macOS)")
+            print(f"  GPU packages installed on Coiled workers via conda")
+            print(f"  Workers will use GPU acceleration when cupy-xarray is available")
+        else:
+            print(f"  GPU acceleration active locally: {is_gpu_enabled()}")
+        print(f"{'='*60}\n")
+
+    # Print dashboard link if available
+    try:
+        print_dask_dashboard_link()
+    except Exception:
+        pass
+
+    # Check GPU status on workers if GPU mode is enabled
+    if use_gpu:
+        try:
+            check_worker_gpu_status()
+        except Exception as e:
+            print(f"Could not check worker GPU status: {e}")
+
+    # Return benchmark context
+    return benchmark_context(do_benchmark, benchmark_file, use_gpu)

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time
+from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time, auto_gpu, auto_cpu
 from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater.regions_and_masks import region_labels
 
@@ -142,6 +142,10 @@ class Metric(ABC):
             no_null = no_null.isel(member=0).drop('member')
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
+
+        # Convert to GPU if GPU mode is enabled
+        fcst = auto_gpu(fcst)
+        obs = auto_gpu(obs)
 
         # Save the data into the metric data dictionary
         self.metric_data['data']['obs'] = obs
@@ -328,7 +332,9 @@ class Metric(ABC):
 
         # Convert from dataarray to dataset and return.
         ds = da.to_dataset(name=self.name)
-        return ds
+        
+        # Convert back to CPU before returning (for serialization/caching)
+        return auto_cpu(ds)
 
 
 class MAE(Metric):

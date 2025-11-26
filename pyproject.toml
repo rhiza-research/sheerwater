@@ -61,6 +61,12 @@ dependencies = [
     #"bottleneck",
 ]
 
+[project.optional-dependencies]
+gpu = [
+    "cupy-xarray",
+    "dask-cuda",
+]
+
 [dependency-groups]
 dev = [
     "pooch",

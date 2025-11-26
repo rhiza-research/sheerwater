@@ -4,13 +4,14 @@ import itertools
 import traceback
 
 from sheerwater.utils import start_remote
-from jobs import parse_args, run_in_parallel, prune_metrics
+from jobs import parse_args, run_in_parallel, prune_metrics, setup_job
 from dashboard_data import monthly_metric_table
 
 (start_time, end_time, forecasts, truth, metrics,
  variables, grids, regions, agg_days,
  time_groupings, parallelism, recompute,
- backend, remote_name, remote, remote_config) = parse_args()
+ backend, remote_name, remote, remote_config,
+ use_gpu, do_benchmark, benchmark_file) = parse_args()
 
 if remote:
     start_remote(remote_config=remote_config, remote_name=remote_name)
@@ -44,4 +45,5 @@ def run_metrics_table(combo):
 
 
 if __name__ == "__main__":
-    run_in_parallel(run_metrics_table, combos, parallelism)
+    with setup_job(use_gpu, do_benchmark, benchmark_file):
+        run_in_parallel(run_metrics_table, combos, parallelism)

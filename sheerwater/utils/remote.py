@@ -59,11 +59,133 @@ config_options = {
     'large_disk': {
         'worker_disk_size': '150GiB'
     },
+    # GPU configurations - T4 GPUs (cheaper, good for testing)
+    # T4 GPUs require N1 series VMs on GCP
+    # Note: Coiled handles GPU worker setup automatically when worker_gpu is set
+    # GPU packages (cupy-cuda12x, cupy-xarray) installed via _gpu_pip_packages
+    'gpu': {
+        'worker_gpu': 1,
+        'worker_vm_types': ['n1-standard-4', 'n1-standard-8'],
+        'scheduler_vm_types': ['n1-standard-4', 'n1-standard-8'],
+    },
+    'gpu_cluster': {
+        'n_workers': [4, 8],
+        'worker_gpu': 1,
+        'worker_vm_types': ['n1-standard-4', 'n1-standard-8'],
+        'scheduler_vm_types': ['n1-standard-4', 'n1-standard-8'],
+    },
+    # A100 GPU configurations (high performance)
+    # A100 GPUs use A2 instance family on GCP
+    'gpu_a100': {
+        'worker_gpu': 1,
+        'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB
+        'scheduler_vm_types': ['n1-standard-4'],
+    },
+    'gpu_a100_large': {
+        'worker_gpu': 2,
+        'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB
+        'scheduler_vm_types': ['n1-standard-8'],
+    },
+    'gpu_a100_cluster': {
+        'n_workers': [2, 4],
+        'worker_gpu': 1,
+        'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB per worker
+        'scheduler_vm_types': ['n1-standard-8'],
+    },
+    'gpu_a100_xlarge_cluster': {
+        'n_workers': [4, 8],
+        'worker_gpu': 2,
+        'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB per worker
+        'scheduler_vm_types': ['n1-standard-8'],
+    },
 }
+
+# GPU packages to install on workers (cupy requires CUDA, not available on macOS)
+_gpu_conda_packages = {
+    'channels': ['conda-forge', 'rapidsai'],
+    'dependencies': ['cupy', 'cupy-xarray'],
+}
+
+
+def _get_git_info():
+    """Get git remote URL and current branch for the sheerwater package."""
+    import subprocess
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+    try:
+        # Get remote URL
+        result = subprocess.run(
+            ['git', 'remote', 'get-url', 'origin'],
+            capture_output=True, text=True, cwd=repo_root
+        )
+        remote_url = result.stdout.strip() if result.returncode == 0 else None
+
+        # Get current branch
+        result = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            capture_output=True, text=True, cwd=repo_root
+        )
+        branch = result.stdout.strip() if result.returncode == 0 else 'main'
+
+        # Get commit hash for environment naming
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, cwd=repo_root
+        )
+        commit_hash = result.stdout.strip() if result.returncode == 0 else 'unknown'
+
+        return remote_url, branch, commit_hash
+    except Exception as e:
+        logger.warning("Could not get git info: %s", e)
+        return None, 'main', 'unknown'
+
+
+def _ensure_gpu_software_env():
+    """Ensure the GPU software environment exists with cupy packages and sheerwater from git."""
+    remote_url, branch, commit_hash = _get_git_info()
+
+    # Create a unique environment name based on branch and commit
+    # Replace special characters in branch name
+    safe_branch = branch.replace('/', '-').replace('_', '-')[:20]
+    env_name = f"sheerwater-gpu-{safe_branch}-{commit_hash}"
+
+    logger.info("Creating/checking GPU software environment: %s", env_name)
+    logger.info("  Git remote: %s", remote_url)
+    logger.info("  Git branch: %s", branch)
+    logger.info("  Git commit: %s", commit_hash)
+
+    # Build pip install URL for sheerwater from git
+    pip_packages = []
+    if remote_url:
+        # Convert HTTPS URL to pip-installable format
+        # e.g., https://github.com/org/repo.git -> git+https://github.com/org/repo.git@branch
+        git_url = remote_url.replace('.git', '')
+        pip_packages.append(f"sheerwater @ git+{git_url}.git@{branch}")
+        logger.info("  Installing sheerwater from: git+%s.git@%s", git_url, branch)
+
+    try:
+        # Create environment with GPU conda packages and sheerwater from git
+        coiled.create_software_environment(
+            name=env_name,
+            conda=_gpu_conda_packages,
+            pip=pip_packages if pip_packages else None,
+            gpu_enabled=True,
+        )
+        logger.info("GPU software environment ready: %s", env_name)
+        return env_name
+    except Exception as e:
+        error_str = str(e).lower()
+        if "already exists" in error_str or "exists" in error_str or "no changes" in error_str:
+            logger.info("GPU software environment already exists: %s", env_name)
+            return env_name
+        logger.warning("Could not create GPU software environment: %s", e)
+        return None
 
 
 def start_remote(remote_name=None, remote_config=None):
     """Generic function to start a remote cluster."""
+    from .gpu_utils import GPU_ENABLED_ENV_VAR
+
     default_name = 'sheerwater_' + pwd.getpwuid(os.getuid())[0]
 
     coiled_default_options = {
@@ -77,6 +199,28 @@ def start_remote(remote_name=None, remote_config=None):
 
     if remote_name and isinstance(remote_name, str):
         coiled_default_options['name'] = remote_name
+
+    # Propagate GPU mode environment variable to workers if set
+    gpu_mode = os.environ.get(GPU_ENABLED_ENV_VAR)
+    if gpu_mode:
+        # Use a separate cluster name for GPU mode to avoid conflicts
+        coiled_default_options['name'] = coiled_default_options['name'] + '_gpu'
+
+        coiled_default_options['environ'] = {
+            GPU_ENABLED_ENV_VAR: gpu_mode
+        }
+        logger.info("GPU mode enabled - propagating %s to workers", GPU_ENABLED_ENV_VAR)
+
+        # Ensure GPU software environment exists and use it
+        # Note: Can't use both 'software' and 'package_sync' together
+        gpu_env = _ensure_gpu_software_env()
+        if gpu_env:
+            coiled_default_options['software'] = gpu_env
+            logger.info("Using GPU software environment: %s", gpu_env)
+        else:
+            # Fallback to package_sync if GPU env fails
+            coiled_default_options['package_sync'] = True
+            logger.warning("GPU env not available, using package_sync (no GPU packages)")
 
     if remote_config and isinstance(remote_config, dict):
         # setup coiled cluster with remote config
