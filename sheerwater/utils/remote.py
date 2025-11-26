@@ -23,6 +23,9 @@ config_options = {
     'on_demand': {
         'spot_policy': 'on-demand'
     },
+    'single_cluster': {
+        'n_workers': 1
+    },
     'large_cluster': {
         'n_workers': [10, 11]
     },
