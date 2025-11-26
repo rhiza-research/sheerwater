@@ -250,11 +250,7 @@ class Metric(ABC):
 
             # Prepare the check_ds for validity checking, considering sparsity
             if i == 0:
-                if ds.attrs['sparse']:
-                    print("Statistic is sparse, need to check the underlying forecast validity directly.")
-                    check_ds = self.metric_data['data']['fcst_orig']
-                else:
-                    check_ds = ds
+                check_ds = self.metric_data['data']['fcst_orig']
 
                 ############################################################
                 # Statistic aggregation
@@ -305,14 +301,13 @@ class Metric(ABC):
 
             if i == 0:
                 # Check if the statistic is valid per grouping
-                is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
-                ds = ds.where(is_valid, np.nan, drop=False)
+                is_valid = ds['non_null'] / ds['indicator']
                 ds = ds.drop_vars(['indicator', 'non_null'])
-            elif is_valid is not None:
-                ds = ds.where(is_valid, np.nan, drop=False)
 
             # Assign the final statistic value
             self.grouped_statistics[statistic] = ds
+
+        return is_valid
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
@@ -334,9 +329,11 @@ class Metric(ABC):
         # Gather the statistics
         self.gather_statistics()
         # Group and mean the statistics
-        self.group_statistics()
-        # Apply nonlinearly and return the metric
-        return self.compute_metric()
+        validity = self.group_statistics()
+        # Apply nonlinearly and return the metric with added validity data
+        ds = self.compute_metric()
+        ds['valid_percent'] = validity
+        return ds
 
 
 class MAE(Metric):
