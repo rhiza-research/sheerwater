@@ -141,9 +141,9 @@ class Metric(ABC):
         self.metric_data['data']['fcst'] = fcst
         self.metric_data['data']['prob_type'] = enhanced_prob_type
         self.metric_data['data']['sparse'] = sparse
-        # If the metric is sparse, save a copy of the original forecast for validity checking
         if sparse:
-            self.metric_data['data']['fcst_orig'] = fcst.copy()
+            self.metric_data['data']['fcst_orig'] = fcst
+        # If the metric is sparse, save a copy of the original forecast for validity checking
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
         self.metric_data['data']['no_null'] = no_null
@@ -231,8 +231,10 @@ class Metric(ABC):
         region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True)
         mask_ds = get_mask(self.mask, self.grid, memoize=True)
 
+        is_valid = None
+
         # Iterate through the statistics and compute them
-        for statistic in self.statistics:
+        for i, statistic in enumerate(self.statistics):
             ############################################################
             # Aggregate and and check validity of the statistic
             ############################################################
@@ -244,25 +246,27 @@ class Metric(ABC):
                     ds = ds.reset_coords(coord, drop=True)
 
             # Prepare the check_ds for validity checking, considering sparsity
-            if ds.attrs['sparse']:
-                print("Statistic is sparse, need to check the underlying forecast validity directly.")
-                check_ds = self.metric_data['data']['fcst_orig'].copy()
-            else:
-                check_ds = ds.copy()
+            if i == 0:
+                if ds.attrs['sparse']:
+                    print("Statistic is sparse, need to check the underlying forecast validity directly.")
+                    check_ds = self.metric_data['data']['fcst_orig']
+                else:
+                    check_ds = ds
 
-            ############################################################
-            # Statistic aggregation
-            ############################################################
-            # Create a non_null indicator and add it to the statistic
-            ds['non_null'] = check_ds[self.variable].notnull().astype(float)
+                ############################################################
+                # Statistic aggregation
+                ############################################################
+                # Create a non_null indicator and add it to the statistic
+                ds['non_null'] = check_ds[self.variable].notnull().astype(float)
 
             # Group by time
             ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
 
-            # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
-            ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
-            # Create an indicator variable that is 1 for all dimensions
-            ds['indicator'] = xr.ones_like(ds['non_null'])
+            if i == 0:
+                # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
+                ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
+                # Create an indicator variable that is 1 for all dimensions
+                ds['indicator'] = xr.ones_like(ds['non_null'])
 
             # Add the region coordinate to the statistic
             ds = ds.assign_coords(region=region_ds.region)
@@ -274,16 +278,20 @@ class Metric(ABC):
                 ds['weights'] = weights * mask_ds.mask
 
                 ds[self.variable] = ds[self.variable] * ds['weights']
-                ds['non_null'] = ds['non_null'] * ds['weights']
-                ds['indicator'] = ds['indicator'] * ds['weights']
+                if i == 0:
+                    ds['non_null'] = ds['non_null'] * ds['weights']
+                    ds['indicator'] = ds['indicator'] * ds['weights']
 
                 if self.region != 'global':
                     ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
                 else:
                     ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
                 ds[self.variable] = ds[self.variable] / ds['weights']
-                ds['non_null'] = ds['non_null'] / ds['weights']
-                ds['indicator'] = ds['indicator'] / ds['weights']
+
+                if i == 0:
+                    ds['non_null'] = ds['non_null'] / ds['weights']
+                    ds['indicator'] = ds['indicator'] / ds['weights']
+
                 ds = ds.drop_vars(['weights'])
             else:
                 # If returning a spatial metric, mask and drop
@@ -292,13 +300,16 @@ class Metric(ABC):
                 ds = ds.where((ds.region == self.region).compute(), drop=True)
                 ds = ds.drop_vars('region')
 
-            # Check if the statistic is valid per grouping
-            is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
-            ds = ds.where(is_valid, np.nan, drop=False)
-            ds = ds.drop_vars(['indicator', 'non_null'])
+            if i == 0:
+                # Check if the statistic is valid per grouping
+                is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
+                ds = ds.where(is_valid, np.nan, drop=False)
+                ds = ds.drop_vars(['indicator', 'non_null'])
+            elif is_valid is not None:
+                ds = ds.where(is_valid, np.nan, drop=False)
 
             # Assign the final statistic value
-            self.grouped_statistics[statistic] = ds.copy()
+            self.grouped_statistics[statistic] = ds
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
@@ -455,7 +466,7 @@ class ACC(Metric):
         clim_ds = clim_ds.sel(time=self.metric_data['data']['valid_times'])
         clim_ds = clim_ds.where(self.metric_data['data']['no_null'], np.nan, drop=False)
         # Add the climatology to the metric data
-        self.metric_data['data']['climatology'] = clim_ds.copy()
+        self.metric_data['data']['climatology'] = clim_ds
         # Update the metric data key to include the climatology year range
         self.metric_data['key'] = f'{self.metric_data["key"]}-1990-2019'
 

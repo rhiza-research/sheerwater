@@ -39,10 +39,10 @@ def statistic(cache=False, name=None,
         # We'll register the wrapped function instead of the original
         @timeseries_decorator(timeseries=timeseries)
         @cache_decorator(cache=cache, cache_args=cache_args,
-               backend_kwargs={
-                   'chunking': chunking,
-                   'chunk_by_arg': chunk_by_arg
-               })
+                         backend_kwargs={
+                             'chunking': chunking,
+                             'chunk_by_arg': chunk_by_arg
+                         })
         def global_statistic(
             start_time, end_time,
             data,
@@ -55,7 +55,6 @@ def statistic(cache=False, name=None,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
                 'data_key': data_key, 'grid': grid,
                 'statistic': statistic, 'start_time': start_time, 'end_time': end_time,
-                'memoize': True
             }
             ds = func(data=data, **cache_kwargs)
             # Assign attributes in one call
@@ -83,7 +82,8 @@ def statistic(cache=False, name=None,
             # Call the global statistic function
             ds = global_statistic(
                 start_time, end_time,
-                data=data, **cache_kwargs,
+                data=data, memoize=True,
+                **cache_kwargs,
             )
             return ds
 
