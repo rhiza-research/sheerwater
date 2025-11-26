@@ -126,6 +126,10 @@ class Metric(ABC):
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
 
+        # Copy the data before matching nulls
+        if sparse:
+            self.metric_data['data']['fcst_orig'] = fcst
+
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
@@ -141,8 +145,7 @@ class Metric(ABC):
         self.metric_data['data']['fcst'] = fcst
         self.metric_data['data']['prob_type'] = enhanced_prob_type
         self.metric_data['data']['sparse'] = sparse
-        if sparse:
-            self.metric_data['data']['fcst_orig'] = fcst
+
         # If the metric is sparse, save a copy of the original forecast for validity checking
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
