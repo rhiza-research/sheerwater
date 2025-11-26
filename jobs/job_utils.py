@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument("--metric", type=str, nargs='*')
     parser.add_argument("--grid", type=str, nargs='*')
     parser.add_argument("--region", type=str, nargs='*')
-    parser.add_argument("--agg_days", type=str, nargs='*')
+    parser.add_argument("--agg_days", type=int, nargs='*')
     parser.add_argument("--time-grouping", type=str, nargs='*')
     parser.add_argument("--backend", type=str, default=None)
     parser.add_argument("--parallelism", type=int, default=1)
@@ -84,7 +84,7 @@ def parse_args():
     if args.grid:
         grids = args.grid
 
-    regions = ["continent", "subregion", "global", "country", "sheerwater_region"]
+    regions = ["continent", "subregion", "global", "country"]
     if args.region:
         regions = args.region
 

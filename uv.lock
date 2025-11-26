@@ -5085,7 +5085,7 @@ requires-dist = [
     { name = "terracotta" },
     { name = "tqdm" },
     { name = "weatherbench2", git = "https://github.com/rhiza-research/weatherbench2" },
-    { name = "xarray", specifier = "==2024.10" },
+    { name = "xarray", specifier = "==2025.1.0" },
     { name = "xarray-regrid" },
     { name = "xskillscore", git = "https://github.com/rhiza-research/xskillscore" },
     { name = "zarr", specifier = "==2.18.3" },
@@ -5582,16 +5582,16 @@ wheels = [
 
 [[package]]
 name = "xarray"
-version = "2024.10.0"
+version = "2025.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "packaging" },
     { name = "pandas" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b7/f2/a3e3ec1ffd29b0b5be800d2606c229f04f303ee9e61a1377dc5c1996cf8a/xarray-2024.10.0.tar.gz", hash = "sha256:e369e2bac430e418c2448e5b96f07da4635f98c1319aa23cfeb3fbcb9a01d2e0", size = 3788358, upload-time = "2024-10-24T21:45:48.532Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/35/ee1464a168fc90ea73df419b5902c9f0dece40f9a7d8a0017b17c1badc18/xarray-2025.1.0.tar.gz", hash = "sha256:e48fd44c918f127d553ec1c05faac1cadc9ab9402e210ecc440b64b0dfcfda4c", size = 3256313, upload-time = "2025-01-03T21:12:45.518Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/b7/9830def68e5575a24ca6d6f46b285d35ed27860beaa4f72848cd82870253/xarray-2024.10.0-py3-none-any.whl", hash = "sha256:ae1d38cb44a0324dfb61e492394158ae22389bf7de9f3c174309c17376df63a0", size = 1212984, upload-time = "2024-10-24T21:45:46.566Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/a8/2c2d85b3695804a23bc48171655f7427d1befdc20f0e91dde98334f8d0f7/xarray-2025.1.0-py3-none-any.whl", hash = "sha256:bff8017a47f6092c152c4745307a26adc3e31bfeb1b81abe6a2e62eda99a3687", size = 1240716, upload-time = "2025-01-03T21:12:42.356Z" },
 ]
 
 [[package]]

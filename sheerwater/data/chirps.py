@@ -22,7 +22,8 @@ def chirps_raw(year, grid, stations=True, version=2):
         base_url = f'https://data.chc.ucsb.edu/products/CHIRP-v3.0/daily/global/tifs/{year}/chirp-v3.0.'
         urls = []
         if year < 2000:
-            raise ValueError("chirpv3 not valid before 2000")
+            print("Chirpv3 not valid before 2000. Returning none.")
+            return None
         elif year == 2000:
             for date in pd.date_range(f"{year}-06-01", f"{year}-12-31"):
                 date = date.date()
@@ -143,6 +144,9 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2):
                            engine='zarr',
                            parallel=True,
                            chunks={'lat': 300, 'lon': 300, 'time': 365})
+
+    if "spatial_ref" in ds:
+        ds = ds.drop_vars(["spatial_ref"])
 
     # Regrid if not on the native grid
     if grid != 'chirps':
