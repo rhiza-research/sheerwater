@@ -8,7 +8,7 @@ from sheerwater.metrics_library import metric_factory
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'forecast', 'truth',
                    'metric_name', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
            'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}

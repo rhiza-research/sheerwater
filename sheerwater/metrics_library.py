@@ -197,7 +197,7 @@ class Metric(ABC):
         By default, returns the statistic values as is.
         Subclasses can override this for more complex groupings.
         """
-        self.statistic_values = {}
+        self.statistic_values = None
         for statistic in self.statistics:
             # Get the statistic function from the registry
             stat_fn = statistic_factory(statistic)
@@ -218,7 +218,10 @@ class Metric(ABC):
                 self.statistic_values = None
                 return
 
-            self.statistic_values[statistic] = ds
+            if self.statistic_values is None:
+                self.statistic_values = ds.rename({self.variable: statistic})
+            else:
+                self.statistic_values[statistic] = ds.variable
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -226,93 +229,101 @@ class Metric(ABC):
         By default, returns the statistic values as is.
         Subclasses can override this for more complex groupings.
         """
-        self.grouped_statistics = {}
         region_level, _ = get_region_level(self.region)
         if self.spatial and (region_level == self.region and self.region != 'global'):
             raise ValueError(f"Cannot compute spatial metrics for region level '{self.region}'. " +
                              "Pass in a specific region instead.")
-        region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True)
+        region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True).compute()
         mask_ds = get_mask(self.mask, self.grid, memoize=True)
 
         is_valid = None
 
         # Iterate through the statistics and compute them
-        for i, statistic in enumerate(self.statistics):
-            ############################################################
-            # Aggregate and and check validity of the statistic
-            ############################################################
-            ds = self.statistic_values[statistic]
+        ############################################################
+        # Aggregate and and check validity of the statistic
+        ############################################################
+        ds = self.statistic_values
 
-            # Drop any extra random coordinates that shouldn't be there
-            for coord in ds.coords:
-                if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
-                    ds = ds.reset_coords(coord, drop=True)
+        # Drop any extra random coordinates that shouldn't be there
+        for coord in ds.coords:
+            if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
+                ds = ds.reset_coords(coord, drop=True)
 
-            # Prepare the check_ds for validity checking, considering sparsity
-            if i == 0:
-                if ds.attrs['sparse']:
-                    print("Statistic is sparse, need to check the underlying forecast validity directly.")
-                    check_ds = self.metric_data['data']['fcst_orig']
-                else:
-                    check_ds = ds
+        # Prepare the check_ds for validity checking, considering sparsity
+        if ds.attrs['sparse']:
+            print("Statistic is sparse, need to check the underlying forecast validity directly.")
+            check_ds = self.metric_data['data']['fcst_orig']
+        else:
+            check_ds = ds
 
-                ############################################################
-                # Statistic aggregation
-                ############################################################
-                # Create a non_null indicator and add it to the statistic
-                ds['non_null'] = check_ds[self.variable].notnull().astype(float)
+        ############################################################
+        # Statistic aggregation
+        ############################################################
+        # Create a non_null indicator and add it to the statistic
+        ds['non_null'] = check_ds[self.variable].notnull().astype(float)
 
-            # Group by time
-            ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
+        # Group by time
+        ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
 
-            if i == 0:
-                # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
-                ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
-                # Create an indicator variable that is 1 for all dimensions
-                ds['indicator'] = xr.ones_like(ds['non_null'])
+        # Select times in February 2016
+        # ds = ds.sel(time=slice('2016-02-01', '2016-02-28'))
+        # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
+        ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
+        # Create an indicator variable that is 1 for all dimensions
+        ds['indicator'] = xr.ones_like(ds['non_null'])
 
-            # Add the region coordinate to the statistic
-            ds = ds.assign_coords(region=region_ds.region)
+        # Add the region coordinate to the statistic
+        ds = ds.assign_coords(region=region_ds.region)
 
-            # Aggregate in space
-            if not self.spatial:
-                # Group by region and average in space, while applying weighting for mask
-                weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
-                ds['weights'] = weights * mask_ds.mask
+        # Put evertyhing on the same chunk
+        ds = ds.chunk({dim: -1 for dim in ds.dims})
 
-                ds[self.variable] = ds[self.variable] * ds['weights']
-                if i == 0:
-                    ds['non_null'] = ds['non_null'] * ds['weights']
-                    ds['indicator'] = ds['indicator'] * ds['weights']
+        # Aggregate in space
+        if not self.spatial:
+            # Group by region and average in space, while applying weighting for mask
+            weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
+            # Expand weights to have a time dimension that matches ds
+            data_weights = weights.expand_dims(time=ds.time)
+            # Ensure the weights null pattern matches the ds null pattern
+            data_weights = data_weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
-                if self.region != 'global':
-                    ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
-                else:
-                    ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
-                ds[self.variable] = ds[self.variable] / ds['weights']
+            # Mulitply by weights
+            data_weights = data_weights * mask_ds.mask
+            weights = weights * mask_ds.mask
 
-                if i == 0:
-                    ds['non_null'] = ds['non_null'] / ds['weights']
-                    ds['indicator'] = ds['indicator'] / ds['weights']
+            ds['data_weights'] = data_weights
+            for stat in self.statistics:
+                ds[stat] = ds[stat] * data_weights
 
-                ds = ds.drop_vars(['weights'])
+            ds['weights'] = weights
+            ds['non_null'] = ds['non_null'] * weights
+            ds['indicator'] = ds['indicator'] * weights
+
+            if self.region != 'global':
+                ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
             else:
-                # If returning a spatial metric, mask and drop
-                # Mask and drop the region coordinate
-                ds = ds.where(mask_ds.mask, np.nan, drop=False)
-                ds = ds.where((ds.region == self.region).compute(), drop=True)
-                ds = ds.drop_vars('region')
+                ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
 
-            if i == 0:
-                # Check if the statistic is valid per grouping
-                is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
-                ds = ds.where(is_valid, np.nan, drop=False)
-                ds = ds.drop_vars(['indicator', 'non_null'])
-            elif is_valid is not None:
-                ds = ds.where(is_valid, np.nan, drop=False)
+            for stat in self.statistics:
+                ds[stat] = ds[stat] / ds['data_weights']
+            ds['non_null'] = ds['non_null'] / ds['weights']
+            ds['indicator'] = ds['indicator'] / ds['weights']
 
-            # Assign the final statistic value
-            self.grouped_statistics[statistic] = ds
+            ds = ds.drop_vars(['weights', 'data_weights'])
+        else:
+            # If returning a spatial metric, mask and drop
+            # Mask and drop the region coordinate
+            ds = ds.where(mask_ds.mask, np.nan, drop=False)
+            ds = ds.where((ds.region == self.region).compute(), drop=True)
+            ds = ds.drop_vars('region')
+
+        # Check if the statistic is valid per grouping
+        is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
+        ds = ds.where(is_valid, np.nan, drop=False)
+        ds = ds.drop_vars(['indicator', 'non_null'])
+
+        # Assign the final statistic value
+        self.grouped_statistics = ds
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
