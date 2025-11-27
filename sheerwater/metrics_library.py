@@ -112,10 +112,6 @@ class Metric(ABC):
         if 'sparse' in obs.attrs:
             sparse |= obs.attrs['sparse']
 
-        # Drop all times not in fcst
-        valid_times = set(obs.time.values).intersection(set(fcst.time.values))
-        valid_times = list(valid_times)
-        valid_times.sort()
         # Cast the longitude and latitude coordinates to floats with precision 4
         # This fixs a bug where the long and lat don't match deep in their floating point precision
         # TODO: this is mysterious, and I feel like we've fixed this before ...
@@ -123,12 +119,14 @@ class Metric(ABC):
         obs['lat'] = obs['lat'].astype(np.float32).round(4)
         fcst['lon'] = fcst['lon'].astype(np.float32).round(4)
         fcst['lat'] = fcst['lat'].astype(np.float32).round(4)
-        obs = obs.sel(time=valid_times)
-        fcst = fcst.sel(time=valid_times)
 
-        # Copy the data before matching nulls
-        if sparse:
-            self.metric_data['data']['fcst_orig'] = fcst
+        # Drop all times not in fcst or obs (use union instead of intersection)
+        valid_times = sorted(set(obs.time.values).union(set(fcst.time.values)))
+        obs = obs.reindex(time=valid_times)
+        fcst = fcst.reindex(time=valid_times)
+
+        # Keep around the original observation data for validity checking
+        obs_orig = obs.transpose('time', 'lon', 'lat')
 
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
@@ -146,7 +144,10 @@ class Metric(ABC):
         self.metric_data['data']['prob_type'] = enhanced_prob_type
         self.metric_data['data']['sparse'] = sparse
 
-        # If the metric is sparse, save a copy of the original forecast for validity checking
+        # Dataframes for validity checking
+        # Forecast that has been nulled by the observation pattern
+        self.metric_data['data']['fcst_by_obs'] = fcst
+        self.metric_data['data']['obs_orig'] = obs_orig
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
         self.metric_data['data']['no_null'] = no_null
@@ -221,7 +222,7 @@ class Metric(ABC):
             if self.statistic_values is None:
                 self.statistic_values = ds.rename({self.variable: statistic})
             else:
-                self.statistic_values[statistic] = ds[self.variable]
+                self.statistic_values[statistic] = ds.variable
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -249,14 +250,12 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        # Prepare the check_ds for validity checking, considering sparsity
-        check_ds = self.metric_data['data']['fcst_orig']
-
         ############################################################
         # Statistic aggregation
         ############################################################
         # Create a non_null indicator and add it to the statistic
-        ds['non_null'] = check_ds[self.variable].notnull().astype(float)
+        ds['time_non_null_fcst_by_obs'] = self.metric_data['data']['fcst_by_obs'][self.variable].notnull().astype(float)
+        ds['time_non_null_obs_orig'] = self.metric_data['data']['obs_orig'][self.variable].notnull().astype(float)
 
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
@@ -264,9 +263,10 @@ class Metric(ABC):
         # Select times in February 2016
         # ds = ds.sel(time=slice('2016-02-01', '2016-02-28'))
         # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
-        ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
+        ds['space_non_null_fcst_by_obs'] = (ds['time_non_null_fcst_by_obs'] > 0.0).astype(float)
+        ds['space_non_null_obs_orig'] = (ds['time_non_null_obs_orig'] > 0.0).astype(float)
         # Create an indicator variable that is 1 for all dimensions
-        ds['indicator'] = xr.ones_like(ds['non_null'])
+        ds['space_indicator_all_region'] = xr.ones_like(ds['time_non_null_obs_orig'])
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(region=region_ds.region)
@@ -304,6 +304,7 @@ class Metric(ABC):
                 ds[stat] = ds[stat] / ds['data_weights']
             ds['non_null'] = ds['non_null'] / ds['weights']
             ds['indicator'] = ds['indicator'] / ds['weights']
+
             ds = ds.drop_vars(['weights', 'data_weights'])
         else:
             # If returning a spatial metric, mask and drop
@@ -313,13 +314,14 @@ class Metric(ABC):
             ds = ds.drop_vars('region')
 
         # Check if the statistic is valid per grouping
-        is_valid = ds['non_null'] / ds['indicator']
+        is_valid = (ds['non_null'] / ds['indicator'] > 0.98)
+        import pdb
+        pdb.set_trace()
+        ds = ds.where(is_valid, np.nan, drop=False)
         ds = ds.drop_vars(['indicator', 'non_null'])
 
         # Assign the final statistic value
         self.grouped_statistics = ds
-
-        return is_valid
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
@@ -341,11 +343,9 @@ class Metric(ABC):
         # Gather the statistics
         self.gather_statistics()
         # Group and mean the statistics
-        validity = self.group_statistics()
-        # Apply nonlinearly and return the metric with added validity data
-        ds = self.compute_metric()
-        ds['valid_percent'] = validity
-        return ds
+        self.group_statistics()
+        # Apply nonlinearly and return the metric
+        return self.compute_metric()
 
 
 class MAE(Metric):
