@@ -221,7 +221,7 @@ class Metric(ABC):
             if self.statistic_values is None:
                 self.statistic_values = ds.rename({self.variable: statistic})
             else:
-                self.statistic_values[statistic] = ds.variable
+                self.statistic_values[statistic] = ds[self.variable]
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
