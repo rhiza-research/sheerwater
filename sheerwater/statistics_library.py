@@ -59,7 +59,6 @@ def statistic(cache=False, name=None,
             ds = func(data=data, **cache_kwargs)
             # Assign attributes in one call
             ds = ds.assign_attrs(
-                sparse=data['sparse'],
                 prob_type=data['prob_type'],
                 forecast=forecast,
                 truth=truth,

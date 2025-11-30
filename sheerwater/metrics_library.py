@@ -126,10 +126,6 @@ class Metric(ABC):
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
 
-        # Copy the data before matching nulls
-        if sparse:
-            self.metric_data['data']['fcst_orig'] = fcst
-
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
@@ -144,9 +140,7 @@ class Metric(ABC):
         self.metric_data['data']['obs'] = obs
         self.metric_data['data']['fcst'] = fcst
         self.metric_data['data']['prob_type'] = enhanced_prob_type
-        self.metric_data['data']['sparse'] = sparse
 
-        # If the metric is sparse, save a copy of the original forecast for validity checking
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
         self.metric_data['data']['no_null'] = no_null
@@ -236,9 +230,6 @@ class Metric(ABC):
         region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True).compute()
         mask_ds = get_mask(self.mask, self.grid, memoize=True)
 
-        is_valid = None
-
-        # Iterate through the statistics and compute them
         ############################################################
         # Aggregate and and check validity of the statistic
         ############################################################
@@ -249,29 +240,17 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        # Prepare the check_ds for validity checking, considering sparsity
-        check_ds = self.metric_data['data']['fcst_orig']
-
         ############################################################
         # Statistic aggregation
         ############################################################
         # Create a non_null indicator and add it to the statistic
-        ds['non_null'] = check_ds[self.variable].notnull().astype(float)
-
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
-
-        # Select times in February 2016
-        # ds = ds.sel(time=slice('2016-02-01', '2016-02-28'))
-        # For any lat / lon / lead where there is at least one non-null value, reset to one for space validation
-        ds['non_null'] = (ds['non_null'] > 0.0).astype(float)
-        # Create an indicator variable that is 1 for all dimensions
-        ds['indicator'] = xr.ones_like(ds['non_null'])
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(region=region_ds.region)
 
-        # Put evertyhing on the same chunk
+        # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
         # Aggregate in space
@@ -279,21 +258,15 @@ class Metric(ABC):
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
             # Expand weights to have a time dimension that matches ds
-            data_weights = weights.expand_dims(time=ds.time)
+            weights = weights.expand_dims(time=ds.time)
             # Ensure the weights null pattern matches the ds null pattern
-            data_weights = data_weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
+            weights = weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
             # Mulitply by weights
-            data_weights = data_weights * mask_ds.mask
             weights = weights * mask_ds.mask
-
-            ds['data_weights'] = data_weights
-            for stat in self.statistics:
-                ds[stat] = ds[stat] * data_weights
-
             ds['weights'] = weights
-            ds['non_null'] = ds['non_null'] * weights
-            ds['indicator'] = ds['indicator'] * weights
+            for stat in self.statistics:
+                ds[stat] = ds[stat] * ds['weights']
 
             if self.region != 'global':
                 ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
@@ -301,10 +274,8 @@ class Metric(ABC):
                 ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
 
             for stat in self.statistics:
-                ds[stat] = ds[stat] / ds['data_weights']
-            ds['non_null'] = ds['non_null'] / ds['weights']
-            ds['indicator'] = ds['indicator'] / ds['weights']
-            ds = ds.drop_vars(['weights', 'data_weights'])
+                ds[stat] = ds[stat] / ds['weights']
+            ds = ds.drop_vars(['weights'])
         else:
             # If returning a spatial metric, mask and drop
             # Mask and drop the region coordinate
@@ -312,14 +283,8 @@ class Metric(ABC):
             ds = ds.where((ds.region == self.region).compute(), drop=True)
             ds = ds.drop_vars('region')
 
-        # Check if the statistic is valid per grouping
-        is_valid = ds['non_null'] / ds['indicator']
-        ds = ds.drop_vars(['indicator', 'non_null'])
-
         # Assign the final statistic value
         self.grouped_statistics = ds
-
-        return is_valid
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
@@ -341,11 +306,9 @@ class Metric(ABC):
         # Gather the statistics
         self.gather_statistics()
         # Group and mean the statistics
-        validity = self.group_statistics()
-        # Apply nonlinearly and return the metric with added validity data
-        ds = self.compute_metric()
-        ds['valid_percent'] = validity
-        return ds
+        self.group_statistics()
+        # Apply nonlinearly and return the metric
+        return self.compute_metric()
 
 
 class MAE(Metric):
