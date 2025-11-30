@@ -258,7 +258,8 @@ class Metric(ABC):
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
             # Expand weights to have a time dimension that matches ds
-            weights = weights.expand_dims(time=ds.time)
+            if 'time' in ds.dims:  # Enable a time specific null pattern
+                weights = weights.expand_dims(time=ds.time)
             # Ensure the weights null pattern matches the ds null pattern
             weights = weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
