@@ -144,8 +144,10 @@ class Metric(ABC):
         obs = obs.where(no_null, np.nan, drop=False)
 
         # Convert to GPU if GPU mode is enabled
+        # Note: ALL data used in computation must be converted to avoid numpy/cupy mixing
         fcst = auto_gpu(fcst)
         obs = auto_gpu(obs)
+        no_null = auto_gpu(no_null)
 
         # Save the data into the metric data dictionary
         self.metric_data['data']['obs'] = obs
@@ -246,6 +248,10 @@ class Metric(ABC):
             from sheerwater.utils.space_utils import clip_region
             mask_ds = clip_region(mask_ds, region=self.clip)
 
+        # Convert auxiliary data to GPU if GPU mode is enabled
+        region_ds = auto_gpu(region_ds)
+        mask_ds = auto_gpu(mask_ds)
+
         ############################################################
         # Aggregate and and check validity of the statistic
         ############################################################
@@ -273,6 +279,7 @@ class Metric(ABC):
         if not self.spatial:
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
+            weights = auto_gpu(weights)  # Convert weights to GPU if enabled    
             # Expand weights to have a time dimension that matches ds
             if 'time' in ds.dims:  # Enable a time specific null pattern
                 weights = weights.expand_dims(time=ds.time)

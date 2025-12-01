@@ -105,12 +105,16 @@ config_options = {
     },
 }
 
-# GPU packages to install on workers (cupy requires CUDA, not available on macOS)
-# Also include geopandas/pyogrio from conda to avoid GDAL build issues
-# numba is required for dask.distributed to serialize cupy arrays
 _gpu_conda_packages = {
     'channels': ['conda-forge', 'rapidsai'],
-    'dependencies': ['cupy', 'cupy-xarray', 'numba', 'geopandas', 'pyogrio', 'python=3.12'],
+    'dependencies': [
+        'python=3.12',      # Pin Python version (Coiled defaults to 3.14 pre-release)
+        'cupy',             # GPU arrays (requires CUDA, not available on macOS)
+        'cupy-xarray',      # xarray integration for cupy
+        'numba',            # Required by dask.distributed to serialize cupy arrays
+        'geopandas',        # Spatial operations (install via conda to get GDAL)
+        'pyogrio',          # Fast I/O for geopandas (needs GDAL from conda)
+    ],
 }
 
 

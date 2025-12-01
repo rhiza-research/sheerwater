@@ -59,6 +59,7 @@ dependencies = [
     "nuthatch @ git+https://github.com/rhiza-research/nuthatch",
     "pyzstd==0.16.2",
     #"bottleneck",
+    "numba>=0.62.1",
 ]
 
 [project.optional-dependencies]
