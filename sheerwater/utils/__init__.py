@@ -5,7 +5,7 @@ from .data_utils import (roll_and_agg, get_anomalies, regrid)
 from .general_utils import (load_netcdf, write_zarr, load_zarr, load_object, plot_ds,
                             plot_ds_map, run_in_parallel, get_datasource_fn)
 
-from .region_utils import get_region_level, get_region_data
+from .region_utils import get_region_level, get_region_data, plot_by_region
 
 from .space_utils import (get_grid, get_grid_ds, is_wrapped,
                           base360_to_base180, base180_to_base360, check_bases, clip_region,
@@ -71,4 +71,5 @@ __all__ = [
     "convert_init_time_to_pred_time",
     "first_satisfied_date",
     "snap_point_to_grid",
+    "plot_by_region",
 ]

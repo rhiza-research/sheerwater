@@ -3,7 +3,7 @@ import time
 import pytest
 
 from sheerwater.metrics import metric
-from sheerwater.utils import start_remote
+from sheerwater.utils import start_remote, plot_by_region
 
 
 @pytest.fixture(scope="module")
@@ -118,20 +118,21 @@ def test_grouped_metrics_performance():
     start_time = "2016-01-01"
     end_time = "2022-12-31"
     variable = "precip"
-    agg_days = 1
+    agg_days = 7
     forecast = "imerg"
-    truth = "ghcn"
+    truth = "ghcn_avg"
     # metric_name = "heidke-1-5-10-20"
-    metric_name = "mae"
+    metric_name = "far-1"
+    # metric_name = "mae"
     grid = "global1_5"
     mask = "lsm"
-    # region = "country"
-    region = "global"
+    region = "country"
+    # region = "countr"
     # time_grouping = "month"
     time_grouping = None
 
     results = []
-    for i in range(3):
+    for i in range(1):
         start = time.time()
         result = metric(
             start_time=start_time,
@@ -146,11 +147,13 @@ def test_grouped_metrics_performance():
             grid=grid,
             mask=mask,
             region=region,
-            recompute=True,
+            # recompute=['metric'],
+            recompute=False,
             force_overwrite=True
         )
         elapsed = time.time() - start
-        import pdb; pdb.set_trace() 
+
+        plot_by_region(result, region, metric_name=metric_name)
 
         results.append({
             "region": region,
