@@ -143,7 +143,9 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
     else:
         if variable != 'precip':
             raise ValueError("TAHMO only supports precip")
+
         ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation)
+        ds = ds[[variable]]
         ds = apply_mask(ds, mask, grid=grid)
         ds = clip_region(ds, region=region)
 
