@@ -29,6 +29,7 @@ The regions are defined as follows:
 - global:
   - 'global'
 """
+import os
 from shapely.geometry import box
 import geopandas as gpd
 
@@ -216,7 +217,7 @@ def to_name(name):
     elif 'heidke' in name:
         return f'Heidke Skill Score at {", ".join([mm.split("-")[-1] for mm in name.split("-")[:-1]])} mm'
     elif 'pod' in name:
-        return f'Probability of Detection at {name.split("-")[-1]} mm' 
+        return f'Probability of Detection at {name.split("-")[-1]} mm'
     elif 'far' in name:
         return f'False Alarm Rate at {name.split("-")[-1]} mm'
     elif 'ets' in name:
@@ -225,6 +226,10 @@ def to_name(name):
         return f'Critical Success Index at {name.split("-")[-1]} mm'
     elif 'frequency_bias' in name:
         return f'Frequency Bias at {name.split("-")[-1]} mm'
+    elif name == 'acc':
+        return 'Anomaly Correlation Coefficient'
+    elif name == 'pearson':
+        return 'Pearson Correlation'
     else:
         return name
 
@@ -261,11 +266,17 @@ def metric_bounds(metric_name):
         return (0.0, 1.0)
     elif 'frequency_bias' in metric_name:
         return (None, None)
+    elif metric_name == 'acc':
+        return (-1.0, 1.0)
+    elif metric_name == 'pearson':
+        return (-1.0, 1.0)
+    elif metric_name == 'coverage':
+        return (0.0, None)
     else:
         return (None, None)
 
 
-def plot_by_region(ds, region, metric_name, truth, forecast):
+def plot_by_region(ds, region, metric_name, truth, forecast, agg_days):
     """Plot a variable from an xarray dataset by region.
 
     Args:
@@ -354,7 +365,7 @@ def plot_by_region(ds, region, metric_name, truth, forecast):
 
     # Set title
     var_name = metric_name if metric_name else data.name if hasattr(data, 'name') else 'value'
-    ax.set_title(f'{to_name(var_name)} by {region.capitalize()}', fontsize=14, pad=10)
+    ax.set_title(f'{to_name(var_name)} {truth.upper()} vs {forecast.upper()} on {agg_days} days', fontsize=14, pad=10)
 
     plt.tight_layout()
 
@@ -363,6 +374,8 @@ def plot_by_region(ds, region, metric_name, truth, forecast):
     cax_pos = cax.get_position()
     cax.set_position([cax_pos.x0, ax_pos.y0, cax_pos.width, ax_pos.height])
     # Save
-    plt.savefig(f'{metric_name}_{truth}_{forecast}_{region}_map.png')
+    if not os.path.exists('metric_maps'):
+        os.makedirs('metric_maps')
+    plt.savefig(f'metric_maps/{metric_name}_{truth}_{forecast}_{agg_days}_{region}_map.png')
     # plt.show()
     return ax

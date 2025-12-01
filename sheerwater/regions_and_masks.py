@@ -75,7 +75,7 @@ def land_sea_mask(grid="global1_5"):
 
 @cache(cache_args=['grid', 'region_level'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def region_labels(grid='global1_5', region_level='countries'):
+def region_labels(grid='global1_5', region_level='country'):
     """Generate a dataset with a region coordinate at a specific region level.
 
     Available region levels are

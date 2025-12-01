@@ -9,6 +9,7 @@ from sheerwater.metrics_library import metric_factory
 
 skip = 0
 
+
 def parse_args():
     """Parses arguments for jobs."""
     parser = argparse.ArgumentParser()
@@ -57,7 +58,7 @@ def parse_args():
         truth = args.truth
 
     if args.station_evaluation:
-        metrics = ["mae", "rmse", "bias", "acc", "smape", "pod-1", "pod-5", "pod-10",
+        metrics = ["mae", "rmse", "bias", "acc", "smape", "pod-1", "pod-5", "pod-10", "pearson",
                    "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
     else:
         metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5",
@@ -192,7 +193,7 @@ def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
                 for i, r in enumerate(results):
                     if r is not None:
                         ls_count += 1
-                        success_count +=1
+                        success_count += 1
                     else:
                         failed.append(it[i])
                         print(f"Failed metric: {it[i]}")

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_datasource_fn, get_region_level, get_mask
+from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time
 from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater.regions_and_masks import region_labels
 
@@ -123,8 +123,14 @@ class Metric(ABC):
         obs['lat'] = obs['lat'].astype(np.float32).round(4)
         fcst['lon'] = fcst['lon'].astype(np.float32).round(4)
         fcst['lat'] = fcst['lat'].astype(np.float32).round(4)
+
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
+
+        # To ensure chunks align for nullification, place all of time in one single chunk
+        # TODO: make sure chunks are reasonable for differnt time stretches
+        obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
+        fcst = fcst.chunk({'time': -1, 'lat': 100, 'lon': 100})
 
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
@@ -247,11 +253,11 @@ class Metric(ABC):
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
 
-        # Add the region coordinate to the statistic
-        ds = ds.assign_coords(region=region_ds.region)
-
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
+
+        # Add the region coordinate to the statistic
+        ds = ds.assign_coords(region=region_ds.region)
 
         # Aggregate in space
         if not self.spatial:
@@ -260,6 +266,7 @@ class Metric(ABC):
             # Expand weights to have a time dimension that matches ds
             if 'time' in ds.dims:  # Enable a time specific null pattern
                 weights = weights.expand_dims(time=ds.time)
+            weights = weights.chunk({dim: -1 for dim in weights.dims})
             # Ensure the weights null pattern matches the ds null pattern
             weights = weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
@@ -269,10 +276,12 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = ds[stat] * ds['weights']
 
-            if self.region != 'global':
-                ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
+            if self.region == 'global':
+                ds = ds.sum(dims=['lat', 'lon'], skipna=True)
+                # ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
             else:
-                ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
+                ds = ds.groupby('region').sum(dims=['lat', 'lon'], skipna=True)
+                # ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
 
             for stat in self.statistics:
                 ds[stat] = ds[stat] / ds['weights']
@@ -601,88 +610,3 @@ def metric_factory(metric_name: str, **init_kwargs) -> Metric:
 def list_metrics():
     """List all available metrics in the registry."""
     return list(SHEERWATER_METRIC_REGISTRY.keys())
-
-
-def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
-    """A light wrapper around standard groupby aggregation functions."""
-    # Note, for some reason:
-    # ds.groupby('region').mean(['lat', 'lon'], skipna=True).compute()
-    # raises:
-    # *** AttributeError: 'bool' object has no attribute 'blockwise'
-    # or
-    # *** TypeError: reindex_intermediates() missing 1 required positional argument: 'array_type'
-    # So we have to do it via apply
-    if agg_fn == 'mean':
-        return ds.mean(dims, skipna=True)
-    else:
-        return ds.sum(dims, skipna=True)
-
-
-def groupby_time(ds, time_grouping, agg_fn='mean'):
-    """Aggregate a statistic over time."""
-    if time_grouping is not None:
-        if time_grouping == 'month_of_year':
-            coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
-        elif time_grouping == 'year':
-            coords = [f'Y{x:04d}' for x in ds.time.dt.year.values]
-        elif time_grouping == 'quarter_of_year':
-            coords = [f'Q{x:02d}' for x in ds.time.dt.quarter.values]
-        elif time_grouping == 'day_of_year':
-            coords = [f'D{x:03d}' for x in ds.time.dt.dayofyear.values]
-        elif time_grouping == 'month':
-            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds.time.values]
-        else:
-            raise ValueError("Invalid time grouping")
-        ds = ds.assign_coords(group=("time", coords))
-        ds = ds.groupby("group").apply(mean_or_sum, agg_fn=agg_fn, dims='time')
-        # Rename the group coordinate to time
-        ds = ds.rename({"group": "time"})
-    else:
-        # Average in time
-        if agg_fn == 'mean':
-            ds = ds.mean(dim="time")
-        elif agg_fn == 'sum':
-            ds = ds.sum(dim="time")
-        else:
-            raise ValueError(f"Invalid aggregation function {agg_fn}")
-    return ds
-
-
-def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
-    """Return latitude weights as an xarray DataArray.
-
-    This function weights each latitude band by the actual cell area,
-    which accounts for the fact that grid cells near the poles are smaller
-    in area than those near the equator.
-    """
-    # Calculate latitude cell bounds
-    lat_rad = np.deg2rad(ds[lat_dim].values)
-    pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
-    if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
-        # Dealing with the full globe
-        lower_bound = -pi_over_2
-        upper_bound = pi_over_2
-    else:
-        # Compute the difference in between cells
-        diff = np.diff(lat_rad)
-        if diff.std() > 0.5:
-            raise ValueError(
-                "Nonuniform grid! Need to think about spatial averaging more carefully.")
-        diff = diff.mean()
-        lower_bound = np.array([lat_rad[0] - diff / 2.0], dtype=lat_rad.dtype)
-        upper_bound = np.array([lat_rad[-1] + diff / 2.0], dtype=lat_rad.dtype)
-
-    bounds = np.concatenate([lower_bound, (lat_rad[:-1] + lat_rad[1:]) / 2, upper_bound])
-
-    # Calculate cell areas from latitude bounds
-    upper = bounds[1:]
-    lower = bounds[:-1]
-    # normalized cell area: integral from lower to upper of cos(latitude)
-    weights = np.sin(upper) - np.sin(lower)
-
-    # Normalize weights
-    weights /= np.mean(weights)
-    # Return an xarray DataArray with dimensions lat
-    weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
-    weights = weights.expand_dims({lon_dim: ds[lon_dim]})
-    return weights
