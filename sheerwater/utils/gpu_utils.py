@@ -81,13 +81,56 @@ def to_gpu(data, force=False):
         >>> ds = to_gpu(ds)  # Conversion happens lazily
         >>> result = ds.mean(dim="time").compute()  # Computed on GPU
     """
-    if not is_gpu_available():
+    # Check if data is dask-backed - if so, skip GPU availability check
+    # because the conversion will happen lazily on workers that have GPUs
+    is_dask_backed = hasattr(data, 'data') and hasattr(data.data, 'dask')
+
+    if not is_dask_backed and not is_gpu_available():
         if force:
             raise RuntimeError(
                 "GPU acceleration requested but not available. "
                 "Install with: pip install sheerwater[gpu]"
             )
         logger.debug("GPU not available, returning data unchanged")
+        return data
+
+    # For dask data on client without GPU, wrap conversion in map_blocks
+    # so it executes on workers that have cupy
+    if is_dask_backed and not is_gpu_available():
+        logger.debug("Dask-backed data on client without GPU - wrapping GPU conversion for workers")
+        import dask.array as da
+
+        def _to_cupy_on_worker(block):
+            """Convert numpy block to cupy on worker."""
+            import cupy as cp
+            return cp.asarray(block)
+
+        # Apply conversion to each variable in Dataset, or to DataArray
+        import xarray as xr
+        if isinstance(data, xr.Dataset):
+            converted = {}
+            for var in data.data_vars:
+                arr = data[var].data
+                if isinstance(arr, da.Array):
+                    converted[var] = xr.DataArray(
+                        da.map_blocks(_to_cupy_on_worker, arr, dtype=arr.dtype),
+                        dims=data[var].dims,
+                        coords=data[var].coords,
+                        attrs=data[var].attrs,
+                    )
+                else:
+                    converted[var] = data[var]
+            return xr.Dataset(converted, attrs=data.attrs)
+        elif isinstance(data, xr.DataArray):
+            arr = data.data
+            if isinstance(arr, da.Array):
+                return xr.DataArray(
+                    da.map_blocks(_to_cupy_on_worker, arr, dtype=arr.dtype),
+                    dims=data.dims,
+                    coords=data.coords,
+                    attrs=data.attrs,
+                    name=data.name,
+                )
         return data
 
     import cupy_xarray  # noqa: F401
@@ -486,7 +529,8 @@ def get_gpu_status():
             device_count = cp.cuda.runtime.getDeviceCount()
             status["cuda_device_count"] = device_count
             if device_count > 0:
-                status["cuda_device_name"] = cp.cuda.Device(0).name
+                props = cp.cuda.runtime.getDeviceProperties(0)
+                status["cuda_device_name"] = props["name"].decode()
         except Exception as e:
             status["error"] = f"CUDA error: {e}"
     except ImportError as e:

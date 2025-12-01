@@ -61,16 +61,17 @@ config_options = {
     },
     # GPU configurations - T4 GPUs (cheaper, good for testing)
     # T4 GPUs require N1 series VMs on GCP
-    # Note: Coiled handles GPU worker setup automatically when worker_gpu is set
-    # GPU packages (cupy-cuda12x, cupy-xarray) installed via _gpu_pip_packages
+    # scheduler_gpu required so CUDA packages can initialize on scheduler
     'gpu': {
         'worker_gpu': 1,
+        'scheduler_gpu': 1,
         'worker_vm_types': ['n1-standard-4', 'n1-standard-8'],
         'scheduler_vm_types': ['n1-standard-4', 'n1-standard-8'],
     },
     'gpu_cluster': {
         'n_workers': [4, 8],
         'worker_gpu': 1,
+        'scheduler_gpu': 1,
         'worker_vm_types': ['n1-standard-4', 'n1-standard-8'],
         'scheduler_vm_types': ['n1-standard-4', 'n1-standard-8'],
     },
@@ -78,32 +79,37 @@ config_options = {
     # A100 GPUs use A2 instance family on GCP
     'gpu_a100': {
         'worker_gpu': 1,
+        'scheduler_gpu': 1,
         'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB
-        'scheduler_vm_types': ['n1-standard-4'],
+        'scheduler_vm_types': ['a2-highgpu-1g'],
     },
     'gpu_a100_large': {
         'worker_gpu': 2,
+        'scheduler_gpu': 1,
         'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB
-        'scheduler_vm_types': ['n1-standard-8'],
+        'scheduler_vm_types': ['a2-highgpu-1g'],
     },
     'gpu_a100_cluster': {
         'n_workers': [2, 4],
         'worker_gpu': 1,
+        'scheduler_gpu': 1,
         'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB per worker
-        'scheduler_vm_types': ['n1-standard-8'],
+        'scheduler_vm_types': ['a2-highgpu-1g'],
     },
     'gpu_a100_xlarge_cluster': {
         'n_workers': [4, 8],
         'worker_gpu': 2,
+        'scheduler_gpu': 1,
         'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB per worker
-        'scheduler_vm_types': ['n1-standard-8'],
+        'scheduler_vm_types': ['a2-highgpu-1g'],
     },
 }
 
 # GPU packages to install on workers (cupy requires CUDA, not available on macOS)
+# Also include geopandas/pyogrio from conda to avoid GDAL build issues
 _gpu_conda_packages = {
     'channels': ['conda-forge', 'rapidsai'],
-    'dependencies': ['cupy', 'cupy-xarray'],
+    'dependencies': ['cupy', 'cupy-xarray', 'geopandas', 'pyogrio', 'python=3.12'],
 }
 
 
@@ -142,17 +148,11 @@ def _get_git_info():
 
 def _ensure_gpu_software_env():
     """Ensure the GPU software environment exists with cupy packages and sheerwater from git."""
-    remote_url, branch, commit_hash = _get_git_info()
+    remote_url, branch, _ = _get_git_info()
 
-    # Create a unique environment name based on branch and commit
-    # Replace special characters in branch name
-    safe_branch = branch.replace('/', '-').replace('_', '-')[:20]
-    env_name = f"sheerwater-gpu-{safe_branch}-{commit_hash}"
+    env_name = "sheerwater-gpu"
 
     logger.info("Creating/checking GPU software environment: %s", env_name)
-    logger.info("  Git remote: %s", remote_url)
-    logger.info("  Git branch: %s", branch)
-    logger.info("  Git commit: %s", commit_hash)
 
     # Build pip install URL for sheerwater from git
     pip_packages = []
