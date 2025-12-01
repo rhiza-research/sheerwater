@@ -103,7 +103,13 @@ def to_gpu(data, force=False):
         def _to_cupy_on_worker(block):
             """Convert numpy block to cupy on worker."""
             import cupy as cp
-            return cp.asarray(block)
+            result = cp.asarray(block)
+            # Log first conversion to confirm GPU is being used
+            if not hasattr(_to_cupy_on_worker, '_logged'):
+                _to_cupy_on_worker._logged = True
+                device = cp.cuda.Device()
+                print(f"[GPU] Converting block to cupy on device {device.id} ({block.shape}, {block.dtype})")
+            return result
 
         # Apply conversion to each variable in Dataset, or to DataArray
         import xarray as xr
@@ -308,14 +314,10 @@ def auto_gpu(data):
     if not is_gpu_mode_requested():
         return data
 
-    # Try to convert to GPU - this will work on workers with cupy-xarray
-    if is_gpu_available():
-        return to_gpu(data)
-
-    # If GPU not available locally but mode is requested, log a warning
-    # This is expected on macOS clients - GPU conversion will happen on workers
-    logger.debug("GPU mode requested but GPU not available locally (expected on macOS)")
-    return data
+    # Always call to_gpu() when GPU mode is requested.
+    # to_gpu() handles the case where GPU isn't available locally but data is
+    # dask-backed - it wraps conversion in map_blocks so it happens on workers.
+    return to_gpu(data)
 
 
 def auto_cpu(data):
