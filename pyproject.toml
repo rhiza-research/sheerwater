@@ -58,6 +58,7 @@ dependencies = [
     "numcodecs<0.16.0",
     "nuthatch @ git+https://github.com/rhiza-research/nuthatch",
     "pyzstd==0.16.2",
+    #"bottleneck",
 ]
 
 [dependency-groups]
