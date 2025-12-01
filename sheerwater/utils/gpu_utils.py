@@ -59,6 +59,19 @@ def is_gpu_available():
     return _GPU_AVAILABLE
 
 
+def _is_dask_backed(data):
+    """Check if xarray data is backed by dask arrays."""
+    import xarray as xr
+    import dask.array as da
+
+    if isinstance(data, xr.DataArray):
+        return isinstance(data.data, da.Array)
+    elif isinstance(data, xr.Dataset):
+        # Check if any data variable is dask-backed
+        return any(isinstance(data[var].data, da.Array) for var in data.data_vars)
+    return False
+
+
 def to_gpu(data, force=False):
     """Convert xarray Dataset or DataArray to use CuPy (GPU) arrays.
 
@@ -83,7 +96,7 @@ def to_gpu(data, force=False):
     """
     # Check if data is dask-backed - if so, skip GPU availability check
     # because the conversion will happen lazily on workers that have GPUs
-    is_dask_backed = hasattr(data, 'data') and hasattr(data.data, 'dask')
+    is_dask_backed = _is_dask_backed(data)
 
     if not is_dask_backed and not is_gpu_available():
         if force:
