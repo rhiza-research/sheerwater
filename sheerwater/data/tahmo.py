@@ -1,37 +1,57 @@
 """Get Tahmo data."""
 import dask.dataframe as dd
+import dask
 import xarray as xr
+import math
 from functools import partial
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import get_grid_ds, get_grid, roll_and_agg, apply_mask, clip_region
+from sheerwater.utils import get_grid_ds, get_grid, roll_and_agg, apply_mask, clip_region, snap_point_to_grid
 from sheerwater.utils.remote import dask_remote
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
+@cache(cache_args=[])
+def tahmo_deployment():
+    """Stub function to get deployment cache."""
+    raise RuntimeError("Stub function - should always hit a cache")
+
+
+@cache(cache_args=['station_id'])
+def tahmo_station_cleaned(station_id): #noqa: ARG001
+    """Stub function to get data cache."""
+    raise RuntimeError("Stub function - should always hit a cache")
+
 
 @dask_remote
-@cache(cache_args=['station_code'])
-def tahmo_station(station_code):
-    """Get Tahmo station data."""
-    obs = dd.read_csv(f"gs://sheerwater-datalake/tahmo-data/tahmo_qc_stations_v2/{station_code}.csv",
-                      on_bad_lines="skip")
+@cache(cache_args=[])
+def tahmo_raw_daily():
+    """Tahmo data combined and aggregated into days."""
+    # Get the station list
+    stations = tahmo_deployment().compute()
 
-    # Get a list of columns starting with quality and PR
-    quality_cols = [col for col in obs.columns if col.startswith('quality')]
+    datasets = []
+    for station in stations.to_dict(orient='records'):
+        ds = dask.delayed(tahmo_station_cleaned)(station['code'], filepath_only=True)
+        datasets.append(ds)
 
-    # Get a list of columns starting with pr and take max because ragin gauges
-    # rarely over report
-    pr_cols = [col for col in obs.columns if col.startswith('pr')]
-    obs['precip'] = obs[pr_cols].max(axis=1)
+    datasets = dask.compute(*datasets)
+    datasets = [item for item in datasets if item is not None]
+    obs = dd.read_parquet(datasets)
 
-    # Add station code
-    obs['station_code'] = station_code
+    # remove all data without quality_flag = 1
+    obs = obs[obs['precip_quality_flag'] > 0.9]
+    obs = obs.drop(['precip_quality_flag', 'precip_sensor_id'], axis=1)
 
-    # Drop the extra columns
-    obs = obs.drop(columns=quality_cols)
-    obs = obs.drop(columns=pr_cols)
+    # For each station ID roll the data into a daily sum
+    obs = obs.groupby([obs.time.dt.date, 'station_id']).agg({'precip_mm': 'sum'})
+    obs = obs.rename(columns={'precip_mm': 'precip'})
+    obs = obs.reset_index()
+
+    # Convert what is now a date back to a datetime
+    obs['time'] = dd.to_datetime(obs['time'])
 
     return obs
+
 
 
 @dask_remote
@@ -47,73 +67,36 @@ def tahmo_station(station_code):
 def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
     # Get the station list
-    stat = dd.read_csv("gs://sheerwater-datalake/tahmo-data/tahmo_station_locs.csv")
-    stations = stat['station code'].unique()
+    stations = tahmo_deployment().compute()
 
-    files = []
-    for station in stations:
-        try:
-            files.append(tahmo_station(station, backend='parquet', filepath_only=True))
-        except FileNotFoundError:
-            print(f"File not found for station {station}. Skipping")
-
-    # Reading multiple parquets required reading all of them one folder up.
-    # Passing multiple paths to read_parquet did not work (dask bug?)
-    print(files[0].split('/')[:-1])
-    path = '/'.join(files[0].split('/')[:-1])
-    obs = dd.read_parquet(path)
-
-    # Convert the date column to a datetime
-    obs['time'] = dd.to_datetime(obs['Timestamp'])
-    obs = obs.drop(['Timestamp'], axis=1)
-
-    # For each station ID roll the data into a daily sum
-    obs = obs.groupby([obs.time.dt.date, 'station_code']).agg({'precip': 'sum'})
-    obs = obs.reset_index()
-
-    # Convert what is now a date back to a datetime
-    obs['time'] = dd.to_datetime(obs['time'])
+    obs = tahmo_raw_daily().compute()
 
     # Round the coordinates to the nearest grid
-    lats, lons, grid_size, _ = get_grid(grid)
-    # This rounding only works for divisible, uniform grids
-    assert (lats[0] % grid_size == 0)
-    assert (lons[0] % grid_size == 0)
+    lats, lons, grid_size, offset = get_grid(grid)
 
-    def custom_round(x, base):
-        return base * round(float(x)/base)
+    stat = stations.rename(columns={'location_latitude': 'lat', 'location_longitude': 'lon', 'code': 'station_id'})
+    stat['lat'] = stat['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
+    stat['lon'] = stat['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
 
-    stat = dd.read_csv("gs://sheerwater-datalake/tahmo-data/tahmo_station_locs.csv")
-    stat = stat.rename(columns={'latitude': 'lat', 'longitude': 'lon', 'station code': 'station_code'})
-    stat['lat'] = stat['lat'].apply(lambda x: custom_round(x, base=grid_size))
-    stat['lon'] = stat['lon'].apply(lambda x: custom_round(x, base=grid_size))
+    stat = stat[['station_id', 'lat', 'lon']]
+    stat = stat.set_index('station_id')
+    obs = obs.join(stat, on='station_id', how='inner')
 
     if cell_aggregation == 'first':
-        stations_to_use = stat.groupby(['lat', 'lon']).agg(station_code=('station_code', 'first'))
-        stations_to_use = stations_to_use.reset_index()
-        stations_to_use = stations_to_use['station_code'].unique()
+        stations_to_use = obs.groupby(['lat', 'lon']).agg(station_id=('station_id', 'first'))
+        stations_to_use = stations_to_use['station_id'].unique()
 
-        stat = stat[stat['station_code'].isin(stations_to_use)]
-        stat = stat.set_index('station_code')
-        obs = obs.join(stat, on='station_code', how='inner')
-
-        # Prepare for xarray
-        obs = obs.drop(['station_code', 'name', 'country'], axis=1)
-
-        # A multi index must be set to convert to xarray and this is the only way in dask.
-        obs = obs.groupby(['lat', 'lon', 'time']).agg(precip=('precip', 'mean'))
+        obs = obs[obs['station_id'].isin(stations_to_use)]
+        obs = obs.drop(['station_id'], axis=1)
+        obs = obs.reset_index()
+        obs = obs.drop(['index'], axis=1)
     elif cell_aggregation == 'mean':
-        # Group by lat/lon/time
-        stat = stat.set_index('station_code')
-        obs = obs.join(stat, on='station_code', how='inner')
         obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'))
+        obs = obs.reset_index()
+
 
     # Convert to xarray - for this to succeed obs must be a pandas dataframe
-    obs = xr.Dataset.from_dataframe(obs.compute())
-
-    obs = obs.chunk({'time': 365,
-                     'lat': 300,
-                     'lon': 300})
+    obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
 
     # Return the xarray
     return obs
@@ -125,17 +108,16 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo_rolled(start_time, end_time, agg_days,
                  grid='global0_25',
-                 missing_thresh=0.5, cell_aggregation='first'):
+                 missing_thresh=0.9, cell_aggregation='first'):
     """Tahmo rolled and aggregated."""
     # Get the data
     ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
 
-    # Reindex to fill out the lat/lon
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds)
 
     # Roll and agg
-    agg_thresh = max(int(agg_days*missing_thresh), 1)
+    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
     return ds
 
@@ -143,7 +125,7 @@ def tahmo_rolled(start_time, end_time, agg_days,
 @dask_remote
 def _tahmo_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', mask='lsm', region='global',
-                   missing_thresh=0.5, cell_aggregation='first'):
+                   missing_thresh=0.9, cell_aggregation='first'):
     """Standard interface for tahmo data."""
     if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
         drought_condition = variable == 'rainy_onset_no_drought'
@@ -159,6 +141,8 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
                              drought_condition=drought_condition,
                              mask=mask, region=region, grid=grid)
     else:
+        if variable != 'precip':
+            raise ValueError("TAHMO only supports precip")
         ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation)
         ds = apply_mask(ds, mask, grid=grid)
         ds = clip_region(ds, region=region)
@@ -174,7 +158,7 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
-          missing_thresh=0.5):
+          missing_thresh=0.9):
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
                           grid=grid, mask=mask, region=region,
@@ -187,7 +171,7 @@ def tahmo(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
-              missing_thresh=0.5):
+              missing_thresh=0.9):
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
                           grid=grid, mask=mask, region=region,
