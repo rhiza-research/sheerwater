@@ -13,16 +13,19 @@ from jobs import parse_args, run_in_parallel, prune_metrics
 if remote:
     start_remote(remote_config=remote_config, remote_name=remote_name)
 
-combos = itertools.product(forecasts, variables, grids, agg_days)
+combos = itertools.product(forecasts, truth, variables, grids, agg_days)
 #combos = prune_metrics(combos)
 
 def run_grouped(combo):
     """Run grouped metrics."""
     print(combo)
-    forecast, variable, grid, agg_days = combo
+    forecast, truth, variable, grid, agg_days = combo
 
     try:
         fn = get_datasource_fn(forecast)
+        fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid,
+                  recompute=recompute, force_overwrite=True)
+        fn = get_datasource_fn(truth)
         return fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid,
                   recompute=recompute, force_overwrite=True)
     except KeyboardInterrupt as e:
