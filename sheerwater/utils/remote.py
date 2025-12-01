@@ -107,9 +107,10 @@ config_options = {
 
 # GPU packages to install on workers (cupy requires CUDA, not available on macOS)
 # Also include geopandas/pyogrio from conda to avoid GDAL build issues
+# numba is required for dask.distributed to serialize cupy arrays
 _gpu_conda_packages = {
     'channels': ['conda-forge', 'rapidsai'],
-    'dependencies': ['cupy', 'cupy-xarray', 'geopandas', 'pyogrio', 'python=3.12'],
+    'dependencies': ['cupy', 'cupy-xarray', 'numba', 'geopandas', 'pyogrio', 'python=3.12'],
 }
 
 
