@@ -85,7 +85,7 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False):
+def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=True):
     """Clip a dataset to a region.
 
     Args:

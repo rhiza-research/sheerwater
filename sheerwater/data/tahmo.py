@@ -10,6 +10,7 @@ from sheerwater.utils import get_grid_ds, get_grid, roll_and_agg, apply_mask, cl
 from sheerwater.utils.remote import dask_remote
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
+
 @cache(cache_args=[])
 def tahmo_deployment():
     """Stub function to get deployment cache."""
@@ -17,7 +18,7 @@ def tahmo_deployment():
 
 
 @cache(cache_args=['station_id'])
-def tahmo_station_cleaned(station_id): #noqa: ARG001
+def tahmo_station_cleaned(station_id):  # noqa: ARG001
     """Stub function to get data cache."""
     raise RuntimeError("Stub function - should always hit a cache")
 
@@ -53,7 +54,6 @@ def tahmo_raw_daily():
     return obs
 
 
-
 @dask_remote
 @timeseries()
 @cache(cache_args=['grid', 'cell_aggregation'],
@@ -63,7 +63,7 @@ def tahmo_raw_daily():
                'lat': 300,
                'lon': 300,
            }
-       })
+})
 def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
     # Get the station list
@@ -93,7 +93,6 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     elif cell_aggregation == 'mean':
         obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'))
         obs = obs.reset_index()
-
 
     # Convert to xarray - for this to succeed obs must be a pandas dataframe
     obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))

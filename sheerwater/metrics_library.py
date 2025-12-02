@@ -49,7 +49,7 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 mask='lsm', region='global', data_key='none'):
+                 mask='lsm', region='global', clip='global', data_key='none'):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
@@ -63,6 +63,7 @@ class Metric(ABC):
         self.spatial = spatial
         self.mask = mask
         self.region = region
+        self.clip = clip
 
         # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
         # This is a dictionary that contains a data entry and a key entry.
@@ -80,12 +81,12 @@ class Metric(ABC):
         if 'prob_type' in signature(fcst_fn).parameters:
             forecast_or_truth = 'forecast'
             fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                           prob_type=self.prob_type, grid=self.grid, mask=None, region='global', memoize=True)
+                           prob_type=self.prob_type, grid=self.grid, mask=None, region=self.clip, memoize=True)
             enhanced_prob_type = fcst.attrs['prob_type']
         else:
             forecast_or_truth = 'truth'
             fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                           grid=self.grid, mask=None, region='global', memoize=True)
+                           grid=self.grid, mask=None, region=self.clip, memoize=True)
             enhanced_prob_type = "deterministic"
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
@@ -97,7 +98,7 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_datasource_fn(self.truth)
         obs = truth_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                       grid=self.grid, mask=None, region='global', memoize=True)
+                       grid=self.grid, mask=None, region=self.clip, memoize=True)
 
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
@@ -233,8 +234,13 @@ class Metric(ABC):
         if self.spatial and (region_level == self.region and self.region != 'global'):
             raise ValueError(f"Cannot compute spatial metrics for region level '{self.region}'. " +
                              "Pass in a specific region instead.")
+        if self.clip != 'global':
+            region_level = f"{region_level}-{self.clip}"
         region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True).compute()
         mask_ds = get_mask(self.mask, self.grid, memoize=True)
+        if self.clip != 'global':
+            from sheerwater.utils.space_utils import clip_region
+            mask_ds = clip_region(mask_ds, region=self.clip)
 
         ############################################################
         # Aggregate and and check validity of the statistic

@@ -11,6 +11,7 @@ from sheerwater.utils import (dask_remote,
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 from sheerwater.utils.secrets import earth_data_hub_token
 
+
 @dask_remote
 @timeseries()
 @cache(cache=False,
@@ -21,20 +22,20 @@ def era5_land_raw(start_time, end_time, variable):  # noqa ARG001
     ds = xr.open_dataset(
         f"https://edh:{token}@data.earthdatahub.destine.eu/era5/reanalysis-era5-land-no-antartica-v0.zarr",
         chunks={},
-        #chunks={'time': 365, 'latitude': 300, 'longitude': 300},
+        # chunks={'time': 365, 'latitude': 300, 'longitude': 300},
         engine="zarr",
     )
 
-    ## Select the right variable
+    # Select the right variable
     if variable in ['tmax2m', 'tmin2m']:
         var = 'tmp2m'  # Compute min and max daily temperatures from 2m temperature
     var = get_variable(variable, 'era5_land')
     ds = ds[var].to_dataset()
 
-    ## Convert local dataset naming and units
+    # Convert local dataset naming and units
     ds = ds.rename({'latitude': 'lat', 'longitude': 'lon', 'valid_time': 'time'})
 
-    ## Raw latitudes are in descending order
+    # Raw latitudes are in descending order
     ds = ds.sortby('lat')
     ds = ds.rename_vars(name_dict={var: variable})
 
@@ -45,7 +46,7 @@ def era5_land_raw(start_time, end_time, variable):  # noqa ARG001
 @cache(cache_args=['year', 'variable'],
        backend_kwargs={
            'chunking': {"lat": 300, "lon": 300, "time": 365}
-       })
+})
 def era5_land_daily_year(year, variable):
     """Aggregates the hourly ERA5 data into daily data.
 
@@ -99,7 +100,7 @@ def era5_land_daily_year(year, variable):
 @cache(cache_args=['variable'],
        backend_kwargs={
            'chunking': {"lat": 300, "lon": 300, "time": 365},
-       })
+})
 def era5_land_daily(start_time, end_time, variable):
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
@@ -122,7 +123,7 @@ def era5_land_daily(start_time, end_time, variable):
        cache_disable_if={'grid': 'global0_1'},
        backend_kwargs={
            'chunking': {"lat": 300, "lon": 300, "time": 365},
-       })
+})
 def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1"):
     """ERA5 daily reanalysis with regridding."""
     ds = era5_land_daily(start_time, end_time, variable)
@@ -133,7 +134,6 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1"):
 
     if grid == 'global0_1':
         return ds
-
 
     if size < 0.1:
         raise NotImplementedError("Unable to regrid ERA5 Land smaller than 0.1x0.1")
@@ -149,7 +149,7 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1"):
        cache_disable_if={'agg_days': 1},
        backend_kwargs={
            'chunking': {"lat": 300, "lon": 300, "time": 365},
-       })
+})
 def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1"):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
@@ -174,7 +174,7 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 @dask_remote
 @timeseries()
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis.
 
@@ -191,7 +191,6 @@ def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='
 
     if size < 0.1 or (size == 0.1 and grid != 'global0_1'):
         raise NotImplementedError("Unable to regrid ERA5 Land smaller than 0.1x0.1")
-
 
     # Get daily data
     ds = era5_land_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid)
@@ -236,7 +235,7 @@ def era5_raw(start_time, end_time, variable, grid="global0_25"):  # noqa ARG001
 @cache(cache_args=['variable', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "time": 30}
-       })
+})
 def era5_daily(start_time, end_time, variable, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data.
 
@@ -295,7 +294,7 @@ def era5_daily(start_time, end_time, variable, grid="global1_5"):
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
            }
-       })
+})
 def era5_daily_regrid(start_time, end_time, variable, grid="global0_25"):
     """ERA5 daily reanalysis with regridding."""
     ds = era5_daily(start_time, end_time, variable, grid='global0_25')
@@ -323,7 +322,7 @@ def era5_daily_regrid(start_time, end_time, variable, grid="global0_25"):
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
            }
-       })
+})
 def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
@@ -347,7 +346,7 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 @dask_remote
 @timeseries()
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def era5(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis.
 
@@ -365,25 +364,8 @@ def era5(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm'
     if size < 0.25:
         raise NotImplementedError("Unable to regrid ERA5 smaller than 0.25x0.25")
 
-
-    # Get daily data
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = (variable == 'rainy_onset_no_drought')
-        fn = partial(era5_rolled, start_time, end_time, variable='precip', grid=grid)
-        roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-        shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-        data = spw_precip_preprocess(fn, agg_days=roll_days, shift_days=shift_days,
-                                     mask=mask, region=region, grid=grid)
-        ds = spw_rainy_onset(data,
-                             onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                             time_dim='time', prob_type='deterministic',
-                             drought_condition=drought_condition,
-                             mask=mask, region=region, grid=grid)
-        # Rainy onset is sparse, so we need to set the sparse attribute
-        ds = ds.assign_attrs(sparse=True)
-    else:
-        ds = era5_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid)
-        # Apply masking and clip region
-        ds = apply_mask(ds, mask, grid=grid)
-        ds = clip_region(ds, region=region)
+    ds = era5_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid)
+    # Apply masking and clip region
+    ds = apply_mask(ds, mask, grid=grid)
+    ds = clip_region(ds, region=region)
     return ds

@@ -234,49 +234,49 @@ def to_name(name):
         return name
 
 
-def metric_bounds(metric_name):
-    """Get the bounds for a metric."""
-    if metric_name == 'mae':
+def bounds(variable):
+    """Get the bounds for a variable."""
+    if variable == 'mae':
         return (0.0, None)
-    elif metric_name == 'mse':
+    elif variable == 'mse':
         return (0.0, None)
-    elif metric_name == 'rmse':
+    elif variable == 'rmse':
         return (0.0, None)
-    elif metric_name == 'bias':
+    elif variable == 'bias':
         return (None, None)
-    elif metric_name == 'crps':
+    elif variable == 'crps':
         return (0.0, None)
-    elif metric_name == 'brier':
+    elif variable == 'brier':
         return (0.0, None)
-    elif metric_name == 'smape':
+    elif variable == 'smape':
         return (0.0, None)
-    elif metric_name == 'mape':
+    elif variable == 'mape':
         return (0.0, None)
-    elif metric_name == 'seeps':
+    elif variable == 'seeps':
         return (0.0, 3.0)
-    elif 'heidke' in metric_name:
+    elif 'heidke' in variable:
         return (0.0, 1.0)
-    elif 'pod' in metric_name:
+    elif 'pod' in variable:
         return (0.0, 1.0)
-    elif 'far' in metric_name:
+    elif 'far' in variable:
         return (0.0, 1.0)
-    elif 'ets' in metric_name:
+    elif 'ets' in variable:
         return (0.0, 1.0)
-    elif 'csi' in metric_name:
+    elif 'csi' in variable:
         return (0.0, 1.0)
-    elif 'frequency_bias' in metric_name:
+    elif 'frequency_bias' in variable:
         return (None, None)
-    elif metric_name == 'acc':
+    elif variable == 'acc':
         return (-1.0, 1.0)
-    elif metric_name == 'pearson':
+    elif variable == 'pearson':
         return (-1.0, 1.0)
-    elif metric_name == 'coverage':
+    elif variable == 'coverage':
         return (0.0, None)
     else:
         return (None, None)
 
 
-def plot_by_region(ds, region, metric_name, truth, forecast, agg_days):
+def plot_by_region(ds, region, variable, file_string='none', title='Regional Map'):
     """Plot a variable from an xarray dataset by region.
 
     Args:
@@ -294,7 +294,7 @@ def plot_by_region(ds, region, metric_name, truth, forecast, agg_days):
     gdf = get_region_data(region)
     # Extract the data values
     try:
-        data = ds[metric_name]
+        data = ds[variable]
     except KeyError:
         data = ds
 
@@ -323,7 +323,7 @@ def plot_by_region(ds, region, metric_name, truth, forecast, agg_days):
     gdf['value'] = values
 
     # Calculate 95th percentile for vmax (excluding NaNs)
-    vmin, vmax = metric_bounds(metric_name)
+    vmin, vmax = bounds(variable)
     values_array = np.array(values)
     valid_values = values_array[~np.isnan(values_array)]
     if vmin is None:
@@ -364,8 +364,7 @@ def plot_by_region(ds, region, metric_name, truth, forecast, agg_days):
     ax.spines['left'].set_visible(False)
 
     # Set title
-    var_name = metric_name if metric_name else data.name if hasattr(data, 'name') else 'value'
-    ax.set_title(f'{to_name(var_name)} {truth.upper()} vs {forecast.upper()} on {agg_days} days', fontsize=14, pad=10)
+    ax.set_title(title, fontsize=14, pad=10)
 
     plt.tight_layout()
 
@@ -376,6 +375,5 @@ def plot_by_region(ds, region, metric_name, truth, forecast, agg_days):
     # Save
     if not os.path.exists('metric_maps'):
         os.makedirs('metric_maps')
-    plt.savefig(f'metric_maps/{metric_name}_{truth}_{forecast}_{agg_days}_{region}_map.png')
-    # plt.show()
+    plt.savefig(f'metric_maps/{variable}_{region}_{file_string}_map.png')
     return ax

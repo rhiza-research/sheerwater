@@ -217,25 +217,9 @@ def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask=
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Final access function for chirps."""
-    if variable not in ['precip', 'rainy_onset', 'rainy_onset_no_drought']:
+    if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRPS.")
-
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = variable == 'rainy_onset_no_drought'
-        fn = partial(chirps_rolled, start_time, end_time, grid=grid)
-        roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-        shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-        data = spw_precip_preprocess(fn, agg_days=roll_days, shift_days=shift_days,
-                                     mask=mask, region=region, grid=grid)
-        ds = spw_rainy_onset(data,
-                             onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                             time_dim='time', prob_type='deterministic',
-                             drought_condition=drought_condition,
-                             mask=mask, region=region, grid=grid)
-        # Rainy onset is sparse, so we need to set the sparse attribute
-        ds = ds.assign_attrs(sparse=True)
-    else:
-        ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                             mask=mask, region=region, stations=True, version=2)
+    ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
+                            mask=mask, region=region, stations=True, version=2)
 
     return ds

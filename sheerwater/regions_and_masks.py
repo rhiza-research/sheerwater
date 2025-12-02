@@ -7,7 +7,7 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from nuthatch import cache
 from sheerwater.utils import (cdsapi_secret, get_grid,
-                                           lon_base_change, get_region_data, get_grid_ds)
+                                           lon_base_change, get_region_data, get_grid_ds, clip_region)
 
 
 @cache(cache_args=['grid'])
@@ -90,6 +90,10 @@ def region_labels(grid='global1_5', region_level='country'):
     Returns:
         xarray.Dataset: Dataset with added region coordinate
     """
+    if '-' in region_level:
+        region_level, clip = region_level.split('-')
+    else:
+        clip = 'global'
     # Get the list of regions for the specified admin level
     region_data = get_region_data(region_level)
 
@@ -97,7 +101,9 @@ def region_labels(grid='global1_5', region_level='country'):
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
     # Fixed data type of strings of length 100
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U30').data))
+    if clip != 'global':
+        ds = clip_region(ds, region=clip)
 
     # Loop through each region and label grid cells
     for i, rn in region_data.iterrows():
@@ -110,6 +116,7 @@ def region_labels(grid='global1_5', region_level='country'):
         region_ds = world_ds.rio.clip(rn, region_data.crs, drop=False)
         # Assign the region name to the region coordinate
         ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
+
     return ds
 
 
