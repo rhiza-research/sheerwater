@@ -8,6 +8,7 @@ import tqdm
 from sheerwater.metrics_library import metric_factory
 
 skip = 0
+station_eval = False
 
 
 def parse_args():
@@ -37,8 +38,12 @@ def parse_args():
     global skip
     skip = args.skip
 
+    global station_eval
     if args.station_evaluation:
-        forecasts = ["chirps_v3", "chirp_v3", "chirps_v2", "chirp_v2", "imerg_late", "imerg_final", "cbam"]
+        station_eval = True
+
+    if args.station_evaluation:
+        forecasts = ["chirps_v3", "chirp_v3", "imerg_late", "imerg_final", "era5"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
@@ -71,6 +76,12 @@ def parse_args():
         elif args.metric == ['coupled']:
             metrics = ["acc", "pod-1", "pod-5", "pod-10", "far-1", "far-5",
                        "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        elif args.metric == ['wet-dry']:
+            metrics = ["pod-3.6", "pod-7.6", "pod-6.6", "far-3.6", "far-7.6", "far-6.6",
+                       "ets-3.6", "ets-7.6", "ets-6.6", "csi-3.6", "csi-7.6", "csi-6.6",
+                       "frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6",
+                       "far-1.5",
+                       "heidke-1.5-7.6"]
         else:
             metrics = args.metric
 
@@ -99,7 +110,7 @@ def parse_args():
     if args.agg_days:
         agg_days = args.agg_days
 
-    time_groupings = [None, "month_of_year", "year"]
+    time_groupings = [None, "month_of_year"]
     if args.time_grouping:
         time_groupings = args.time_grouping
         time_groupings = [x if x != 'None' else None for x in time_groupings]
@@ -126,14 +137,32 @@ def prune_metrics(combos, global_run=False):
                                     agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
                                     spatial=False, grid=grid, mask=None, region=region)
 
-        if not global_run and 'tahmo' in truth and region != 'nimbus_east_africa':
-            continue
+        #if not global_run and 'tahmo' in truth and region != 'nimbus_east_africa':
+        #    continue
 
         if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
             continue
 
         if metric_name == 'seeps' and grid == 'global0_25':
             continue
+
+        global station_eval
+        if '-' in metric_name and station_eval:
+            thresh = float(metric_name.split('-')[1])
+
+            # FAR dry spell
+            if thresh == 1.5:
+                if agg_days not in [7, 10]:
+                    continue
+            elif thresh == 6.6:
+                if agg_days != 3:
+                    continue
+            elif thresh == 7.6:
+                if agg_days != 5:
+                    continue
+            elif thresh == 3.6:
+                if agg_days != 11:
+                    continue
 
         pruned_combos.append(combo)
 
