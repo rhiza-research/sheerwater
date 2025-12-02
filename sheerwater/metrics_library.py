@@ -317,8 +317,12 @@ class Metric(ABC):
         self.gather_statistics()
         # Group and mean the statistics
         self.group_statistics()
-        # Apply nonlinearly and return the metric
-        return self.compute_metric()
+        # Apply nonlinearly and compute the metric
+        da = self.compute_metric()
+
+        # Convert from dataarray to dataset and return.
+        ds = da.to_dataset(name=self.name)
+        return ds
 
 
 class MAE(Metric):
