@@ -277,10 +277,10 @@ class Metric(ABC):
                 ds[stat] = ds[stat] * ds['weights']
 
             if self.region == 'global':
-                ds = ds.sum(dims=['lat', 'lon'], skipna=True)
+                ds = ds.sum(dim=['lat', 'lon'], skipna=True)
                 # ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
             else:
-                ds = ds.groupby('region').sum(dims=['lat', 'lon'], skipna=True)
+                ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
                 # ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
 
             for stat in self.statistics:

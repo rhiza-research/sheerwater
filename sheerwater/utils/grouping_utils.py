@@ -88,7 +88,7 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
     for var in variable_names:
         ds[var] = ds[var] * ds['weights']
 
-    ds = ds.groupby('region').apply(mean_or_sum, agg_fn=agg_fn, dims='stacked_lat_lon')
+    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
 
     if agg_fn == 'mean':
         for var in variable_names:
