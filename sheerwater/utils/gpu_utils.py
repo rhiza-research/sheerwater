@@ -180,6 +180,10 @@ def to_cpu(data):
     This should be called before saving data to disk or passing to
     functions that don't support CuPy arrays.
 
+    For dask-backed arrays, this wraps the conversion in map_blocks so it
+    happens on workers (where cupy is available) before data is serialized
+    back to the client.
+
     Args:
         data: xarray Dataset or DataArray to convert.
 
@@ -194,6 +198,7 @@ def to_cpu(data):
     """
     import xarray as xr
     import numpy as np
+    import dask.array as da
 
     def _is_cupy_array(arr):
         """Check if array is a CuPy array (works even without cupy installed)."""
@@ -221,6 +226,47 @@ def to_cpu(data):
                 name=var.name if hasattr(var, 'name') else None,
             )
         return var
+
+    # For dask-backed arrays when client doesn't have cupy, wrap conversion
+    # in map_blocks so it happens on workers before serialization
+    is_dask_backed = _is_dask_backed(data)
+    if is_dask_backed and not is_gpu_available():
+        logger.debug("Client without GPU - wrapping CPU conversion for workers")
+
+        def _to_numpy_on_worker(block):
+            """Convert cupy block to numpy on worker."""
+            if type(block).__module__.startswith('cupy'):
+                return block.get()
+            return block
+
+        def _convert_dask_array(arr):
+            """Wrap dask array with CPU conversion that runs on workers."""
+            if isinstance(arr, da.Array):
+                return da.map_blocks(_to_numpy_on_worker, arr, dtype=arr.dtype)
+            return arr
+
+        # Apply conversion to each variable
+        if isinstance(data, xr.Dataset):
+            converted = {}
+            for var in data.data_vars:
+                arr = data[var].data
+                converted[var] = xr.DataArray(
+                    _convert_dask_array(arr),
+                    dims=data[var].dims,
+                    coords=data[var].coords,
+                    attrs=data[var].attrs,
+                )
+            return xr.Dataset(converted, attrs=data.attrs)
+        elif isinstance(data, xr.DataArray):
+            arr = data.data
+            return xr.DataArray(
+                _convert_dask_array(arr),
+                dims=data.dims,
+                coords=data.coords,
+                attrs=data.attrs,
+                name=data.name,
+            )
+        return data
 
     # Check if data has the cupy accessor and is on GPU (fast path when cupy-xarray available)
     if is_gpu_available():
@@ -409,13 +455,21 @@ def auto_cpu(data):
 
     This uses the global GPU enabled flag set by `enable_gpu()`.
 
+    For dask-backed data from GPU workers, this ensures conversion happens
+    on the workers (via map_blocks) before data is serialized back to the
+    client - which is necessary when the client doesn't have cupy installed.
+
     Args:
         data: xarray Dataset or DataArray.
 
     Returns:
         Data, converted to CPU if it was on GPU.
     """
-    if is_gpu_enabled():
+    # Use is_gpu_mode_requested() instead of is_gpu_enabled() because:
+    # - The client may not have cupy (is_gpu_enabled returns False)
+    # - But data may still be CuPy arrays from GPU workers
+    # - to_cpu() handles this by wrapping conversion in map_blocks for dask data
+    if is_gpu_mode_requested():
         return to_cpu(data)
     return data
 
