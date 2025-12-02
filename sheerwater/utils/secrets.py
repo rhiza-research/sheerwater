@@ -5,6 +5,16 @@ from pathlib import Path
 from google.cloud import secretmanager
 import salientsdk as sk
 
+def earth_data_hub_token():
+    """Get a postgres write password."""
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(
+        request={"name": "projects/750045969992/secrets/earth_data_hub_token/versions/latest"})
+    key = response.payload.data.decode("UTF-8")
+
+    return key
+
 
 def postgres_write_password():
     """Get a postgres write password."""

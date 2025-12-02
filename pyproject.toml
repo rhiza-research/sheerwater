@@ -22,7 +22,7 @@ dependencies = [
     "google-cloud-storage",
     "google-cloud-secret-manager",
     "cryptography",
-    "xarray==2024.10",
+    "xarray==2025.1.0",
     "matplotlib",
     "geopandas",
     "rioxarray",
@@ -50,12 +50,15 @@ dependencies = [
     "opt-einsum>=3.4.0",
     "plotly>=5.24.1",
     "salientsdk>=0.3.12",
-    "dask_deltatable",
+    "dask_deltatable==0.4.0",
     "minio",
     "huggingface_hub",
     "py7zr",
     "tqdm",
-    "numcodecs<0.16.0"
+    "numcodecs<0.16.0",
+    "nuthatch @ git+https://github.com/rhiza-research/nuthatch",
+    "pyzstd==0.16.2",
+    #"bottleneck",
 ]
 
 [dependency-groups]
@@ -82,6 +85,10 @@ source = "vcs"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build]
+# Necessary to include nuthatch.toml
+include = ["sheerwater_benchmarking/", "jobs/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["./sheerwater", "./jobs"]
@@ -126,3 +133,20 @@ select = ["E", "F", "W", "D", "ARG"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.nuthatch]
+filesystem = "gs://sheerwater-datalake/caches"
+host = "postgres.sheerwater.rhizaresearch.org"
+port = 5432
+database = "postgres"
+username = "write"
+driver = "postgresql"
+raster_store = "gs://terracotta-files"
+metadata_location = "filesystem"
+dynamic_config_path = "nuthatch.test_secrets"
+
+[tool.nuthatch.filesystem_options]
+cache_timeout = 0
+
+[tool.nuthatch.local]
+filesystem = "~/.cache/nuthatch"

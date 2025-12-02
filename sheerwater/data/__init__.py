@@ -1,15 +1,21 @@
 """Data functions for all parts of the data pipeline."""
 from .ghcn import ghcn, ghcn_avg
 from .tahmo import tahmo, tahmo_avg
-from .chirps import chirps
-from .imerg import imerg
+from .chirps import chirps, chirps_v3, chirp_v3, chirps_v2, chirp_v2
+from .imerg import imerg, imerg_late, imerg_final
 
 # Use __all__ to define what is part of the public API.
 __all__ = [
     "ghcn",
     "ghcn_avg",
     "chirps",
+    "chirps_v3",
+    "chirp_v3",
+    "chirps_v2",
+    "chirp_v2",
     "imerg",
+    "imerg_late",
+    "imerg_final",
     "tahmo",
     "tahmo_avg"
 ]

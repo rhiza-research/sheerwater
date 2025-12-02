@@ -1,14 +1,15 @@
 """Fetches ERA5 data from the Google ARCO Store."""
 import xarray as xr
-from sheerwater.utils import (dask_remote, cacheable,
-                                           apply_mask, clip_region,
-                                           roll_and_agg, regrid)
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (dask_remote,
+                              apply_mask, clip_region,
+                              roll_and_agg, regrid)
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable'],
-           timeseries='time',
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable'])
 def cbam_raw(start_time, end_time, variable):  # noqa ARG001
     """CBAM raw data with some renaming/averaging."""
     ds = xr.open_zarr('gs://sheerwater-datalake/cbam-data/gap/cbam_20241021.zarr',
@@ -25,10 +26,9 @@ def cbam_raw(start_time, end_time, variable):  # noqa ARG001
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "time": 30})
+@timeseries()
+@cache(cache_args=['variable', 'grid'],
+       backend_kwargs={'chunking': {"lat": 721, "lon": 1440, "time": 30}})
 def cbam_gridded(start_time, end_time, variable, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data.
 
@@ -47,11 +47,12 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "time": 30},
-           cache_disable_if={'agg_days': 1})
+@timeseries()
+@cache(cache_args=['variable', 'agg_days', 'grid'],
+       cache_disable_if={'agg_days': 1},
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "time": 30}
+       })
 def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
@@ -73,10 +74,9 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis.
 

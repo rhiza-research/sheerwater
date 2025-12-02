@@ -8,7 +8,7 @@ def test_get_grid():
     """Test the get_grid function."""
     grids = ["global1_5", "global0_25"]
     for grid in grids:
-        lons, lats, size = get_grid(grid)
+        lons, lats, size, _ = get_grid(grid)
         diffs_lon = np.diff(lons)
         diffs_lat = np.diff(lats)
         assert (diffs_lon == size).all()

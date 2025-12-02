@@ -2,8 +2,7 @@
 # coding: utf-8
 
 """Test file for climatology data validation."""
-
-from sheerwater.baselines import climatology_raw
+from sheerwater.climatology import climatology_raw
 
 
 def test_climatology():

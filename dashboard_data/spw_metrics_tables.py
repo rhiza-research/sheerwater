@@ -1,8 +1,6 @@
 """Verification metrics for forecasts."""
-import xarray as xr
-
-from sheerwater.utils import (cacheable, dask_remote, start_remote, plot_ds)  # noqa: F401
-from sheerwater.metrics import grouped_metric, eval_metric, global_metric, summary_metrics_table  # noqa: F401
+from sheerwater.utils import start_remote
+from .metrics_tables import summary_metrics_table
 
 
 if __name__ == "__main__":
@@ -30,4 +28,4 @@ if __name__ == "__main__":
                 ds = summary_metrics_table(start_time, end_time, variable, truth, metric,
                                            time_grouping=tg, grid=grid, mask=mask, region=region,
                                            recompute=True, force_overwrite=True,
-                                           backend='postgres')
+                                           backend='sql')

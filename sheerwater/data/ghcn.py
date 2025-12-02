@@ -3,19 +3,22 @@ import pandas as pd
 from functools import partial
 from dateutil import parser
 import numpy as np
+import math
 import dask.dataframe as dd
 import dask
 import xarray as xr
 
-from sheerwater.utils.caching import cacheable
-from sheerwater.utils import get_grid_ds, get_grid, get_variable, roll_and_agg, apply_mask, clip_region
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from sheerwater.utils import (get_grid_ds, get_grid, get_variable, roll_and_agg,
+                              apply_mask, clip_region, snap_point_to_grid)
 from sheerwater.utils.time_utils import generate_dates_in_between
 from sheerwater.utils.remote import dask_remote
 from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 
 
-@cacheable(data_type='tabular', cache_args=[])
-def station_list():
+@cache(cache_args=[])
+def ghcn_station_list():
     """Gets GHCN station metadata."""
     df = pd.read_table('https://www.ncei.noaa.gov/pub/data/ghcn/daily/ghcnd-inventory.txt',
                        sep="\\s+", names=['ghcn_id', 'lat', 'lon', 'unknown', 'start_year', 'end_year'])
@@ -26,7 +29,8 @@ def station_list():
     return df
 
 
-@cacheable(data_type='array', cache_args=['ghcn_id', 'drop_flagged'], cache=True, timeseries='time')
+@timeseries()
+@cache(cache_args=['ghcn_id', 'drop_flagged'])
 def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global0_25'):  # noqa:  ARG001
     """Get GHCNd observed data timeseries for a single station.
 
@@ -107,23 +111,20 @@ def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global
     obs = obs.drop(['date'], axis=1)
 
     # Round the coordinates to the nearest grid
-    lats, lons, grid_size = get_grid(grid)
+    lats, lons, grid_size, offset = get_grid(grid)
 
     # This rounding only works for divisible, uniform grids
-    assert (lats[0] % grid_size == 0)
-    assert (lons[0] % grid_size == 0)
-
-    def custom_round(x, base):
-        return base * round(float(x)/base)
+    assert (lats[0] % grid_size < 1e-4)
+    assert (lons[0] % grid_size < 1e-4)
 
     # Get the lat and lon and round them
     ghcn_id = obs['ghcn_id'].iloc[0]
 
-    stat = station_list()
+    stat = ghcn_station_list()
     stat = stat[stat['ghcn_id'] == ghcn_id]
 
-    lat = custom_round(stat['lat'].iloc[0], base=grid_size)
-    lon = custom_round(stat['lon'].iloc[0], base=grid_size)
+    lat = snap_point_to_grid(stat['lat'].iloc[0], grid_size, offset)
+    lon = snap_point_to_grid(stat['lon'].iloc[0], grid_size, offset)
 
     obs = obs.set_index(['ghcn_id', 'time'])
     obs = obs.to_xarray()
@@ -141,12 +142,14 @@ def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=['year', 'grid', 'cell_aggregation'],
-           chunking={
+@cache(cache_args=['year', 'grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {
                'time': 365,
                'lat': 300,
                'lon': 300,
-})
+           }
+       })
 def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     """Get a by year station data and save it as a zarr."""
     obs = dd.read_csv(f"s3://noaa-ghcn-pds/csv/by_year/{year}.csv",
@@ -187,7 +190,7 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     obs['precip'] = obs.apply(lambda x: x.value if x['variable'] == 'PRCP' else pd.NA,
                               axis=1, meta=('precip', 'f8'))
 
-    obs = obs.drop(['variable', 'value', 'qflag'], axis=1)
+    obs = obs.drop(['variable', 'value', 'qflag', 'mflag', 'sflag', 'otime'], axis=1)
 
     # Group by date and merge columns
     obs = obs.groupby(by=['date', 'ghcn_id']).first()
@@ -202,20 +205,19 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     obs = obs.drop(['date'], axis=1)
 
     # Round the coordinates to the nearest grid
-    lats, lons, grid_size = get_grid(grid)
+    lats, lons, grid_size, offset = get_grid(grid)
 
-    # This rounding only works for divisible, uniform grids
-    assert (lats[0] % grid_size == 0)
-    assert (lons[0] % grid_size == 0)
-
-    def custom_round(x, base):
-        return base * round(float(x)/base)
-
-    stat = station_list()
-    stat['lat'] = stat['lat'].apply(lambda x: custom_round(x, base=grid_size))
-    stat['lon'] = stat['lon'].apply(lambda x: custom_round(x, base=grid_size))
+    stat = ghcn_station_list()
+    stat['lat'] = stat['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
+    stat['lon'] = stat['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
 
     stat = stat.set_index('ghcn_id')
+
+    if 'start_year' in stat.columns:
+        stat = stat.drop('start_year', axis=1)
+    if 'end_year' in stat.columns:
+        stat = stat.drop('end_year', axis=1)
+
     obs = obs.join(stat, on='ghcn_id', how='inner')
 
     if cell_aggregation == 'first':
@@ -223,12 +225,15 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
         stations_to_use = stations_to_use['ghcn_id'].unique()
 
         obs = obs[obs['ghcn_id'].isin(stations_to_use)]
+        obs = obs.drop(['ghcn_id'], axis=1)
     elif cell_aggregation == 'mean':
         # Group by lat/lon/time
         obs = obs.groupby(by=['lat', 'lon', 'time']).agg(temp=('temp', 'mean'),
                                                          precip=('precip', 'mean'),
                                                          tmin=('tmin', 'min'),
                                                          tmax=('tmax', 'max'))
+        obs = obs.reset_index()
+
 
     obs.temp = obs.temp.astype(np.float32)
     obs.tmax = obs.tmax.astype(np.float32)
@@ -236,7 +241,7 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     obs.precip = obs.precip.astype(np.float32)
 
     # Convert to xarray - for this to succeed obs must be a pandas dataframe
-    obs = xr.Dataset.from_dataframe(obs.compute())
+    obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'lat', 'lon']))
 
     # Reindex to fill out the lat/lon
     grid_ds = get_grid_ds(grid)
@@ -247,21 +252,25 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['grid', 'cell_aggregation'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
-def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first'):
+@timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', delayed=True):
     """Final gridded station data before aggregation."""
     # Get years between start time and end time
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
     datasets = []
     for year in years:
-        ds = dask.delayed(ghcnd_yearly)(year, grid, cell_aggregation, filepath_only=True)
-        datasets.append(ds)
+        if delayed:
+            ds = dask.delayed(ghcnd_yearly)(year, grid, cell_aggregation, filepath_only=True)
+            datasets.append(ds)
+        else:
+            ds = dask.delayed(ghcnd_yearly)(year, grid, cell_aggregation, filepath_only=True)
+            datasets.append(dask.compute(ds)[0])
 
-    datasets = dask.compute(*datasets)
+    if delayed:
+        datasets = dask.compute(*datasets)
 
     x = xr.open_mfdataset(datasets,
                           engine='zarr',
@@ -272,19 +281,17 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first'):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
-           validate_cache_timeseries=False,
-           chunking={'lat': 300, 'lon': 300, 'time': 365})
+@timeseries()
+@cache(cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd_rolled(start_time, end_time, agg_days,
-                 grid='global0_25', missing_thresh=0.5, cell_aggregation='first'):
+                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
     """GHCND rolled and aggregated."""
     # Get the data
     ds = ghcnd(start_time, end_time, grid, cell_aggregation)
 
     # Roll and agg
-    agg_thresh = max(int(agg_days*missing_thresh), 1)
+    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
 
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
     return ds
@@ -292,7 +299,7 @@ def ghcnd_rolled(start_time, end_time, agg_days,
 
 @dask_remote
 def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
-                         grid='global0_25', missing_thresh=0.5, cell_aggregation='mean'):
+                         grid='global0_25', missing_thresh=0.9, cell_aggregation='mean'):
     """Standard interface for ghcn data."""
     ds = ghcnd_rolled(start_time, end_time, agg_days=agg_days, grid=grid,
                       missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
@@ -311,7 +318,7 @@ def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
 @dask_remote
 def _ghcn_unified(start_time, end_time, variable, agg_days,
                   grid='global0_25', mask='lsm', region='global',
-                  missing_thresh=0.5, cell_aggregation='first'):
+                  missing_thresh=0.9, cell_aggregation='first'):
     """Standard interface for ghcn data."""
     if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
         drought_condition = variable == 'rainy_onset_no_drought'
@@ -338,14 +345,13 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn(start_time, end_time, variable, agg_days,
          grid='global0_25', mask='lsm', region='global',
-         missing_thresh=0.5):
+         missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
                          grid=grid, mask=mask, region=region,
@@ -353,13 +359,12 @@ def ghcn(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-           chunking={'lat': 300, 'lon': 300, 'time': 365},
-           cache=False)
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
-             missing_thresh=0.5):
+             missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
                          grid=grid, mask=mask, region=region,
