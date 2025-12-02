@@ -35,13 +35,13 @@ dependencies = [
     "ecmwf-api-client",
     "cdsapi>=0.7.3",
     # Required for the CDS API beta
+    "psycopg2",
     "dateparser",
     "bokeh",
     "flox",
     "scikit-learn",
     "terracotta",
     "sqlalchemy",
-    "psycopg2-binary",
     "xarray-regrid",
     "weatherbench2 @ git+https://github.com/rhiza-research/weatherbench2",
     "deltalake",
@@ -142,8 +142,6 @@ database = "postgres"
 username = "write"
 driver = "postgresql"
 raster_store = "gs://terracotta-files"
-metadata_location = "filesystem"
-dynamic_config_path = "nuthatch.test_secrets"
 
 [tool.nuthatch.filesystem_options]
 cache_timeout = 0

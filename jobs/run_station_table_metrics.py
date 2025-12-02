@@ -23,16 +23,16 @@ if backend is not None:
 if 'crps' in metrics:
     metrics.remove('crps')
 
-combos = itertools.product(metrics, variables, grids, regions, [None], [None], time_groupings, truth)
+combos = itertools.product([None], truth,  variables, grids, [None], regions, time_groupings, metrics)
 combos = prune_metrics(combos)
 
 
 def run_metrics_table(combo):
     """Run table metrics."""
-    metric, variable, grid, region, _, _, time_grouping, truth = combo
+    _, truth, variable, grid, _, region, time_grouping, metric_name = combo
 
     try:
-        return ground_truth_metric_table(start_time, end_time, variable, truth, metric,
+        return ground_truth_metric_table(start_time, end_time, variable, truth, metric_name,
                                          time_grouping=time_grouping, grid=grid, region=region,
                                          force_overwrite=True, filepath_only=filepath_only,
                                          recompute=recompute, storage_backend=backend)

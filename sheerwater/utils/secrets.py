@@ -4,6 +4,7 @@ from pathlib import Path
 
 from google.cloud import secretmanager
 import salientsdk as sk
+from nuthatch import config_parameter
 
 def earth_data_hub_token():
     """Get a postgres write password."""
@@ -16,6 +17,7 @@ def earth_data_hub_token():
     return key
 
 
+@config_parameter('password', location='root', backend='sql', secret=True)
 def postgres_write_password():
     """Get a postgres write password."""
     client = secretmanager.SecretManagerServiceClient()

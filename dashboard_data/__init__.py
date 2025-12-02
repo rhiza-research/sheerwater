@@ -1,5 +1,5 @@
 """Dashboard data for the Sheerwater Benchmarking project."""
-from .metrics_tables import (summary_metrics_table, seasonal_metrics_table,
-                             station_metrics_table, biweekly_summary_metrics_table)
+from .metrics_tables import (weekly_metric_table, monthly_metric_table,
+                             ground_truth_metric_table, biweekly_metric_table)
 
-__all__ = ['summary_metrics_table', 'seasonal_metrics_table', 'station_metrics_table', 'biweekly_summary_metrics_table']
+__all__ = ['weekly_metric_table', 'monthly_metric_table', 'ground_truth_metric_table', 'biweekly_metric_table']

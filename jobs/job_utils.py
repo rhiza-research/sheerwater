@@ -55,7 +55,7 @@ def parse_args():
         forecasts = args.forecast
 
     if args.station_evaluation:
-        truth = ["ghcn", "ghcn_avg", "tahmo", "tahmo_avg"]
+        truth = ["tahmo", "tahmo_avg", "ghcn", "ghcn_avg"]
     else:
         truth = ["era5"]
 
@@ -82,6 +82,16 @@ def parse_args():
                        "frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6",
                        "far-1.5",
                        "heidke-1.5-7.6"]
+        elif args.metric == ['wet-dry-pod']:
+            metrics = ["pod-3.6", "pod-7.6", "pod-6.6"]
+        elif args.metric == ['wet-dry-far']:
+            metrics = ["far-3.6", "far-7.6", "far-6.6"]
+        elif args.metric == ['wet-dry-ets']:
+            metrics = ["ets-3.6", "ets-7.6", "ets-6.6"]
+        elif args.metric == ['wet-dry-csi']:
+            metrics = ["csi-3.6", "csi-7.6", "csi-6.6"]
+        elif args.metric == ['wet-dry-freq']:
+            metrics = ["frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6"]
         else:
             metrics = args.metric
 

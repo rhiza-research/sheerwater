@@ -40,7 +40,12 @@ def _metric_table(start_time, end_time, variable,
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
             if ds:
-                ds = ds.rename({variable: agg})
+                if '-' in metric_name:
+                    met_name = metric_name.split('-')[0].lower()
+                else:
+                    met_name = metric_name.lower()
+                ds = ds.rename({met_name: agg})
+
                 ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
                 # For climatology forecasts, we need to expand the prediction_timedelta coordinate
                 if 'prediction_timedelta' in ds.coords and 'climatology' in forecast:
@@ -61,12 +66,30 @@ def _metric_table(start_time, end_time, variable,
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
-    if 'time' in df.columns:
-        order = ['time', 'forecast'] + agg_days
-    else:
-        order = ['forecast'] + agg_days
+    fcols = ['forecast']
+    order = ['forecast', 'time_grouping', 'region'] + agg_days
 
     # Reorder the columns if necessary
+    if 'time' in df.columns:
+        df = df.rename(columns={'time': 'time_grouping'})
+        df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
+                                                   'M02': 'February',
+                                                   'M03': 'March',
+                                                   'M04': 'April',
+                                                   'M05': 'May',
+                                                   'M06': 'June',
+                                                   'M07': 'July',
+                                                   'M08': 'August',
+                                                   'M09': 'September',
+                                                   'M10': 'October',
+                                                   'M11': 'November',
+                                                   'M12': 'December'})
+    else:
+        df['time_grouping'] = None
+
+    if 'region' not in df.columns:
+        df['region'] = None
+
     df = df[order]
 
     return df
@@ -121,8 +144,22 @@ def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
                               grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['era5_land', 'chirps_v3', 'chirp_v3', 'chirps_v2', 'chirp_v2', 'imerg_final', 'imerg_late', 'cbam']
-    agg_days = [1, 5, 7, 10, 14, 30]
+    forecasts = ['era5', 'chirps_v3', 'chirp_v3', 'imerg_final', 'imerg_late']
+
+    if '-' in metric_name:
+        thresh = float(metric_name.split('-')[1])
+
+        # FAR dry spell
+        if thresh == 1.5:
+            agg_days = [7, 10]
+        elif thresh == 6.6:
+            agg_days = [3]
+        elif thresh == 7.6:
+            agg_days = [5]
+        elif thresh == 3.6:
+            agg_days = [3.6]
+    else:
+        agg_days = [1, 5, 7, 10]
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days, forecasts,
                        time_grouping=time_grouping, grid=grid, region=region)
