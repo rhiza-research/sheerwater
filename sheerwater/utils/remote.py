@@ -188,41 +188,82 @@ config_options = {
     },
 }
 
-# GPU conda packages to install via package_sync_conda_extras
-# These are packages that require CUDA (not available on macOS) or system deps
-_gpu_conda_packages = [
-    'cupy',             # GPU arrays (requires CUDA, not available on macOS)
-    'cupy-xarray',      # xarray integration for cupy
-    'numba',            # Required by dask.distributed to serialize cupy arrays
-    'geopandas',        # Spatial operations (install via conda to get GDAL)
-    'pyogrio',          # Fast I/O for geopandas (needs GDAL from conda)
-]
+# GPU packages to install on workers (cupy requires CUDA, not available on macOS)
+# Also include geopandas/pyogrio from conda to avoid GDAL build issues
+# numba is required for dask.distributed to serialize cupy arrays
+_gpu_conda_packages = {
+    'channels': ['conda-forge', 'rapidsai'],
+    'dependencies': ['cupy', 'cupy-xarray', 'numba', 'geopandas', 'pyogrio', 'python=3.12'],
+}
 
-# Packages to exclude from package_sync to speed up builds
-# These are typically local dev tools, documentation, or ML frameworks not needed on workers
-_package_sync_ignore = [
-    # ML frameworks (large, not needed for our workloads)
-    'torch', 'torch-*', 'torchvision', 'torchaudio',
-    'tensorflow', 'tensorflow-*',
-    'jax', 'jaxlib',
-    # Jupyter/notebook packages
-    'jupyter', 'jupyter-*', 'jupyterlab', 'jupyterlab-*',
-    'notebook', 'ipykernel', 'ipywidgets', 'ipython',
-    'nbformat', 'nbconvert', 'nbclient',
-    # Visualization (usually not needed on workers)
-    'matplotlib', 'plotly', 'bokeh', 'altair', 'seaborn',
-    'pillow', 'kaleido',
-    # Documentation tools
-    'sphinx', 'sphinx-*', 'mkdocs', 'mkdocs-*', 'pdoc', 'pdoc3',
-    # Development/testing tools
-    'pytest', 'pytest-*', 'coverage', 'mypy', 'ruff', 'black', 'flake8',
-    'isort', 'pylint', 'pyright', 'pre-commit',
-    # Web frameworks
-    'streamlit', 'dash', 'panel', 'gradio', 'flask', 'django', 'fastapi',
-    # Other large packages
-    'opencv-*', 'cv2', 'scikit-image',
-    'spacy', 'transformers', 'huggingface-*',
-]
+
+def _get_git_info():
+    """Get git remote URL and current branch for the sheerwater package."""
+    import subprocess
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+    try:
+        # Get remote URL
+        result = subprocess.run(
+            ['git', 'remote', 'get-url', 'origin'],
+            capture_output=True, text=True, cwd=repo_root
+        )
+        remote_url = result.stdout.strip() if result.returncode == 0 else None
+
+        # Get current branch
+        result = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            capture_output=True, text=True, cwd=repo_root
+        )
+        branch = result.stdout.strip() if result.returncode == 0 else 'main'
+
+        # Get commit hash for environment naming
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, cwd=repo_root
+        )
+        commit_hash = result.stdout.strip() if result.returncode == 0 else 'unknown'
+
+        return remote_url, branch, commit_hash
+    except Exception as e:
+        logger.warning("Could not get git info: %s", e)
+        return None, 'main', 'unknown'
+
+
+def _ensure_gpu_software_env():
+    """Ensure the GPU software environment exists with cupy packages and sheerwater from git."""
+    remote_url, branch, _ = _get_git_info()
+
+    env_name = "sheerwater-gpu"
+
+    logger.info("Creating/checking GPU software environment: %s", env_name)
+
+    # Build pip install URL for sheerwater from git
+    pip_packages = []
+    if remote_url:
+        # Convert HTTPS URL to pip-installable format
+        # e.g., https://github.com/org/repo.git -> git+https://github.com/org/repo.git@branch
+        git_url = remote_url.replace('.git', '')
+        pip_packages.append(f"sheerwater @ git+{git_url}.git@{branch}")
+        logger.info("  Installing sheerwater from: git+%s.git@%s", git_url, branch)
+
+    try:
+        # Create environment with GPU conda packages and sheerwater from git
+        coiled.create_software_environment(
+            name=env_name,
+            conda=_gpu_conda_packages,
+            pip=pip_packages if pip_packages else None,
+            gpu_enabled=True,
+        )
+        logger.info("GPU software environment ready: %s", env_name)
+        return env_name
+    except Exception as e:
+        error_str = str(e).lower()
+        if "already exists" in error_str or "exists" in error_str or "no changes" in error_str:
+            logger.info("GPU software environment already exists: %s", env_name)
+            return env_name
+        logger.warning("Could not create GPU software environment: %s", e)
+        return None
 
 
 
@@ -268,13 +309,15 @@ def start_remote(remote_name=None, remote_config=None):
         coiled_default_options['use_best_zone'] = True
         logger.info("GPU mode enabled - propagating %s to workers", GPU_ENABLED_ENV_VAR)
 
-        # Use package_sync with conda_extras to add GPU packages
-        # This syncs local packages and adds GPU-specific conda packages that
-        # aren't available locally (cupy requires CUDA, not available on macOS)
-        coiled_default_options['package_sync'] = True
-        coiled_default_options['package_sync_conda_extras'] = _gpu_conda_packages
-        coiled_default_options['package_sync_ignore'] = _package_sync_ignore
-        logger.info("Using package_sync with GPU conda extras: %s", _gpu_conda_packages)
+        # Ensure GPU software environment exists and use it
+        gpu_env = _ensure_gpu_software_env()
+        if gpu_env:
+            coiled_default_options['software'] = gpu_env
+            logger.info("Using GPU software environment: %s", gpu_env)
+        else:
+            # Fallback to package_sync if GPU env fails
+            coiled_default_options['package_sync'] = True
+            logger.warning("GPU env not available, using package_sync (no GPU packages)")
 
     if remote_config and isinstance(remote_config, dict):
         # setup coiled cluster with remote config

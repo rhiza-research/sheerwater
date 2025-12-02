@@ -41,8 +41,12 @@ def parse_args():
     parser.add_argument("--remote-name", type=str, default=None)
     parser.add_argument("--remote-config", type=str, nargs='*')
     parser.add_argument("--gpu", type=str, nargs='?', const='t4', default=None,
-                        choices=['t4', 't4_cluster', 'a100', 'a100_large', 'a100_cluster', 'a100_xlarge_cluster'],
-                        help="Enable GPU workers. Options: t4 (default), t4_cluster, a100, a100_large, a100_cluster, a100_xlarge_cluster")
+                        choices=['t4', 't4_cluster', 'a100', 'a100_large', 'a100_cluster', 'a100_xlarge_cluster',
+                                 'a100_4x', 'a100_8x', 'l4', 'l4_large', 'l4_cluster',
+                                 't4_highmem', 't4_highmem_large', 't4_highmem_xlarge',
+                                 'l4_highmem', 'l4_highmem_large'],
+                        help="GPU options. High-memory single machines: t4_highmem (208GB), t4_highmem_large (416GB), "
+                             "t4_highmem_xlarge (624GB), l4_highmem (192GB), l4_highmem_large (384GB)")
     parser.add_argument("--benchmark", action=argparse.BooleanOptionalAction, default=False,
                         help="Enable performance benchmarking (generates HTML report)")
     parser.add_argument("--benchmark-file", type=str, default=None,
@@ -151,10 +155,20 @@ def parse_args():
         gpu_config_map = {
             't4': 'gpu',
             't4_cluster': 'gpu_cluster',
+            't4_highmem': 'gpu_t4_highmem',
+            't4_highmem_large': 'gpu_t4_highmem_large',
+            't4_highmem_xlarge': 'gpu_t4_highmem_xlarge',
+            'l4': 'gpu_l4',
+            'l4_large': 'gpu_l4_large',
+            'l4_cluster': 'gpu_l4_cluster',
+            'l4_highmem': 'gpu_l4_highmem',
+            'l4_highmem_large': 'gpu_l4_highmem_large',
             'a100': 'gpu_a100',
             'a100_large': 'gpu_a100_large',
             'a100_cluster': 'gpu_a100_cluster',
             'a100_xlarge_cluster': 'gpu_a100_xlarge_cluster',
+            'a100_4x': 'gpu_a100_4x',
+            'a100_8x': 'gpu_a100_8x',
         }
         gpu_config = gpu_config_map.get(args.gpu, 'gpu')
         remote_config = list(remote_config) + [gpu_config]
