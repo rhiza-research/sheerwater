@@ -107,10 +107,10 @@ def to_gpu(data, force=False):
         logger.debug("GPU not available, returning data unchanged")
         return data
 
-    # For dask data on client without GPU, wrap conversion in map_blocks
+    # For data on client without GPU, wrap conversion in map_blocks/from_delayed
     # so it executes on workers that have cupy
-    if is_dask_backed and not is_gpu_available():
-        logger.debug("Dask-backed data on client without GPU - wrapping GPU conversion for workers")
+    if not is_gpu_available():
+        logger.debug("Client without GPU - wrapping GPU conversion for workers")
         import dask.array as da
 
         def _to_cupy_on_worker(block):
@@ -124,32 +124,42 @@ def to_gpu(data, force=False):
                 print(f"[GPU] Converting block to cupy on device {device.id} ({block.shape}, {block.dtype})")
             return result
 
+        def _convert_array(arr):
+            """Convert array to dask (if needed) and wrap with GPU conversion."""
+            if isinstance(arr, da.Array):
+                # Already dask - just wrap with map_blocks
+                return da.map_blocks(_to_cupy_on_worker, arr, dtype=arr.dtype)
+            else:
+                # Not dask - convert to single-chunk dask array first
+                # This allows the GPU conversion to happen lazily on worker
+                import numpy as np
+                if hasattr(arr, '__array__'):
+                    arr = np.asarray(arr)
+                dask_arr = da.from_array(arr, chunks=arr.shape)
+                return da.map_blocks(_to_cupy_on_worker, dask_arr, dtype=dask_arr.dtype)
+
         # Apply conversion to each variable in Dataset, or to DataArray
         import xarray as xr
         if isinstance(data, xr.Dataset):
             converted = {}
             for var in data.data_vars:
                 arr = data[var].data
-                if isinstance(arr, da.Array):
-                    converted[var] = xr.DataArray(
-                        da.map_blocks(_to_cupy_on_worker, arr, dtype=arr.dtype),
-                        dims=data[var].dims,
-                        coords=data[var].coords,
-                        attrs=data[var].attrs,
-                    )
-                else:
-                    converted[var] = data[var]
+                converted[var] = xr.DataArray(
+                    _convert_array(arr),
+                    dims=data[var].dims,
+                    coords=data[var].coords,
+                    attrs=data[var].attrs,
+                )
             return xr.Dataset(converted, attrs=data.attrs)
         elif isinstance(data, xr.DataArray):
             arr = data.data
-            if isinstance(arr, da.Array):
-                return xr.DataArray(
-                    da.map_blocks(_to_cupy_on_worker, arr, dtype=arr.dtype),
-                    dims=data.dims,
-                    coords=data.coords,
-                    attrs=data.attrs,
-                    name=data.name,
-                )
+            return xr.DataArray(
+                _convert_array(arr),
+                dims=data.dims,
+                coords=data.coords,
+                attrs=data.attrs,
+                name=data.name,
+            )
         return data
 
     import cupy_xarray  # noqa: F401

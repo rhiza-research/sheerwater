@@ -76,32 +76,39 @@ config_options = {
         'scheduler_vm_types': ['n1-standard-4', 'n1-standard-8'],
     },
     # A100 GPU configurations (high performance)
-    # A100 GPUs use A2 instance family on GCP
+    # A100 GPUs use A2 instance family on GCP - GPUs are built into VM type
+    # Explicitly set worker_gpu=0 and scheduler_gpu=0 to prevent Coiled from attaching
+    # additional GPUs (it defaults to T4 otherwise, which fails on A2 VMs)
+    # Region set to us-central1 which has good A100 availability
     'gpu_a100': {
-        'worker_gpu': 1,
-        'scheduler_gpu': 1,
-        'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB
+        'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB (built-in)
         'scheduler_vm_types': ['a2-highgpu-1g'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+        'region': 'us-central1',
     },
     'gpu_a100_large': {
-        'worker_gpu': 2,
-        'scheduler_gpu': 1,
-        'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB
+        'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB (built-in)
         'scheduler_vm_types': ['a2-highgpu-1g'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+        'region': 'us-central1',
     },
     'gpu_a100_cluster': {
         'n_workers': [2, 4],
-        'worker_gpu': 1,
-        'scheduler_gpu': 1,
-        'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB per worker
+        'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB per worker (built-in)
         'scheduler_vm_types': ['a2-highgpu-1g'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+        'region': 'us-central1',
     },
     'gpu_a100_xlarge_cluster': {
         'n_workers': [4, 8],
-        'worker_gpu': 2,
-        'scheduler_gpu': 1,
-        'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB per worker
+        'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB per worker (built-in)
         'scheduler_vm_types': ['a2-highgpu-1g'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+        'region': 'us-central1',
     },
 }
 
@@ -208,8 +215,18 @@ def start_remote(remote_name=None, remote_config=None):
     # Propagate GPU mode environment variable to workers if set
     gpu_mode = os.environ.get(GPU_ENABLED_ENV_VAR)
     if gpu_mode:
-        # Use a separate cluster name for GPU mode to avoid conflicts
-        coiled_default_options['name'] = coiled_default_options['name'] + '_gpu'
+        # Determine GPU type suffix from remote_config for unique cluster names
+        # This prevents Coiled from reusing clusters with different GPU types
+        gpu_configs = ['gpu', 'gpu_cluster', 'gpu_a100', 'gpu_a100_large',
+                       'gpu_a100_cluster', 'gpu_a100_xlarge_cluster']
+        gpu_suffix = '_gpu'  # default
+        if remote_config:
+            config_list = remote_config if isinstance(remote_config, list) else [remote_config]
+            for conf in config_list:
+                if conf in gpu_configs:
+                    gpu_suffix = f'_{conf}'
+                    break
+        coiled_default_options['name'] = coiled_default_options['name'] + gpu_suffix
 
         coiled_default_options['environ'] = {
             GPU_ENABLED_ENV_VAR: gpu_mode
@@ -239,12 +256,16 @@ def start_remote(remote_name=None, remote_config=None):
 
         for conf in remote_config:
             if conf in config_options:
+                logger.info("Applying config '%s': %s", conf, config_options[conf])
                 coiled_default_options.update(config_options[conf])
             else:
                 print(f"Unknown preset remote config option {conf}. Skipping.")
     else:
         # Just setup a coiled cluster
         logger.info("Attaching to coiled cluster with default configuration")
+
+    # Debug: show final cluster options
+    logger.info("Final cluster options: %s", {k: v for k, v in coiled_default_options.items() if k != 'environ'})
 
     cluster = coiled.Cluster(**coiled_default_options)
 
