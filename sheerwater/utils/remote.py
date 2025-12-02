@@ -79,20 +79,18 @@ config_options = {
     # A100 GPUs use A2 instance family on GCP - GPUs are built into VM type
     # Explicitly set worker_gpu=0 and scheduler_gpu=0 to prevent Coiled from attaching
     # additional GPUs (it defaults to T4 otherwise, which fails on A2 VMs)
-    # Region set to us-central1 which has good A100 availability
+    # No region specified - let Coiled find available capacity automatically
     'gpu_a100': {
         'worker_vm_types': ['a2-highgpu-1g'],  # 1x A100 40GB (built-in)
         'scheduler_vm_types': ['a2-highgpu-1g'],
         'worker_gpu': 0,
         'scheduler_gpu': 0,
-        'region': 'us-central1',
     },
     'gpu_a100_large': {
         'worker_vm_types': ['a2-highgpu-2g'],  # 2x A100 40GB (built-in)
         'scheduler_vm_types': ['a2-highgpu-1g'],
         'worker_gpu': 0,
         'scheduler_gpu': 0,
-        'region': 'us-central1',
     },
     'gpu_a100_cluster': {
         'n_workers': [2, 4],
@@ -100,7 +98,6 @@ config_options = {
         'scheduler_vm_types': ['a2-highgpu-1g'],
         'worker_gpu': 0,
         'scheduler_gpu': 0,
-        'region': 'us-central1',
     },
     'gpu_a100_xlarge_cluster': {
         'n_workers': [4, 8],
@@ -108,7 +105,86 @@ config_options = {
         'scheduler_vm_types': ['a2-highgpu-1g'],
         'worker_gpu': 0,
         'scheduler_gpu': 0,
-        'region': 'us-central1',
+    },
+    # Single large GPU machine configs - for workloads that benefit from
+    # having all data in one place (avoids distributed overhead, GIL contention)
+    # Use n_workers=1 with scheduler on same machine to minimize overhead
+    'gpu_a100_4x': {
+        'n_workers': 1,
+        'worker_vm_types': ['a2-highgpu-4g'],  # 4x A100 (160GB VRAM), 340GB RAM
+        'scheduler_vm_types': ['a2-highgpu-4g'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+    },
+    'gpu_a100_8x': {
+        'n_workers': 1,
+        'worker_vm_types': ['a2-highgpu-8g'],  # 8x A100 (320GB VRAM), 680GB RAM
+        'scheduler_vm_types': ['a2-highgpu-8g'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+    },
+    # L4 GPU configurations - newer GPUs with better availability than A100
+    # L4 has 24GB VRAM, good balance of performance and availability
+    # Uses G2 instance family on GCP
+    'gpu_l4': {
+        'n_workers': 1,
+        'worker_vm_types': ['g2-standard-4'],  # 1x L4 (24GB VRAM), 16GB RAM
+        'scheduler_vm_types': ['g2-standard-4'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+    },
+    'gpu_l4_large': {
+        'n_workers': 1,
+        'worker_vm_types': ['g2-standard-24'],  # 2x L4 (48GB VRAM), 96GB RAM
+        'scheduler_vm_types': ['g2-standard-4'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+    },
+    'gpu_l4_cluster': {
+        'n_workers': [2, 4],
+        'worker_vm_types': ['g2-standard-4'],  # 1x L4 per worker
+        'scheduler_vm_types': ['g2-standard-4'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+    },
+    # Large memory GPU configs - for keeping all data in CPU RAM + GPU compute
+    # These are single machines designed to fit large datasets in memory
+    # T4 with high-memory N1 instances
+    'gpu_t4_highmem': {
+        'n_workers': 1,
+        'worker_vm_types': ['n1-highmem-32'],  # 208GB RAM + 1x T4 (16GB VRAM)
+        'scheduler_vm_types': ['n1-highmem-8'],
+        'worker_gpu': 1,
+        'scheduler_gpu': 0,
+    },
+    'gpu_t4_highmem_large': {
+        'n_workers': 1,
+        'worker_vm_types': ['n1-highmem-64'],  # 416GB RAM + 2x T4 (32GB VRAM)
+        'scheduler_vm_types': ['n1-highmem-8'],
+        'worker_gpu': 2,
+        'scheduler_gpu': 0,
+    },
+    'gpu_t4_highmem_xlarge': {
+        'n_workers': 1,
+        'worker_vm_types': ['n1-highmem-96'],  # 624GB RAM + 4x T4 (64GB VRAM)
+        'scheduler_vm_types': ['n1-highmem-8'],
+        'worker_gpu': 4,
+        'scheduler_gpu': 0,
+    },
+    # L4 with large G2 instances (GPU built-in)
+    'gpu_l4_highmem': {
+        'n_workers': 1,
+        'worker_vm_types': ['g2-standard-48'],  # 192GB RAM + 4x L4 (96GB VRAM)
+        'scheduler_vm_types': ['g2-standard-4'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
+    },
+    'gpu_l4_highmem_large': {
+        'n_workers': 1,
+        'worker_vm_types': ['g2-standard-96'],  # 384GB RAM + 8x L4 (192GB VRAM)
+        'scheduler_vm_types': ['g2-standard-4'],
+        'worker_gpu': 0,
+        'scheduler_gpu': 0,
     },
 }
 
@@ -120,6 +196,32 @@ _gpu_conda_packages = [
     'numba',            # Required by dask.distributed to serialize cupy arrays
     'geopandas',        # Spatial operations (install via conda to get GDAL)
     'pyogrio',          # Fast I/O for geopandas (needs GDAL from conda)
+]
+
+# Packages to exclude from package_sync to speed up builds
+# These are typically local dev tools, documentation, or ML frameworks not needed on workers
+_package_sync_ignore = [
+    # ML frameworks (large, not needed for our workloads)
+    'torch', 'torch-*', 'torchvision', 'torchaudio',
+    'tensorflow', 'tensorflow-*',
+    'jax', 'jaxlib',
+    # Jupyter/notebook packages
+    'jupyter', 'jupyter-*', 'jupyterlab', 'jupyterlab-*',
+    'notebook', 'ipykernel', 'ipywidgets', 'ipython',
+    'nbformat', 'nbconvert', 'nbclient',
+    # Visualization (usually not needed on workers)
+    'matplotlib', 'plotly', 'bokeh', 'altair', 'seaborn',
+    'pillow', 'kaleido',
+    # Documentation tools
+    'sphinx', 'sphinx-*', 'mkdocs', 'mkdocs-*', 'pdoc', 'pdoc3',
+    # Development/testing tools
+    'pytest', 'pytest-*', 'coverage', 'mypy', 'ruff', 'black', 'flake8',
+    'isort', 'pylint', 'pyright', 'pre-commit',
+    # Web frameworks
+    'streamlit', 'dash', 'panel', 'gradio', 'flask', 'django', 'fastapi',
+    # Other large packages
+    'opencv-*', 'cv2', 'scikit-image',
+    'spacy', 'transformers', 'huggingface-*',
 ]
 
 
@@ -161,6 +263,9 @@ def start_remote(remote_name=None, remote_config=None):
         coiled_default_options['environ'] = {
             GPU_ENABLED_ENV_VAR: gpu_mode
         }
+        # use_best_zone lets Coiled pick the zone with best availability
+        # See: https://docs.coiled.io/user_guide/clusters/api.html
+        coiled_default_options['use_best_zone'] = True
         logger.info("GPU mode enabled - propagating %s to workers", GPU_ENABLED_ENV_VAR)
 
         # Use package_sync with conda_extras to add GPU packages
@@ -168,6 +273,7 @@ def start_remote(remote_name=None, remote_config=None):
         # aren't available locally (cupy requires CUDA, not available on macOS)
         coiled_default_options['package_sync'] = True
         coiled_default_options['package_sync_conda_extras'] = _gpu_conda_packages
+        coiled_default_options['package_sync_ignore'] = _package_sync_ignore
         logger.info("Using package_sync with GPU conda extras: %s", _gpu_conda_packages)
 
     if remote_config and isinstance(remote_config, dict):

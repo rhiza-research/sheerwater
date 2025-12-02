@@ -35,7 +35,7 @@ dependencies = [
     "ecmwf-api-client",
     "cdsapi>=0.7.3",
     # Required for the CDS API beta
-    "psycopg2",
+    "psycopg2-binary",
     "dateparser",
     "bokeh",
     "flox",
