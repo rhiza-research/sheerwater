@@ -192,15 +192,76 @@ def to_cpu(data):
         >>> result = to_cpu(result)  # Convert back before saving
         >>> result.to_netcdf("output.nc")
     """
-    if not is_gpu_available():
-        # If GPU isn't available, data should already be on CPU
-        return data
+    import xarray as xr
+    import numpy as np
 
-    # Check if data has the cupy accessor and is on GPU
-    if hasattr(data, 'cupy') and hasattr(data.cupy, 'is_cupy'):
-        if data.cupy.is_cupy:
-            logger.debug("Converting data from GPU to CPU (NumPy)")
-            return data.cupy.as_numpy()
+    def _is_cupy_array(arr):
+        """Check if array is a CuPy array (works even without cupy installed)."""
+        return type(arr).__module__.startswith('cupy')
+
+    def _convert_array_to_numpy(arr):
+        """Convert any array to numpy, handling CuPy arrays."""
+        if _is_cupy_array(arr):
+            # CuPy array - use .get() to transfer to CPU
+            return arr.get()
+        elif hasattr(arr, '__array__'):
+            return np.asarray(arr)
+        return arr
+
+    def _convert_variable(var):
+        """Convert a single xarray variable to numpy."""
+        arr = var.data
+        if _is_cupy_array(arr):
+            logger.debug(f"Converting CuPy array to NumPy: shape={arr.shape}")
+            return xr.DataArray(
+                _convert_array_to_numpy(arr),
+                dims=var.dims,
+                coords=var.coords,
+                attrs=var.attrs,
+                name=var.name if hasattr(var, 'name') else None,
+            )
+        return var
+
+    # Check if data has the cupy accessor and is on GPU (fast path when cupy-xarray available)
+    if is_gpu_available():
+        if hasattr(data, 'cupy') and hasattr(data.cupy, 'is_cupy'):
+            if data.cupy.is_cupy:
+                logger.debug("Converting data from GPU to CPU (NumPy) via cupy-xarray")
+                return data.cupy.as_numpy()
+
+        # cupy-xarray's is_cupy might not catch all cases (e.g., mixed datasets)
+        # Fall through to manual check below
+
+    # Robust fallback: manually check for and convert CuPy arrays
+    # This handles:
+    # 1. Data from GPU workers when local machine has no GPU
+    # 2. Mixed datasets where some variables are CuPy and some are NumPy
+    # 3. Cases where cupy-xarray accessor doesn't detect CuPy arrays
+    if isinstance(data, xr.Dataset):
+        needs_conversion = False
+        for var in data.data_vars:
+            if _is_cupy_array(data[var].data):
+                needs_conversion = True
+                break
+
+        if needs_conversion:
+            logger.debug("Converting Dataset with CuPy arrays to NumPy")
+            converted = {}
+            for var in data.data_vars:
+                converted[var] = _convert_variable(data[var])
+            # Also convert coordinates that might be CuPy
+            new_coords = {}
+            for coord_name, coord_val in data.coords.items():
+                if hasattr(coord_val, 'data') and _is_cupy_array(coord_val.data):
+                    new_coords[coord_name] = _convert_array_to_numpy(coord_val.data)
+                else:
+                    new_coords[coord_name] = coord_val
+            return xr.Dataset(converted, coords=new_coords, attrs=data.attrs)
+
+    elif isinstance(data, xr.DataArray):
+        if _is_cupy_array(data.data):
+            logger.debug("Converting DataArray with CuPy array to NumPy")
+            return _convert_variable(data)
 
     # Data is already on CPU
     return data
@@ -357,6 +418,94 @@ def auto_cpu(data):
     if is_gpu_enabled():
         return to_cpu(data)
     return data
+
+
+def _gpu_like_helper(data, np_func, cp_func):
+    """Helper to create arrays like input, preserving GPU backend.
+
+    Args:
+        data: xarray DataArray or numpy/cupy array.
+        np_func: NumPy function to use (e.g., np.ones_like).
+        cp_func: CuPy function to use (e.g., cp.ones_like).
+
+    Returns:
+        Array with the same shape, on the same device as input.
+    """
+    import xarray as xr
+    import numpy as np
+
+    # Handle xarray DataArray
+    if isinstance(data, xr.DataArray):
+        arr = data.data
+        is_dataarray = True
+    else:
+        arr = data
+        is_dataarray = False
+
+    # Check if array is CuPy
+    if type(arr).__module__.startswith('cupy'):
+        import cupy as cp
+        result = cp_func(arr)
+    elif is_gpu_enabled():
+        # GPU mode enabled but array is numpy - convert
+        try:
+            import cupy as cp
+            result = cp_func(cp.asarray(arr))
+        except ImportError:
+            result = np_func(arr)
+    else:
+        result = np_func(arr)
+
+    # Wrap back in DataArray if input was DataArray
+    if is_dataarray:
+        return xr.DataArray(
+            result,
+            dims=data.dims,
+            coords=data.coords,
+            attrs=data.attrs,
+            name=data.name,
+        )
+    return result
+
+
+def gpu_ones_like(data):
+    """Create an array of ones with the same shape/type, preserving GPU backend.
+
+    Uses cupy.ones_like when GPU is enabled, otherwise numpy.ones_like.
+    Works with xarray DataArrays by operating on the underlying data.
+
+    Args:
+        data: xarray DataArray or numpy/cupy array.
+
+    Returns:
+        Array of ones with the same shape, on the same device as input.
+    """
+    import numpy as np
+    try:
+        import cupy as cp
+        return _gpu_like_helper(data, np.ones_like, cp.ones_like)
+    except ImportError:
+        return _gpu_like_helper(data, np.ones_like, np.ones_like)
+
+
+def gpu_zeros_like(data):
+    """Create an array of zeros with the same shape/type, preserving GPU backend.
+
+    Uses cupy.zeros_like when GPU is enabled, otherwise numpy.zeros_like.
+    Works with xarray DataArrays by operating on the underlying data.
+
+    Args:
+        data: xarray DataArray or numpy/cupy array.
+
+    Returns:
+        Array of zeros with the same shape, on the same device as input.
+    """
+    import numpy as np
+    try:
+        import cupy as cp
+        return _gpu_like_helper(data, np.zeros_like, cp.zeros_like)
+    except ImportError:
+        return _gpu_like_helper(data, np.zeros_like, np.zeros_like)
 
 
 @contextmanager

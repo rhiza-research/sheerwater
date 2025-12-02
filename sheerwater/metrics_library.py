@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time, auto_gpu, auto_cpu
+from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time, auto_gpu, auto_cpu, gpu_ones_like, gpu_zeros_like
 from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater.regions_and_masks import region_labels
 
@@ -529,7 +529,7 @@ class Heidke(Metric):
         gs = self.grouped_statistics
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
-        right_by_chance = xr.zeros_like(gs['n_correct'])
+        right_by_chance = gpu_zeros_like(gs['n_correct'])
         for i in range(1, len(self.metric_data['data']['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
