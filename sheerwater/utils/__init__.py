@@ -26,7 +26,7 @@ from .task_utils import first_satisfied_date
 from .gpu_utils import (is_gpu_available, to_gpu, to_cpu,
                         gpu_context, maybe_to_gpu, maybe_to_cpu,
                         enable_gpu, is_gpu_enabled, is_gpu_mode_requested,
-                        auto_gpu, auto_cpu,
+                        auto_gpu, auto_cpu, gpu_ones_like, gpu_zeros_like,
                         benchmark, benchmark_comparison,
                         get_dask_performance_report, print_dask_dashboard_link,
                         get_gpu_status, check_worker_gpu_status)
@@ -96,6 +96,8 @@ __all__ = [
     "is_gpu_mode_requested",
     "auto_gpu",
     "auto_cpu",
+    "gpu_ones_like",
+    "gpu_zeros_like",
     "benchmark",
     "benchmark_comparison",
     "get_dask_performance_report",
