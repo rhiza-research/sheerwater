@@ -113,7 +113,7 @@ def tahmo_rolled(start_time, end_time, agg_days,
     ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
 
     grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     # Roll and agg
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)

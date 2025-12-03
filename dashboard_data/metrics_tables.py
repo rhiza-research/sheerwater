@@ -157,7 +157,7 @@ def ground_truth_metric_table(start_time, end_time, variable,
         elif thresh == 7.6:
             agg_days = [5]
         elif thresh == 3.6:
-            agg_days = [3.6]
+            agg_days = [11]
     else:
         agg_days = [1, 5, 7, 10]
     df = _metric_table(start_time, end_time, variable, truth, metric_name,

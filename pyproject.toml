@@ -35,7 +35,7 @@ dependencies = [
     "ecmwf-api-client",
     "cdsapi>=0.7.3",
     # Required for the CDS API beta
-    "psycopg2",
+    "psycopg2-binary",
     "dateparser",
     "bokeh",
     "flox",
@@ -88,10 +88,10 @@ allow-direct-references = true
 
 [tool.hatch.build]
 # Necessary to include nuthatch.toml
-include = ["sheerwater_benchmarking/", "jobs/"]
+include = ["sheerwater_benchmarking/", "jobs/", "dashboard_data/"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["./sheerwater", "./jobs"]
+packages = ["./sheerwater", "./jobs", "./dashboard_data"]
 
 [tool.uv]
 managed = true

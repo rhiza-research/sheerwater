@@ -43,7 +43,7 @@ def parse_args():
         station_eval = True
 
     if args.station_evaluation:
-        forecasts = ["chirps_v3", "chirp_v3", "imerg_late", "imerg_final", "era5"]
+        forecasts = ["chirps_v3", "imerg_late", "imerg_final", "era5", "chirp_v3"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
@@ -92,6 +92,8 @@ def parse_args():
             metrics = ["csi-3.6", "csi-7.6", "csi-6.6"]
         elif args.metric == ['wet-dry-freq']:
             metrics = ["frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6"]
+        elif args.metric == ['wet-dry-rest']:
+            metrics = ["far-1.5", "heidke-1.5-7.6"]
         else:
             metrics = args.metric
 
@@ -157,7 +159,7 @@ def prune_metrics(combos, global_run=False):
             continue
 
         global station_eval
-        if '-' in metric_name and station_eval:
+        if '-' in metric_name and station_eval and agg_days:
             thresh = float(metric_name.split('-')[1])
 
             # FAR dry spell
