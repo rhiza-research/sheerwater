@@ -10,7 +10,7 @@ authors = [
 ]
 license = {text = "MIT"}
 dependencies = [
-    "dask",
+    "dask==2025.5.0",
     "dask[complete]",
     "click",
     "numpy",
@@ -50,6 +50,9 @@ dependencies = [
     "pyzstd==0.16.2",
     "properscoring",
     "nuthatch",
+    "bottleneck",
+    "ray[default]==2.48.0",
+    "anyscale[gcp]"
 ]
 
 [dependency-groups]

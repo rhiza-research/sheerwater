@@ -2,11 +2,16 @@
 import logging
 import os
 import pwd
+<<<<<<< HEAD
 from functools import wraps
 
 import coiled
 from coiled.credentials.google import send_application_default_credentials
 from dask.distributed import Client, LocalCluster, get_client
+=======
+import ray
+from ray.util.dask import ray_dask_get, enable_dask_on_ray, disable_dask_on_ray
+>>>>>>> f612876 (add ray try)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -115,7 +120,7 @@ def dask_remote(func):
     @wraps(func)
     def remote_wrapper(*args, **kwargs):
         # See if there are extra function args to run this remotely
-        if 'remote' in kwargs and kwargs['remote']:
+        if 'remote' in kwargs and (kwargs['remote'] == True or kwargs['remote'] == 'coiled'):
 
             remote_name = None
             if 'remote_name' in kwargs:
@@ -126,6 +131,12 @@ def dask_remote(func):
                 remote_config = kwargs['remote_config']
 
             start_remote(remote_name, remote_config)
+        elif 'remote' in kwargs and kwargs['remote'] == 'ray':
+            ray.init(runtime_env={'excludes': ['.git']}, ignore_reinit_error=True)
+            enable_dask_on_ray()
+        elif 'local_ray' in kwargs and kwargs['local_ray']:
+            ray.init(runtime_env={'excludes': ['.git']}, ignore_reinit_error=True)
+            enable_dask_on_ray()
         elif 'local_dask' in kwargs and kwargs['local_dask']:
             # Setup a local cluster
             try:
@@ -135,7 +146,7 @@ def dask_remote(func):
                 cluster = LocalCluster(n_workers=2, threads_per_worker=2)
                 Client(cluster)
 
-        # call the function and return the result
+        ## call the function and return the result
         if 'remote' in kwargs:
             del kwargs['remote']
 
@@ -147,6 +158,9 @@ def dask_remote(func):
 
         if 'local_dask' in kwargs:
             del kwargs['local_dask']
+
+        if 'local_ray' in kwargs:
+            del kwargs['local_ray']
 
         return func(*args, **kwargs)
     return remote_wrapper
