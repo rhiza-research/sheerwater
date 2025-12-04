@@ -3243,8 +3243,8 @@ wheels = [
 
 [[package]]
 name = "nuthatch"
-version = "0.1.2.dev41+g8f9ff6819"
-source = { git = "https://github.com/rhiza-research/nuthatch#8f9ff6819b29ce95b5f079970d919fe4e57a4884" }
+version = "0.1.2.dev43+gbe097840b"
+source = { git = "https://github.com/rhiza-research/nuthatch#be097840bfa64a35a18b205550b7fd16ba89ff19" }
 dependencies = [
     { name = "click" },
     { name = "dask", extra = ["dataframe"] },
