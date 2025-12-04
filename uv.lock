@@ -562,26 +562,6 @@ wheels = [
 ]
 
 [[package]]
-name = "cartopy"
-version = "0.23.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "packaging" },
-    { name = "pyproj" },
-    { name = "pyshp" },
-    { name = "shapely" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a5/00/fed048eeb80129908f8bd5f5762e230864abc8a8fbbc493740bafcb696bd/Cartopy-0.23.0.tar.gz", hash = "sha256:231f37b35701f2ba31d94959cca75e6da04c2eea3a7f14ce1c75ee3b0eae7676", size = 10687976, upload-time = "2024-04-10T17:53:00.699Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/82/6d44fc5a4e7ff859b4ca2dd4eaeae680c75e2e3c16ee6f0dde02fc0fad43/Cartopy-0.23.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:80b9fd666fd47f6370d29f7ad4e352828d54aaf688a03d0b83b51e141cfd77fa", size = 10931850, upload-time = "2024-04-10T17:52:33.279Z" },
-    { url = "https://files.pythonhosted.org/packages/b2/96/f2f271e971185e38e940498421a97cb1e5dac970919bd5d65c2c430fe1f5/Cartopy-0.23.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:43e36b8b7e7e373a5698757458fd28fafbbbf5f3ebbe2d378f6a5ec3993d6dc0", size = 10921507, upload-time = "2024-04-10T17:52:36.767Z" },
-    { url = "https://files.pythonhosted.org/packages/82/7d/77f96f369f23182f42b7e124536d7022485c31e51204d0673fc0a43ea28d/Cartopy-0.23.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:550173b91155d4d81cd14b4892cb6cabe3dd32bd34feacaa1ec78c0e56287832", size = 11660854, upload-time = "2024-04-10T17:52:39.96Z" },
-    { url = "https://files.pythonhosted.org/packages/a2/65/6dae4e0a1414251a7bc3c2d9f87853419f921bac991e35701b938b7713dc/Cartopy-0.23.0-cp312-cp312-win_amd64.whl", hash = "sha256:55219ee0fb069cc3254426e87382cde03546e86c3f7c6759f076823b1e3a44d9", size = 10904186, upload-time = "2024-04-10T17:52:43.53Z" },
-]
-
-[[package]]
 name = "cdsapi"
 version = "0.7.7"
 source = { registry = "https://pypi.org/simple" }
@@ -1597,18 +1577,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9a/c8/dd58967d119baab745caec2f9d853297cec1989ec1d63f677d3880632b88/gitpython-3.1.45.tar.gz", hash = "sha256:85b0ee964ceddf211c41b9f27a49086010a190fd8132a24e21f362a4b36a791c", size = 215076, upload-time = "2025-07-24T03:45:54.871Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/01/61/d4b89fec821f72385526e1b9d9a3a0385dda4a72b206d28049e2c7cd39b8/gitpython-3.1.45-py3-none-any.whl", hash = "sha256:8908cb2e02fb3b93b7eb0f2827125cb699869470432cc885f019b8fd0fccff77", size = 208168, upload-time = "2025-07-24T03:45:52.517Z" },
-]
-
-[[package]]
-name = "google"
-version = "3.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "beautifulsoup4" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/89/97/b49c69893cddea912c7a660a4b6102c6b02cd268f8c7162dd70b7c16f753/google-3.0.0.tar.gz", hash = "sha256:143530122ee5130509ad5e989f0512f7cb218b2d4eddbafbad40fd10e8d8ccbe", size = 44978, upload-time = "2020-07-11T14:50:45.678Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/35/17c9141c4ae21e9a29a43acdfd848e3e468a810517f862cad07977bf8fe9/google-3.0.0-py2.py3-none-any.whl", hash = "sha256:889cf695f84e4ae2c55fbc0cfdaf4c1e729417fa52ab1db0485202ba173e4935", size = 45258, upload-time = "2020-07-11T14:49:58.287Z" },
 ]
 
 [[package]]
@@ -3831,23 +3799,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pvlib"
-version = "0.10.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "h5py" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "pytz" },
-    { name = "requests" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/91/5a/4d43be155b9de0b29c46275ce26b59c59f775cad8a33f0978b8907aa4e7d/pvlib-0.10.5.tar.gz", hash = "sha256:23ecb9f68e0bfb02ce17e84044b521fb7e353581e538a31f9ead044ecd1950bd", size = 35447151, upload-time = "2024-05-06T19:10:25.808Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/f5/f9a88046ff8b7d59dc2950fa2c0b62cff1b7dd89f7c38968e70699c7268c/pvlib-0.10.5-py3-none-any.whl", hash = "sha256:ad4d935bda052089f63b6a68a1c9e5894f34f0f73fca300cda7fc16ee6f1d586", size = 29520909, upload-time = "2024-05-06T19:10:21.364Z" },
-]
-
-[[package]]
 name = "py7zr"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4192,15 +4143,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyshp"
-version = "3.0.2.post1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7f/fb/07f057ff01229c575831766b44bd249aefa086146cf5bce52e172d77cf4e/pyshp-3.0.2.post1.tar.gz", hash = "sha256:18e34a66759b6d34a6f535978c76dad518200f23a727d9e22af8e8535c0245b9", size = 2192180, upload-time = "2025-10-10T16:04:58.529Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/92/a8ad817864a560b96ac1c817f9c56bb7eacc1a7d522e2d39afe9e9c77d7b/pyshp-3.0.2.post1-py3-none-any.whl", hash = "sha256:b0aec66bc55f7cd3a846f6b02c5a9eec1fc1d2cff16ccfcf6493a6773c7eb602", size = 58298, upload-time = "2025-10-10T16:04:57.151Z" },
-]
-
-[[package]]
 name = "pytest"
 version = "9.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4435,12 +4377,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/05/19/94d6c66184c7d0f9374330c714f62c147dbb53eda9efdcc8fc6e2ac454c5/rasterio-1.4.3-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d9bab1a0bb22b8bed1db34b5258db93d790ed4e61ef21ac055a7c6933c8d5e84", size = 22237518, upload-time = "2024-12-02T14:49:09.155Z" },
     { url = "https://files.pythonhosted.org/packages/df/88/9db5f49ebfdd9c12365e4cac76c34ccb1a642b1c8cbab4124b3c681495de/rasterio-1.4.3-cp313-cp313-win_amd64.whl", hash = "sha256:1839960e2f3057a6daa323ccf67b330f8f2f0dbd4a50cc7031e88e649301c5c0", size = 25424949, upload-time = "2024-12-02T14:49:11.742Z" },
 ]
-
-[[package]]
-name = "ratelimit"
-version = "2.2.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ab/38/ff60c8fc9e002d50d48822cc5095deb8ebbc5f91a6b8fdd9731c87a147c9/ratelimit-2.2.1.tar.gz", hash = "sha256:af8a9b64b821529aca09ebaf6d8d279100d766f19e90b5059ac6a718ca6dee42", size = 5251, upload-time = "2018-12-17T18:55:49.675Z" }
 
 [[package]]
 name = "referencing"
@@ -4770,35 +4706,6 @@ wheels = [
 ]
 
 [[package]]
-name = "salientsdk"
-version = "0.3.17"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "backoff" },
-    { name = "cartopy" },
-    { name = "dask" },
-    { name = "geopandas" },
-    { name = "google" },
-    { name = "google-cloud-secret-manager", version = "2.20.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
-    { name = "google-cloud-secret-manager", version = "2.25.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
-    { name = "h5netcdf" },
-    { name = "netcdf4" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "pvlib" },
-    { name = "ratelimit" },
-    { name = "requests" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "toml" },
-    { name = "xarray" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e4/37/2c6cf67544cfb0a57b7e8cdfb2fc6303932de87bf3402ec85f9ab4122344/salientsdk-0.3.17.tar.gz", hash = "sha256:09d0f423323124919789f5a47d99389c4cc32b3943476b864c1b77b546372020", size = 155672, upload-time = "2025-01-27T17:58:41.367Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/42/51/c6c54ff29fd87953f2d3d9c673c1ba35d366c28eaf3bf251604756c1a7d7/salientsdk-0.3.17-py3-none-any.whl", hash = "sha256:5bdb670c22f372fd0226b9ce715a21a78f69c85f05e407400445e031c32c3dd2", size = 76443, upload-time = "2025-01-27T17:58:40.327Z" },
-]
-
-[[package]]
 name = "scikit-learn"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
@@ -5002,7 +4909,6 @@ dependencies = [
     { name = "requests" },
     { name = "rioxarray" },
     { name = "s3fs" },
-    { name = "salientsdk" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "sqlalchemy" },
@@ -5068,7 +4974,6 @@ requires-dist = [
     { name = "requests" },
     { name = "rioxarray" },
     { name = "s3fs" },
-    { name = "salientsdk", specifier = ">=0.3.12" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "sqlalchemy" },
