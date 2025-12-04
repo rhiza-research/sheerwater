@@ -5,13 +5,14 @@ import traceback
 
 from sheerwater.metrics import grouped_metric
 from sheerwater.utils import start_remote
-from jobs import parse_args, run_in_parallel, prune_metrics
+from jobs import parse_args, run_in_parallel, prune_metrics, setup_job
 
 from dashboard_data import summary_metrics_table
 
 (start_time, end_time, forecasts, truth, metrics, variables, grids,
  regions, leads, time_groupings, parallelism,
- recompute, backend, remote_name, remote, remote_config) = parse_args()
+ recompute, backend, remote_name, remote, remote_config,
+ use_gpu, do_benchmark, benchmark_file) = parse_args()
 
 
 def run_table(combo):
@@ -63,8 +64,9 @@ if __name__ == "__main__":
     table_combos = itertools.product(metrics, variables, grids, regions, [None], [None], time_groupings, truth)
     table_combos = prune_metrics(table_combos)
 
-    print("Running grouped metrics.")
-    run_in_parallel(run_grouped, grouped_combos, parallelism)
+    with setup_job(use_gpu, do_benchmark, benchmark_file):
+        print("Running grouped metrics.")
+        run_in_parallel(run_grouped, grouped_combos, parallelism)
 
-    print("Running table metrics.")
-    run_in_parallel(run_table, table_combos, parallelism)
+        print("Running table metrics.")
+        run_in_parallel(run_table, table_combos, parallelism)

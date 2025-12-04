@@ -10,6 +10,7 @@ from weatherbench2.metrics import SpatialQuantileCRPS, SpatialSEEPS
 
 from nuthatch.processors import timeseries as timeseries_decorator
 from nuthatch import cache as cache_decorator
+from sheerwater.utils import gpu_ones_like
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -149,7 +150,7 @@ def fn_anom_covariance(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='n_valid')
 def fn_n_valid(data, **cache_kwargs):  # noqa: F821
-    return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
+    return gpu_ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
 @statistic(cache=False, name='obs_digitized')

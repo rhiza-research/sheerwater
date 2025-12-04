@@ -6,11 +6,12 @@ import traceback
 
 from sheerwater.metrics import metric
 from sheerwater.utils import start_remote
-from jobs import parse_args, run_in_parallel, prune_metrics
+from jobs import parse_args, run_in_parallel, prune_metrics, setup_job
 
 (start_time, end_time, forecasts, truth, metrics, variables,
  grids, regions, agg_days, time_groupings,
- parallelism, recompute, backend, remote_name, remote, remote_config) = parse_args()
+ parallelism, recompute, backend, remote_name, remote, remote_config,
+ use_gpu, do_benchmark, benchmark_file) = parse_args()
 
 if remote:
     start_remote(remote_config=remote_config, remote_name=remote_name)
@@ -40,7 +41,8 @@ def run_metric(combo):
 
 
 if __name__ == "__main__":
-    if backend == 'terracotta':
-        run_in_parallel(run_metric, combos, parallelism, local_multiproc=True)
-    else:
-        run_in_parallel(run_metric, combos, parallelism)
+    with setup_job(use_gpu, do_benchmark, benchmark_file):
+        if backend == 'terracotta':
+            run_in_parallel(run_metric, combos, parallelism, local_multiproc=True)
+        else:
+            run_in_parallel(run_metric, combos, parallelism)

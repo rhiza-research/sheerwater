@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time
+from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time, auto_gpu, auto_cpu, gpu_ones_like, gpu_zeros_like
 from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater.regions_and_masks import region_labels
 
@@ -143,6 +143,12 @@ class Metric(ABC):
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
+        # Convert to GPU if GPU mode is enabled
+        # Note: ALL data used in computation must be converted to avoid numpy/cupy mixing
+        fcst = auto_gpu(fcst)
+        obs = auto_gpu(obs)
+        no_null = auto_gpu(no_null)
+
         # Save the data into the metric data dictionary
         self.metric_data['data']['obs'] = obs
         self.metric_data['data']['fcst'] = fcst
@@ -242,6 +248,10 @@ class Metric(ABC):
             from sheerwater.utils.space_utils import clip_region
             mask_ds = clip_region(mask_ds, region=self.clip)
 
+        # Convert auxiliary data to GPU if GPU mode is enabled
+        region_ds = auto_gpu(region_ds)
+        mask_ds = auto_gpu(mask_ds)
+
         ############################################################
         # Aggregate and and check validity of the statistic
         ############################################################
@@ -269,6 +279,7 @@ class Metric(ABC):
         if not self.spatial:
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
+            weights = auto_gpu(weights)  # Convert weights to GPU if enabled    
             # Expand weights to have a time dimension that matches ds
             if 'time' in ds.dims:  # Enable a time specific null pattern
                 weights = weights.expand_dims(time=ds.time)
@@ -328,7 +339,9 @@ class Metric(ABC):
 
         # Convert from dataarray to dataset and return.
         ds = da.to_dataset(name=self.name)
-        return ds
+        
+        # Convert back to CPU before returning (for serialization/caching)
+        return auto_cpu(ds)
 
 
 class MAE(Metric):
@@ -516,7 +529,7 @@ class Heidke(Metric):
         gs = self.grouped_statistics
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
-        right_by_chance = xr.zeros_like(gs['n_correct'])
+        right_by_chance = gpu_zeros_like(gs['n_correct'])
         for i in range(1, len(self.metric_data['data']['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
