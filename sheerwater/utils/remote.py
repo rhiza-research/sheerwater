@@ -73,6 +73,7 @@ def start_remote(remote_name=None, remote_config=None):
         'scheduler_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'worker_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'spot_policy': 'spot_with_fallback',
+        'environ': {'NUTHATCH_ALLOW_INSTALLED_PACKAGE_CONFIGURATION': 'True'}
     }
 
     if remote_name and isinstance(remote_name, str):
