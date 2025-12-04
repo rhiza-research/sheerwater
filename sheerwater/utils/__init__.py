@@ -1,6 +1,6 @@
 """Utility functions for benchmarking."""
 from .remote import dask_remote, start_remote
-from .secrets import cdsapi_secret, ecmwf_secret, salient_secret, salient_auth, tahmo_secret, gap_secret
+from .secrets import cdsapi_secret, ecmwf_secret, salient_secret, tahmo_secret, gap_secret
 from .data_utils import (roll_and_agg, get_anomalies, regrid)
 from .general_utils import (load_netcdf, write_zarr, load_zarr, load_object, plot_ds,
                             plot_ds_map, run_in_parallel, get_datasource_fn)
@@ -30,7 +30,6 @@ __all__ = [
     "cdsapi_secret",
     "ecmwf_secret",
     "salient_secret",
-    "salient_auth",
     "tahmo_secret",
     "gap_secret",
     "roll_and_agg",
