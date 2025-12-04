@@ -8,6 +8,7 @@ files.sort()
 fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
 
 def copy_file(f):
+    """Copy a file to the cloud storage."""
     date = f.split('.')[4].split('-')[0]
 
     dest = 'gs://sheerwater-datalake/imerg_late/' + date + '.nc'

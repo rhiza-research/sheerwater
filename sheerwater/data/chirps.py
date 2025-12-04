@@ -1,11 +1,9 @@
 """CHIRPS data product."""
 import xarray as xr
 import pandas as pd
-from functools import partial
 from sheerwater.utils import regrid, dask_remote, roll_and_agg, apply_mask, clip_region
 from dateutil import parser
 import datetime
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 import fsspec
 from nuthatch import cache
 from nuthatch.processors import timeseries
@@ -15,7 +13,7 @@ from nuthatch.processors import timeseries
        backend_kwargs = {
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
        })
-def chirps_raw(year, grid, stations=True, version=2):
+def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
     """CHIRPS raw by year."""
     # Open the datastore
     if not stations and version==3:
@@ -47,8 +45,10 @@ def chirps_raw(year, grid, stations=True, version=2):
             ds = ds.reset_coords('band', drop=True)
             return ds
 
-        ds = xr.open_mfdataset(urls, engine='rasterio', preprocess=preprocess, chunks={'y': 1200, 'x': 1200, 'time': 365},
-                               concat_dim=["time"], compat="override", coords="minimal", combine="nested")
+        ds = xr.open_mfdataset(
+            urls, engine='rasterio', preprocess=preprocess,
+            chunks={'y': 1200, 'x': 1200, 'time': 365},
+            concat_dim=["time"], compat="override", coords="minimal", combine="nested")
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data':'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:

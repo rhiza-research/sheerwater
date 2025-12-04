@@ -5,10 +5,9 @@ from inspect import signature
 
 import xarray as xr
 import numpy as np
-import pandas as pd
 
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time
+from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, groupby_time
 from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater.regions_and_masks import region_labels
 

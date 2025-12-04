@@ -4,7 +4,7 @@ import itertools
 import traceback
 
 from sheerwater.utils import start_remote, get_datasource_fn
-from jobs import parse_args, run_in_parallel, prune_metrics
+from jobs import parse_args, run_in_parallel
 
 (start_time, end_time, forecasts, truth, metrics, variables, grids,
  regions, agg_days, time_groupings, parallelism,

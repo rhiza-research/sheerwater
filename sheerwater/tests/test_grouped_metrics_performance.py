@@ -14,7 +14,7 @@ def setup_remote():
 
 @pytest.mark.parametrize("region", ["global", "country", "continent", "subregion"])
 @pytest.mark.parametrize("time_grouping", [None, "month_of_year", "year", "quarter_of_year"])
-def test_grouped_metrics_performance(setup_remote, region, time_grouping):
+def test_grouped_metrics_performance(setup_remote, region, time_grouping):  # noqa: ARG001
     """Test performance of grouped metrics with different space and time groupings."""
     start_time = "2016-01-01"
     end_time = "2022-12-31"
@@ -94,7 +94,8 @@ def test_grouped_metrics_performance_summary():
             })
 
             print(
-                f"Region: {region:15s} | Time grouping: {str(time_grouping):20s} | Time: {elapsed:6.2f}s | Success: {result is not None}")
+                f"Region: {region:15s} | Time grouping: {str(time_grouping):20s} | "
+                f"Time: {elapsed:6.2f}s | Success: {result is not None}")
 
     print("\nPerformance Summary:")
     print("=" * 80)
@@ -113,7 +114,7 @@ def test_grouped_metrics_performance_summary():
     print(f"Max time: {max_time:.2f}s")
 
 
-def test_grouped_metrics_performance():
+def test_grouped_metrics_performance_comprehensive():
     """Run a comprehensive performance test and print summary."""
     start_time = "2016-01-01"
     end_time = "2022-12-31"
@@ -163,7 +164,8 @@ def test_grouped_metrics_performance():
         })
 
         print(
-            f"Iteration {i}: Region: {region:15s} | Time grouping: {str(time_grouping):20s} | Time: {elapsed:6.2f}s | Success: {result is not None}")
+            f"Iteration {i}: Region: {region:15s} | Time grouping: {str(time_grouping):20s} | "
+            f"Time: {elapsed:6.2f}s | Success: {result is not None}")
 
     print("\nPerformance Summary:")
     print("=" * 80)

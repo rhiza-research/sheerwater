@@ -39,10 +39,10 @@ def run_metrics_table(combo):
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:
-        print(f"Metric {grid} {variable} {metric} not implemented: {traceback.format_exc()}")
+        print(f"Metric {grid} {variable} {metric_name} not implemented: {traceback.format_exc()}")
         return "Not Implemented"
     except:  # noqa: E722
-        print(f"Failed to run metric {grid} {variable} {metric} \
+        print(f"Failed to run metric {grid} {variable} {metric_name} \
                 {region} {time_grouping}: {traceback.format_exc()}")
         return None
 
