@@ -6,6 +6,8 @@ import logging
 from functools import wraps
 import os
 import pwd
+import ray
+from ray.util.dask import ray_dask_get, enable_dask_on_ray, disable_dask_on_ray
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -124,18 +126,20 @@ def dask_remote(func):
             if 'remote_config' in kwargs:
                 remote_config = kwargs['remote_config']
 
-            start_remote(remote_name, remote_config)
+            #start_remote(remote_name, remote_config)
+            ray.init(runtime_env={'excludes': ['.git']}, ignore_reinit_error=True)
+            enable_dask_on_ray()
 
-        else:
-            # Setup a local cluster
-            try:
-                get_client()
-            except ValueError:
-                logger.info("Starting local dask cluster...")
-                cluster = LocalCluster(n_workers=2, threads_per_worker=2)
-                Client(cluster)
+        #else:
+        #    # Setup a local cluster
+        #    #try:
+        #    #    get_client()
+        #    #except ValueError:
+        #    #    logger.info("Starting local dask cluster...")
+        #    #    cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+        #    #    Client(cluster)
 
-        # call the function and return the result
+        ## call the function and return the result
         if 'remote' in kwargs:
             del kwargs['remote']
 
