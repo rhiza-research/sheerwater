@@ -2,16 +2,18 @@
 import dateparser
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 import dask
-from functools import partial
-from sheerwater.reanalysis import era5_daily, era5_rolled
+
 from nuthatch import cache
 from nuthatch.processors import timeseries
+
+from sheerwater.reanalysis import era5_daily, era5_rolled
 from sheerwater.utils import dask_remote, get_dates, pad_with_leapdays, add_dayofyear
-from sheerwater.forecasts.forecast_decorator import forecast
+from sheerwater.forecasts import forecast
 
 
 @dask_remote
