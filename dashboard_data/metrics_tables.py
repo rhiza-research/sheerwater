@@ -72,17 +72,17 @@ def _metric_table(start_time, end_time, variable,
     if 'time' in df.columns:
         df = df.rename(columns={'time': 'time_grouping'})
         df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
-                                                   'M02': 'February',
-                                                   'M03': 'March',
-                                                   'M04': 'April',
-                                                   'M05': 'May',
-                                                   'M06': 'June',
-                                                   'M07': 'July',
-                                                   'M08': 'August',
-                                                   'M09': 'September',
-                                                   'M10': 'October',
-                                                   'M11': 'November',
-                                                   'M12': 'December'})
+                                                       'M02': 'February',
+                                                       'M03': 'March',
+                                                       'M04': 'April',
+                                                       'M05': 'May',
+                                                       'M06': 'June',
+                                                       'M07': 'July',
+                                                       'M08': 'August',
+                                                       'M09': 'September',
+                                                       'M10': 'October',
+                                                       'M11': 'November',
+                                                       'M12': 'December'})
     else:
         df['time_grouping'] = None
 
@@ -96,10 +96,7 @@ def _metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql',
-       backend_kwargs={
-           'hash_table_name': True,
-       })
+       backend='sql', backend_kwargs={'hash_table_name': True})
 def weekly_metric_table(start_time, end_time, variable,
                         truth, metric_name, time_grouping=None,
                         grid='global1_5', region='global'):
@@ -116,10 +113,7 @@ def weekly_metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql',
-       backend_kwargs={
-           'hash_table_name': True,
-       })
+       backend='sql', backend_kwargs={'hash_table_name': True})
 def monthly_metric_table(start_time, end_time, variable,
                          truth, metric_name, time_grouping=None,
                          grid='global1_5', region='global'):
@@ -135,10 +129,7 @@ def monthly_metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql',
-       backend_kwargs={
-           'hash_table_name': True,
-       })
+       backend='sql', backend_kwargs={'hash_table_name': True})
 def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
                               grid='global1_5', region='global'):
@@ -169,10 +160,7 @@ def ground_truth_metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
-       backend='sql',
-       backend_kwargs={
-           'hash_table_name': True,
-       })
+       backend='sql', backend_kwargs={'hash_table_name': True})
 def biweekly_metric_table(start_time, end_time, variable,
                           truth, metric_name, time_grouping=None,
                           grid='global1_5', region='global'):
