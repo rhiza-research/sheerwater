@@ -1,9 +1,11 @@
 """Pulls Salient Predictions S2S forecasts from the Salient API."""
-import xarray as xr
 import numpy as np
+import xarray as xr
+from nuthatch import cache
+from nuthatch.processors import timeseries
 
-from sheerwater.utils import (cacheable, dask_remote, get_variable, regrid,
-                                           forecast, shift_by_days)
+from sheerwater.forecasts import forecast
+from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
 
 
 @dask_remote
@@ -32,11 +34,11 @@ def salient_blend_raw(variable, timescale="sub-seasonal"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='forecast_date',
-           cache_args=['variable', 'timescale', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "forecast_date": 30, 'lead': 1, 'quantiles': 1},
-           auto_rechunk=False)
+@timeseries(timeseries='forecast_date')
+@cache(cache_args=['variable', 'timescale', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "forecast_date": 30, 'lead': 1, 'quantiles': 1}
+       })
 def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid="global0_25"):  # noqa: ARG001
     """Processed Salient forecast files."""
     ds = salient_blend_raw(variable, timescale=timescale)
@@ -48,11 +50,9 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
 @forecast
+@cache(cache=False)
 def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global0_25', mask='lsm', region='africa'):  # noqa: ARG001
     """Standard format forecast data for Salient."""

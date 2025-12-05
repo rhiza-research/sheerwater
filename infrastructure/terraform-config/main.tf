@@ -56,7 +56,7 @@ locals {
   is_prod = terraform.workspace == "default"
 
   # git repo name
-  repo_name = "sheerwater-benchmarking"
+  repo_name = "sheerwater"
 
   # Extract PR number from workspace name "grafana-pr-<pr_number>"
   pr_number = local.is_prod ? "" : element(split("-", terraform.workspace), length(split("-", terraform.workspace)) - 1)

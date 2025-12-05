@@ -49,7 +49,7 @@ for var, grid in product(vars, grids):
 
     if UPDATE_CLIM_ABC:
         for mask, region in product(masks, regions):
-            ds = climatology_abc(var, first_year, last_year, grid=grid,
+            ds = climatology_abc(var, first_year, last_year, grid=grid,  # noqa: F821
                                  mask=mask, region=region,
                                  remote=True,  recompute=True, force_overwrite=True)
 
@@ -62,7 +62,7 @@ for var, grid in product(vars, grids):
 
         if UPDATE_CLIM_ROLLING_ABC:
             for mask, region in product(masks, regions):
-                ds = climatology_rolling_abc(rolling_start_time, end_time, variable=var,
+                ds = climatology_rolling_abc(rolling_start_time, end_time, variable=var,  # noqa: F821
                                              clim_years=clim_years, agg_days=agg_days, grid=grid,
                                              mask=mask, region=region,
                                              remote=True,  recompute=True, force_overwrite=True

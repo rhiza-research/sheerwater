@@ -1,6 +1,6 @@
 """Test that the precipitation range for the forecasters and reanalysis is reasonable."""
-from sheerwater.forecasts import salient, ecmwf_ifs_er_debiased, ecmwf_ifs_er
 from sheerwater.climatology import climatology_2015, climatology_rolling, climatology_trend_2015
+from sheerwater.forecasts import ecmwf_ifs_er, ecmwf_ifs_er_debiased, salient
 from sheerwater.reanalysis.era5 import era5
 from sheerwater.utils import start_remote
 

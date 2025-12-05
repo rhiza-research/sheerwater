@@ -1,18 +1,17 @@
 """Interface for gencast forecasts."""
-import xarray as xr
-import numpy as np
 import gcsfs
+import numpy as np
+import xarray as xr
+from nuthatch import cache
+from nuthatch.processors import timeseries
 
-from sheerwater.utils import (dask_remote, cacheable,
-                                           lon_base_change,
-                                           roll_and_agg, regrid, forecast,
-                                           shift_by_days)
+from sheerwater.forecasts import forecast
+from sheerwater.utils import dask_remote, lon_base_change, regrid, roll_and_agg, shift_by_days
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['year', 'variable', 'init_hour'],
-           chunking={"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5})
+@cache(cache_args=['year', 'variable', 'init_hour'],
+       backend_kwargs={'chunking': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}})
 def gencast_daily_year(year, variable, init_hour=0):
     """A daily Gencast forecast."""
     if init_hour != 0:
@@ -111,16 +110,16 @@ def gencast_daily_year(year, variable, init_hour=0):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'grid'],
-           timeseries='time',
-           chunking={"lat": 121, "lon": 240, "lead_time": 10, "time": 10, 'member': 10},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, 'member': 10},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
                },
-           },
-           validate_cache_timeseries=False)
+           }
+       })
 def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: ARG001
     """A daily gencast forecast."""
     ds1 = gencast_daily_year(year='2020', variable=variable, init_hour=0)
@@ -141,16 +140,16 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: A
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'agg_days', 'prob_type', 'grid'],
-           timeseries='time',
-           chunking={"lat": 121, "lon": 240, "lead_time": 10, "time": 10, "member": 10},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'agg_days', 'prob_type', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, "member": 10},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
                },
-           },
-           validate_cache_timeseries=False)
+           }
+       })
 def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='deterministic', grid='global0_25'):
     """A rolled and aggregated gencast forecast."""
     ds = gencast_daily(start_time, end_time, variable, grid)
@@ -166,11 +165,10 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
 @forecast
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""

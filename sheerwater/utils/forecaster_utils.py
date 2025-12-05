@@ -1,40 +1,4 @@
 """Variable-related utility functions for all parts of the data pipeline."""
-
-from functools import wraps
-
-from .space_utils import apply_mask, clip_region
-
-# Global forecast registry
-FORECAST_REGISTRY = {}
-
-
-def forecast(func):
-    """Decorator to mark a function as a forecast and concat the leads."""
-    # Register the forecast in the global forecast registry when defined
-    FORECAST_REGISTRY[func.__name__] = func
-
-    @wraps(func)
-    def forecast_wrapper(*args, **kwargs):
-        ds = func(*args, **kwargs)
-        try:
-            # Create a new coordinate for valid_time, that is the start_date plus the lead time
-            ds = convert_init_time_to_pred_time(ds)
-            # Assign attributes
-            ds = ds.assign_attrs(agg_days=float(kwargs['agg_days']))
-            # Apply masking
-            ds = apply_mask(ds, kwargs['mask'], grid=kwargs['grid'])
-            # Clip to specified region
-            ds = clip_region(ds, region=kwargs['region'])
-            # Remove all unneeded dimensions
-            ds = ds.drop_vars([var for var in ds.coords if var not in [
-                              'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
-
-        except Exception as e:
-            raise ValueError(f"Error in forecast {func.__name__}: {e}")
-        return ds
-    return forecast_wrapper
-
-
 def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
                                    lead_time_dim='prediction_timedelta', valid_time_dim='time'):
     """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
@@ -47,37 +11,32 @@ def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
     return ds
 
 
-def get_forecast(forecast_name):
-    """Get a forecast from the global forecast registry."""
-    return FORECAST_REGISTRY[forecast_name]
-
-
 def get_variable(variable_name, variable_type='era5'):
     """Converts a variable in any other type to a variable name of the requested type."""
-    variable_ordering = ['sheerwater', 'era5', 'ecmwf_hres', 'ecmwf_ifs_er', 'salient', 'abc', 'ghcn']
+    variable_ordering = ['sheerwater', 'era5', 'ecmwf_hres', 'ecmwf_ifs_er', 'salient', 'abc', 'ghcn', 'era5_land']
 
     weather_variables = [
         # Static variables (2):
-        ('z', 'geopotential', 'geopotential', None, None, None, None),
-        ('lsm', 'land_sea_mask', 'land_sea_mask', None, None, None, None),
+        ('z', 'geopotential', 'geopotential', None, None, None, None, None),
+        ('lsm', 'land_sea_mask', 'land_sea_mask', None, None, None, None, None),
 
         # Surface variables (6):
-        ('tmp2m', '2m_temperature', '2m_temperature', '2m_temperature', 'temp', 'tmp2m', 'temp'),
+        ('tmp2m', '2m_temperature', '2m_temperature', '2m_temperature', 'temp', 'tmp2m', 'temp', 't2m'),
         ('precip', 'total_precipitation', 'total_precipitation_6hr', 'total_precipitation_24hr',
-         'precip', 'precip', 'precip'),
-        ("vwind10m", "10m_v_component_of_wind", "10m_v_component_of_wind", None, None, None, None),
-        ("uwind10m", "10m_u_component_of_wind", "10m_u_component_of_wind", None, None, None, None),
-        ("msl", "mean_sea_level_pressure", "mean_sea_level_pressure", None, None, None, None),
-        ("tisr", "toa_incident_solar_radiation", "toa_incident_solar_radiation", None, "tsi", None, None),
-        ("ssrd", "surface_solar_radiation_downwards", None, None, "tsi", None, None),
+         'precip', 'precip', 'precip', 'tp'),
+        ("vwind10m", "10m_v_component_of_wind", "10m_v_component_of_wind", None, None, None, None, 'v10'),
+        ("uwind10m", "10m_u_component_of_wind", "10m_u_component_of_wind", None, None, None, None, 'u10'),
+        ("msl", "mean_sea_level_pressure", "mean_sea_level_pressure", None, None, None, None, None),
+        ("tisr", "toa_incident_solar_radiation", "toa_incident_solar_radiation", None, "tsi", None, None, 'ssr'),
+        ("ssrd", "surface_solar_radiation_downwards", None, None, "tsi", None, None, 'ssrd'),
 
         # Atmospheric variables (6):
-        ("tmp", "temperature", "temperature", None, None, None, None),
-        ("uwind", "u_component_of_wind", "u_component_of_wind", None, None, None, None),
-        ("vwind", "v_component_of_wind", "v_component_of_wind", None, None, None, None),
-        ("hgt", "geopotential", "geopotential", None, None, None, None),
-        ("q", "specific_humidity", "specific_humidity", None, None, None, None),
-        ("w", "vertical_velocity", "vertical_velocity", None, None, None, None),
+        ("tmp", "temperature", "temperature", None, None, None, None, None),
+        ("uwind", "u_component_of_wind", "u_component_of_wind", None, None, None, None, None),
+        ("vwind", "v_component_of_wind", "v_component_of_wind", None, None, None, None, None),
+        ("hgt", "geopotential", "geopotential", None, None, None, None, None),
+        ("q", "specific_humidity", "specific_humidity", None, None, None, None, None),
+        ("w", "vertical_velocity", "vertical_velocity", None, None, None, None, None),
     ]
 
     name_index = variable_ordering.index(variable_type)

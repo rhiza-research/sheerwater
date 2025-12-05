@@ -1,38 +1,14 @@
 """General utility functions for all parts of the data pipeline."""
-import matplotlib.pyplot as plt
-import gcsfs
-import numpy as np
-import xarray as xr
 import itertools
 import multiprocessing
-import tqdm
+
 import dask
-from importlib import import_module
-
+import gcsfs
+import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
-
-
-def get_datasource_fn(datasource):
-    """Import the datasource function from any available source."""
-    try:
-        mod = import_module("sheerwater.reanalysis")
-        fn = getattr(mod, datasource)
-    except (ImportError, AttributeError):
-        try:
-            mod = import_module("sheerwater.forecasts")
-            fn = getattr(mod, datasource)
-        except (ImportError, AttributeError):
-            try:
-                mod = import_module("sheerwater.climatology")
-                fn = getattr(mod, datasource)
-            except (ImportError, AttributeError):
-                try:
-                    mod = import_module("sheerwater.data")
-                    fn = getattr(mod, datasource)
-                except (ImportError, AttributeError):
-                    raise ImportError(f"Could not find datasource {datasource}.")
-
-    return fn
+import tqdm
+import xarray as xr
 
 
 def load_object(filepath):

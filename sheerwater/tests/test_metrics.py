@@ -1,6 +1,6 @@
 """Test the metrics library functions."""
-from sheerwater.utils import start_remote
 from sheerwater.metrics_library import metric_factory
+from sheerwater.utils import start_remote
 
 start_remote(remote_config='large_cluster')
 

@@ -1,7 +1,7 @@
 """Test the regions and masking functions."""
 from sheerwater.regions_and_masks import land_sea_mask
-from sheerwater.utils.space_utils import get_grid
 from sheerwater.utils.region_utils import get_region_data
+from sheerwater.utils.space_utils import get_grid
 
 
 def test_masks():
@@ -15,7 +15,7 @@ def test_masks():
 
 def test_get_grid():
     """Test the get grid function."""
-    lons, lats, grid_size = get_grid("global0_25")
+    lons, lats, grid_size, _ = get_grid("global0_25")
     assert lons[0] == -180.0
     assert lons[-1] == 180.0 - 0.25
     assert lats[0] == -90.0
@@ -24,7 +24,7 @@ def test_get_grid():
     assert len(lons) == 1440
     assert len(lats) == 721
 
-    lons, lats, grid_size = get_grid("global1_5")
+    lons, lats, grid_size, _ = get_grid("global1_5")
     assert lons[0] == -180.0
     assert lons[-1] == 180.0 - 1.5
     assert lats[0] == -90.0
@@ -33,7 +33,7 @@ def test_get_grid():
     assert len(lons) == 240
     assert len(lats) == 121
 
-    lons, lats, grid_size = get_grid("salient0_25")
+    lons, lats, grid_size, _ = get_grid("salient0_25")
     assert lons[0] == -180.0 + 0.125
     assert lons[-1] == 180.0 - 0.125
     assert lats[0] == -90.0 + 0.125
@@ -42,7 +42,7 @@ def test_get_grid():
     assert len(lons) == 1440
     assert len(lats) == 720
 
-    lons, lats, grid_size = get_grid("chirps")
+    lons, lats, grid_size, _ = get_grid("chirps")
     assert lons[0] == -180.0 + 0.025
     assert lons[-1] == 180.0 - 0.025
     assert lats[0] == -90.0 + 0.025
@@ -51,7 +51,7 @@ def test_get_grid():
     assert len(lons) == 7200
     assert len(lats) == 3600
 
-    lons, lats, grid_size = get_grid("imerg")
+    lons, lats, grid_size, _ = get_grid("imerg")
     assert lons[0] == -180.0 + 0.05
     assert lons[-1] == 180.0 - 0.05
     assert lats[0] == -90.0 + 0.05

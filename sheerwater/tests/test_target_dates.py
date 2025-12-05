@@ -1,13 +1,12 @@
 """Test lead-based target date fetching."""
 import numpy as np
 
-from sheerwater.utils import convert_init_time_to_pred_time, shift_by_days
-from sheerwater.reanalysis import era5_rolled, era5
+from sheerwater.climatology import climatology_2015, climatology_agg_raw
 from sheerwater.forecasts import salient
-from sheerwater.forecasts.salient import salient_blend
 from sheerwater.forecasts.ecmwf_er import ifs_extended_range
-from sheerwater.climatology import climatology_agg_raw, climatology_2015
-from sheerwater.utils import start_remote
+from sheerwater.forecasts.salient import salient_blend
+from sheerwater.reanalysis import era5, era5_rolled
+from sheerwater.utils import convert_init_time_to_pred_time, shift_by_days, start_remote
 
 
 def test_target_date_conversion():

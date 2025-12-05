@@ -1,15 +1,16 @@
 """Mask data objects."""
 import os
+
 import cdsapi
-import xarray as xr
 import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
+import xarray as xr
+from nuthatch import cache
 
-from sheerwater.utils import (cacheable, cdsapi_secret, get_grid,
-                                           lon_base_change, get_region_data, get_grid_ds)
+from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, get_region_data, lon_base_change
 
 
-@cacheable(data_type='array', cache_args=['grid'])
+@cache(cache_args=['grid'])
 def land_sea_mask(grid="global1_5"):
     """Get the ECMWF global land sea mask for the given grid.
 
@@ -17,7 +18,7 @@ def land_sea_mask(grid="global1_5"):
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
     """
-    _, _, grid_size = get_grid(grid, base="base360")
+    _, _, grid_size, _ = get_grid(grid, base="base360")
 
     # Get data from the CDS API
     times = ['00:00']
@@ -72,10 +73,9 @@ def land_sea_mask(grid="global1_5"):
     return ds
 
 
-@cacheable(data_type='array',
-           cache_args=['grid', 'region_level'],
-           chunking={'lat': 1000, 'lon': 1000})
-def region_labels(grid='global1_5', region_level='countries'):
+@cache(cache_args=['grid', 'region_level'],
+       backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+def region_labels(grid='global1_5', region_level='country'):
     """Generate a dataset with a region coordinate at a specific region level.
 
     Available region levels are
@@ -90,6 +90,10 @@ def region_labels(grid='global1_5', region_level='countries'):
     Returns:
         xarray.Dataset: Dataset with added region coordinate
     """
+    if '-' in region_level:
+        region_level, clip = region_level.split('-')
+    else:
+        clip = 'global'
     # Get the list of regions for the specified admin level
     region_data = get_region_data(region_level)
 
@@ -97,7 +101,9 @@ def region_labels(grid='global1_5', region_level='countries'):
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
     # Fixed data type of strings of length 100
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U30').data))
+    if clip != 'global':
+        ds = clip_region(ds, region=clip)
 
     # Loop through each region and label grid cells
     for i, rn in region_data.iterrows():
@@ -110,6 +116,7 @@ def region_labels(grid='global1_5', region_level='countries'):
         region_ds = world_ds.rio.clip(rn, region_data.crs, drop=False)
         # Assign the region name to the region coordinate
         ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
+
     return ds
 
 

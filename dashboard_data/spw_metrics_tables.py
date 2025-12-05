@@ -28,4 +28,4 @@ if __name__ == "__main__":
                 ds = summary_metrics_table(start_time, end_time, variable, truth, metric,
                                            time_grouping=tg, grid=grid, mask=mask, region=region,
                                            recompute=True, force_overwrite=True,
-                                           backend='postgres')
+                                           backend='sql')
