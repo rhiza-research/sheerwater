@@ -10,9 +10,7 @@ from functools import partial
 from sheerwater.reanalysis import era5_daily, era5_rolled
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote, get_dates,
-                              pad_with_leapdays, add_dayofyear)
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
+from sheerwater.utils import dask_remote, get_dates, pad_with_leapdays, add_dayofyear
 from sheerwater.forecasts.forecast_decorator import forecast
 
 
@@ -20,7 +18,7 @@ from sheerwater.forecasts.forecast_decorator import forecast
 @cache(cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
-       })
+})
 def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
@@ -50,7 +48,7 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
 @cache(cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
-       })
+})
 def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
@@ -79,7 +77,7 @@ def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='globa
 @cache(cache_args=['variable', 'first_year', 'last_year', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
-       })
+})
 def climatology_raw(variable, first_year=1985, last_year=2014, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
@@ -107,7 +105,7 @@ def climatology_raw(variable, first_year=1985, last_year=2014, grid='global1_5')
                    'global0_25': {"lat": 721, "lon": 1440, 'dayofyear': 30, 'member': 1}
                }
            }
-       })
+})
 def climatology_agg_raw(variable, first_year=1985, last_year=2014,
                         prob_type='deterministic', agg_days=7, grid="global1_5"):
     """Generates aggregated climatology."""
@@ -153,7 +151,7 @@ def climatology_agg_raw(variable, first_year=1985, last_year=2014,
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
            }
-       })
+})
 def climatology_rolling_agg(start_time, end_time, variable, clim_years=30, agg_days=7, grid="global1_5"):
     """Compute a rolling {clim_years}-yr climatology of the ERA5 data.
 
@@ -223,7 +221,7 @@ def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7, grid="glob
                    'global0_25': {"lat": 721, "lon": 1440, 'dayofyear': 30}
                }
            }
-       })
+})
 def climatology_linear_weights(variable, first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Fit the climatological trend for a specific day of year.
 
@@ -308,32 +306,6 @@ def climatology_rolled(start_time, end_time, variable, first_year=1985, last_yea
         with dask.config.set(**{'array.slicing.split_large_chunks': True}):
             ds = ds.sel(dayofyear=time_ds.dayofyear)
             ds = ds.drop('dayofyear')
-    return ds
-
-
-@dask_remote
-def climatology_spw(start_time, end_time, first_year=1985, last_year=2014, trend=False,
-                    prob_type='probabilistic', prob_threshold=0.2,
-                    drought_condition=False,
-                    onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                    grid='global1_5', mask='lsm', region="global"):
-    """Climatology SPW forecast."""
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    fn = partial(climatology_rolled, start_time, end_time, variable='precip',
-                 first_year=first_year, last_year=last_year,
-                 trend=trend, prob_type=prob_type, grid=grid)
-    roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-    shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-    data = spw_precip_preprocess(fn, agg_days=roll_days, shift_days=shift_days,
-                                 mask=mask, region=region, grid=grid)
-
-    (prob_dim, prob_threshold) = ('member', prob_threshold) if prob_type == 'probabilistic' else (None, None)
-    ds = spw_rainy_onset(data,
-                         onset_group=onset_group, aggregate_group=aggregate_group,
-                         time_dim='time',
-                         prob_type=prob_label, prob_dim=prob_dim, prob_threshold=prob_threshold,
-                         drought_condition=drought_condition,
-                         mask=mask, region=region, grid=grid)
     return ds
 
 
