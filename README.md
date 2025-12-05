@@ -38,14 +38,15 @@ ds_ghcn = ghcn("2020-01-01", "2022-01-01", agg_days=7, variable="precip", grid="
 
 # Fetch an evaluation metric - note, already computed metrics are defined from 2016-01-01 to 2022-12-31
 # Computing new metrics can be computationally intensive
-val = metric("2016-01-01", "2022-12-31", forecast="fuxi", truth="era5", variable="precip", metric_name="mae", region="country", grid="global1_5")
+val = metric("2016-01-01", "2022-12-31", forecast="fuxi", truth="era5", variable="precip", 
+             metric_name="mae", region="country", grid="global1_5")
 print(val)
 ```
 
 ## Evaluating your own forecasts against your own data
 
 If you have a forecast you would like to evaluate, you can tag it in the sheerwater forecast decorator so that sheerwater can find it for evaluation.
-
+j
 ```py
 
 from sheerwater.forecasts import forecast
@@ -110,4 +111,4 @@ uv run jupyter lab
 
 ## Deployment and Infrastructure
 
-This repository is integrated with the Rhiza infrastructure for deployment of metrics to databases and integration of those databases into Grafana dashboards for visualization. If you are deploying this code on backend infrastructure with Grafana and Terraform, please read the backend README [Infrastructure README](infrastructure/README.md). 
+This repository is integrated with the Rhiza infrastructure for deployment of metrics to databases and integration of those databases into Grafana dashboards for visualization. If you are deploying this code on backend infrastructure with Grafana and Terraform, please read the [Infrastructure README](infrastructure/README.md). 
