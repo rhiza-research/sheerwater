@@ -40,6 +40,7 @@ def _metric_table(start_time, end_time, variable,
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
             if ds:
+                # Get the metric name to rename the variable
                 if '-' in metric_name:
                     met_name = metric_name.split('-')[0].lower()
                 else:

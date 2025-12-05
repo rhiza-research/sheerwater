@@ -14,25 +14,29 @@ station_eval = False
 def parse_args():
     """Parses arguments for jobs."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start-time", default="1998-01-01", type=str)
-    parser.add_argument("--end-time", default="2024-12-31", type=str)
-    parser.add_argument("--forecast", type=str, nargs='*')
-    parser.add_argument("--truth", type=str, nargs='*')
-    parser.add_argument("--variable", type=str, nargs='*')
-    parser.add_argument("--metric", type=str, nargs='*')
-    parser.add_argument("--grid", type=str, nargs='*')
-    parser.add_argument("--region", type=str, nargs='*')
-    parser.add_argument("--agg_days", type=int, nargs='*')
-    parser.add_argument("--time-grouping", type=str, nargs='*')
-    parser.add_argument("--backend", type=str, default=None)
-    parser.add_argument("--parallelism", type=int, default=1)
-    parser.add_argument("--recompute", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--remote", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--station-evaluation", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--seasonal", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--remote-name", type=str, default=None)
-    parser.add_argument("--remote-config", type=str, nargs='*')
-    parser.add_argument("--skip", type=int, default=0)
+    parser.add_argument("--start-time", default="1998-01-01", type=str, help="Start time for evaluation.")
+    parser.add_argument("--end-time", default="2024-12-31", type=str, help="End time for evaluation.")
+    parser.add_argument("--forecast", type=str, nargs='*', help="Forecasts to evaluate.")
+    parser.add_argument("--truth", type=str, nargs='*', help="Truth data to evaluate against.")
+    parser.add_argument("--variable", type=str, nargs='*', help="Variables to evaluate.")
+    parser.add_argument("--metric", type=str, nargs='*', help="Metrics to evaluate.")
+    parser.add_argument("--grid", type=str, nargs='*', help="Grids to evaluate.")
+    parser.add_argument("--region", type=str, nargs='*', help="Regions to evaluate.")
+    parser.add_argument("--agg_days", type=int, nargs='*', help="Aggregation days to evaluate.")
+    parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
+    parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
+    parser.add_argument("--parallelism", type=int, default=1, help="Number of runs to run in parallel.")
+    parser.add_argument("--recompute", action=argparse.BooleanOptionalAction,
+                        default=False, help="Whether to recompute existing metrics.")
+    parser.add_argument("--remote", action=argparse.BooleanOptionalAction,
+                        default=True, help="Whether to run on remote cluster.")
+    parser.add_argument("--station-evaluation", action=argparse.BooleanOptionalAction,
+                        default=False, help="Whether to run station evaluation.")
+    parser.add_argument("--seasonal", action=argparse.BooleanOptionalAction,
+                        default=False, help="Whether to run seasonal evaluation.")
+    parser.add_argument("--remote-name", type=str, default=None, help="Name of remote cluster to use.")
+    parser.add_argument("--remote-config", type=str, nargs='*', help="Remote configuration to use.")
+    parser.add_argument("--skip", type=int, default=0, help="Start runs at this index by skipping the first N runs.")
     args = parser.parse_args()
 
     global skip
@@ -148,9 +152,6 @@ def prune_metrics(combos, global_run=False):  # noqa: ARG001
         metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
                                     agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
                                     spatial=False, grid=grid, mask=None, region=region)
-
-        #if not global_run and 'tahmo' in truth and region != 'nimbus_east_africa':
-        #    continue
 
         if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
             continue
