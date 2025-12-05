@@ -2,26 +2,31 @@
 
 NOTE: these are legacy functions and no longer actively maintained.
 """
-import sys
-import pandas as pd
-from datetime import datetime
-import dateparser
 import os
-import xarray as xr
-import requests
 import ssl
-from urllib3 import poolmanager
+import sys
 import time
-import dask
+from datetime import datetime
 
+import dask
+import dateparser
+import pandas as pd
+import requests
+import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote, ecmwf_secret,
-                              get_grid, get_dates,
-                              is_valid_forecast_date,
-                              roll_and_agg,
-                              lon_base_change,
-                              regrid)
+from urllib3 import poolmanager
+
+from sheerwater.utils import (
+    dask_remote,
+    ecmwf_secret,
+    get_dates,
+    get_grid,
+    is_valid_forecast_date,
+    lon_base_change,
+    regrid,
+    roll_and_agg,
+)
 
 
 ########################################################################

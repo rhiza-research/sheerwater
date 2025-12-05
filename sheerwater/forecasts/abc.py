@@ -2,11 +2,10 @@
 
 
 import xarray as xr
-
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote,
-                              get_variable, apply_mask, clip_region, regrid)
+
+from sheerwater.utils import apply_mask, clip_region, dask_remote, get_variable, regrid
 
 
 @dask_remote

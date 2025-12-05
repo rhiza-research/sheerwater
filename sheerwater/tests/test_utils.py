@@ -1,8 +1,8 @@
 """Test the utility functions in the utils module."""
 import numpy as np
 
-from sheerwater.utils import get_grid
-from sheerwater.utils import base180_to_base360, base360_to_base180
+from sheerwater.utils import base180_to_base360, base360_to_base180, get_grid
+
 
 def test_get_grid():
     """Test the get_grid function."""

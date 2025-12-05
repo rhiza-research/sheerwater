@@ -1,12 +1,11 @@
 """Pulls Salient Predictions S2S forecasts from the Salient API."""
-import xarray as xr
 import numpy as np
-
+import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote, get_variable, regrid,
-                                           shift_by_days)
-from sheerwater.forecasts.forecast_decorator import forecast
+
+from sheerwater.forecasts import forecast
+from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
 
 
 @dask_remote

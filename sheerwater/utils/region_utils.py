@@ -30,8 +30,9 @@ The regions are defined as follows:
   - 'global'
 """
 import os
-from shapely.geometry import box
+
 import geopandas as gpd
+from shapely.geometry import box
 
 from .general_utils import load_object
 

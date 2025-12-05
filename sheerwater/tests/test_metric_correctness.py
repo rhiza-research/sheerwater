@@ -1,11 +1,11 @@
 """Test the metrics library."""
 # flake8: noqa: E501
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from nuthatch import cache
 
 from sheerwater.metrics import metric
-from sheerwater.utils import start_remote, dask_remote
-from nuthatch import cache
+from sheerwater.utils import dask_remote, start_remote
 
 
 @dask_remote

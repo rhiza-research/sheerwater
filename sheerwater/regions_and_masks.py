@@ -1,13 +1,13 @@
 """Mask data objects."""
 import os
+
 import cdsapi
-import xarray as xr
 import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
-
+import xarray as xr
 from nuthatch import cache
-from sheerwater.utils import (cdsapi_secret, get_grid,
-                                           lon_base_change, get_region_data, get_grid_ds, clip_region)
+
+from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, get_region_data, lon_base_change
 
 
 @cache(cache_args=['grid'])

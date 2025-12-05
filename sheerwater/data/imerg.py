@@ -1,19 +1,20 @@
 """Imerg data product."""
-import xarray as xr
 import gcsfs
+import xarray as xr
 from dateutil import parser
-
 from nuthatch import cache
 from nuthatch.processors import timeseries
+
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
-from sheerwater.data.data_decorator import data
+from sheerwater.data import data
 
 
 @dask_remote
 @cache(cache_args=['year', 'version'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_raw(year, version='final'):
-    """Concatted imerge netcdf files by year."""
+    """Concatenated IMERG netcdf files by year."""
+    # Open the datastore
     fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
 
     if version == 'final':
@@ -59,10 +60,11 @@ def imerg_gridded(start_time, end_time, grid, version):
        cache_disable_if={'agg_days': 1},
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_rolled(start_time, end_time, agg_days, grid, version):
-    """Imerg rolled and aggregated."""
+    """IMERG rolled and aggregated."""
     ds = imerg_gridded(start_time, end_time, grid, version)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
+
 
 def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
                    version='final'):
@@ -72,29 +74,29 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
     ds = imerg_rolled(start_time, end_time, agg_days=agg_days, grid=grid, version=version)
     return ds
 
+
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def imerg_final(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG Final."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
-                          version='final')
+    return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid, version='final')
+
 
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def imerg_late(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG late."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
-                          version='late')
+    return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid, version='late')
+
 
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def imerg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Alias for IMERG final."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
-                          version='final')
+    return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid, version='final')

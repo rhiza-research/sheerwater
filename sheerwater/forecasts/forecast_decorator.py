@@ -1,7 +1,8 @@
 """A utility for decorating forecasts."""
 from functools import wraps
 from inspect import signature
-from sheerwater.utils import clip_region, apply_mask, convert_init_time_to_pred_time
+
+from sheerwater.utils import apply_mask, clip_region, convert_init_time_to_pred_time
 
 # Global forecast registry
 FORECAST_REGISTRY = {}

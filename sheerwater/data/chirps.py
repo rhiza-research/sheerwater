@@ -1,23 +1,26 @@
 """CHIRPS data product."""
-import xarray as xr
-import pandas as pd
-from sheerwater.utils import regrid, dask_remote, roll_and_agg
-from dateutil import parser
 import datetime
+
 import fsspec
+import pandas as pd
+import xarray as xr
+from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.data.data_decorator import data
+
+from sheerwater.utils import dask_remote, regrid, roll_and_agg
+from sheerwater.data import data
+
 
 @dask_remote
 @cache(cache_args=['year', 'grid', 'stations', 'version'],
-       backend_kwargs = {
+       backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-       })
+})
 def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
     """CHIRPS raw by year."""
     # Open the datastore
-    if not stations and version==3:
+    if not stations and version == 3:
         base_url = f'https://data.chc.ucsb.edu/products/CHIRP-v3.0/daily/global/tifs/{year}/chirp-v3.0.'
         urls = []
         if year < 2000:
@@ -26,13 +29,13 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
         elif year == 2000:
             for date in pd.date_range(f"{year}-06-01", f"{year}-12-31"):
                 date = date.date()
-                full_url = base_url+ f"{year}.{date.month:02}.{date.day:02}.tif"
+                full_url = base_url + f"{year}.{date.month:02}.{date.day:02}.tif"
                 urls.append(full_url)
         else:
             fs = fsspec.filesystem("https")
             for date in pd.date_range(f"{year}-01-01", f"{year}-12-31"):
                 date = date.date()
-                full_url = base_url+ f"{year}.{date.month:02}.{date.day:02}.tif"
+                full_url = base_url + f"{year}.{date.month:02}.{date.day:02}.tif"
                 if fs.exists(full_url):
                     urls.append(full_url)
 
@@ -50,7 +53,7 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
             urls, engine='rasterio', preprocess=preprocess,
             chunks={'y': 1200, 'x': 1200, 'time': 365},
             concat_dim=["time"], compat="override", coords="minimal", combine="nested")
-        ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data':'precip'})
+        ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data': 'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
             prelim_url = f'https://data.chc.ucsb.edu/products/CHIRPS-2.0/prelim/global_daily/netcdf/p05/chirps-v2.0.{year}.days_p05.nc'
@@ -81,11 +84,11 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
         if year < 2000:
             return None
         elif year == 2000:
-            for month in range(6,13):
+            for month in range(6, 13):
                 full_url = base_url + f".{month:02}.days_p05.nc"
                 urls.append(full_url)
         else:
-            for month in range(1,13):
+            for month in range(1, 13):
                 full_url = base_url + f".{month:02}.days_p05.nc"
                 urls.append(full_url)
 
@@ -103,7 +106,7 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
         # Rename to lat/lon
         ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
     else:
-        if not stations and version==2:
+        if not stations and version == 2:
             url = f'https://data.chc.ucsb.edu/products/CHIRP/daily/netcdf/chirp.{year}.days_p05.nc'
         else:
             raise ValueError(f"No chirps dataset found for stations:{stations}, version:{version}")
@@ -121,16 +124,15 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
 
     ds = ds.sel({'time': slice(start_time, end_time)})
 
-
     return ds
 
 
 @dask_remote
 @timeseries()
 @cache(cache_args=['grid', 'stations', 'version'],
-       backend_kwargs = {
+       backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-       })
+})
 def chirps_gridded(start_time, end_time, grid, stations=True, version=2):
     """CHIRPS regridded by year."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
@@ -159,14 +161,15 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2):
 @timeseries()
 @cache(cache_args=['grid', 'agg_days', 'stations', 'version'],
        cache_disable_if={'agg_days': 1},
-       backend_kwargs = {
+       backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-       })
+})
 def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2):
     """CHIRPS rolled and aggregated."""
     ds = chirps_gridded(start_time, end_time, grid, stations=stations, version=version)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
+
 
 def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
                     stations=True, version=2):
@@ -179,51 +182,56 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
     ds = ds.assign_attrs(sparse=True)
     return ds
 
+
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=False, version=2)
 
+
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=False, version=3)
 
+
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=True, version=2)
 
+
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=True, version=3)
 
+
 @dask_remote
 @data
 @cache(cache=False,
-       cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRPS.")
     ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                            stations=True, version=2)
+                         stations=True, version=2)
 
     return ds

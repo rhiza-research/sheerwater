@@ -1,14 +1,13 @@
 """Library of statistics implementations for verification."""
 # flake8: noqa: D102, ARG001, D103
 
-import xarray as xr
-import numpy as np
 from functools import wraps
 
+import numpy as np
 import properscoring
-
-from nuthatch.processors import timeseries as timeseries_decorator
+import xarray as xr
 from nuthatch import cache as cache_decorator
+from nuthatch.processors import timeseries as timeseries_decorator
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}

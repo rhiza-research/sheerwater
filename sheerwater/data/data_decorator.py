@@ -1,7 +1,8 @@
 """A decorator for identifying data sources."""
 from functools import wraps
 from inspect import signature
-from sheerwater.utils import clip_region, apply_mask
+
+from sheerwater.utils import apply_mask, clip_region
 
 # Global registry of data sources
 DATA_REGISTRY = {}

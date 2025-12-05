@@ -2,16 +2,15 @@
 
 NOTE: these are legacy functions and no longer actively maintained.
 """
-import dask
-import cdsapi
 import os
-import xarray as xr
-import dateparser
 
+import cdsapi
+import dask
+import dateparser
+import xarray as xr
 from nuthatch import cache
-from sheerwater.utils import (dask_remote,
-                              cdsapi_secret,
-                              get_grid, get_variable)
+
+from sheerwater.utils import cdsapi_secret, dask_remote, get_grid, get_variable
 
 
 @cache(cache_args=['year', 'variable', 'grid'])

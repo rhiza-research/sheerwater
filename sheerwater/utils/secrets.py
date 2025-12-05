@@ -3,8 +3,10 @@ import os
 from pathlib import Path
 
 from google.cloud import secretmanager
+
 #import salientsdk as sk
 from nuthatch import config_parameter
+
 
 def earth_data_hub_token():
     """Get a postgres write password."""

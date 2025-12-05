@@ -1,14 +1,23 @@
 """Fetches ERA5 data from the Google ARCO Store."""
-import xarray as xr
 import numpy as np
+import xarray as xr
 from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote,
-                              get_variable, apply_mask, clip_region,
-                              roll_and_agg, lon_base_change, regrid, get_grid, get_grid_ds)
-from sheerwater.utils.secrets import earth_data_hub_token
+
 from sheerwater.data import data
+from sheerwater.utils import (
+    apply_mask,
+    clip_region,
+    dask_remote,
+    get_grid,
+    get_grid_ds,
+    get_variable,
+    lon_base_change,
+    regrid,
+    roll_and_agg,
+)
+from sheerwater.utils.secrets import earth_data_hub_token
 
 
 @dask_remote

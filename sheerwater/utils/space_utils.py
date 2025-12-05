@@ -1,11 +1,10 @@
 """Space and geography utility functions for all parts of the data pipeline."""
 import numpy as np
-import xarray as xr
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
+import xarray as xr
+from nuthatch import cache
 
 from .region_utils import get_region_data
-
-from nuthatch import cache
 
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):

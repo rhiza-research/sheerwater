@@ -1,7 +1,7 @@
 """Test the regions and masking functions."""
 from sheerwater.regions_and_masks import land_sea_mask
-from sheerwater.utils.space_utils import get_grid
 from sheerwater.utils.region_utils import get_region_data
+from sheerwater.utils.space_utils import get_grid
 
 
 def test_masks():

@@ -1,20 +1,18 @@
 """Get GHCND data."""
-import pandas as pd
-from dateutil import parser
-import numpy as np
 import math
-import dask.dataframe as dd
-import dask
-import xarray as xr
 
+import dask
+import dask.dataframe as dd
+import numpy as np
+import pandas as pd
+import xarray as xr
+from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (get_grid_ds, get_grid, get_variable, roll_and_agg,
-                              snap_point_to_grid)
-from sheerwater.utils.time_utils import generate_dates_in_between
-from sheerwater.utils.remote import dask_remote
-from sheerwater.data.data_decorator import data
 
+from sheerwater.utils import (dask_remote, get_grid, get_grid_ds,  generate_dates_in_between,
+                              get_variable, roll_and_agg, snap_point_to_grid)
+from sheerwater.data import data
 
 @cache(cache_args=[])
 def ghcn_station_list():
@@ -148,7 +146,7 @@ def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global
                'lat': 300,
                'lon': 300,
            }
-       })
+})
 def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     """Get a by year station data and save it as a zarr."""
     obs = dd.read_csv(f"s3://noaa-ghcn-pds/csv/by_year/{year}.csv",
@@ -232,7 +230,6 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
                                                          tmin=('tmin', 'min'),
                                                          tmax=('tmax', 'max'))
         obs = obs.reset_index()
-
 
     obs.temp = obs.temp.astype(np.float32)
     obs.tmax = obs.tmax.astype(np.float32)
@@ -319,7 +316,7 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
     """Standard interface for ghcn data."""
     ds = _ghcn_rolled_unified(start_time, end_time, variable=variable, agg_days=agg_days,
-                              grid=grid, missing_thresh=missing_thresh,cell_aggregation=cell_aggregation)
+                              grid=grid, missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
     return ds
 
 

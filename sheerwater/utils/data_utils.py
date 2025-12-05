@@ -3,10 +3,9 @@
 These utility functions take as input an xarray dataset and return a modified
 dataset.
 """
-import numpy as np
 import dask
+import numpy as np
 import xarray_regrid  # noqa: F401, import needed for regridding
-
 
 from .space_utils import get_grid_ds
 from .time_utils import add_dayofyear

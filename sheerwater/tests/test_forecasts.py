@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test script for all forecasts functionality."""
 
-from sheerwater.utils import start_remote, get_datasource_fn
+from sheerwater.utils import get_datasource_fn, start_remote
 
 
 def run_forecasting_function(function_name, test_params):

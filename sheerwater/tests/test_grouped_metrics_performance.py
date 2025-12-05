@@ -1,9 +1,10 @@
 """Performance tests for grouped metrics with different space and time groupings."""
 import time
+
 import pytest
 
 from sheerwater.metrics import metric
-from sheerwater.utils import start_remote, plot_by_region
+from sheerwater.utils import plot_by_region, start_remote
 
 
 @pytest.fixture(scope="module")

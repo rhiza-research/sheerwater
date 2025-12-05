@@ -3,16 +3,15 @@
 from abc import ABC, abstractmethod
 from inspect import signature
 
-import xarray as xr
 import numpy as np
+import xarray as xr
 
-from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_region_level, get_mask, latitude_weights, groupby_time
-from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
-from sheerwater.regions_and_masks import region_labels
-from sheerwater.forecasts.forecast_decorator import get_forecast
+from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.data.data_decorator import get_data
-
+from sheerwater.forecasts.forecast_decorator import get_forecast
+from sheerwater.regions_and_masks import region_labels
+from sheerwater.statistics_library import statistic_factory
+from sheerwater.utils import get_mask, get_region_level, groupby_time, latitude_weights
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}

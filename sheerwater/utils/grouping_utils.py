@@ -1,9 +1,9 @@
 """Library of metrics implementations for verification."""
 # flake8: noqa: D102
 
-import xarray as xr
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 
 def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):

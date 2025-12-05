@@ -1,24 +1,22 @@
 """Interface for FuXi forecasts."""
 
-import os
 import glob
+import os
 import shutil
+
 import dask
-import xarray as xr
 import numpy as np
 import pandas as pd
 import py7zr
-
+import xarray as xr
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError
-
-from sheerwater.utils.secrets import huggingface_read_token
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote, lon_base_change,
-                                           shift_by_days,
-                                           roll_and_agg)
-from sheerwater.forecasts.forecast_decorator import forecast
+
+from sheerwater.utils import dask_remote, lon_base_change, roll_and_agg, shift_by_days
+from sheerwater.utils.secrets import huggingface_read_token
+from sheerwater.forecasts import forecast
 
 
 @dask_remote
