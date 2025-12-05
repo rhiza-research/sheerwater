@@ -8,6 +8,7 @@ from sheerwater.utils import (dask_remote,
                               get_variable, apply_mask, clip_region,
                               roll_and_agg, lon_base_change, regrid, get_grid, get_grid_ds)
 from sheerwater.utils.secrets import earth_data_hub_token
+from sheerwater.data import data
 
 
 @dask_remote
@@ -178,6 +179,7 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
@@ -350,6 +352,7 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])

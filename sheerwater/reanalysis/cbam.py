@@ -5,6 +5,7 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote,
                               apply_mask, clip_region,
                               roll_and_agg, regrid)
+from sheerwater.data import data
 
 @dask_remote
 @timeseries()
@@ -75,6 +76,7 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 @dask_remote
 @timeseries()
+@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):

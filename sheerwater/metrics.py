@@ -1,10 +1,11 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
 from nuthatch import cache
-from sheerwater.utils import dask_remote, get_datasource_fn
+from sheerwater.utils import dask_remote
 from sheerwater.metrics_library import metric_factory
 from sheerwater.regions_and_masks import region_labels
 from sheerwater.utils import get_mask, groupby_time, groupby_region
+from sheerwater.data.data_decorator import get_data
 
 
 @dask_remote
@@ -41,7 +42,7 @@ def coverage(start_time, end_time, variable, agg_days, station_data,
              time_grouping=None, grid="global1_5", mask='lsm', region='country', missing_thresh=0.9):  # noqa: ARG001
     """Compute coverage of a dataset."""
     # Use the metric registry to get the metric class
-    station_data_fn = get_datasource_fn(station_data)
+    station_data_fn = get_data(station_data)
     data = station_data_fn(start_time, end_time, variable, agg_days=agg_days,
                            grid=grid, mask=None, region='global')
 

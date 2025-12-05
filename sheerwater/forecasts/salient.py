@@ -5,7 +5,8 @@ import numpy as np
 from nuthatch import cache
 from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote, get_variable, regrid,
-                                           forecast, shift_by_days)
+                                           shift_by_days)
+from sheerwater.forecasts.forecast_decorator import forecast
 
 
 @dask_remote
@@ -51,9 +52,8 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
 
 @dask_remote
 @timeseries()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 @forecast
+@cache(cache=False)
 def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global0_25', mask='lsm', region='africa'):  # noqa: ARG001
     """Standard format forecast data for Salient."""

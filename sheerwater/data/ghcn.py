@@ -1,6 +1,5 @@
 """Get GHCND data."""
 import pandas as pd
-from functools import partial
 from dateutil import parser
 import numpy as np
 import math
@@ -11,10 +10,10 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 from sheerwater.utils import (get_grid_ds, get_grid, get_variable, roll_and_agg,
-                              apply_mask, clip_region, snap_point_to_grid)
+                              snap_point_to_grid)
 from sheerwater.utils.time_utils import generate_dates_in_between
 from sheerwater.utils.remote import dask_remote
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
+from sheerwater.data.data_decorator import data
 
 
 @cache(cache_args=[])
@@ -317,55 +316,37 @@ def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
 
 @dask_remote
 def _ghcn_unified(start_time, end_time, variable, agg_days,
-                  grid='global0_25', mask='lsm', region='global',
-                  missing_thresh=0.9, cell_aggregation='first'):
+                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
     """Standard interface for ghcn data."""
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = variable == 'rainy_onset_no_drought'
-        fn = partial(_ghcn_rolled_unified, start_time, end_time, variable='precip', grid=grid,
-                     missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
-        roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-        shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-        data = spw_precip_preprocess(fn, agg_days=roll_days, shift_days=shift_days,
-                                     mask=mask, region=region, grid=grid)
-        ds = spw_rainy_onset(data,
-                             onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                             time_dim='time', prob_type='deterministic',
-                             drought_condition=drought_condition,
-                             mask=mask, region=region, grid=grid)
-        # Rainy onset is sparse, so we need to set the sparse attribute
-        ds = ds.assign_attrs(sparse=True)
-    else:
-        ds = _ghcn_rolled_unified(start_time, end_time, variable=variable, agg_days=agg_days,
-                                  grid=grid, missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
-        # Apply masking
-        ds = apply_mask(ds, mask, grid=grid)
-        ds = clip_region(ds, region=region)
+    ds = _ghcn_rolled_unified(start_time, end_time, variable=variable, agg_days=agg_days,
+                              grid=grid, missing_thresh=missing_thresh,cell_aggregation=cell_aggregation)
     return ds
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn(start_time, end_time, variable, agg_days,
-         grid='global0_25', mask='lsm', region='global',
+         grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
          missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
-                         grid=grid, mask=mask, region=region,
+                         grid=grid,
                          missing_thresh=missing_thresh, cell_aggregation='first')
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def ghcn_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
+def ghcn_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
              missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
-                         grid=grid, mask=mask, region=region,
+                         grid=grid,
                          missing_thresh=missing_thresh, cell_aggregation='mean')

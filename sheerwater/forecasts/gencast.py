@@ -6,8 +6,9 @@ import gcsfs
 from nuthatch import cache
 from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote, lon_base_change,
-                                           roll_and_agg, regrid, forecast,
+                                           roll_and_agg, regrid,
                                            shift_by_days)
+from sheerwater.forecasts.forecast_decorator import forecast
 
 
 @dask_remote
@@ -167,9 +168,9 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
 
 @dask_remote
 @timeseries()
+@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@forecast
 def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""
