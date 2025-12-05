@@ -31,7 +31,6 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
                            variable="precip",
                            region="global",
                            lead="week3",
-                           agg_days=7,
                            mask='lsm',
                            recompute=False,
                            spatial=True):  # noqa: E501
@@ -203,7 +202,6 @@ def test_multiple_combinations():  # noqa: E501
         # Set defaults
         test_case.setdefault("region", "global")
         test_case.setdefault("lead", "week3")
-        test_case.setdefault("agg_days", "7")
         test_case.setdefault("recompute", ['global_statistic', 'metric'])
         # test_case.setdefault("recompute", False)
         test_case.setdefault("spatial", True)
