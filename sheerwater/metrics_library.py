@@ -76,22 +76,36 @@ class Metric(ABC):
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
-        # Get the forecast dataframe
+        # Arguments for calling the data and forecast functions.
+        kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
+                  'variable': self.variable, 'agg_days': self.agg_days,
+                  'grid': self.grid, 'mask': None, 'region': self.clip}
+
+        """
+        1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
+        For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
+                     to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
+        """
         try:
+            # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
-        except KeyError:
-            fcst_fn = get_data(self.forecast)
-        # TODO: could update with a forecast or truth decorator to handle more consistantly
-        if 'prob_type' in signature(fcst_fn).parameters:
-            forecast_or_truth = 'forecast'
-            fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                           prob_type=self.prob_type, grid=self.grid, mask=None, region=self.clip, memoize=True)
+            try:
+                fcst = fcst_fn(**kwargs, prob_type=self.prob_type, memoize=True)
+            except TypeError:
+                # If the forecast is not a cacheable function the memoize kwarg will throw an error
+                fcst = fcst_fn(**kwargs, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
-        else:
-            forecast_or_truth = 'truth'
-            fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                           grid=self.grid, mask=None, region=self.clip, memoize=True)
+            forecast_or_truth = 'forecast'
+        except KeyError:
+            data_fn = get_data(self.forecast)
+            try:
+                fcst = data_fn(**kwargs, memoize=True)
+            except TypeError:
+                # If the data is not a cacheable function the memoize kwarg will throw an error
+                fcst = data_fn(**kwargs)
             enhanced_prob_type = "deterministic"
+            forecast_or_truth = 'truth'
+
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
             raise ValueError("Cannot run probabilistic metric on deterministic forecasts.")
@@ -99,19 +113,20 @@ class Metric(ABC):
                 and self.prob_type == 'deterministic':
             raise ValueError("Cannot run deterministic metric on probabilistic forecasts.")
 
+        """2. Fetch the truth data. This must be a dataset, often either a gridded truth or station."""
         # Get the truth dataframe
+        truth_fn = get_data(self.truth)
         try:
-            truth_fn = get_forecast(self.truth)
-        except KeyError:
-            truth_fn = get_data(self.truth)
-        obs = truth_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                       grid=self.grid, mask=None, region=self.clip, memoize=True)
-
+            obs = truth_fn(**kwargs, memoize=True)
+        except TypeError:
+            # If the truth is not a cacheable function the memoize kwarg will throw an error
+            obs = truth_fn(**kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
+        """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
@@ -124,6 +139,7 @@ class Metric(ABC):
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
         valid_times = list(valid_times)
         valid_times.sort()
+
         # Cast the longitude and latitude coordinates to floats with precision 4
         # This fixs a bug where the long and lat don't match deep in their floating point precision
         # TODO: this is mysterious, and I feel like we've fixed this before ...
@@ -150,6 +166,7 @@ class Metric(ABC):
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
+        """4. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
         self.metric_data['data']['obs'] = obs
         self.metric_data['data']['fcst'] = fcst
@@ -291,10 +308,8 @@ class Metric(ABC):
 
             if self.region == 'global':
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
-                # ds = ds.apply(mean_or_sum, agg_fn='sum', dims=['lat', 'lon'])
             else:
                 ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
-                # ds = ds.groupby('region').apply(mean_or_sum, agg_fn='sum', dims='stacked_lat_lon')
 
             for stat in self.statistics:
                 ds[stat] = ds[stat] / ds['weights']

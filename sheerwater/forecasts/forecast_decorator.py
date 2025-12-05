@@ -17,13 +17,6 @@ def forecast(func):
     def forecast_wrapper(*args, **kwargs):
         try:
             ds = func(*args, **kwargs)
-        except TypeError as e:
-            if 'memoize' in kwargs:
-                del kwargs['memoize']
-                ds = func(*args, **kwargs)
-            else:
-                raise(e)
-        try:
             # Filter kwargs to only include parameters in the function signature
             # This allows other decorators to pass additional arguments
             sig_params = set(sig.parameters.keys())

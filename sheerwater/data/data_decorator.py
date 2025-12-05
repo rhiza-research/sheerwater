@@ -3,11 +3,11 @@ from functools import wraps
 from inspect import signature
 from sheerwater.utils import clip_region, apply_mask
 
-# Global forecast registry
+# Global registry of data sources
 DATA_REGISTRY = {}
 
 def data(func):
-    """Decorator to mark a function as a forecast and concat the leads."""
+    """Decorator to mark a function as a data source."""
     # Get function signature to access default values
     sig = signature(func)
 
@@ -15,13 +15,6 @@ def data(func):
     def data_wrapper(*args, **kwargs):
         try:
             ds = func(*args, **kwargs)
-        except TypeError as e:
-            if 'memoize' in kwargs:
-                del kwargs['memoize']
-                ds = func(*args, **kwargs)
-            else:
-                raise(e)
-        try:
             # Filter kwargs to only include parameters in the function signature
             # This allows other decorators to pass additional arguments
             sig_params = set(sig.parameters.keys())
