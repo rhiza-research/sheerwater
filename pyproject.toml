@@ -43,9 +43,7 @@ dependencies = [
     "terracotta",
     "sqlalchemy",
     "xarray-regrid",
-    "weatherbench2 @ git+https://github.com/rhiza-research/weatherbench2",
     "deltalake",
-    "xskillscore @ git+https://github.com/rhiza-research/xskillscore",
     "coiled>=1.76.1",
     "opt-einsum>=3.4.0",
     "plotly>=5.24.1",
@@ -58,6 +56,7 @@ dependencies = [
     "nuthatch @ git+https://github.com/rhiza-research/nuthatch",
     "pyzstd==0.16.2",
     #"bottleneck",
+    "properscoring",
 ]
 
 [dependency-groups]

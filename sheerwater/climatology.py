@@ -32,7 +32,7 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
     ds = add_dayofyear(ds)
     ds = pad_with_leapdays(ds)
 
-    ds['is_dry'] = ds['precip'] < 0.25
+    ds['is_dry'] = (ds['precip'] < 0.25)
     ds = ds.groupby('dayofyear').mean(dim='time')
     ds = ds.drop_vars(['precip'])
     ds = ds.rename({

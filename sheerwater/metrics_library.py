@@ -77,7 +77,6 @@ class Metric(ABC):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Get the forecast dataframe
         fcst_fn = get_datasource_fn(self.forecast)
-        # TODO: could update with a forecast or truth decorator to handle more consistantly
         if 'prob_type' in signature(fcst_fn).parameters:
             forecast_or_truth = 'forecast'
             fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,

@@ -4,20 +4,21 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sheerwater.metrics import metric
-from sheerwater.utils import start_remote, cacheable, dask_remote
+from sheerwater.utils import start_remote, dask_remote
+from nuthatch import cache
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast',
-                       'truth', 'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
-           chunking={"lat": 121, "lon": 240, "time": -1},
-           chunk_by_arg={
+@cache(cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast', 'truth',
+                   'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
                },
-           },
-           cache=True)
+           }
+})
 def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
                              metric, time_grouping=None, spatial=False, grid="global1_5",
                              mask='lsm', region='africa'):  # noqa
@@ -30,6 +31,7 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
                            variable="precip",
                            region="global",
                            lead="week3",
+                           agg_days=7,
                            mask='lsm',
                            recompute=False,
                            spatial=True):  # noqa: E501
@@ -69,6 +71,7 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
         ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
         ds_new = ds_new.rename({'prediction_timedelta': 'lead_time'})
         ds_new.lead_time.values = lead
+    ds_new = ds_new.rename_vars({metric_name: variable})
 
     # Run grouped_metric
     region_call = region if region != 'nimbus_east_africa' else 'east_africa'
@@ -200,8 +203,9 @@ def test_multiple_combinations():  # noqa: E501
         # Set defaults
         test_case.setdefault("region", "global")
         test_case.setdefault("lead", "week3")
-        # test_case.setdefault("recompute", ['global_statistic', 'metric'])
-        test_case.setdefault("recompute", False)
+        test_case.setdefault("agg_days", "7")
+        test_case.setdefault("recompute", ['global_statistic', 'metric'])
+        # test_case.setdefault("recompute", False)
         test_case.setdefault("spatial", True)
         test_case.setdefault("mask", "lsm")
 
