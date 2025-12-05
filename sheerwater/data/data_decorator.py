@@ -13,7 +13,14 @@ def data(func):
 
     @wraps(func)
     def data_wrapper(*args, **kwargs):
-        ds = func(*args, **kwargs)
+        try:
+            ds = func(*args, **kwargs)
+        except TypeError as e:
+            if 'memoize' in kwargs:
+                del kwargs['memoize']
+                ds = func(*args, **kwargs)
+            else:
+                raise(e)
         try:
             # Filter kwargs to only include parameters in the function signature
             # This allows other decorators to pass additional arguments
