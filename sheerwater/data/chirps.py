@@ -1,21 +1,20 @@
 """CHIRPS data product."""
 import xarray as xr
 import pandas as pd
-from functools import partial
-from sheerwater.utils import regrid, dask_remote, roll_and_agg, apply_mask, clip_region
+from sheerwater.utils import regrid, dask_remote, roll_and_agg
 from dateutil import parser
 import datetime
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 import fsspec
 from nuthatch import cache
 from nuthatch.processors import timeseries
+from sheerwater.data.data_decorator import data
 
 @dask_remote
 @cache(cache_args=['year', 'grid', 'stations', 'version'],
        backend_kwargs = {
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
        })
-def chirps_raw(year, grid, stations=True, version=2):
+def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
     """CHIRPS raw by year."""
     # Open the datastore
     if not stations and version==3:
@@ -47,8 +46,10 @@ def chirps_raw(year, grid, stations=True, version=2):
             ds = ds.reset_coords('band', drop=True)
             return ds
 
-        ds = xr.open_mfdataset(urls, engine='rasterio', preprocess=preprocess, chunks={'y': 1200, 'x': 1200, 'time': 365},
-                               concat_dim=["time"], compat="override", coords="minimal", combine="nested")
+        ds = xr.open_mfdataset(
+            urls, engine='rasterio', preprocess=preprocess,
+            chunks={'y': 1200, 'x': 1200, 'time': 365},
+            concat_dim=["time"], compat="override", coords="minimal", combine="nested")
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data':'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
@@ -168,58 +169,61 @@ def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2
     return ds
 
 def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
-                    mask='lsm', region='global', stations=True, version=2):
+                    stations=True, version=2):
     """A unified chirps caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRP/S.")
 
     ds = chirps_rolled(start_time, end_time, agg_days, grid, stations=stations, version=version)
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
 
     ds = ds.assign_attrs(sparse=True)
     return ds
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirp_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def chirp_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           mask=mask, region=region, stations=False, version=2)
+                           stations=False, version=2)
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirp_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def chirp_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           mask=mask, region=region, stations=False, version=3)
+                           stations=False, version=3)
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirps_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def chirps_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           mask=mask, region=region, stations=True, version=2)
+                           stations=True, version=2)
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           mask=mask, region=region, stations=True, version=3)
+                           stations=True, version=3)
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRPS.")
     ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                            mask=mask, region=region, stations=True, version=2)
+                            stations=True, version=2)
 
     return ds

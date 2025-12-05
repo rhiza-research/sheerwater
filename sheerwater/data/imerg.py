@@ -5,8 +5,8 @@ from dateutil import parser
 
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import dask_remote, regrid, roll_and_agg, apply_mask, clip_region
-#from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
+from sheerwater.utils import dask_remote, regrid, roll_and_agg
+from sheerwater.data.data_decorator import data
 
 
 @dask_remote
@@ -65,35 +65,36 @@ def imerg_rolled(start_time, end_time, agg_days, grid, version):
     return ds
 
 def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
-                   mask='lsm', region='global', version='final'):
+                   version='final'):
     """Unified IMERG accessor."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by IMERG.")
     ds = imerg_rolled(start_time, end_time, agg_days=agg_days, grid=grid, version=version)
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
     return ds
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def imerg_final(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def imerg_final(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG Final."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
-                          mask=mask, region=region, version='final')
+                          version='final')
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def imerg_late(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def imerg_late(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG late."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
-                          mask=mask, region=region, version='late')
+                          version='late')
 
 @dask_remote
+@data
 @cache(cache=False,
        cache_args = ['variable', 'agg_days', 'grid', 'mask', 'region'])
-def imerg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def imerg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Alias for IMERG final."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid,
-                          mask=mask, region=region, version='final')
+                          version='final')

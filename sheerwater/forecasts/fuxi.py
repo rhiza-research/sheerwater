@@ -15,9 +15,10 @@ from huggingface_hub.utils import EntryNotFoundError
 from sheerwater.utils.secrets import huggingface_read_token
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import (dask_remote, lon_base_change, forecast,
+from sheerwater.utils import (dask_remote, lon_base_change,
                                            shift_by_days,
                                            roll_and_agg)
+from sheerwater.forecasts.forecast_decorator import forecast
 
 
 @dask_remote
@@ -157,9 +158,9 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 
 @dask_remote
 @timeseries()
+@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@forecast
 def fuxi(start_time, end_time, variable, agg_days, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""

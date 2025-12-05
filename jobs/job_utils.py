@@ -136,7 +136,7 @@ def parse_args():
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
 
 
-def prune_metrics(combos, global_run=False):
+def prune_metrics(combos, global_run=False):  # noqa: ARG001
     """Prunes a list of metrics combinations.
 
     Can skip all coupled metrics for global runs.

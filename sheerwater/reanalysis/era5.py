@@ -2,14 +2,13 @@
 import xarray as xr
 import numpy as np
 from dateutil import parser
-from functools import partial
 from nuthatch import cache
 from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote,
                               get_variable, apply_mask, clip_region,
                               roll_and_agg, lon_base_change, regrid, get_grid, get_grid_ds)
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
 from sheerwater.utils.secrets import earth_data_hub_token
+from sheerwater.data import data
 
 
 @dask_remote
@@ -51,6 +50,7 @@ def era5_land_daily_year(year, variable):
     """Aggregates the hourly ERA5 data into daily data.
 
     Args:
+        year: The year to fetch data for.
         start_time (str): The start date to fetch data for.
         end_time (str): The end date to fetch.
         variable (str): The weather variable to fetch.
@@ -102,6 +102,13 @@ def era5_land_daily_year(year, variable):
            'chunking': {"lat": 300, "lon": 300, "time": 365},
 })
 def era5_land_daily(start_time, end_time, variable):
+    """Aggregates the hourly ERA5 data into daily data for a date range.
+
+    Args:
+        start_time: Start date for the data range.
+        end_time: End date for the data range.
+        variable: Variable to fetch.
+    """
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
     datasets = []
@@ -172,6 +179,7 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
@@ -344,6 +352,7 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])

@@ -3,12 +3,11 @@ import dask.dataframe as dd
 import dask
 import xarray as xr
 import math
-from functools import partial
 from nuthatch import cache
 from nuthatch.processors import timeseries
-from sheerwater.utils import get_grid_ds, get_grid, roll_and_agg, apply_mask, clip_region, snap_point_to_grid
+from sheerwater.utils import get_grid_ds, get_grid, roll_and_agg, snap_point_to_grid
 from sheerwater.utils.remote import dask_remote
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
+from sheerwater.data.data_decorator import data
 
 
 @cache(cache_args=[])
@@ -123,30 +122,12 @@ def tahmo_rolled(start_time, end_time, agg_days,
 
 @dask_remote
 def _tahmo_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', mask='lsm', region='global',
-                   missing_thresh=0.9, cell_aggregation='first'):
-    """Standard interface for tahmo data."""
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = variable == 'rainy_onset_no_drought'
-        fn = partial(tahmo_rolled, start_time, end_time, grid=grid,
-                     missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
-        roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-        shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-        data = spw_precip_preprocess(fn, agg_days=roll_days, shift_days=shift_days,
-                                     mask=mask, region=region, grid=grid)
-        ds = spw_rainy_onset(data,
-                             onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                             time_dim='time', prob_type='deterministic',
-                             drought_condition=drought_condition,
-                             mask=mask, region=region, grid=grid)
-    else:
-        if variable != 'precip':
-            raise ValueError("TAHMO only supports precip")
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
+    if variable != 'precip':
+        raise ValueError("TAHMO only supports precip")
 
-        ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation)
-        ds = ds[[variable]]
-        ds = apply_mask(ds, mask, grid=grid)
-        ds = clip_region(ds, region=region)
+    ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation)
+    ds = ds[[variable]]
 
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
@@ -154,26 +135,28 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tahmo(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
+def tahmo(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
           missing_thresh=0.9):
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
-                          grid=grid, mask=mask, region=region,
+                          grid=grid,
                           missing_thresh=missing_thresh, cell_aggregation='first')
 
 
 @dask_remote
+@data
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tahmo_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',
+def tahmo_avg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9):
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
-                          grid=grid, mask=mask, region=region,
+                          grid=grid,
                           missing_thresh=missing_thresh, cell_aggregation='mean')

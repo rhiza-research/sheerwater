@@ -5,12 +5,13 @@ from inspect import signature
 
 import xarray as xr
 import numpy as np
-import pandas as pd
 
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_datasource_fn, get_region_level, get_mask, latitude_weights, mean_or_sum, groupby_time
+from sheerwater.utils import get_region_level, get_mask, latitude_weights, groupby_time
 from sheerwater.climatology import climatology_2020, seeps_wet_threshold, seeps_dry_fraction
 from sheerwater.regions_and_masks import region_labels
+from sheerwater.forecasts.forecast_decorator import get_forecast
+from sheerwater.data.data_decorator import get_data
 
 
 # Global metric registry dictionary
@@ -76,7 +77,11 @@ class Metric(ABC):
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Get the forecast dataframe
-        fcst_fn = get_datasource_fn(self.forecast)
+        try:
+            fcst_fn = get_forecast(self.forecast)
+        except KeyError:
+            fcst_fn = get_data(self.forecast)
+        # TODO: could update with a forecast or truth decorator to handle more consistantly
         if 'prob_type' in signature(fcst_fn).parameters:
             forecast_or_truth = 'forecast'
             fcst = fcst_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
@@ -95,7 +100,10 @@ class Metric(ABC):
             raise ValueError("Cannot run deterministic metric on probabilistic forecasts.")
 
         # Get the truth dataframe
-        truth_fn = get_datasource_fn(self.truth)
+        try:
+            truth_fn = get_forecast(self.truth)
+        except KeyError:
+            truth_fn = get_data(self.truth)
         obs = truth_fn(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
                        grid=self.grid, mask=None, region=self.clip, memoize=True)
 

@@ -283,6 +283,8 @@ def plot_by_region(ds, region, variable, file_string='none', title='Regional Map
         ds: xarray DataArray or Dataset with a 'region' coordinate
         region: Region level or specific region name to plot
         variable: Variable name if ds is a Dataset (optional)
+        file_string: File path string for saving the plot
+        title: Title for the plot
 
     Returns:
         matplotlib axes object

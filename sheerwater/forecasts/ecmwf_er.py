@@ -9,8 +9,8 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import (dask_remote, lon_base_change,
                                            roll_and_agg,
                                            regrid, get_variable,
-                                           shift_by_days,
-                                           forecast)
+                                           shift_by_days)
+from sheerwater.forecasts.forecast_decorator import forecast
 
 
 @dask_remote
@@ -385,9 +385,9 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 
 @dask_remote
 @timeseries()
+@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@forecast
 def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
@@ -397,9 +397,9 @@ def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='determinis
 
 @dask_remote
 @timeseries()
+@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@forecast
 def ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""

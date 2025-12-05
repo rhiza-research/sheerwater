@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 from nuthatch import cache
-from sheerwater.utils import dask_remote, start_remote
+from sheerwater.utils import dask_remote
 from sheerwater.metrics import metric
 
 
@@ -66,7 +66,6 @@ def _metric_table(start_time, end_time, variable,
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
-    fcols = ['forecast']
     order = ['forecast', 'time_grouping', 'region'] + agg_days
 
     # Reorder the columns if necessary
