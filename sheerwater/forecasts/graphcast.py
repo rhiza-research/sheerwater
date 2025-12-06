@@ -5,7 +5,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.forecasts import forecast
+from sheerwater.forecasts.forecast_decorator import forecast
 from sheerwater.utils import dask_remote, lon_base_change, regrid, roll_and_agg, shift_by_days
 
 

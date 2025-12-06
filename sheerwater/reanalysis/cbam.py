@@ -3,7 +3,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.data import data
+from sheerwater.data.data_decorator import data
 from sheerwater.utils import apply_mask, clip_region, dask_remote, regrid, roll_and_agg
 
 

@@ -9,7 +9,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
-from sheerwater.data import data
+from sheerwater.data.data_decorator import data
 
 
 @dask_remote

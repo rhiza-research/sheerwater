@@ -12,7 +12,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import (dask_remote, get_grid, get_grid_ds,  generate_dates_in_between,
                               get_variable, roll_and_agg, snap_point_to_grid)
-from sheerwater.data import data
+from sheerwater.data.data_decorator import data
 
 @cache(cache_args=[])
 def ghcn_station_list():

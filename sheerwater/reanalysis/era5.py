@@ -5,7 +5,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.data import data
+from sheerwater.data.data_decorator import data
 from sheerwater.utils import (
     apply_mask,
     clip_region,
