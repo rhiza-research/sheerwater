@@ -1,5 +1,5 @@
 [tool.nuthatch]
-filesystem = "gs://sheerwater-public-datalake/caches"
+filesystem = "gs://sheerwater-datalake/caches"
 host = "postgres.sheerwater.rhizaresearch.org"
 port = 5432
 database = "postgres"
@@ -14,6 +14,6 @@ cache_timeout = 0
 filesystem = "~/.cache/nuthatch"
 
 [tool.nuthatch.mirror-public]
-filesystem = "gs://sheerwater-datalake/caches"
+filesystem = "gs://sheerwater-public-datalake/caches"
 [tool.nuthatch.mirror-public.filesystem_options]
 cache_timeout = 0
