@@ -140,3 +140,8 @@ cache_timeout = 0
 
 [tool.nuthatch.local]
 filesystem = "~/.cache/nuthatch"
+
+[tool.nuthatch.mirror-public]
+filesystem = "gs://sheerwater-public-datalake/caches"
+[tool.nuthatch.mirror-public.filesystem_options]
+cache_timeout = 0
