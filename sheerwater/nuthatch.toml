@@ -17,3 +17,4 @@ filesystem = "~/.cache/nuthatch"
 filesystem = "gs://sheerwater-public-datalake/caches"
 [tool.nuthatch.mirror-public.filesystem_options]
 cache_timeout = 0
+retries = 2
