@@ -10,7 +10,9 @@ products and station data.
 
 ## Getting started
 
-To run this code, you need read access to Sheerwater forecasts and ground truth data stored in our cloud bucket.  Please request access from Rhiza if you would like to execute this code. Once you have access, you can read data and run metrics by importing `sheerwater` and running your code.
+To run this code, you need read access to Sheerwater forecasts and ground truth data stored in our cloud bucket. Some
+of this data, included CHIRPS, IMERG, ERA5, and ECMWF ER are in a public bucket that requires no additional
+credentials, so all you have to do is:
 
 1) Install sheerwater in your environment:
 
@@ -18,30 +20,43 @@ To run this code, you need read access to Sheerwater forecasts and ground truth 
 pip install sheerwater
 ```
 
-2) Install Google Cloud CLI and log in:
+2) Use sheerwater to access forecasts or data:
+```py
+from sheerwater.reanalysis import era5
+from sheerwater.data import ghcn, chirps_v3
+from sheerwater.metrics import grouped_metric
+
+# Get ERA5 as an xarray
+ds_era5 = era5("2020-01-01", "2022-01-01", agg_days=1, variable="precip", grid="global1_5",)
+
+# Get gridded GHCN weather station data
+ds_ghcn = ghcn("2020-01-01", "2022-01-01", agg_days=7, variable="precip", grid="global0_25")
+
+# Get chirps data with default parameters
+ds_chirps = chirps_v2()
+```
+
+3) Run evaluation metrics on public forecasts or data
+
+```py
+# Run an evaluation metric - this might take some time!
+val = metric("2016-01-01", "2022-12-31", forecast="era5", truth="ghcn", variable="precip", 
+             metric_name="mae", region="country", grid="global1_5")
+print(val)
+```
+
+## Accessing sheerwater private data
+
+Some data requires access to the sheerwater private bucket. Please send us an email for access so we 
+can discuss use cases and collaboration. After we have added you to our bucket you can:
+
 ```console
 curl https://sdk.cloud.google.com | bash
 gcloud auth application-default login
 ```
 
-3) Use sheerwater to access forecasts or data:
-```py
-from sheerwater.forecasts import fuxi
-from sheerwater.data import ghcn
-from sheerwater.metrics import grouped_metric
+No you should be able to access data that 
 
-# Get the FuXi S2S forecast as an xarray
-ds_fuxi = fuxi("2020-01-01", "2022-01-01", lead="week2", variable="precip", grid="global1_5",)
-
-# Get gridded GHCN weather station data
-ds_ghcn = ghcn("2020-01-01", "2022-01-01", agg_days=7, variable="precip", grid="global0_25")
-
-# Fetch an evaluation metric - note, already computed metrics are defined 
-# from 2016-01-01 to 2022-12-31.
-val = metric("2016-01-01", "2022-12-31", forecast="fuxi", truth="era5", variable="precip", 
-             metric_name="mae", region="country", grid="global1_5")
-print(val)
-```
 
 ## Evaluating your own forecasts against your own data
 
