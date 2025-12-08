@@ -25,11 +25,12 @@ def data(func):
             bound_args.apply_defaults()
 
             # Get mask, region, and grid from bound args (includes defaults)
+            grid = bound_args.arguments.get('grid', 'global0_25')
             mask = bound_args.arguments.get('mask', 'lsm')
             region = bound_args.arguments.get('region', 'global')
 
             # Apply masking
-            ds = apply_mask(ds, mask, grid=kwargs['grid'])
+            ds = apply_mask(ds, mask, grid=grid)
             # Clip to specified region
             ds = clip_region(ds, region=region)
             # Remove all unneeded dimensions

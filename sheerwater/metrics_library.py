@@ -1,7 +1,6 @@
 """Library of metrics implementations for verification."""
 # flake8: noqa: D102
 from abc import ABC, abstractmethod
-from inspect import signature
 
 import numpy as np
 import xarray as xr

@@ -187,7 +187,8 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirp_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
+             grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=False, version=2)
@@ -197,7 +198,8 @@ def chirp_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirp_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
+             grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=False, version=3)
@@ -207,7 +209,8 @@ def chirp_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirps_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
+              grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=True, version=2)
@@ -217,7 +220,8 @@ def chirps_v2(start_time, end_time, variable, agg_days, grid='global0_25', mask=
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
+              grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=True, version=3)
@@ -227,11 +231,12 @@ def chirps_v3(start_time, end_time, variable, agg_days, grid='global0_25', mask=
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def chirps(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
+           grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRPS.")
     ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                         stations=True, version=2)
+                         stations=True, version=3)
 
     return ds

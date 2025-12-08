@@ -85,4 +85,5 @@ __all__ = [
     "first_satisfied_date",
     "snap_point_to_grid",
     "plot_by_region",
+    "huggingface_read_token"
 ]

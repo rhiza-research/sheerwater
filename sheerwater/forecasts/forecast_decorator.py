@@ -28,6 +28,7 @@ def forecast(func):
 
             # Get mask, region, grid, and agg_days from bound args (includes defaults)
             mask = bound_args.arguments.get('mask')
+            grid = bound_args.arguments.get('grid')
             region = bound_args.arguments.get('region')
             agg_days = bound_args.arguments.get('agg_days')
 
@@ -36,7 +37,7 @@ def forecast(func):
             # Assign attributes
             ds = ds.assign_attrs(agg_days=float(agg_days))
             # Apply masking
-            ds = apply_mask(ds, mask, grid=kwargs['grid'])
+            ds = apply_mask(ds, mask, grid=grid)
             # Clip to specified region
             ds = clip_region(ds, region=region)
             # Remove all unneeded dimensions

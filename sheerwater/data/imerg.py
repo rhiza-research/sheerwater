@@ -79,7 +79,8 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def imerg_final(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
+                grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG Final."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid, version='final')
 
@@ -88,7 +89,8 @@ def imerg_final(start_time, end_time, variable, agg_days, grid='global0_25', mas
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def imerg_late(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
+               grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG late."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid, version='late')
 
@@ -97,6 +99,7 @@ def imerg_late(start_time, end_time, variable, agg_days, grid='global0_25', mask
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def imerg(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,
+          grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Alias for IMERG final."""
     return _imerg_unified(start_time, end_time, variable, agg_days, grid=grid, version='final')
