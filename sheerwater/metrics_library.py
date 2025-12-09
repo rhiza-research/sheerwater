@@ -253,7 +253,8 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         region_level, _ = get_region_level(self.space_grouping)
-        region_ds = region_labels(grid=self.grid, space_grouping=region_level, region=self.region, memoize=True).compute()
+        region_ds = region_labels(grid=self.grid, space_grouping=region_level,
+                                  region=self.region, memoize=True).compute()
         mask_ds = get_mask(self.mask, self.grid, memoize=True)
         if self.region != 'global':
             mask_ds = clip_region(mask_ds, region=self.region)

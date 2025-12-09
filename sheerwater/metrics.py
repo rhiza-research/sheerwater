@@ -34,7 +34,7 @@ def metric(start_time, end_time, variable, agg_days, forecast, truth,
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'station_data',
                    'time_grouping', 'grid', 'mask', 'region', 'missing_thresh'])
 def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, station_data='ghcn_avg',
-             time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', 
+             time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm',
              region='global', missing_thresh=0.9):  # noqa: ARG001
     """Compute coverage of a dataset."""
     # Use the metric registry to get the metric class

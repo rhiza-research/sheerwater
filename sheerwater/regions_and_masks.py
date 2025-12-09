@@ -85,7 +85,7 @@ def region_labels(grid='global1_5', space_grouping='country', region='global'):
     Args:
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
-        space_grouping (str): 
+        space_grouping (str):
             - country, continent, subregion, region_un, region_wb, meteorological_zone,
               hemisphere, sheerwater_region
         region (str): The region to clip to. A specific instance of a space group

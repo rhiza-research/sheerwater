@@ -16,11 +16,11 @@ from .data_decorator import data
 def imerg_raw(year, version='final'):
     """Concatenated IMERG netcdf files by year.
 
-    We manually download the IMERG netcdfs by going to this website 
-    https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGDL_07/summary?keywords=%22IMERG%20late%22 
-    logging in, downloading the filelist, then following the curl fetch instructions 
-    here https://disc.gsfc.nasa.gov/information/howto?title=How%20to%20Access%20GES%20DISC%20Data%20Using%20wget%20and%20curl, 
-    then finally uploading them to our datalake with tools/copy_imerg.py. 
+    We manually download the IMERG netcdfs by going to this website
+    https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGDL_07/summary?keywords=%22IMERG%20late%22
+    logging in, downloading the filelist, then following the curl fetch instructions
+    here https://disc.gsfc.nasa.gov/information/howto?title=How%20to%20Access%20GES%20DISC%20Data%20Using%20wget%20and%20curl,
+    then finally uploading them to our datalake with tools/copy_imerg.py.
     """
     # Open the datastore
     fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
