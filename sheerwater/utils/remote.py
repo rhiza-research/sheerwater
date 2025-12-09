@@ -1,22 +1,31 @@
 """Utilities for running functions on a remote dask cluster."""
-from dask.distributed import Client, get_client, LocalCluster
-import coiled
-from coiled.credentials.google import send_application_default_credentials
 import logging
-from functools import wraps
 import os
 import pwd
+from functools import wraps
+
+import coiled
+from coiled.credentials.google import send_application_default_credentials
+from dask.distributed import Client, LocalCluster, get_client
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 config_options = {
     'large_scheduler': {
-        'scheduler_cpu': 16,
-        'scheduler_memory': "64GiB"
+        'scheduler_vm_types': ['c2-standard-16', 'c3-standard-22']
+    },
+    'xlarge_scheduler': {
+        'scheduler_vm_types': ['c2-standard-30', 'c3-standard-44']
+    },
+    'xxlarge_scheduler': {
+        'scheduler_vm_types': ['c3-standard-88']
     },
     'on_demand': {
         'spot_policy': 'on-demand'
+    },
+    'single_cluster': {
+        'n_workers': 1
     },
     'large_cluster': {
         'n_workers': [10, 11]
@@ -45,6 +54,9 @@ config_options = {
     'xxlarge_node': {
         'worker_vm_types': ['c3-standard-88']
     },
+    'xxxlarge_node': {
+        'worker_vm_types': ['c3-standard-176']
+    },
     'large_disk': {
         'worker_disk_size': '150GiB'
     },
@@ -59,10 +71,10 @@ def start_remote(remote_name=None, remote_config=None):
         'name': default_name,
         'n_workers': [3, 8],
         'idle_timeout': "120 minutes",
-        'scheduler_cpu': 8,
-        'scheduler_memory': "32GiB",
+        'scheduler_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'worker_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'spot_policy': 'spot_with_fallback',
+        'environ': {'NUTHATCH_ALLOW_INSTALLED_PACKAGE_CONFIGURATION': 'True'}
     }
 
     if remote_name and isinstance(remote_name, str):

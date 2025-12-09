@@ -1,14 +1,13 @@
 """Library of statistics implementations for verification."""
 # flake8: noqa: D102, ARG001, D103
 
-import xarray as xr
-import numpy as np
 from functools import wraps
 
-import xskillscore
-from weatherbench2.metrics import SpatialQuantileCRPS, SpatialSEEPS
-
-from sheerwater.utils import cacheable
+import numpy as np
+import properscoring
+import xarray as xr
+from nuthatch import cache as cache_decorator
+from nuthatch.processors import timeseries as timeseries_decorator
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -30,14 +29,18 @@ def statistic(cache=False, name=None,
     for a given forecast and observation. The statistic function will be provided with the forecast, observation, and
     data as arguments, and should return a xarray.DataArray.
 
-    The statistic function will be cached using the cacheable decorator.
+    The statistic function will be cached using the cache decorator.
 
     """
     def create_statistic(func):
         # Register the statistic function with the registry
         # We'll register the wrapped function instead of the original
-        @cacheable(cache=cache, data_type=data_type, timeseries=timeseries,
-                   cache_args=cache_args, chunking=chunking, chunk_by_arg=chunk_by_arg)
+        @timeseries_decorator(timeseries=timeseries)
+        @cache_decorator(cache=cache, cache_args=cache_args,
+                         backend_kwargs={
+                             'chunking': chunking,
+                             'chunk_by_arg': chunk_by_arg
+                         })
         def global_statistic(
             start_time, end_time,
             data,
@@ -54,7 +57,6 @@ def statistic(cache=False, name=None,
             ds = func(data=data, **cache_kwargs)
             # Assign attributes in one call
             ds = ds.assign_attrs(
-                sparse=data['sparse'],
                 prob_type=data['prob_type'],
                 forecast=forecast,
                 truth=truth,
@@ -77,7 +79,8 @@ def statistic(cache=False, name=None,
             # Call the global statistic function
             ds = global_statistic(
                 start_time, end_time,
-                data=data, **cache_kwargs,
+                data=data, memoize=True,
+                **cache_kwargs,
             )
             return ds
 
@@ -277,18 +280,68 @@ def fn_brier(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=True, name='seeps')
 def fn_seeps(data, **cache_kwargs):  # noqa: F821
+    """Based on the implementation in WeatherBench2."""
     wet_threshold = data['wet_threshold']
+    if 'quantile' in wet_threshold.coords:
+        wet_threshold = wet_threshold.drop_vars('quantile')
     dry_fraction = data['dry_fraction']
-    clim_ds = xr.merge([wet_threshold, dry_fraction])
-    m_ds = SpatialSEEPS(climatology=clim_ds,
-                        dry_threshold_mm=0.25,
-                        precip_name='precip',
-                        min_p1=0.03,
-                        max_p1=0.93) \
-        .compute(forecast=data['fcst'], truth=data['obs'],
-                 avg_time=False, skipna=True)
-    m_ds = m_ds.rename({'latitude': 'lat', 'longitude': 'lon'})
-    return m_ds
+    dry_threshold_mm = 0.25
+
+    # Get the average dry fraction over the entire year
+    p1 = dry_fraction.mean("dayofyear")['dry_fraction']
+    min_p1 = 0.03  # the minimum allowed dry fraction
+    max_p1 = 0.93  # the maximum allowed dry fraction
+
+    # fcst and obs should have the same valid times at this point
+    valid_times = data['obs'].time
+    wet_threshold_by_time = wet_threshold.sel(dayofyear=valid_times.dt.dayofyear)
+
+    def convert_precips_to_seeps_cat(da, wet_threshold_by_time, dry_threshold_mm):
+        # Convert to dry rains
+        dry = da < dry_threshold_mm
+        light = (da > dry_threshold_mm) & (da < wet_threshold_by_time)
+        heavy = (da >= wet_threshold_by_time)
+        result = xr.concat(
+            [dry, light, heavy],
+            dim=xr.DataArray(["dry", "light", "heavy"], dims=["seeps_cat"]),
+        )
+        # Convert NaNs back to NaNs
+        result = result.astype("int").where(da.notnull())
+        return result
+
+    fcst_cat = convert_precips_to_seeps_cat(
+        data['fcst']['precip'], wet_threshold_by_time['wet_threshold'], dry_threshold_mm)\
+        .rename({'seeps_cat': 'fcst_cat'})
+    obs_cat = convert_precips_to_seeps_cat(
+        data['obs']['precip'], wet_threshold_by_time['wet_threshold'], dry_threshold_mm)\
+        .rename({'seeps_cat': 'obs_cat'})
+
+    # Get the elementwise product of the forecast and observation categories
+    out = fcst_cat * obs_cat
+
+    # The scoring matrix, which assigns a penalty for each of the 3 x 3 = 9
+    # different category combinations
+    scoring_matrix = [
+        [xr.zeros_like(p1), 1 / (1 - p1), 4 / (1 - p1)],
+        [1 / p1, xr.zeros_like(p1), 3 / (1 - p1)],
+        [
+            1 / p1 + 3 / (2 + p1),
+            3 / (2 + p1),
+            xr.zeros_like(p1),
+        ],
+    ]
+    das = []
+    for mat in scoring_matrix:
+        das.append(xr.concat(mat, dim=out.obs_cat))
+    scoring_matrix = 0.5 * xr.concat(das, dim=out.fcst_cat)
+
+    # Take the dot product to compute the final scoring
+    m_ds = xr.dot(out, scoring_matrix, dims=['fcst_cat', 'obs_cat'])
+
+    # Mask out the p1 threshholds
+    m_ds = m_ds.where(p1 < max_p1, np.nan)
+    m_ds = m_ds.where(p1 > min_p1, np.nan)
+    return xr.Dataset({'precip': m_ds})
 
 
 @statistic(cache=False, name='crps')
@@ -296,12 +349,23 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
     if data['prob_type'] == 'ensemble':
         fcst = data['fcst'].chunk(member=-1, time=1, prediction_timedelta=1,
                                   lat=250, lon=250)  # member must be -1 to succeed
-        m_ds = xskillscore.crps_ensemble(observations=data['obs'],
-                                         forecasts=fcst, mean=False, dim=['time', 'prediction_timedelta'])
+        m_ds = xr.apply_ufunc(
+            properscoring.crps_ensemble,
+            data['obs'],
+            fcst,
+            input_core_dims=[[], ['member']],
+            kwargs={"axis": -1, "issorted": False, "weights": None},
+            dask="parallelized",
+            output_dtypes=[float],
+            keep_attrs=True,
+        )
     elif data['prob_type'] == 'quantile':
-        m_ds = SpatialQuantileCRPS(quantile_dim='member').compute(
-            forecast=data['fcst'], truth=data['obs'], avg_time=False, skipna=True)
-        m_ds = m_ds.rename({'latitude': 'lat', 'longitude': 'lon'})
+        # Custom implementation of a quantile CRPS approximation
+        diff = data['fcst'] - data['obs']
+        ind = diff > 0
+        qnt_val = diff['member']
+        qnt_score = 2 * (ind - qnt_val) * diff
+        m_ds = qnt_score.integrate(coord='member')
     else:
         raise ValueError(f"Invalid probability type: {data['prob_type']}")
     return m_ds

@@ -1,25 +1,24 @@
 """Functions to fetch and process data from the ECMWF WeatherBench dataset."""
 import numpy as np
 import pandas as pd
-from dateutil.relativedelta import relativedelta
 import xarray as xr
+from dateutil.relativedelta import relativedelta
+from nuthatch import cache
+from nuthatch.processors import timeseries
+
 from sheerwater.reanalysis import era5_rolled
-from sheerwater.utils import (dask_remote, cacheable,
-                                           lon_base_change,
-                                           roll_and_agg,
-                                           regrid, get_variable,
-                                           shift_by_days,
-                                           forecast)
+from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
+
+from .forecast_decorator import forecast
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
-           cache=False,
-           timeseries=['start_date', 'model_issuance_date'],
-           chunking={"lat": 121, "lon": 240, "lead_time": 46,
-                     "start_date": 29, "start_year": 29,
-                     "model_issuance_date": 1})
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@cache(cache=False,
+       cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
+                                    "start_date": 29, "start_year": 29,
+                                    "model_issuance_date": 1}})
 def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noqa ARG001
                            run_type='average', time_group='weekly', grid="global1_5"):
     """Fetches IFS extended range forecast data from the WeatherBench2 dataset.
@@ -75,23 +74,22 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
-           cache=True,
-           timeseries=['start_date', 'model_issuance_date'],
-           cache_disable_if={'grid': 'global1_5'},
-           chunking={"lat": 121, "lon": 240, "lead_time": 1,
-                     "start_date": 1000,
-                     "model_issuance_date": 1000, "start_year": 1,
-                     "member": 1},
-           chunk_by_arg={
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
+       cache_disable_if={'grid': 'global1_5'},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                        "start_date": 1000,
+                        "model_issuance_date": 1000, "start_year": 1,
+                        "member": 1},
+           'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           },
-           auto_rechunk=False)
+           }
+})
 def ifs_extended_range(start_time, end_time, variable, forecast_type,
                        run_type='average', time_group='weekly', grid="global1_5"):
     """Fetches IFS extended range forecast and reforecast data from the WeatherBench2 dataset.
@@ -146,11 +144,9 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
-           timeseries=['model_issuance_date'],
-           cache=True,
-           chunking={"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 200, "member": 50})
+@timeseries(timeseries='model_issuance_date')
+@cache(cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 200, "member": 50}})
 def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type='average',
                                 time_group='weekly', grid="global1_5"):
     """Computes the bias of ECMWF reforecasts for a specific lead."""
@@ -199,11 +195,9 @@ def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'run_type', 'time_group', 'grid'],
-           timeseries=['model_issuance_date'],
-           cache=True,
-           chunking={"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 1000, "member": 1})
+@timeseries(timeseries='model_issuance_date')
+@cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 1000, "member": 1}})
 def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', time_group='weekly', grid="global1_5"):
     """Computes the bias of ECMWF reforecasts for all leads."""
     # Fetch the reforecast data to calculate how many leads we need
@@ -227,21 +221,21 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', t
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
-           cache=True,
-           timeseries=['start_date'],
-           chunking={"lat": 121, "lon": 240, "lead_time": 1,
-                     "start_date": 1000,
-                     "model_issuance_date": 1000, "start_year": 1,
-                     "member": 1},
-           chunk_by_arg={
+@timeseries(timeseries='start_date')
+@cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                        "start_date": 1000,
+                        "model_issuance_date": 1000, "start_year": 1,
+                        "member": 1},
+           'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           })
+           }
+})
 def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6,
                                 run_type='average', time_group='weekly', grid="global1_5"):
     """Computes the debiased ECMWF forecasts."""
@@ -282,22 +276,22 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
-           cache=True,
-           timeseries=['start_date'],
-           cache_disable_if={'grid': 'global1_5'},
-           chunking={"lat": 121, "lon": 240, "lead_time": 1,
-                     "start_date": 1000,
-                     "model_issuance_date": 1000, "start_year": 1,
-                     "member": 1},
-           chunk_by_arg={
+@timeseries(timeseries='start_date')
+@cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
+       cache_disable_if={'grid': 'global1_5'},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                        "start_date": 1000,
+                        "model_issuance_date": 1000, "start_year": 1,
+                        "member": 1},
+           'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           })
+           }
+})
 def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in_days=6,
                                        run_type='average', time_group='weekly', grid="global1_5"):
     """Computes the debiased ECMWF forecasts."""
@@ -321,18 +315,18 @@ def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'prob_type', 'agg_days', 'grid', 'debiased'],
-           cache=True,
-           timeseries=['start_date'],
-           cache_disable_if={'agg_days': [1, 7, 14]},
-           chunking={"lat": 121, "lon": 240, "lead_time": 1,
-                     "start_date": 1000, "member": 1},
-           chunk_by_arg={
+@timeseries(timeseries='start_date')
+@cache(cache_args=['variable', 'prob_type', 'agg_days', 'grid', 'debiased'],
+       cache_disable_if={'agg_days': [1, 7, 14]},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                        "start_date": 1000, "member": 1},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "start_date": 30}
                },
-           })
+           }
+})
 def ifs_extended_range_rolled(start_time, end_time, variable,
                               prob_type='deterministic', agg_days=7,
                               grid="global1_5", debiased=True):
@@ -364,8 +358,8 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     # The earliest and latest forecast dates for the set of all leads
     # ECMWF extended range forecasts have 46 days, so we shift to include all forecasters who could
     # overlaps with the start and end period
-    forecast_start = shift_by_days(start_time, -46)
-    forecast_end = shift_by_days(end_time, 46)
+    forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
     ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
                                    agg_days=agg_days, grid=grid, debiased=debiased)
@@ -389,26 +383,26 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
 @forecast
-def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='deterministic',
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days=agg_days, prob_type=prob_type,
+    return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
+                                 agg_days=agg_days, prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=False)
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
 @forecast
-def ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days, prob_type='deterministic',
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days=agg_days, prob_type=prob_type,
+    return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
+                                 agg_days=agg_days, prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=True)

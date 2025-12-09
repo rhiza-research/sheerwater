@@ -1,25 +1,32 @@
-"""Functions to fetch and process data from the ECMWF IRI dataset.
+"""Functions to fetch and process data from the ECMWF IRI data library.
 
 NOTE: these are legacy functions and no longer actively maintained.
 """
-import sys
-import pandas as pd
-from datetime import datetime
-import dateparser
 import os
-import xarray as xr
-import requests
 import ssl
-from urllib3 import poolmanager
+import sys
 import time
-import dask
+from datetime import datetime
 
-from sheerwater.utils import (dask_remote, cacheable, ecmwf_secret,
-                                           get_grid, get_dates,
-                                           is_valid_forecast_date,
-                                           roll_and_agg,
-                                           lon_base_change,
-                                           regrid)
+import dask
+import dateparser
+import pandas as pd
+import requests
+import xarray as xr
+from nuthatch import cache
+from nuthatch.processors import timeseries
+from urllib3 import poolmanager
+
+from sheerwater.utils import (
+    dask_remote,
+    ecmwf_secret,
+    get_dates,
+    get_grid,
+    is_valid_forecast_date,
+    lon_base_change,
+    regrid,
+    roll_and_agg,
+)
 
 
 ########################################################################
@@ -63,10 +70,9 @@ def download_url(url, timeout=600, retry=3, cookies={}):
 #  IRI ECMWF download and process functions
 ########################################################################
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid'],
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 46, 'model_run': 1,
-                     'start_date': 969, 'model_issuance_date': 1})
+@cache(cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid'],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 46, 'model_run': 1,
+                                    'start_date': 969, 'model_issuance_date': 1}})
 def single_iri_ecmwf(time, variable, forecast_type,
                      run_type="average", grid="global1_5",
                      verbose=True):
@@ -217,10 +223,9 @@ def single_iri_ecmwf(time, variable, forecast_type,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid'],
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 46, 'model_run': 1,
-                     'start_year': 20, 'model_issuance_date': 1})
+@cache(cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid'],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 46, 'model_run': 1,
+                                    'start_year': 20, 'model_issuance_date': 1}})
 def single_iri_ecmwf_dense(time, variable, forecast_type,
                            run_type="average", grid="global1_5",
                            verbose=True):
@@ -245,13 +250,11 @@ def single_iri_ecmwf_dense(time, variable, forecast_type,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries=['start_date', 'model_issuance_date'],
-           cache_args=['variable', 'forecast_type', 'run_type', 'grid'],
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 46, 'start_date': 969,
-                     'model_run': 1, 'start_year': 29, 'model_issuance_date': 1},
-           cache=False,
-           auto_rechunk=False)
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@cache(cache=False,
+       cache_args=['variable', 'forecast_type', 'run_type', 'grid'],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 46, 'start_date': 969,
+                                    'model_run': 1, 'start_year': 29, 'model_issuance_date': 1}})
 def iri_ecmwf(start_time, end_time, variable, forecast_type,
               run_type="average", grid="global1_5", verbose=False):
     """Fetches forecast data from the ECMWF IRI dataset.
@@ -306,13 +309,11 @@ def iri_ecmwf(start_time, end_time, variable, forecast_type,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'forecast_type', 'grid'],
-           timeseries=['start_date', 'model_issuance_date'],
-           chunking={"lat": 121, "lon": 240, "lead_time": 46,
-                     "start_date": 29, "start_year": 29,
-                     "model_issuance_date": 1},
-           auto_rechunk=False)
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@cache(cache_args=['variable', 'forecast_type', 'grid'],
+       backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
+                                    "start_date": 29, "start_year": 29,
+                                    "model_issuance_date": 1}})
 def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="global1_5"):
     """Fetches forecast data from the ECMWF IRI dataset.
 
@@ -368,19 +369,19 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="glob
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'forecast_type', 'grid'],
-           timeseries=['start_date', 'model_issuance_date'],
-           cache_disable_if={'grid': 'global1_5'},
-           chunking={"lat": 121, "lon": 240, "lead_time": 46,
-                     "start_date": 30,
-                     "model_issuance_date": 30, "start_year": 1},
-           chunk_by_arg={
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@cache(cache_args=['variable', 'forecast_type', 'grid'],
+       cache_disable_if={'grid': 'global1_5'},
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
+                        "start_date": 30,
+                        "model_issuance_date": 30, "start_year": 1},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 1}
                },
-           },
-           auto_rechunk=False)
+           }
+       })
 def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='global1_5'):
     """IRI ECMWF average forecast with regridding."""
     ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid='global1_5')
@@ -395,18 +396,18 @@ def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='g
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'forecast_type', 'agg', 'grid'],
-           timeseries=['start_date', 'model_issuance_date'],
-           chunking={"lat": 121, "lon": 240, "lead_time": 46,
-                     "start_date": 30,
-                     "model_issuance_date": 30, "start_year": 1},
-           chunk_by_arg={
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@cache(cache_args=['variable', 'forecast_type', 'agg', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
+                        "start_date": 30,
+                        "model_issuance_date": 30, "start_year": 1},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 1}
                },
-           },
-           auto_rechunk=False)
+           }
+       })
 def ecmwf_rolled(start_time, end_time, variable, forecast_type,
                  agg_days=14, grid="global1_5"):
     """Fetches forecast data from the ECMWF IRI dataset.

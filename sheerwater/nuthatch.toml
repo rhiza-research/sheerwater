@@ -1,0 +1,21 @@
+[tool.nuthatch]
+filesystem = "gs://sheerwater-datalake/caches"
+host = "postgres.sheerwater.rhizaresearch.org"
+port = 5432
+database = "postgres"
+username = "write"
+driver = "postgresql"
+raster_store = "gs://terracotta-files"
+
+[tool.nuthatch.filesystem_options]
+cache_timeout = 0
+
+[tool.nuthatch.local]
+filesystem = "~/.cache/nuthatch"
+
+[tool.nuthatch.mirror-public]
+filesystem = "gs://sheerwater-public-datalake/caches"
+[tool.nuthatch.mirror-public.filesystem_options]
+cache_timeout = 0
+# Setting token to anon skips credential grabbing on public datalake
+token = "anon"

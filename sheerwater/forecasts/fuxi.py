@@ -1,26 +1,26 @@
 """Interface for FuXi forecasts."""
 
-import os
 import glob
+import os
 import shutil
+
 import dask
-import xarray as xr
 import numpy as np
 import pandas as pd
 import py7zr
-
+import xarray as xr
 from huggingface_hub import hf_hub_download
 from huggingface_hub.utils import EntryNotFoundError
+from nuthatch import cache
+from nuthatch.processors import timeseries
 
+from sheerwater.utils import dask_remote, lon_base_change, roll_and_agg, shift_by_days
 from sheerwater.utils.secrets import huggingface_read_token
-from sheerwater.utils import (dask_remote, cacheable,
-                                           lon_base_change, forecast,
-                                           shift_by_days,
-                                           roll_and_agg)
+from sheerwater.forecasts.forecast_decorator import forecast
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=['date'])
+@cache(cache_args=['date'])
 def fuxi_single_forecast(date):
     """Download a single forecast from the FuXi dataset."""
     token = huggingface_read_token()
@@ -83,9 +83,9 @@ def fuxi_single_forecast(date):
 
 
 @dask_remote
-@cacheable(data_type='array', cache_args=[], timeseries='time',
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51},
-           validate_cache_timeseries=False)
+@timeseries()
+@cache(cache_args=[],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
 def fuxi_raw(start_time, end_time, delayed=False):
     """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries."""
     dates = pd.date_range(start_time, end_time)
@@ -118,9 +118,8 @@ def fuxi_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'agg_days', 'prob_type'],
-           chunking={'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51})
+@cache(cache_args=['variable', 'agg_days', 'prob_type'],
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
 def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabilistic'):
     """Roll and aggregate the FuXi data."""
     ds = fuxi_raw(start_time, end_time)
@@ -132,7 +131,7 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
     # Get the right variable
     ds = ds[[variable]]
 
-    # convert based on a linear conversion factor of the average forecast to the era5 average
+    # convert hourly rain to daily rain
     if variable == 'precip':
         ds['precip'] = ds['precip'] * 24
 
@@ -156,22 +155,21 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@timeseries()
 @forecast
-def fuxi(start_time, end_time, variable, agg_days, prob_type='deterministic',
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""
     if grid != 'global1_5':
         raise NotImplementedError("Only 1.5 grid implemented for FuXi.")
 
     # The earliest and latest forecast dates for the set of all leads
-    forecast_start = shift_by_days(start_time, -46)
-    forecast_end = shift_by_days(end_time, 46)
+    forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
-    ds = fuxi_rolled(forecast_start, forecast_end, variable=variable, prob_type=prob_type, agg_days=agg_days)
+    ds = fuxi_rolled(forecast_start, forecast_end, variable, prob_type=prob_type, agg_days=agg_days)
 
     # Reanme to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})

@@ -3,10 +3,9 @@
 These utility functions take as input an xarray dataset and return a modified
 dataset.
 """
-import numpy as np
 import dask
+import numpy as np
 import xarray_regrid  # noqa: F401, import needed for regridding
-
 
 from .space_utils import get_grid_ds
 from .time_utils import add_dayofyear
@@ -40,9 +39,6 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
 
     # Check to see if coord is a time value
     assert np.issubdtype(ds[agg_col].dtype, np.timedelta64) or np.issubdtype(ds[agg_col].dtype, np.datetime64)
-
-    # Drop the nan values added by the rolling aggregation at the end
-    ds_agg = ds_agg.dropna(agg_col, how="all")
 
     # Correct coords to left-align the aggregated forecast window
     # (default is right aligned)

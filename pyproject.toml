@@ -22,7 +22,7 @@ dependencies = [
     "google-cloud-storage",
     "google-cloud-secret-manager",
     "cryptography",
-    "xarray==2024.10",
+    "xarray==2025.1.0",
     "matplotlib",
     "geopandas",
     "rioxarray",
@@ -33,29 +33,24 @@ dependencies = [
     "scipy",
     "requests",
     "ecmwf-api-client",
-    "cdsapi>=0.7.3",
     # Required for the CDS API beta
+    "cdsapi>=0.7.3",
     "dateparser",
     "bokeh",
     "flox",
     "scikit-learn",
-    "terracotta",
-    "sqlalchemy",
-    "psycopg2-binary",
     "xarray-regrid",
-    "weatherbench2 @ git+https://github.com/rhiza-research/weatherbench2",
-    "deltalake",
-    "xskillscore @ git+https://github.com/rhiza-research/xskillscore",
     "coiled>=1.76.1",
     "opt-einsum>=3.4.0",
     "plotly>=5.24.1",
-    "salientsdk>=0.3.12",
-    "dask_deltatable",
     "minio",
     "huggingface_hub",
     "py7zr",
     "tqdm",
-    "numcodecs<0.16.0"
+    "numcodecs<0.16.0",
+    "pyzstd==0.16.2",
+    "properscoring",
+    "nuthatch",
 ]
 
 [dependency-groups]
@@ -83,8 +78,12 @@ source = "vcs"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build]
+# Necessary to include nuthatch.toml
+include = ["sheerwater/", "jobs/", "dashboard_data/"]
+
 [tool.hatch.build.targets.wheel]
-packages = ["./sheerwater", "./jobs"]
+packages = ["./sheerwater", "./jobs", "./dashboard_data"]
 
 [tool.uv]
 managed = true
@@ -126,3 +125,23 @@ select = ["E", "F", "W", "D", "ARG"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.nuthatch]
+filesystem = "gs://sheerwater-datalake/caches"
+host = "postgres.sheerwater.rhizaresearch.org"
+port = 5432
+database = "postgres"
+username = "write"
+driver = "postgresql"
+raster_store = "gs://terracotta-files"
+
+[tool.nuthatch.filesystem_options]
+cache_timeout = 0
+
+[tool.nuthatch.local]
+filesystem = "~/.cache/nuthatch"
+
+[tool.nuthatch.mirror-public]
+filesystem = "gs://sheerwater-public-datalake/caches"
+[tool.nuthatch.mirror-public.filesystem_options]
+cache_timeout = 0

@@ -3,9 +3,23 @@ import os
 from pathlib import Path
 
 from google.cloud import secretmanager
-import salientsdk as sk
+
+#import salientsdk as sk
+from nuthatch import config_parameter
 
 
+def earth_data_hub_token():
+    """Get a postgres write password."""
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(
+        request={"name": "projects/750045969992/secrets/earth_data_hub_token/versions/latest"})
+    key = response.payload.data.decode("UTF-8")
+
+    return key
+
+
+@config_parameter('password', location='root', backend='sql', secret=True)
 def postgres_write_password():
     """Get a postgres write password."""
     client = secretmanager.SecretManagerServiceClient()
@@ -140,13 +154,13 @@ def salient_secret():
     return general_secret("salient-api")
 
 
-def salient_auth(func):
-    """Decorator to run function with Salient API login permissions."""
-    def wrapper(*args, **kwargs):
-        # See if there are extra function args to run this remotely
-        username, password = salient_secret()
-        sk.login(username, password)
-        sk.set_file_destination("./temp")
-
-        return func(*args, **kwargs)
-    return wrapper
+#def salient_auth(func):
+#    """Decorator to run function with Salient API login permissions."""
+#    def wrapper(*args, **kwargs):
+#        # See if there are extra function args to run this remotely
+#        username, password = salient_secret()
+#        sk.login(username, password)
+#        sk.set_file_destination("./temp")
+#
+#        return func(*args, **kwargs)
+#    return wrapper

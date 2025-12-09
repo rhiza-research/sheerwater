@@ -1,8 +1,9 @@
 """The Suitable Planting Window (SPW) task utilities."""
 from functools import partial
+
 import xarray as xr
 
-from sheerwater.utils import groupby_time, apply_mask, clip_region, first_satisfied_date, doy_mean
+from sheerwater.utils import apply_mask, clip_region, doy_mean, first_satisfied_date, groupby_time
 
 
 def rainy_onset_condition(da, prob_type='ensemble', prob_dim='member', prob_threshold=0.6):

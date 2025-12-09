@@ -1,14 +1,14 @@
 """Cache tables in postgres for the SPW dashboard."""
 import xarray as xr
 
-from sheerwater.utils import cacheable, dask_remote, start_remote
+from nuthatch import cache
+from sheerwater.utils import dask_remote, start_remote
 from sheerwater.metrics import get_datasource_fn
 
 
 @dask_remote
-@cacheable(data_type='tabular',
-           backend='postgres',
-           cache_args=['agg_days', 'grid', 'mask', 'region'])
+@cache(backend='sql',
+       cache_args=['agg_days', 'grid', 'mask', 'region'])
 def rainfall_data(start_time, end_time, agg_days=1,
                   grid='global1_5', mask='lsm', region='global'):
     """Store rainfall data across data sources to the database."""

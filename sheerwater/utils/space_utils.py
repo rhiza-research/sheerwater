@@ -1,7 +1,8 @@
 """Space and geography utility functions for all parts of the data pipeline."""
 import numpy as np
-import xarray as xr
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
+import xarray as xr
+from nuthatch import cache
 
 from .region_utils import get_region_data
 
@@ -83,7 +84,7 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False):
+def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=True):
     """Clip a dataset to a region.
 
     Args:
@@ -112,6 +113,7 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=False):
     return ds
 
 
+@cache(cache_args=['mask', 'grid'])
 def get_mask(mask, grid='global1_5'):
     """Get a mask dataset.
 
@@ -130,11 +132,11 @@ def get_mask(mask, grid='global1_5'):
         # Import here to avoid circular imports
         from sheerwater.regions_and_masks import land_sea_mask
         if grid == 'global1_5' or grid == 'global0_25':
-            mask_ds = land_sea_mask(grid=grid).compute()
+            mask_ds = land_sea_mask(grid=grid, memoize=True).compute()
         else:
             # TODO: Should implement a more resolved land-sea mask for the other grids
             from sheerwater.utils.data_utils import regrid
-            mask_ds = land_sea_mask(grid='global0_25')
+            mask_ds = land_sea_mask(grid='global0_25', memoize=True)
             mask_ds = regrid(mask_ds, grid, method='nearest').compute()
 
         val = 0.0
@@ -190,10 +192,13 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         ds = ds.where(mask_ds['mask'] > val, drop=False)
     return ds
 
+def snap_point_to_grid(point, grid_size, offset):
+    """Snap a point to a provided grid and offset."""
+    return round(float(point+offset)/grid_size) * grid_size - offset
 
 def get_grid_ds(grid_id, base="base180"):
     """Get a dataset equal to ones for a given region."""
-    lons, lats, _ = get_grid(grid_id, base=base)
+    lons, lats, _, _ = get_grid(grid_id, base=base)
     data = np.ones((len(lons), len(lats)))
     ds = xr.Dataset(
         {"mask": (['lon', 'lat'], data)},
@@ -226,6 +231,9 @@ def get_grid(grid, base="base180"):
     elif grid == "global0_25":
         grid_size = 0.25
         offset = 0.0
+    elif grid == "global0_1":
+        grid_size = 0.1
+        offset = 0.0
     elif grid == "salient0_25":
         grid_size = 0.25
         offset = 0.125
@@ -244,7 +252,7 @@ def get_grid(grid, base="base180"):
     # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
     lons = np.round(lons, 5).astype(np.float32)
     lats = np.round(lats, 5).astype(np.float32)
-    return lons, lats, grid_size
+    return lons, lats, grid_size, offset
 
 
 def base360_to_base180(lons):
