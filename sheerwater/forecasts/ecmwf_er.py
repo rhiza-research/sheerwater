@@ -8,7 +8,8 @@ from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5_rolled
 from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
-from sheerwater.forecasts.forecast_decorator import forecast
+
+from .forecast_decorator import forecast
 
 
 @dask_remote
@@ -88,7 +89,7 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
            }
-       })
+})
 def ifs_extended_range(start_time, end_time, variable, forecast_type,
                        run_type='average', time_group='weekly', grid="global1_5"):
     """Fetches IFS extended range forecast and reforecast data from the WeatherBench2 dataset.
@@ -234,7 +235,7 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', t
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
            }
-       })
+})
 def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6,
                                 run_type='average', time_group='weekly', grid="global1_5"):
     """Computes the debiased ECMWF forecasts."""
@@ -290,7 +291,7 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
            }
-       })
+})
 def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in_days=6,
                                        run_type='average', time_group='weekly', grid="global1_5"):
     """Computes the debiased ECMWF forecasts."""
@@ -325,7 +326,7 @@ def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in
                    'global0_25': {"lat": 721, "lon": 1440, "start_date": 30}
                },
            }
-       })
+})
 def ifs_extended_range_rolled(start_time, end_time, variable,
                               prob_type='deterministic', agg_days=7,
                               grid="global1_5", debiased=True):
@@ -357,8 +358,8 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     # The earliest and latest forecast dates for the set of all leads
     # ECMWF extended range forecasts have 46 days, so we shift to include all forecasters who could
     # overlaps with the start and end period
-    forecast_start = shift_by_days(start_time, -46)
-    forecast_end = shift_by_days(end_time, 46)
+    forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
     ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
                                    agg_days=agg_days, grid=grid, debiased=debiased)
@@ -386,10 +387,11 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 @forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days=agg_days, prob_type=prob_type,
+    return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
+                                 agg_days=agg_days, prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=False)
 
 
@@ -398,8 +400,9 @@ def ecmwf_ifs_er(start_time, end_time, variable, agg_days, prob_type='determinis
 @forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-def ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days=agg_days, prob_type=prob_type,
+    return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
+                                 agg_days=agg_days, prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=True)

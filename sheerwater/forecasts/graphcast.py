@@ -207,15 +207,15 @@ def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_
 @forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-def graphcast(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
               grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Graphcast interface."""
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecast implemented for graphcast")
 
     # Get the data with the right days
-    forecast_start = shift_by_days(start_time, -15)
-    forecast_end = shift_by_days(end_time, 15)
+    forecast_start = shift_by_days(start_time, -15) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
     ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid)

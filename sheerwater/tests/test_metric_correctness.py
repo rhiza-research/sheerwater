@@ -29,13 +29,14 @@ def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
 def single_comparison(forecast="ecmwf_ifs_er_debiased",
                            metric_name="mae",
                            variable="precip",
+                           space_grouping=None,
                            region="global",
                            lead="week3",
                            mask='lsm',
                            recompute=False,
                            spatial=True):  # noqa: E501
     """Test a single comparison between the two functions."""
-    print(f"Testing: {forecast} | {metric_name} | {variable} | {region} | {lead} | spatial={spatial}")
+    print(f"Testing: {forecast} | {metric_name} | {variable} | {space_grouping} | {region} | {lead} | spatial={spatial}")
 
     # Run grouped_metric_new
     ds_new = metric(
@@ -48,6 +49,7 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
         metric_name=metric_name,
         time_grouping=None,
         spatial=spatial,
+        space_grouping=space_grouping,
         region=region,
         mask=mask,
         grid='global1_5',
@@ -70,10 +72,16 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
         ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
         ds_new = ds_new.rename({'prediction_timedelta': 'lead_time'})
         ds_new.lead_time.values = lead
-    ds_new = ds_new.rename_vars({metric_name: variable})
+
+    if '-' in metric_name:
+        mn = metric_name.split('-')[0]
+    else:
+        mn = metric_name
+    ds_new = ds_new.rename_vars({mn: variable})
 
     # Run grouped_metric
-    region_call = region if region != 'nimbus_east_africa' else 'east_africa'
+    region_call = space_grouping if space_grouping != 'nimbus_east_africa' else 'east_africa'
+    region_call = 'global' if region_call is None else region_call
     ds_old = grouped_metric_test(
         start_time="2016-01-01",
         end_time="2022-12-31",
@@ -144,10 +152,10 @@ def test_multiple_combinations():  # noqa: E501
     """Test multiple combinations of parameters."""
     test_cases = [
         # Our basic test, does lat-weighted averaging and masking globally
-        {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "region": "global",
+        {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "space_grouping": None, "region": "global",
             "mask": 'lsm', "variable": "precip", "spatial": False},
         # Have to test with spatial = True because old code had a spatial weighting bug
-        {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "region": "nimbus_east_africa",
+        {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "space_grouping": None, "region": "nimbus_east_africa",
             "mask": 'lsm', "variable": "precip", "spatial": True},
 
         # Now test all the metrics
@@ -182,9 +190,9 @@ def test_multiple_combinations():  # noqa: E501
 
         # Different regions(need to test with spatial=True because old code had a spatial weighting bug)
         {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
-            "variable": "precip", "region": "africa", "spatial": True},
+            "variable": "precip", "space_grouping": "africa", "spatial": True},
         {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
-            "variable": "precip", "region": "nimbus_east_africa", "spatial": True},
+            "variable": "precip", "space_grouping": "east_africa", "spatial": True},
 
         # Non-spatial tests, on coupled metrics.
         {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "spatial": False},
@@ -201,6 +209,7 @@ def test_multiple_combinations():  # noqa: E501
 
         # Set defaults
         test_case.setdefault("region", "global")
+        test_case.setdefault("space_grouping", None)
         test_case.setdefault("lead", "week3")
         test_case.setdefault("recompute", ['global_statistic', 'metric'])
         # test_case.setdefault("recompute", False)

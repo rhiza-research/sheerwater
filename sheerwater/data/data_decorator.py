@@ -28,6 +28,9 @@ def data(func):
             grid = bound_args.arguments.get('grid', 'global0_25')
             mask = bound_args.arguments.get('mask', 'lsm')
             region = bound_args.arguments.get('region', 'global')
+            agg_days = bound_args.arguments.get('agg_days')
+            variable = bound_args.arguments.get('variable')
+            units = 'mm' if variable == 'precip' else 'C'
 
             # Apply masking
             ds = apply_mask(ds, mask, grid=grid)
@@ -36,6 +39,13 @@ def data(func):
             # Remove all unneeded dimensions
             ds = ds.drop_vars([var for var in ds.coords if var not in [
                               'time', 'lat', 'lon']])
+            # Assign attributes
+            ds = ds.assign_attrs({'agg_days': float(agg_days),
+                                  'variable': variable,
+                                  'units': units,
+                                  'grid': grid,
+                                  'mask': mask,
+                                  'region': region})
 
         except Exception as e:
             raise ValueError(f"Error in data source {func.__name__}: {e}")
@@ -49,3 +59,7 @@ def data(func):
 def get_data(data_name):
     """Get a forecast from the global forecast registry."""
     return DATA_REGISTRY[data_name]
+
+def list_data():
+    """List all data sources in the global data registry."""
+    return list(DATA_REGISTRY.keys())

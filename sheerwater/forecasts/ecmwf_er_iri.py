@@ -1,4 +1,4 @@
-"""Functions to fetch and process data from the ECMWF IRI dataset.
+"""Functions to fetch and process data from the ECMWF IRI data library.
 
 NOTE: these are legacy functions and no longer actively maintained.
 """

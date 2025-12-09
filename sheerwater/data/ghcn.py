@@ -10,9 +10,10 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import (dask_remote, get_grid, get_grid_ds,  generate_dates_in_between,
-                              get_variable, roll_and_agg, snap_point_to_grid)
-from sheerwater.data.data_decorator import data
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid
+
+from .data_decorator import data
+
 
 @cache(cache_args=[])
 def ghcn_station_list():
@@ -24,118 +25,6 @@ def ghcn_station_list():
     df = df.groupby(by=['ghcn_id']).first().reset_index()
 
     return df
-
-
-@timeseries()
-@cache(cache_args=['ghcn_id', 'drop_flagged'])
-def ghcnd_station(start_time, end_time, ghcn_id, drop_flagged=True, grid='global0_25'):  # noqa:  ARG001
-    """Get GHCNd observed data timeseries for a single station.
-
-    Global Historical Climatology Network - Daily.
-
-    Args:
-        start_time (str): omit data before this date
-        end_time (str): omit data after this date
-        drop_flagged (bool): drops all flagged data
-        grid (str): Grid to put the station on
-        ghcn_id (str): GHCND station ID
-
-    Returns:
-        pd.DataFrame | list[pd.DataFrame]: observed data timeseries with
-        columns `time`, `precip`, `tmin`, `tmax`, `temp`
-    """
-    obs = pd.read_csv(f"s3://noaa-ghcn-pds/csv.gz/by_station/{ghcn_id}.csv.gz",
-                      compression='gzip',
-                      names=['ghcn_id', 'date', 'variable', 'value', 'mflag', 'qflag', 'sflag', 'otime'],
-                      dtype={'ghcn_id': str,
-                             'date': str,
-                             'variable': str,
-                             'value': int,
-                             'mflag': str,
-                             'qflag': str,
-                             'sflag': str,
-                             'otime': str},
-                      storage_options={'anon': True})
-
-    # Drop rows we don't care about
-    obs = obs[obs['variable'].isin(['TMAX', 'TMIN', 'TAVG', 'PRCP'])]
-
-    if drop_flagged:
-        obs = obs[obs['qflag'].isna()]
-
-    # Rplace any invalid data
-    INVALID_NUMBER = 9999
-    obs.replace(INVALID_NUMBER, pd.NA, inplace=True)
-
-    # Divide by 10 because data is represented in 10ths
-    obs['value'] = obs['value'] / 10.0
-    # Assign to new column based on variable values
-    obs['tmax'] = obs.apply(lambda x: x.value if x['variable'] == 'TMAX' else pd.NA, axis=1)
-    obs['tmin'] = obs.apply(lambda x: x.value if x['variable'] == 'TMIN' else pd.NA, axis=1)
-    obs['temp'] = obs.apply(lambda x: x.value if x['variable'] == 'TAVG' else pd.NA, axis=1)
-    obs['precip'] = obs.apply(lambda x: x.value if x['variable'] == 'PRCP' else pd.NA, axis=1)
-
-    if not drop_flagged:
-        obs['tmax_q'] = obs.apply(lambda x: x.qflag if x['variable'] == 'TMAX' else pd.NA, axis=1)
-        obs['tmin_q'] = obs.apply(lambda x: x.qflag if x['variable'] == 'TMIN' else pd.NA, axis=1)
-        obs['temp_q'] = obs.apply(lambda x: x.qflag if x['variable'] == 'TAVG' else pd.NA, axis=1)
-        obs['precip_q'] = obs.apply(lambda x: x.qflag if x['variable'] == 'PRCP' else pd.NA, axis=1)
-
-    obs = obs.drop(['variable', 'value', 'sflag', 'mflag', 'qflag', 'otime'], axis=1)
-
-    # Group by date and merge columns
-    obs = obs.groupby(by=['date']).first()
-    obs = obs.reset_index()
-
-    # If temp is none avrage the two
-    atemp = (obs['tmin'] + obs['tmax'])/2
-    obs['temp'] = obs['temp'].astype(float).fillna(atemp.astype(float))
-
-    # Set all variables to floats
-    obs.temp = obs.temp.astype(np.float32)
-    obs.tmax = obs.tmax.astype(np.float32)
-    obs.tmin = obs.tmin.astype(np.float32)
-    obs.precip = obs.precip.astype(np.float32)
-
-    if not drop_flagged:
-        obs.temp_q = obs.temp_q.astype(str)
-        obs.tmax_q = obs.tmax_q.astype(str)
-        obs.tmin_q = obs.tmin_q.astype(str)
-        obs.precip_q = obs.precip_q.astype(str)
-
-    # Convert date into a datetime
-    obs["time"] = pd.to_datetime(obs["date"])
-    obs = obs.drop(['date'], axis=1)
-
-    # Round the coordinates to the nearest grid
-    lats, lons, grid_size, offset = get_grid(grid)
-
-    # This rounding only works for divisible, uniform grids
-    assert (lats[0] % grid_size < 1e-4)
-    assert (lons[0] % grid_size < 1e-4)
-
-    # Get the lat and lon and round them
-    ghcn_id = obs['ghcn_id'].iloc[0]
-
-    stat = ghcn_station_list()
-    stat = stat[stat['ghcn_id'] == ghcn_id]
-
-    lat = snap_point_to_grid(stat['lat'].iloc[0], grid_size, offset)
-    lon = snap_point_to_grid(stat['lon'].iloc[0], grid_size, offset)
-
-    obs = obs.set_index(['ghcn_id', 'time'])
-    obs = obs.to_xarray()
-
-    obs = obs.assign_coords({'lat': lat, 'lon': lon})
-
-    # slice
-    obs = obs.sel(time=slice(start_time, end_time))
-
-    # Fill out the time dimension from start to end date even if nan
-    day = generate_dates_in_between(start_time, end_time, date_frequency='daily')
-    obs = obs.reindex({'time': day})
-
-    return obs
 
 
 @dask_remote
@@ -241,7 +130,7 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
     # Reindex to fill out the lat/lon
     grid_ds = get_grid_ds(grid)
-    obs = obs.reindex_like(grid_ds)
+    obs = obs.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     # Return the xarray
     return obs
@@ -294,8 +183,8 @@ def ghcnd_rolled(start_time, end_time, agg_days,
 
 
 @dask_remote
-def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
-                         grid='global0_25', missing_thresh=0.9, cell_aggregation='mean'):
+def _ghcn_unified(start_time, end_time, variable, agg_days,
+                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
     """Standard interface for ghcn data."""
     ds = ghcnd_rolled(start_time, end_time, agg_days=agg_days, grid=grid,
                       missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
@@ -308,15 +197,6 @@ def _ghcn_rolled_unified(start_time, end_time, variable, agg_days,
     ds = ds.rename({variable_ghcn: variable_sheerwater})
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
-    return ds
-
-
-@dask_remote
-def _ghcn_unified(start_time, end_time, variable, agg_days,
-                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
-    """Standard interface for ghcn data."""
-    ds = _ghcn_rolled_unified(start_time, end_time, variable=variable, agg_days=agg_days,
-                              grid=grid, missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
     return ds
 
 

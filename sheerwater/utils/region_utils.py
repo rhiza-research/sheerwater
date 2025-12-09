@@ -107,6 +107,8 @@ def get_country_gdf():
 def get_region_level(region):
     """Get the level of a region and the regions at that level."""
     country_gdf = get_country_gdf()
+    if region is None:
+        region = 'global'
 
     # Find which region level the region is in, and get a list of regions at that level
     # If a region could possibly match several region levels, it will return the first

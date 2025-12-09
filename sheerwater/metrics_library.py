@@ -10,7 +10,7 @@ from sheerwater.data.data_decorator import get_data
 from sheerwater.forecasts.forecast_decorator import get_forecast
 from sheerwater.regions_and_masks import region_labels
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_mask, get_region_level, groupby_time, latitude_weights
+from sheerwater.utils import get_mask, get_region_level, groupby_time, latitude_weights, clip_region
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
@@ -48,7 +48,7 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 mask='lsm', region='global', clip='global', data_key='none'):
+                 mask='lsm', space_grouping='country', region='global', data_key='none'):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
@@ -58,11 +58,11 @@ class Metric(ABC):
         self.forecast = forecast
         self.truth = truth
         self.grid = grid
-        self.time_grouping = time_grouping
         self.spatial = spatial
         self.mask = mask
         self.region = region
-        self.clip = clip
+        self.time_grouping = time_grouping if time_grouping != 'None' else None
+        self.space_grouping = space_grouping if space_grouping != 'None' else None
 
         # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
         # This is a dictionary that contains a data entry and a key entry.
@@ -77,7 +77,7 @@ class Metric(ABC):
         # Arguments for calling the data and forecast functions.
         kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                   'variable': self.variable, 'agg_days': self.agg_days,
-                  'grid': self.grid, 'mask': None, 'region': self.clip}
+                  'grid': self.grid, 'mask': None, 'region': self.region}
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
@@ -252,17 +252,11 @@ class Metric(ABC):
         By default, returns the statistic values as is.
         Subclasses can override this for more complex groupings.
         """
-        region_level, _ = get_region_level(self.region)
-        if self.spatial and (region_level == self.region and self.region != 'global'):
-            raise ValueError(f"Cannot compute spatial metrics for region level '{self.region}'. " +
-                             "Pass in a specific region instead.")
-        if self.clip != 'global':
-            region_level = f"{region_level}-{self.clip}"
-        region_ds = region_labels(grid=self.grid, region_level=region_level, memoize=True).compute()
+        region_level, _ = get_region_level(self.space_grouping)
+        region_ds = region_labels(grid=self.grid, space_grouping=region_level, region=self.region, memoize=True).compute()
         mask_ds = get_mask(self.mask, self.grid, memoize=True)
-        if self.clip != 'global':
-            from sheerwater.utils.space_utils import clip_region
-            mask_ds = clip_region(mask_ds, region=self.clip)
+        if self.region != 'global':
+            mask_ds = clip_region(mask_ds, region=self.region)
 
         ############################################################
         # Aggregate and and check validity of the statistic
@@ -292,7 +286,7 @@ class Metric(ABC):
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
             # Expand weights to have a time dimension that matches ds
-            if 'time' in ds.dims:  # Enable a time specific null pattern
+            if 'time' in ds.dims:  # Enable a time specific null pattern per time
                 weights = weights.expand_dims(time=ds.time)
             weights = weights.chunk({dim: -1 for dim in weights.dims})
             # Ensure the weights null pattern matches the ds null pattern
@@ -304,7 +298,7 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = ds[stat] * ds['weights']
 
-            if self.region == 'global':
+            if region_level == 'global':
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             else:
                 ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
@@ -314,7 +308,6 @@ class Metric(ABC):
             ds = ds.drop_vars(['weights'])
         else:
             # If returning a spatial metric, mask and drop
-            # Mask and drop the region coordinate
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
             ds = ds.where((ds.region == self.region).compute(), drop=True)
             ds = ds.drop_vars('region')
@@ -467,7 +460,7 @@ class ACC(Metric):
         # Get the appropriate climatology dataframe for metric calculation
         clim_ds = climatology_2020(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
                                    prob_type='deterministic',
-                                   grid=self.grid, mask=None, region='global')
+                                   grid=self.grid, mask=None, region=self.region)
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:

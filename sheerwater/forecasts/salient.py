@@ -53,7 +53,7 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
 @timeseries()
 @forecast
 @cache(cache=False)
-def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_type='deterministic',
             grid='global0_25', mask='lsm', region='africa'):  # noqa: ARG001
     """Standard format forecast data for Salient."""
     lead_params = {
@@ -66,8 +66,8 @@ def salient(start_time, end_time, variable, agg_days, prob_type='deterministic',
         raise NotImplementedError(f"Agg days {agg_days} not implemented for Salient.")
 
     # Get the data with the right days
-    forecast_start = shift_by_days(start_time, -366)
-    forecast_end = shift_by_days(end_time, 366)
+    forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 366) if end_time is not None else None
 
     ds = salient_blend(forecast_start, forecast_end, variable, timescale=timescale, grid=grid)
     if prob_type == 'deterministic':

@@ -5,7 +5,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.data.data_decorator import data
+from sheerwater.data import data
 from sheerwater.utils import (
     apply_mask,
     clip_region,
@@ -146,7 +146,7 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1"):
     _, _, size, _ = get_grid(grid)
     grid_ds = get_grid_ds(grid)
 
-    ds = ds.reindex_like(grid_ds)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     if grid == 'global0_1':
         return ds
@@ -362,10 +362,10 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 @dask_remote
 @data
-@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def era5(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def era5(start_time=None, end_time=None, variable='precip', agg_days=1,
+         grid='global0_25', mask='lsm', region='global'): # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
@@ -378,12 +378,7 @@ def era5(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm'
         region (str): The region to clip the data to.
     """
     _, _, size, _ = get_grid(grid)
-
     if size < 0.25:
         raise NotImplementedError("Unable to regrid ERA5 smaller than 0.25x0.25")
-
     ds = era5_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid)
-    # Apply masking and clip region
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
     return ds

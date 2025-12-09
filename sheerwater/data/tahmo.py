@@ -8,19 +8,20 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
-from sheerwater.data.data_decorator import data
+
+from .data_decorator import data
 
 
 @cache(cache_args=[])
 def tahmo_deployment():
     """Stub function to get deployment cache."""
-    raise RuntimeError("Stub function - should always hit a cache")
+    raise RuntimeError("Processing not implemented for tahmo_deployment and wasn't found in the cache.")
 
 
 @cache(cache_args=['station_id'])
 def tahmo_station_cleaned(station_id):  # noqa: ARG001
     """Stub function to get data cache."""
-    raise RuntimeError("Stub function - should always hit a cache")
+    raise RuntimeError("Processing not implemented for tahmo_station_cleaned and wasn't found in the cache.")
 
 
 @dask_remote

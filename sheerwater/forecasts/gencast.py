@@ -119,7 +119,7 @@ def gencast_daily_year(year, variable, init_hour=0):
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
                },
            }
-       })
+})
 def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: ARG001
     """A daily gencast forecast."""
     ds1 = gencast_daily_year(year='2020', variable=variable, init_hour=0)
@@ -149,7 +149,7 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: A
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
                },
            }
-       })
+})
 def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='deterministic', grid='global0_25'):
     """A rolled and aggregated gencast forecast."""
     ds = gencast_daily(start_time, end_time, variable, grid)
@@ -169,18 +169,19 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
 @forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-def gencast(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""
     if variable != 'precip':
         raise NotImplementedError("Data error present in non-precip variables in Gencast. Skipping.")
 
     # Get the data with the right days
-    forecast_start = shift_by_days(start_time, -15)
-    forecast_end = shift_by_days(end_time, 15)
+    forecast_start = shift_by_days(start_time, -15) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = gencast_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, prob_type=prob_type, grid=grid)
+    ds = gencast_rolled(start_time=forecast_start, end_time=forecast_end, variable=variable,
+                        agg_days=agg_days, prob_type=prob_type, grid=grid)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:

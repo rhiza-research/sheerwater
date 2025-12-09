@@ -31,11 +31,11 @@ def forecast(func):
             grid = bound_args.arguments.get('grid')
             region = bound_args.arguments.get('region')
             agg_days = bound_args.arguments.get('agg_days')
+            variable = bound_args.arguments.get('variable')
+            units = 'mm' if variable == 'precip' else 'C'
 
             # Create a new coordinate for valid_time, that is the start_date plus the lead time
             ds = convert_init_time_to_pred_time(ds)
-            # Assign attributes
-            ds = ds.assign_attrs(agg_days=float(agg_days))
             # Apply masking
             ds = apply_mask(ds, mask, grid=grid)
             # Clip to specified region
@@ -43,6 +43,15 @@ def forecast(func):
             # Remove all unneeded dimensions
             ds = ds.drop_vars([var for var in ds.coords if var not in [
                               'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+
+            # Assign attributes
+            ds = ds.assign_attrs({'agg_days': float(agg_days),
+                                  'variable': variable,
+                                  'units': units,
+                                  'grid': grid,
+                                  'mask': mask,
+                                  'region': region})
+
 
         except Exception as e:
             raise ValueError(f"Error in forecast {func.__name__}: {e}")
@@ -54,3 +63,7 @@ def forecast(func):
 def get_forecast(forecast_name):
     """Get a forecast from the global forecast registry."""
     return FORECAST_REGISTRY[forecast_name]
+
+def list_forecasts():
+    """List all forecasts in the global forecast registry."""
+    return list(FORECAST_REGISTRY.keys())

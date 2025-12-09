@@ -73,37 +73,38 @@ def land_sea_mask(grid="global1_5"):
     return ds
 
 
-@cache(cache_args=['grid', 'region_level'],
+@cache(cache_args=['grid', 'space_grouping', 'region'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def region_labels(grid='global1_5', region_level='country'):
-    """Generate a dataset with a region coordinate at a specific region level.
+def region_labels(grid='global1_5', space_grouping='country', region='global'):
+    """Generate a dataset with a region coordinate at a specific space grouping.
 
-    Available region levels are
+    Available space groupings are
      - 'country', 'continent', 'subregion', 'region_un', 'region_wb', 'meteorological_zone',
         'hemisphere', 'global', and 'sheerwater_region'.
 
     Args:
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
-        region_level (str): The region level to add to the dataset
+        space_grouping (str): 
+            - country, continent, subregion, region_un, region_wb, meteorological_zone,
+              hemisphere, sheerwater_region
+        region (str): The region to clip to. A specific instance of a space group
+            -global, or any specific instance of the space groupings above, e.g., africa
+
 
     Returns:
         xarray.Dataset: Dataset with added region coordinate
     """
-    if '-' in region_level:
-        region_level, clip = region_level.split('-')
-    else:
-        clip = 'global'
     # Get the list of regions for the specified admin level
-    region_data = get_region_data(region_level)
+    region_data = get_region_data(space_grouping)
 
     # Get the grid dataframe
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
-    # Fixed data type of strings of length 100
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U30').data))
-    if clip != 'global':
-        ds = clip_region(ds, region=clip)
+    # Fixed data type of strings of length 40
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
+    if region != 'global':
+        ds = clip_region(ds, region=region)
 
     # Loop through each region and label grid cells
     for i, rn in region_data.iterrows():

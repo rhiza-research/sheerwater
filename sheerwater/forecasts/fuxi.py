@@ -131,7 +131,7 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
     # Get the right variable
     ds = ds[[variable]]
 
-    # convert based on a linear conversion factor of the average forecast to the era5 average
+    # convert hourly rain to daily rain
     if variable == 'precip':
         ds['precip'] = ds['precip'] * 24
 
@@ -159,17 +159,17 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 @forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-def fuxi(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""
     if grid != 'global1_5':
         raise NotImplementedError("Only 1.5 grid implemented for FuXi.")
 
     # The earliest and latest forecast dates for the set of all leads
-    forecast_start = shift_by_days(start_time, -46)
-    forecast_end = shift_by_days(end_time, 46)
+    forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
-    ds = fuxi_rolled(forecast_start, forecast_end, variable=variable, prob_type=prob_type, agg_days=agg_days)
+    ds = fuxi_rolled(forecast_start, forecast_end, variable, prob_type=prob_type, agg_days=agg_days)
 
     # Reanme to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})

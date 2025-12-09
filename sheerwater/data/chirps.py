@@ -9,7 +9,8 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
-from sheerwater.data.data_decorator import data
+
+from .data_decorator import data
 
 
 @dask_remote
@@ -24,7 +25,7 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
         base_url = f'https://data.chc.ucsb.edu/products/CHIRP-v3.0/daily/global/tifs/{year}/chirp-v3.0.'
         urls = []
         if year < 2000:
-            print("Chirpv3 not valid before 2000. Returning none.")
+            print("Chirp v3 not valid before 2000. Returning none.")
             return None
         elif year == 2000:
             for date in pd.date_range(f"{year}-06-01", f"{year}-12-31"):
@@ -82,6 +83,7 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
         base_url = f"https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/final/sat/netcdf/byMonth/chirps-v3.0.{year}"
         urls = []
         if year < 2000:
+            print("Chirps v3 not valid before 2000. Returning none.")
             return None
         elif year == 2000:
             for month in range(6, 13):
@@ -176,9 +178,7 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
     """A unified chirps caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRP/S.")
-
     ds = chirps_rolled(start_time, end_time, agg_days, grid, stations=stations, version=version)
-
     ds = ds.assign_attrs(sparse=True)
     return ds
 
@@ -234,8 +234,6 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
-    if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by CHIRPS.")
     ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                          stations=True, version=3)
 
