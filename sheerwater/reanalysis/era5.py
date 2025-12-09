@@ -1,4 +1,7 @@
-"""Fetches ERA5 data from the Google ARCO Store."""
+"""Fetches ERA5 data from the Google ARCO Store.
+
+NOTE: ERA5 land implementation is in progress.
+"""
 import numpy as np
 import xarray as xr
 from dateutil import parser
@@ -7,8 +10,6 @@ from nuthatch.processors import timeseries
 
 from sheerwater.data import data
 from sheerwater.utils import (
-    apply_mask,
-    clip_region,
     dask_remote,
     get_grid,
     get_grid_ds,
@@ -211,10 +212,6 @@ def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='
 
     # Get daily data
     ds = era5_land_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid)
-
-    # Apply masking and clip region
-    ds = apply_mask(ds, mask, grid=grid)
-    ds = clip_region(ds, region=region)
     return ds
 
 
