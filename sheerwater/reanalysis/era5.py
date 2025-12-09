@@ -193,7 +193,7 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 @timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'):
+def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'): # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
