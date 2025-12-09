@@ -1,14 +1,14 @@
 """General utility functions for all parts of the data pipeline."""
-import matplotlib.pyplot as plt
-import gcsfs
-import numpy as np
-import xarray as xr
 import itertools
 import multiprocessing
-import tqdm
-import dask
 
+import dask
+import gcsfs
+import matplotlib.pyplot as plt
+import numpy as np
 import plotly.graph_objects as go
+import tqdm
+import xarray as xr
 
 
 def load_object(filepath):

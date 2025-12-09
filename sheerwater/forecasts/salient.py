@@ -1,9 +1,11 @@
 """Pulls Salient Predictions S2S forecasts from the Salient API."""
-import xarray as xr
 import numpy as np
+import xarray as xr
+from nuthatch import cache
+from nuthatch.processors import timeseries
 
-from sheerwater.utils import (cacheable, dask_remote, get_variable, apply_mask, clip_region, regrid,
-                                           target_date_to_forecast_date, shift_forecast_date_to_target_date)
+from sheerwater.forecasts.forecast_decorator import forecast
+from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
 
 
 @dask_remote
@@ -32,11 +34,11 @@ def salient_blend_raw(variable, timescale="sub-seasonal"):
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='forecast_date',
-           cache_args=['variable', 'timescale', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "forecast_date": 30, 'lead': 1, 'quantiles': 1},
-           auto_rechunk=False)
+@timeseries(timeseries='forecast_date')
+@cache(cache_args=['variable', 'timescale', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "forecast_date": 30, 'lead': 1, 'quantiles': 1}
+       })
 def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid="global0_25"):  # noqa: ARG001
     """Processed Salient forecast files."""
     ds = salient_blend_raw(variable, timescale=timescale)
@@ -47,88 +49,25 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
     return ds
 
 
-# @dask_remote
-# @cacheable(data_type='array',
-#            cache_args=['lead',
-#                        'prob_type', 'prob_dim', 'prob_threshold',
-#                        'onset_group', 'aggregate_group',
-#                        'grid', 'mask', 'region'],
-#            cache=False,
-#            timeseries='time')
-# def salient_spw(start_time, end_time, lead,
-#                 prob_type='deterministic',
-#                 onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-#                 grid="global1_5", mask='lsm', region="global"):
-#     """Approximate suitable planting window from Salient weekly forecasts."""
-#     if prob_type != 'deterministic':
-#         raise NotImplementedError("Only deterministic forecasts supported for Salient SPW.")
-
-#     lead_params = {f"day{i+1}": i for i in range(25)}
-#     lead_offset_days = lead_params.get(lead, None)
-#     if lead_offset_days is None:
-#         raise NotImplementedError(f"Lead {lead} not implemented for Salient SPW forecasts.")
-
-#     daily_ds = salient_blend(start_time, end_time, 'precip', timescale='sub-seasonal', grid=grid)
-
-#     # Select median as deterministic forecast
-#     daily_ds = daily_ds.sel(quantiles=0.5)  # TODO: should update this to enable probabilistic handling
-
-#     # What week does our lead fall in?
-#     week = lead_offset_days // 7 + 1  # Convert offset days to week
-#     daily_ds = daily_ds.sel(lead=week)
-#     daily_ds['lead'] = np.timedelta64(lead_offset_days, 'D').astype('timedelta64[ns]')
-
-#     # Time shift - we want target date, instead of forecast date
-#     daily_ds = shift_forecast_date_to_target_date(daily_ds, 'forecast_date', lead)
-#     daily_ds = daily_ds.rename({'forecast_date': 'time'})
-
-#     datasets = [(agg_days*daily_ds)
-#                 .rename({'precip': f'precip_{agg_days}d'})
-#                 for agg_days in [8, 11]]
-#     # Merge both datasets
-#     ds = xr.merge(datasets)
-
-#     # Apply masking
-#     ds = apply_mask(ds, mask, grid=grid)
-#     ds = clip_region(ds, region=region)
-
-#     ds = spw_rainy_onset(ds, onset_group=onset_group, aggregate_group=aggregate_group,
-#                                      time_dim='time', prob_type='deterministic')
-#     return ds
-
-
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def salient(start_time, end_time, variable, lead, prob_type='deterministic',
-            grid='global0_25', mask='lsm', region='africa'):
+@timeseries()
+@forecast
+@cache(cache=False)
+def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_type='deterministic',
+            grid='global0_25', mask='lsm', region='africa'):  # noqa: ARG001
     """Standard format forecast data for Salient."""
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        raise NotImplementedError("Rainy onset forecasts not implemented for Salient.")
-
     lead_params = {
-        "week1": ("sub-seasonal", 1),
-        "week2": ("sub-seasonal", 2),
-        "week3": ("sub-seasonal", 3),
-        "week4": ("sub-seasonal", 4),
-        "week5": ("sub-seasonal", 5),
-        "month1": ("seasonal", np.timedelta64('1', 'D')),
-        "month2": ("seasonal", np.timedelta64('31', 'D')),
-        "month3": ("seasonal", np.timedelta64('61', 'D')),
-        "quarter1": ("long-range", 1),
-        "quarter2": ("long-range", 2),
-        "quarter3": ("long-range", 3),
-        "quarter4": ("long-range", 4),
+        7: "sub-seasonal",
+        30: "seasonal",
+        90: "long-range",
     }
-    timescale, lead_id = lead_params.get(lead, (None, None))
+    timescale = lead_params.get(agg_days, None)
     if timescale is None:
-        raise NotImplementedError(f"Lead {lead} not implemented for Salient.")
+        raise NotImplementedError(f"Agg days {agg_days} not implemented for Salient.")
 
-    # Convert start and end time to forecast start and end based on lead time
-    forecast_start = target_date_to_forecast_date(start_time, lead)
-    forecast_end = target_date_to_forecast_date(end_time, lead)
+    # Get the data with the right days
+    forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 366) if end_time is not None else None
 
     ds = salient_blend(forecast_start, forecast_end, variable, timescale=timescale, grid=grid)
     if prob_type == 'deterministic':
@@ -144,17 +83,22 @@ def salient(start_time, end_time, variable, lead, prob_type='deterministic',
     else:
         raise ValueError("Invalid probabilistic type")
 
-    # Get specific lead
-    ds = ds.sel(lead=lead_id)
-
-    # Time shift - we want target date, instead of forecast date
-    ds = shift_forecast_date_to_target_date(ds, 'forecast_date', lead)
-    ds = ds.rename({'forecast_date': 'time'})
-    ds = ds.sortby(ds.time)
-
-    # Apply masking
-    ds = apply_mask(ds, mask, var=variable, grid=grid)
-    # Clip to specified region
-    ds = clip_region(ds, region=region)
+    # Convert salient lead naming to match our standard
+    if timescale == "sub-seasonal":
+        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64(
+            i-1, 'W').astype('timedelta64[ns]') for i in ds.lead.values]))
+    elif timescale == "long-range":
+        ds = ds.assign_coords(prediction_timedelta=('lead', [np.timedelta64(
+            (i-1)*120, 'D').astype('timedelta64[ns]') for i in ds.lead.values]))
+    elif timescale == "seasonal":
+        # TODO: salient's monthly leads are 31 days, but we define them as 30 days
+        ds = ds.assign_coords(prediction_timedelta=(
+            'lead', [i-np.timedelta64(1, 'D').astype('timedelta64[ns]') for i in ds.lead.values]))
+    else:
+        raise ValueError(f"Invalid timescale: {timescale}")
+    ds = ds.sortby(ds.forecast_date)
+    ds = ds.swap_dims({'lead': 'prediction_timedelta'})
+    ds = ds.drop_vars('lead')
+    ds = ds.rename({'forecast_date': 'init_time'})
 
     return ds

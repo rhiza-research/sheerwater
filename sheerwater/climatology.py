@@ -1,23 +1,25 @@
 """A climatology baseline forecast for benchmarking."""
-import dateparser
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
+
+import dask
+import dateparser
 import numpy as np
 import pandas as pd
 import xarray as xr
-import dask
-from functools import partial
+from dateutil.relativedelta import relativedelta
+from nuthatch import cache
+from nuthatch.processors import timeseries
+
+from sheerwater.forecasts.forecast_decorator import forecast
 from sheerwater.reanalysis import era5_daily, era5_rolled
-from sheerwater.utils import (dask_remote, cacheable, get_dates,
-                                           apply_mask, clip_region, pad_with_leapdays, add_dayofyear)
-from sheerwater.tasks import spw_rainy_onset, spw_precip_preprocess
+from sheerwater.utils import add_dayofyear, dask_remote, get_dates, pad_with_leapdays
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "dayofyear": 30},
-           auto_rechunk=False)
+@cache(cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
+})
 def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
@@ -30,7 +32,7 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
     ds = add_dayofyear(ds)
     ds = pad_with_leapdays(ds)
 
-    ds['is_dry'] = ds['precip'] < 0.25
+    ds['is_dry'] = (ds['precip'] < 0.25)
     ds = ds.groupby('dayofyear').mean(dim='time')
     ds = ds.drop_vars(['precip'])
     ds = ds.rename({
@@ -44,10 +46,10 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "dayofyear": 30},
-           auto_rechunk=False)
+@cache(cache_args=['first_year', 'last_year', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
+})
 def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
@@ -73,10 +75,10 @@ def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='globa
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'first_year', 'last_year', 'grid'],
-           chunking={"lat": 721, "lon": 1440, "dayofyear": 30},
-           auto_rechunk=False)
+@cache(cache_args=['variable', 'first_year', 'last_year', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
+})
 def climatology_raw(variable, first_year=1985, last_year=2014, grid='global1_5'):
     """Compute the climatology of the ERA5 data. Years are inclusive."""
     start_time = f"{first_year}-01-01"
@@ -96,16 +98,15 @@ def climatology_raw(variable, first_year=1985, last_year=2014, grid='global1_5')
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache=True,
-           cache_args=['variable', 'first_year', 'last_year', 'prob_type', 'agg_days', 'grid'],
-           chunking={"lat": 121, "lon": 240, "dayofyear": 1000, "member": 1},
-           chunk_by_arg={
+@cache(cache_args=['variable', 'first_year', 'last_year', 'prob_type', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "dayofyear": 1000, "member": 1},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'dayofyear': 30, 'member': 1}
                }
-           },
-           auto_rechunk=False)
+           }
+})
 def climatology_agg_raw(variable, first_year=1985, last_year=2014,
                         prob_type='deterministic', agg_days=7, grid="global1_5"):
     """Generates aggregated climatology."""
@@ -142,16 +143,16 @@ def climatology_agg_raw(variable, first_year=1985, last_year=2014,
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'clim_years', 'agg_days', 'grid'],
-           chunking={"lat": 121, "lon": 240, "time": 1000},
-           chunk_by_arg={
+@timeseries()
+@cache(cache_args=['variable', 'clim_years', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
-           },
-           cache=True)
+           }
+})
 def climatology_rolling_agg(start_time, end_time, variable, clim_years=30, agg_days=7, grid="global1_5"):
     """Compute a rolling {clim_years}-yr climatology of the ERA5 data.
 
@@ -186,10 +187,9 @@ def climatology_rolling_agg(start_time, end_time, variable, clim_years=30, agg_d
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache_args=['variable', 'agg_days', 'grid'],
-           chunking={"lat": 300, "lon": 300, "time": 366})
+@timeseries()
+@cache(cache_args=['variable', 'agg_days', 'grid'],
+       backend_kwargs={'chunking': {"lat": 300, "lon": 300, "time": 366}})
 def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7, grid="global1_5"):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
@@ -214,16 +214,15 @@ def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7, grid="glob
 
 
 @dask_remote
-@cacheable(data_type='array',
-           cache_args=['variable', 'first_year', 'last_year', 'agg_days', 'grid'],
-           chunking={"lat": 121, "lon": 240, "dayofyear": 366},
-           cache=True,
-           chunk_by_arg={
+@cache(cache_args=['variable', 'first_year', 'last_year', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "dayofyear": 366},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'dayofyear': 30}
                }
-           },
-           auto_rechunk=False)
+           }
+})
 def climatology_linear_weights(variable, first_year=1985, last_year=2014, agg_days=7, grid='global1_5'):
     """Fit the climatological trend for a specific day of year.
 
@@ -248,16 +247,17 @@ def climatology_linear_weights(variable, first_year=1985, last_year=2014, agg_da
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'first_year', 'last_year', 'trend', 'prob_type', 'agg_days', 'grid'],
-           chunking={"lat": 121, "lon": 240, "time": 1000},
-           chunk_by_arg={
+@timeseries()
+@cache(cache=False,
+       cache_args=['variable', 'first_year', 'last_year', 'trend', 'prob_type', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 1000},
+           'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
                }
-           })
+           }
+       })
 def climatology_rolled(start_time, end_time, variable, first_year=1985, last_year=2014,
                        trend=False, prob_type='deterministic', agg_days=7, grid="global1_5"):
     """Generates a forecast timeseries of climatology.
@@ -310,161 +310,72 @@ def climatology_rolled(start_time, end_time, variable, first_year=1985, last_yea
     return ds
 
 
-def _process_lead(variable, lead):
-    """Helper function for interpreting lead for climatology forecasts."""
-    lead_params = {}
-    for i in range(1, 366):
-        lead_params[f"day{i}"] = 1
-    if variable != 'rainy_onset':
-        for i in range(1, 7):
-            lead_params[f"week{i}"] = 7
-        for le in ['weeks12', 'weeks23', 'weeks34', 'weeks45', 'weeks56']:
-            lead_params[le] = 14
-        for i in range(1, 12):
-            lead_params[f"month{i}"] = 30
-
-    # Adding static grouped leads for climatology
-    lead_params["daily"] = 1
-    lead_params["weekly"] = 7
-    lead_params["biweekly"] = 14
-    lead_params["monthly"] = 30
-
-    agg_days = lead_params.get(lead, None)
-    if agg_days is None:
-        raise NotImplementedError(f"Lead {lead} not implemented for climatology.")
-    return agg_days
-
-
 @dask_remote
-def climatology_spw(start_time, end_time, first_year=1985, last_year=2014, trend=False,
-                    prob_type='probabilistic', prob_threshold=0.2,
-                    drought_condition=False,
-                    onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                    grid='global1_5', mask='lsm', region="global"):
-    """Climatology SPW forecast."""
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    fn = partial(climatology_rolled, start_time, end_time, variable='precip',
-                 first_year=first_year, last_year=last_year,
-                 trend=trend, prob_type=prob_type, grid=grid)
-    roll_days = [8, 11] if not drought_condition else [8, 11, 11]
-    shift_days = [0, 0] if not drought_condition else [0, 0, 11]
-    data = spw_precip_preprocess(fn, agg_days=roll_days, shift_days=shift_days,
-                                 mask=mask, region=region, grid=grid)
-
-    (prob_dim, prob_threshold) = ('member', prob_threshold) if prob_type == 'probabilistic' else (None, None)
-    ds = spw_rainy_onset(data,
-                         onset_group=onset_group, aggregate_group=aggregate_group,
-                         time_dim='time',
-                         prob_type=prob_label, prob_dim=prob_dim, prob_threshold=prob_threshold,
-                         drought_condition=drought_condition,
-                         mask=mask, region=region, grid=grid)
-    return ds
-
-
-@dask_remote
-def _climatology_unified(start_time, end_time, variable, lead,
+def _climatology_unified(start_time, end_time, variable, agg_days,
                          first_year=1985, last_year=2014, trend=False,
-                         prob_type='deterministic',
-                         grid='global0_25', mask='lsm', region='global'):
+                         prob_type='deterministic', grid='global0_25'):
     """Standard format forecast data for climatology forecast."""
-    agg_days = _process_lead(variable, lead)
-    # Get daily data
-    if variable == 'rainy_onset' or variable == 'rainy_onset_no_drought':
-        drought_condition = variable == 'rainy_onset_no_drought'
-        ds = climatology_spw(start_time, end_time, first_year=first_year, last_year=last_year,
-                             trend=trend,
-                             prob_type=prob_type, prob_threshold=0.2,
-                             onset_group=['ea_rainy_season', 'year'], aggregate_group=None,
-                             drought_condition=drought_condition,
-                             grid=grid, mask=mask, region=region)
-        # Rainy onset is sparse, so we need to set the sparse attribute
-        ds = ds.assign_attrs(sparse=True)
-    else:
-        ds = climatology_rolled(start_time, end_time, variable,
-                                first_year=first_year, last_year=last_year,
-                                trend=trend,
-                                prob_type=prob_type,
-                                agg_days=agg_days, grid=grid)
-        # Apply masking and clip to region
-        ds = apply_mask(ds, mask, grid=grid)
-        ds = clip_region(ds, region=region)
+    ds = climatology_rolled(start_time, end_time, variable,
+                            first_year=first_year, last_year=last_year,
+                            trend=trend,
+                            prob_type=prob_type,
+                            agg_days=agg_days, grid=grid)
 
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
         ds = ds.assign_attrs(prob_type="ensemble")
+
+    # To match the standard forecast format, add a prediction_timedelta coordinate
+    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})  # nanosecond precision
+    ds = ds.rename({"time": "init_time"})
     return ds
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def climatology_2015(start_time, end_time, variable, lead, prob_type='deterministic',
-                     grid='global0_25', mask='lsm', region='global'):
+@timeseries()
+@forecast
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                     grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
-    return _climatology_unified(start_time, end_time, variable, lead, first_year=1985, last_year=2014,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+    return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1985, last_year=2014,
+                                trend=False, prob_type=prob_type, grid=grid)
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def climatology_2020(start_time, end_time, variable, lead, prob_type='deterministic',
-                     grid='global0_25', mask='lsm', region='global'):
+@timeseries()
+@forecast
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                     grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
-    return _climatology_unified(start_time, end_time, variable, lead, first_year=1990, last_year=2019,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+    return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1990, last_year=2019,
+                                trend=False, prob_type=prob_type, grid=grid)
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def climatology_trend_2015(start_time, end_time, variable, lead, prob_type='deterministic',
-                           grid='global0_25', mask='lsm', region='global'):
+@timeseries()
+@forecast
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
+                           grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
-    return _climatology_unified(start_time, end_time, variable, lead, first_year=1985, last_year=2014,
-                                trend=True, prob_type=prob_type, grid=grid, mask=mask, region=region)
+    return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1985, last_year=2014,
+                                trend=True, prob_type=prob_type, grid=grid)
 
 
 @dask_remote
-@cacheable(data_type='array',
-           timeseries='time',
-           cache=False,
-           cache_args=['variable', 'lead', 'prob_type', 'grid', 'mask', 'region'])
-def climatology_rolling(start_time, end_time, variable, lead, prob_type='deterministic',
-                        grid='global0_25', mask='lsm', region='global'):
+@timeseries()
+@forecast
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
+                        grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
-    lead_params = {
-        "daily": 1,
-        "weekly": 7,
-        "week1": 7,
-        "week2": 7,
-        "week3": 7,
-        "week4": 7,
-        "week5": 7,
-        "week6": 7,
-        "biweekly": 14,
-        "weeks12": 14,
-        "weeks23": 14,
-        "weeks34": 14,
-        "weeks45": 14,
-        "weeks56": 14,
-        "monthly": 30,
-        "month1": 30,
-        "month2": 30,
-        "month3": 30,
-    }
-
-    agg_days = lead_params.get(lead, None)
-    if agg_days is None:
-        raise NotImplementedError(f"Lead {lead} not implemented for rolling climatology.")
-
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecasts are available for rolling climatology.")
 
@@ -483,14 +394,9 @@ def climatology_rolling(start_time, end_time, variable, lead, prob_type='determi
     times = [x + pd.DateOffset(years=1) for x in ds.time.values]
     ds = ds.assign_coords(time=times)
 
-    # Handle duplicate values due to leap years
-    # TODO: handle this in a more general way
-    ds = ds.drop_duplicates(dim='time')
-
-    ds = ds.assign_attrs(prob_type="deterministic")
-
-    # Apply masking
-    ds = apply_mask(ds, mask, var=variable, grid=grid)
-    # Clip to specified region
-    ds = clip_region(ds, region=region)
+    # TODO: need to think through the padding with leap days, as we're getting duplicates
+    ds = ds.drop_duplicates('time')
+    # To match the standard forecast format, add a prediction_timedelta coordinate
+    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})
+    ds = ds.rename({"time": "init_time"})
     return ds

@@ -1,15 +1,16 @@
 """Test that the precipitation range for the forecasters and reanalysis is reasonable."""
-from sheerwater.forecasts import salient, ecmwf_ifs_er_debiased, ecmwf_ifs_er
-from sheerwater.baselines.climatology import climatology_2015, climatology_rolling, climatology_trend_2015
+from sheerwater.climatology import climatology_2015, climatology_rolling, climatology_trend_2015
+from sheerwater.forecasts import ecmwf_ifs_er, ecmwf_ifs_er_debiased, salient
 from sheerwater.reanalysis.era5 import era5
+from sheerwater.utils import start_remote
 
 
 def test_precip_range():
     """Ensemble mean precipitation range for forecasters and reanalysis are reasonable."""
+    start_remote(remote_config='large_cluster', remote_name='test_forecasts')
     start_time = "2016-01-01"
     end_time = "2016-12-31"
     variable = "precip"
-    lead = "week2"
     prob_type = "deterministic"
     mask = "lsm"
     region = "global"
@@ -17,17 +18,17 @@ def test_precip_range():
     for grid in ["global0_25", "global1_5"]:
         print(f"Grid: {grid}")
         dsr = era5(start_time, end_time, variable, agg_days=7, grid=grid, mask=mask, region=region)
-        ds1 = salient(start_time, end_time, variable, lead=lead,
+        ds1 = salient(start_time, end_time, variable, agg_days=7,
                       prob_type=prob_type, grid=grid, mask=mask, region=region)
-        ds2 = ecmwf_ifs_er(start_time, end_time, variable, lead=lead,
+        ds2 = ecmwf_ifs_er(start_time, end_time, variable, agg_days=7,
                            prob_type=prob_type, grid=grid, mask=mask, region=region)
-        ds3 = ecmwf_ifs_er_debiased(start_time, end_time, variable, lead=lead,
+        ds3 = ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days=7,
                                     prob_type=prob_type, grid=grid, mask=mask, region=region)
-        ds4 = climatology_2015(start_time, end_time, variable, lead=lead,
+        ds4 = climatology_2015(start_time, end_time, variable, agg_days=7,
                                prob_type=prob_type, grid=grid, mask=mask, region=region)
-        ds5 = climatology_rolling(start_time, end_time, variable, lead=lead,
+        ds5 = climatology_rolling(start_time, end_time, variable, agg_days=7,
                                   prob_type=prob_type, grid=grid, mask=mask, region=region)
-        ds6 = climatology_trend_2015(start_time, end_time, variable, lead=lead,
+        ds6 = climatology_trend_2015(start_time, end_time, variable, agg_days=7,
                                      prob_type=prob_type, grid=grid, mask=mask, region=region)
         valr = float(dsr['precip'].mean(skipna=True).compute())
         val1 = float(ds1['precip'].mean(skipna=True).compute())

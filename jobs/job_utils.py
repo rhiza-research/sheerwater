@@ -5,34 +5,49 @@ import itertools
 import multiprocessing
 import tqdm
 
-from sheerwater.metrics import is_precip_only
-from sheerwater.metrics import is_coupled
+from sheerwater.metrics_library import metric_factory
+
+skip = 0
+station_eval = False
+
 
 def parse_args():
     """Parses arguments for jobs."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start-time", default="2016-01-01", type=str)
-    parser.add_argument("--end-time", default="2022-12-31", type=str)
-    parser.add_argument("--forecast", type=str, nargs='*')
-    parser.add_argument("--truth", type=str, nargs='*')
-    parser.add_argument("--variable", type=str, nargs='*')
-    parser.add_argument("--metric", type=str, nargs='*')
-    parser.add_argument("--grid", type=str, nargs='*')
-    parser.add_argument("--region", type=str, nargs='*')
-    parser.add_argument("--lead", type=str, nargs='*')
-    parser.add_argument("--time-grouping", type=str, nargs='*')
-    parser.add_argument("--backend", type=str, default=None)
-    parser.add_argument("--parallelism", type=int, default=1)
-    parser.add_argument("--recompute", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--remote", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--station-evaluation", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--seasonal", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--remote-name", type=str, default=None)
-    parser.add_argument("--remote-config", type=str, nargs='*')
+    parser.add_argument("--start-time", default="1998-01-01", type=str, help="Start time for evaluation.")
+    parser.add_argument("--end-time", default="2024-12-31", type=str, help="End time for evaluation.")
+    parser.add_argument("--forecast", type=str, nargs='*', help="Forecasts to evaluate.")
+    parser.add_argument("--truth", type=str, nargs='*', help="Truth data to evaluate against.")
+    parser.add_argument("--variable", type=str, nargs='*', help="Variables to evaluate.")
+    parser.add_argument("--metric", type=str, nargs='*', help="Metrics to evaluate.")
+    parser.add_argument("--grid", type=str, nargs='*', help="Grids to evaluate.")
+    parser.add_argument("--region", type=str, nargs='*', help="Regions to evaluate.")
+    parser.add_argument("--agg_days", type=int, nargs='*', help="Aggregation days to evaluate.")
+    parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
+    parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
+    parser.add_argument("--parallelism", type=int, default=1, help="Number of runs to run in parallel.")
+    parser.add_argument("--recompute", action=argparse.BooleanOptionalAction,
+                        default=False, help="Whether to recompute existing metrics.")
+    parser.add_argument("--remote", action=argparse.BooleanOptionalAction,
+                        default=True, help="Whether to run on remote cluster.")
+    parser.add_argument("--station-evaluation", action=argparse.BooleanOptionalAction,
+                        default=False, help="Whether to run station evaluation.")
+    parser.add_argument("--seasonal", action=argparse.BooleanOptionalAction,
+                        default=False, help="Whether to run seasonal evaluation.")
+    parser.add_argument("--remote-name", type=str, default=None, help="Name of remote cluster to use.")
+    parser.add_argument("--remote-config", type=str, nargs='*', help="Remote configuration to use.")
+    parser.add_argument("--skip", type=int, default=0, help="Start runs at this index by skipping the first N runs.")
     args = parser.parse_args()
 
+    global skip
+    skip = args.skip
+
+    global station_eval
     if args.station_evaluation:
-        forecasts = ["era5", "chirps", "imerg", "cbam"]
+        station_eval = True
+
+    if args.station_evaluation:
+        forecasts = ["chirps_v3", "imerg_late", "imerg_final", "era5", "chirp_v3"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
@@ -44,7 +59,7 @@ def parse_args():
         forecasts = args.forecast
 
     if args.station_evaluation:
-        truth = ["ghcn", "ghcn_avg", "tahmo", "tahmo_avg"]
+        truth = ["tahmo", "tahmo_avg", "ghcn", "ghcn_avg"]
     else:
         truth = ["era5"]
 
@@ -52,15 +67,37 @@ def parse_args():
         truth = args.truth
 
     if args.station_evaluation:
-        metrics = ["mae", "rmse", "bias", "acc", "smape", "seeps", "pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        metrics = ["mae", "rmse", "bias", "acc", "smape", "pod-1", "pod-5", "pod-10", "pearson",
+                   "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
     else:
-        metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5",
+                   "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
 
     if args.metric:
         if args.metric == ['contingency']:
-            metrics = ["pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+            metrics = ["pod-1", "pod-5", "pod-10", "far-1", "far-5",
+                       "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
         elif args.metric == ['coupled']:
-            metrics = ["acc", "pod-1", "pod-5", "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+            metrics = ["acc", "pod-1", "pod-5", "pod-10", "far-1", "far-5",
+                       "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        elif args.metric == ['wet-dry']:
+            metrics = ["pod-3.6", "pod-7.6", "pod-6.6", "far-3.6", "far-7.6", "far-6.6",
+                       "ets-3.6", "ets-7.6", "ets-6.6", "csi-3.6", "csi-7.6", "csi-6.6",
+                       "frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6",
+                       "far-1.5",
+                       "heidke-1.5-7.6"]
+        elif args.metric == ['wet-dry-pod']:
+            metrics = ["pod-3.6", "pod-7.6", "pod-6.6"]
+        elif args.metric == ['wet-dry-far']:
+            metrics = ["far-3.6", "far-7.6", "far-6.6"]
+        elif args.metric == ['wet-dry-ets']:
+            metrics = ["ets-3.6", "ets-7.6", "ets-6.6"]
+        elif args.metric == ['wet-dry-csi']:
+            metrics = ["csi-3.6", "csi-7.6", "csi-6.6"]
+        elif args.metric == ['wet-dry-freq']:
+            metrics = ["frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6"]
+        elif args.metric == ['wet-dry-rest']:
+            metrics = ["far-1.5", "heidke-1.5-7.6"]
         else:
             metrics = args.metric
 
@@ -68,25 +105,28 @@ def parse_args():
     if args.variable:
         variables = args.variable
 
-    grids = ["global0_25", "global1_5"]
+    if args.station_evaluation:
+        grids = ["global1_5", "imerg", "global0_1", "global0_25"]
+    else:
+        grids = ["global0_25", "global1_5"]
     if args.grid:
         grids = args.grid
 
-    regions = ["africa", "east_africa", "global", "conus"]
+    regions = ["continent", "subregion", "global", "country"]
     if args.region:
         regions = args.region
 
     if args.station_evaluation:
-        leads = ["daily", "weekly", "biweekly", "monthly"]
+        agg_days = [1, 5, 7, 10, 14, 30]
     elif args.seasonal:
-        leads = ["month1", "month2", "month3"]
+        agg_days = [30]
     else:
-        leads = ["week1", "week2", "week3", "week4", "week5", "week6"]
+        agg_days = [7]
 
-    if args.lead:
-        leads = args.lead
+    if args.agg_days:
+        agg_days = args.agg_days
 
-    time_groupings = [None, "month_of_year", "year"]
+    time_groupings = [None, "month_of_year"]
     if args.time_grouping:
         time_groupings = args.time_grouping
         time_groupings = [x if x != 'None' else None for x in time_groupings]
@@ -96,33 +136,46 @@ def parse_args():
         remote_config = args.remote_config
 
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
-            regions, leads, time_groupings, args.parallelism,
+            regions, agg_days, time_groupings, args.parallelism,
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
 
-def prune_metrics(combos, global_run=False):
+
+def prune_metrics(combos, global_run=False):  # noqa: ARG001
     """Prunes a list of metrics combinations.
 
     Can skip all coupled metrics for global runs.
     """
     pruned_combos = []
     for combo in combos:
-        metric, variable, grid, region, lead, forecast, time_grouping, truth = combo
+        forecast, truth, variable, grid, agg_days, region, time_grouping, metric_name = combo
 
-        if not global_run and 'tahmo' in truth and region != 'east_africa':
+        metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
+                                    agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
+                                    spatial=False, grid=grid, mask=None, region=region)
+
+        if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
             continue
 
-        if global_run:
-            if is_coupled(metric):
-                continue
-        else:
-            if is_coupled(metric) and time_grouping is not None:
-                continue
-
-        if is_precip_only(metric) and variable != 'precip':
+        if metric_name == 'seeps' and grid == 'global0_25':
             continue
 
-        if metric == 'seeps' and grid == 'global0_25':
-            continue
+        global station_eval
+        if '-' in metric_name and station_eval and agg_days:
+            thresh = float(metric_name.split('-')[1])
+
+            # FAR dry spell
+            if thresh == 1.5:
+                if agg_days not in [7, 10]:
+                    continue
+            elif thresh == 6.6:
+                if agg_days != 3:
+                    continue
+            elif thresh == 7.6:
+                if agg_days != 5:
+                    continue
+            elif thresh == 3.6:
+                if agg_days != 11:
+                    continue
 
         pruned_combos.append(combo)
 
@@ -145,6 +198,9 @@ def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
     failed = []
     if parallelism <= 1:
         for i, it in enumerate(iterable):
+            if i < skip:
+                continue
+
             print(f"Running {i+1}/{length}")
             out = func(it)
             if out is not None:
@@ -161,18 +217,29 @@ def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
                         success_count += 1
         else:
             for it in itertools.batched(iterable, parallelism):
+                if counter < skip:
+                    counter = counter + parallelism
+                    continue
+
                 output = []
                 print(f"Running {counter+1}...{counter+parallelism}/{length}")
                 for i in it:
                     out = dask.delayed(func)(i)
-                    if out is not None:
-                        success_count += 1
-                    else:
+                    if out is None:
                         failed.append(i)
 
                     output.append(out)
 
-                dask.compute(output)
+                results = dask.compute(output)[0]
+                ls_count = 0
+                for i, r in enumerate(results):
+                    if r is not None:
+                        ls_count += 1
+                        success_count += 1
+                    else:
+                        failed.append(it[i])
+                        print(f"Failed metric: {it[i]}")
+                print(f"{ls_count} succeeded.")
                 counter = counter + parallelism
 
     print(f"{success_count}/{length} returned non-null values. Runs that failed: {failed}")
