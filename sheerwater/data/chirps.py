@@ -174,6 +174,7 @@ def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2
     return ds
 
 
+@dask_remote
 def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
                     stations=True, version=2, region='global'):
     """A unified chirps caller."""

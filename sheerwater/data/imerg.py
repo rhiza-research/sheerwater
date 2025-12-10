@@ -35,6 +35,7 @@ def imerg_raw(year, version='final'):
 
 
 @dask_remote
+@timeseries()
 @spatial()
 @cache(cache_args=['grid', 'version'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})

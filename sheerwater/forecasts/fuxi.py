@@ -118,6 +118,7 @@ def fuxi_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
+@timeseries()
 @spatial()
 @cache(cache_args=['variable', 'agg_days', 'prob_type'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
