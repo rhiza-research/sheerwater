@@ -11,8 +11,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid
-
-from .data_decorator import data
+from sheerwater.decorators import data
 
 
 @cache(cache_args=[])

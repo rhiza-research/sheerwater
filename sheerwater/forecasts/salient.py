@@ -4,8 +4,8 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.forecasts.forecast_decorator import forecast
 from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
+from sheerwater.decorators import forecast
 
 
 @dask_remote

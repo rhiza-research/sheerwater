@@ -84,13 +84,15 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=True):
+def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', lat_dim='lat', drop=True):
     """Clip a dataset to a region.
 
     Args:
         ds (xr.Dataset): The dataset to clip to a specific region.
         region (str): The region to clip to. One of:
             - africa, conus, global
+        region_dim (str): The name of the region dimension. If None, the region data will be fetched from the region registry.
+        region_data (geopandas.GeoDataFrame): The region data to clip to. If None, will be fetched from the region registry.
         lon_dim (str): The name of the longitude dimension.
         lat_dim (str): The name of the latitude dimension.
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
@@ -99,17 +101,22 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=True):
     if region == 'global':
         return ds
 
-    region_data = get_region_data(region)
-    if len(region_data) != 1:
-        raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
+    if region_dim is not None:
+        # If we already have a region dimension, just select the region
+        ds = ds.sel(**{region_dim: region})
+    else:
+        # If we don't have a region dimension we need to clip to the region
+        if region_data is None:
+            # If not passed, fetch the region data from the region registry
+            region_data = get_region_data(region)
 
-    # Set up dataframe for clipping
-    ds = ds.rio.write_crs("EPSG:4326")
-    ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
-
-    # Clip the grid to the boundary of Shapefile
-    ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
-
+        if len(region_data) != 1:
+            raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
+        # Set up dataframe for clipping
+        ds = ds.rio.write_crs("EPSG:4326")
+        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+        # Clip the grid to the boundary of Shapefile
+        ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
     return ds
 
 
@@ -192,9 +199,11 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         ds = ds.where(mask_ds['mask'] > val, drop=False)
     return ds
 
+
 def snap_point_to_grid(point, grid_size, offset):
     """Snap a point to a provided grid and offset."""
     return round(float(point+offset)/grid_size) * grid_size - offset
+
 
 def get_grid_ds(grid_id, base="base180"):
     """Get a dataset equal to ones for a given region."""

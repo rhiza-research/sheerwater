@@ -8,8 +8,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5_rolled
 from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
-
-from .forecast_decorator import forecast
+from sheerwater.decorators import forecast
 
 
 @dask_remote

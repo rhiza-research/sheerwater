@@ -16,7 +16,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, lon_base_change, roll_and_agg, shift_by_days
 from sheerwater.utils.secrets import huggingface_read_token
-from sheerwater.forecasts.forecast_decorator import forecast
+from sheerwater.decorators import forecast
 
 
 @dask_remote
