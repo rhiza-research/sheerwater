@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.forecasts.forecast_decorator import forecast
+from sheerwater.decorators import forecast as sheerwater_forecast
 from sheerwater.reanalysis import era5_daily, era5_rolled
 from sheerwater.utils import add_dayofyear, dask_remote, get_dates, pad_with_leapdays
 
@@ -334,9 +334,9 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
 
 @dask_remote
 @timeseries()
-@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast
 def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                      grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
@@ -346,9 +346,9 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
 
 @dask_remote
 @timeseries()
-@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast
 def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                      grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
@@ -358,9 +358,9 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
 
 @dask_remote
 @timeseries()
-@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast
 def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
                            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""
@@ -370,9 +370,9 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
 
 @dask_remote
 @timeseries()
-@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast
 def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
                         grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format forecast data for climatology forecast."""

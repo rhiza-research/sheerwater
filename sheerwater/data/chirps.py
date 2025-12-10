@@ -9,7 +9,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
-from sheerwater.decorators import data, spatial
+from sheerwater.decorators import data as sheerwater_data, spatial
 
 
 @dask_remote
@@ -186,9 +186,9 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
              grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP2."""
@@ -198,9 +198,9 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
              grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRP3."""
@@ -210,9 +210,9 @@ def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
               grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS2."""
@@ -222,9 +222,9 @@ def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
               grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """A chirps interface for CHIRPS3."""
@@ -234,9 +234,9 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""

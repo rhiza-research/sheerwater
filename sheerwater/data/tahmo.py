@@ -8,7 +8,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
-from sheerwater.decorators import data, spatial
+from sheerwater.decorators import data as sheerwater_data, spatial
 
 
 @cache(cache_args=[])
@@ -139,10 +139,10 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+@sheerwater_data
 def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,
           grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
           missing_thresh=0.9):
@@ -154,10 +154,10 @@ def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+@sheerwater_data
 def tahmo_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9):

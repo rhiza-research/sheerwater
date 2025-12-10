@@ -8,7 +8,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5_rolled
 from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
-from sheerwater.decorators import forecast, spatial
+from sheerwater.decorators import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
@@ -390,9 +390,9 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 @dask_remote
 @timeseries()
 @spatial()
-@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast
 def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
@@ -404,9 +404,9 @@ def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, 
 @dask_remote
 @timeseries()
 @spatial()
-@forecast
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast
 def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""

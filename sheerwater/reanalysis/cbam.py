@@ -4,7 +4,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import apply_mask, clip_region, dask_remote, regrid, roll_and_agg
-from sheerwater.decorators import data, spatial
+from sheerwater.decorators import data as sheerwater_data, spatial
 
 
 @dask_remote
@@ -81,9 +81,9 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", re
 @dask_remote
 @timeseries()
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 

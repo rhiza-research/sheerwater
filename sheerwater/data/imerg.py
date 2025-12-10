@@ -7,7 +7,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
 
-from sheerwater.decorators import data, spatial
+from sheerwater.decorators import data as sheerwater_data, spatial
 
 @dask_remote
 @cache(cache_args=['year', 'version'],
@@ -86,9 +86,9 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
                 grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG Final."""
@@ -97,9 +97,9 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
                grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """IMERG late."""
@@ -108,9 +108,9 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 @dask_remote
 @spatial()
-@data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@sheerwater_data
 def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,
           grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Alias for IMERG final."""
