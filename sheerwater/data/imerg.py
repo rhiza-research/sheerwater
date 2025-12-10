@@ -87,6 +87,7 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
@@ -98,6 +99,7 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
@@ -109,6 +111,7 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data

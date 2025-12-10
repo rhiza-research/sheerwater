@@ -187,6 +187,7 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
@@ -199,6 +200,7 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
@@ -211,6 +213,7 @@ def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
@@ -235,6 +238,7 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 @dask_remote
 @spatial()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
