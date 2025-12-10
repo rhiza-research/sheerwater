@@ -126,8 +126,7 @@ def dask_remote(func):
                 remote_config = kwargs['remote_config']
 
             start_remote(remote_name, remote_config)
-
-        else:
+        elif 'local_dask' in kwargs and kwargs['local_dask']:
             # Setup a local cluster
             try:
                 get_client()
@@ -145,6 +144,9 @@ def dask_remote(func):
 
         if 'remote_name' in kwargs:
             del kwargs['remote_name']
+
+        if 'local_dask' in kwargs:
+            del kwargs['local_dask']
 
         return func(*args, **kwargs)
     return remote_wrapper
