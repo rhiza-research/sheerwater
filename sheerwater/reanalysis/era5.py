@@ -9,7 +9,6 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.decorators import data as sheerwater_data, spatial 
-from sheerwater.decorators import spatial 
 
 from sheerwater.utils import (
     dask_remote,

@@ -5,7 +5,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
-from sheerwater.decorators import forecast
+from sheerwater.decorators import forecast, spatial
 
 
 @dask_remote
@@ -35,11 +35,12 @@ def salient_blend_raw(variable, timescale="sub-seasonal"):
 
 @dask_remote
 @timeseries(timeseries='forecast_date')
+@spatial()
 @cache(cache_args=['variable', 'timescale', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "forecast_date": 30, 'lead': 1, 'quantiles': 1}
        })
-def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid="global0_25"):  # noqa: ARG001
+def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid="global0_25", region='global'):  # noqa: ARG001
     """Processed Salient forecast files."""
     ds = salient_blend_raw(variable, timescale=timescale)
     ds = ds.dropna('forecast_date', how='all')
@@ -51,6 +52,7 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid
 
 @dask_remote
 @timeseries()
+@spatial()
 @forecast
 @cache(cache=False)
 def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_type='deterministic',
@@ -69,7 +71,7 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
     forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
     forecast_end = shift_by_days(end_time, 366) if end_time is not None else None
 
-    ds = salient_blend(forecast_start, forecast_end, variable, timescale=timescale, grid=grid)
+    ds = salient_blend(forecast_start, forecast_end, variable, timescale=timescale, grid=grid, region=region)
     if prob_type == 'deterministic':
         # Get the median forecast
         ds = ds.sel(quantiles=0.5)

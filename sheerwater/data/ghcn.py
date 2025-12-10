@@ -11,7 +11,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid
-from sheerwater.decorators import data
+from sheerwater.decorators import data, spatial
 
 
 @cache(cache_args=[])
@@ -137,9 +137,10 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', delayed=True):
+def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', delayed=True, region='global'):
     """Final gridded station data before aggregation."""
     # Get years between start time and end time
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
@@ -166,13 +167,14 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', del
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd_rolled(start_time, end_time, agg_days,
-                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
+                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first', region='global'):
     """GHCND rolled and aggregated."""
     # Get the data
-    ds = ghcnd(start_time, end_time, grid, cell_aggregation)
+    ds = ghcnd(start_time, end_time, grid, cell_aggregation, region=region)
 
     # Roll and agg
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
@@ -183,10 +185,10 @@ def ghcnd_rolled(start_time, end_time, agg_days,
 
 @dask_remote
 def _ghcn_unified(start_time, end_time, variable, agg_days,
-                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
+                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first', region='global'):
     """Standard interface for ghcn data."""
     ds = ghcnd_rolled(start_time, end_time, agg_days=agg_days, grid=grid,
-                      missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
+                      missing_thresh=missing_thresh, cell_aggregation=cell_aggregation, region=region)
 
     # Get the variable
     variable_ghcn = get_variable(variable, 'ghcn')
@@ -200,6 +202,7 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
+@spatial()
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
@@ -210,10 +213,11 @@ def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
                          grid=grid,
-                         missing_thresh=missing_thresh, cell_aggregation='first')
+                         missing_thresh=missing_thresh, cell_aggregation='first', region=region)
 
 
 @dask_remote
+@spatial()
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
@@ -224,4 +228,4 @@ def ghcn_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
                          grid=grid,
-                         missing_thresh=missing_thresh, cell_aggregation='mean')
+                         missing_thresh=missing_thresh, cell_aggregation='mean', region=region)

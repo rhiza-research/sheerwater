@@ -4,7 +4,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import apply_mask, clip_region, dask_remote, regrid, roll_and_agg
-from sheerwater.decorators import data
+from sheerwater.decorators import data, spatial
 
 
 @dask_remote
@@ -28,9 +28,10 @@ def cbam_raw(start_time, end_time, variable):  # noqa ARG001
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['variable', 'grid'],
        backend_kwargs={'chunking': {"lat": 721, "lon": 1440, "time": 30}})
-def cbam_gridded(start_time, end_time, variable, grid="global1_5"):
+def cbam_gridded(start_time, end_time, variable, grid="global1_5", region='global'):
     """Aggregates the hourly ERA5 data into daily data.
 
     Args:
@@ -40,6 +41,7 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5"):
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
     ds = cbam_raw(start_time, end_time, variable)
@@ -49,12 +51,13 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5"):
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['variable', 'agg_days', 'grid'],
        cache_disable_if={'agg_days': 1},
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "time": 30}
        })
-def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
+def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", region='global'):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
     Args:
@@ -65,9 +68,10 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
-    ds = cbam_gridded(start_time, end_time, variable, grid=grid)
+    ds = cbam_gridded(start_time, end_time, variable, grid=grid, region=region)
     if agg_days == 1:
         return ds
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
@@ -76,10 +80,11 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5"):
 
 @dask_remote
 @timeseries()
+@spatial()
 @data
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):
+def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
@@ -92,9 +97,7 @@ def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm'
         region (str): The region to clip the data to.
     """
     # Get daily data
-    ds = cbam_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid)
+    ds = cbam_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, region=region)
     # Apply masking
     ds = apply_mask(ds, mask, var=variable, grid=grid)
-    # Clip to specified region
-    ds = clip_region(ds, region=region)
     return ds
