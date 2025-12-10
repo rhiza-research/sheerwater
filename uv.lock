@@ -3679,14 +3679,14 @@ wheels = [
 
 [[package]]
 name = "proto-plus"
-version = "1.24.0.dev1"
+version = "1.24.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bc/b6/679a86fde6d817607da46a934a9f82f63bce8614ddcf7069b3eed45e2b00/proto-plus-1.24.0.dev1.tar.gz", hash = "sha256:e3e46255d640d3f5166ce401e5d6428bc45bd588262efacf000eb4d354eea236", size = 55457, upload-time = "2024-04-25T18:18:42.691Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/fc/e9a65cd52c1330d8d23af6013651a0bc50b6d76bcbdf91fae7cd19c68f29/proto-plus-1.24.0.tar.gz", hash = "sha256:30b72a5ecafe4406b0d339db35b56c4059064e69227b8c3bda7462397f966445", size = 55942, upload-time = "2024-06-19T15:02:44.501Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f0/e4/4385feeb013800cf9b73fe96a95ecbf4fa4c3408c646f5ed0bf612a1424e/proto_plus-1.24.0.dev1-py3-none-any.whl", hash = "sha256:bb583d9dc5006d788687c1f0496e003a7949fea174fd3f28cf37cfa005005dd6", size = 49699, upload-time = "2024-04-25T18:18:40.483Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/6f/db31f0711c0402aa477257205ce7d29e86a75cb52cd19f7afb585f75cda0/proto_plus-1.24.0-py3-none-any.whl", hash = "sha256:402576830425e5f6ce4c2a6702400ac79897dab0b4343821aa5188b0fab81a12", size = 50080, upload-time = "2024-06-19T15:02:40.052Z" },
 ]
 
 [[package]]
@@ -4891,7 +4891,6 @@ dependencies = [
     { name = "opt-einsum" },
     { name = "plotly" },
     { name = "properscoring" },
-    { name = "proto-plus" },
     { name = "py7zr" },
     { name = "pyzstd" },
     { name = "requests" },
@@ -4950,7 +4949,6 @@ requires-dist = [
     { name = "opt-einsum", specifier = ">=3.4.0" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "properscoring" },
-    { name = "proto-plus", specifier = "==1.24.0.dev1" },
     { name = "py7zr" },
     { name = "pyzstd", specifier = "==0.16.2" },
     { name = "requests" },

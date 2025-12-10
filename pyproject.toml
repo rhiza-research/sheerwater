@@ -18,7 +18,6 @@ dependencies = [
     "s3fs",
     "gcsfs",
     "google-api-python-client",
-    "proto-plus==1.24.0.dev1",
     "google-cloud-storage",
     "google-cloud-secret-manager",
     "cryptography",
