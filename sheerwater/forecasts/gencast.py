@@ -121,7 +121,7 @@ def gencast_daily_year(year, variable, init_hour=0):
                },
            }
 })
-def gencast_daily(start_time, end_time, variable, grid='global0_25', region='global'):  # noqa: ARG001
+def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
     """A daily gencast forecast."""
     ds1 = gencast_daily_year(year='2020', variable=variable, init_hour=0)
     ds2 = gencast_daily_year(year='2021', variable=variable, init_hour=0)
@@ -135,7 +135,7 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', region='glo
     # Regrid
     if grid != 'global0_25':
         ds = regrid(ds, grid, base='base180', method='conservative',
-                    output_chunks={"lat": 721, "lon": 1440})
+                    output_chunks={"lat": 721, "lon": 1440}, region=region)
 
     return ds
 
@@ -152,9 +152,9 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', region='glo
                },
            }
 })
-def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='deterministic', grid='global0_25', region='global'):
+def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """A rolled and aggregated gencast forecast."""
-    ds = gencast_daily(start_time, end_time, variable, grid, region=region)
+    ds = gencast_daily(start_time, end_time, variable, grid, mask=mask, region=region)
 
     if prob_type == 'deterministic':
         ds = ds.mean(dim='member')
@@ -184,7 +184,7 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_
 
     # Get the data with the right days
     ds = gencast_rolled(start_time=forecast_start, end_time=forecast_end, variable=variable,
-                        agg_days=agg_days, prob_type=prob_type, grid=grid, region=region)
+                        agg_days=agg_days, prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:

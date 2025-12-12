@@ -394,7 +394,7 @@ def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='g
     if grid == 'global1_5':
         return ds
     # Regrid onto appropriate grid
-    ds = regrid(ds, grid, base='base180', grid_chunks={"lat": 120, "lon": 120})
+    ds = regrid(ds, grid, base='base180', grid_chunks={"lat": 120, "lon": 120}, region=region)
     return ds
 
 

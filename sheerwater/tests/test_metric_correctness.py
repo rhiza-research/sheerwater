@@ -54,7 +54,7 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
         mask=mask,
         grid='global1_5',
         recompute=recompute,
-        force_overwrite=True,
+        cache_mode='overwrite',
     )
 
     # Convert from new metric format to old format by selection region and lead time

@@ -11,7 +11,6 @@ from sheerwater.utils import convert_init_time_to_pred_time, shift_by_days, star
 
 def test_target_date_conversion():
     """Test the conversion of target dates to forecast dates."""
-    start_remote(remote_config='large_cluster', remote_name='test_metrics')
     start_date = "2020-01-14"
     end_date = "2020-01-31"
 

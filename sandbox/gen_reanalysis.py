@@ -31,18 +31,18 @@ start_remote(remote_config='xlarge_cluster')
 for var, grid in product(vars, grids):
     if UPDATE_DAILY:
         ds = era5_daily(start_time, end_time, variable=var, grid=grid,
-                        recompute=True, remote=True, force_overwrite=True,
+                        recompute=True, remote=True, cache_mode='overwrite',
                         remote_name='genevieve', remote_config='xlarge_cluster')
     if UPDATE_DAILY_REGRID:
         ds = era5_daily_regrid(start_time, end_time, variable=var, method='conservative', grid=grid,
-                               recompute=True, remote=True, force_overwrite=True)
+                               recompute=True, remote=True, cache_mode='overwrite')
 
     for agg, anom in product(aggs, anoms):
         if UPDATE_ROLLED:
             # Update the rolled data for global grids
             ds = era5_rolled(start_time, end_time, variable=var,
                              agg_days=agg, grid=grid,
-                             recompute=True, remote=True, force_overwrite=True,
+                             recompute=True, remote=True, cache_mode='overwrite',
                              remote_name='genevieve', remote_config='xlarge_cluster')
 
         for mask, region in product(masks, regions):
@@ -51,6 +51,6 @@ for var, grid in product(vars, grids):
                               agg_days=agg, anom=anom, clim_params=clim_params,
                               grid=grid, mask=mask, region=region,
                               remote=True, remote_config='xlarge_cluster', remote_name='lead-bias',
-                              force_overwrite=True,
+                              cache_mode='overwrite',
                               #   recompute=True, force_overwrite=True,
                               )

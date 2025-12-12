@@ -2,7 +2,7 @@ import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
 
-from sheerwater.utils import clip_region
+from sheerwater.utils import clip_region, apply_mask
 
 import logging
 logger = logging.getLogger(__name__)
@@ -35,25 +35,26 @@ class spatial(NuthatchProcessor):
         # Get default values for the function signature
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
-        # Get mask, region, and grid from bound args (includes defaults)
+        # Default to global region and no masking if not passed
+        self.region = bound_args.arguments.get('region', 'global')
+        self.mask = bound_args.arguments.get('mask', None)
         try:
-            self.region = bound_args.arguments.get('region')
-            if self.region is None:
-                raise ValueError(
-                    "Region must be passed and be a default region.")
-        except:
-            raise ValueError(
-                "Spatial functions must have the 'region' keyword argument")
+            self.grid = bound_args.arguments['grid']
+        except KeyError:
+            print("WARNING: No grid passed to spatial decorator. Cannot perform masking.")
+            self.mask = None
+            self.grid = None
         return args, kwargs
 
     def post_process(self, ds):
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
             ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
+            ds = apply_mask(ds, self.mask, grid=self.grid)
             # TODO: add support for pandas and dask dataframes?
             # elif isinstance(ds, pd.DataFrame) or isinstance(ds, dd.DataFrame):
         else:
-            raise RuntimeError(f"Cannot clip by region for data type {type(ds)}")
+            raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")
 
         return ds
 
@@ -61,6 +62,7 @@ class spatial(NuthatchProcessor):
         if isinstance(ds, xr.Dataset):
             # Check to see if the dataset extends roughly the full time series set
             test = clip_region(ds, region=self.region, region_dim=self.region_dim)
+            test = apply_mask(test, self.mask, grid=self.grid)
             if test.notnull().count().compute() == 0:
                 print("""WARNING: The cached array does not have data within
                           the region {self.region}. Triggering recompute.

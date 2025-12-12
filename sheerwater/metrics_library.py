@@ -6,8 +6,7 @@ import numpy as np
 import xarray as xr
 
 from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
-from sheerwater.data.data_decorator import get_data
-from sheerwater.forecasts.forecast_decorator import get_forecast
+from sheerwater.decorators import get_data, get_forecast
 from sheerwater.regions_and_masks import region_labels
 from sheerwater.statistics_library import statistic_factory
 from sheerwater.utils import get_mask, get_region_level, groupby_time, latitude_weights, clip_region
@@ -75,9 +74,9 @@ class Metric(ABC):
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Arguments for calling the data and forecast functions.
-        kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
-                  'variable': self.variable, 'agg_days': self.agg_days,
-                  'grid': self.grid, 'mask': None, 'region': self.region}
+        self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
+                              'variable': self.variable, 'agg_days': self.agg_days,
+                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
@@ -88,19 +87,19 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
-                fcst = fcst_fn(**kwargs, prob_type=self.prob_type, memoize=True)
+                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=True)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**kwargs, prob_type=self.prob_type)
+                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**kwargs, memoize=True)
+                fcst = data_fn(**self.cache_kwargs, memoize=True)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**kwargs)
+                fcst = data_fn(**self.cache_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -115,10 +114,10 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**kwargs, memoize=True)
+            obs = truth_fn(**self.cache_kwargs, memoize=True)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**kwargs)
+            obs = truth_fn(**self.cache_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -140,7 +139,6 @@ class Metric(ABC):
 
         # Cast the longitude and latitude coordinates to floats with precision 4
         # This fixs a bug where the long and lat don't match deep in their floating point precision
-        # TODO: this is mysterious, and I feel like we've fixed this before ...
         obs['lon'] = obs['lon'].astype(np.float32).round(4)
         obs['lat'] = obs['lat'].astype(np.float32).round(4)
         fcst['lon'] = fcst['lon'].astype(np.float32).round(4)
@@ -437,9 +435,11 @@ class SEEPS(Metric):
         last_year = 2020
         # Get the wet threshold and dry fraction
         self.metric_data['data']['wet_threshold'] = seeps_wet_threshold(
-            first_year=first_year, last_year=last_year, agg_days=self.agg_days, grid=self.grid)
+            first_year=first_year, last_year=last_year, agg_days=self.agg_days, 
+            grid=self.grid, mask=self.mask, region=self.region)
         self.metric_data['data']['dry_fraction'] = seeps_dry_fraction(
-            first_year=first_year, last_year=last_year, agg_days=self.agg_days, grid=self.grid)
+            first_year=first_year, last_year=last_year, 
+            agg_days=self.agg_days, grid=self.grid, mask=self.mask, region=self.region)
 
         # Update the metric data key to include the wet threshold and dry fraction year range
         self.metric_data['key'] = f'{self.metric_data["key"]}-{first_year}-{last_year}'
@@ -459,9 +459,7 @@ class ACC(Metric):
         super().prepare_data()
 
         # Get the appropriate climatology dataframe for metric calculation
-        clim_ds = climatology_2020(self.start_time, self.end_time, self.variable, agg_days=self.agg_days,
-                                   prob_type='deterministic',
-                                   grid=self.grid, mask=None, region=self.region)
+        clim_ds = climatology_2020(**self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:

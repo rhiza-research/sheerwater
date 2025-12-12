@@ -121,7 +121,7 @@ def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', la
 
 
 @cache(cache_args=['mask', 'grid'])
-def get_mask(mask, grid='global1_5'):
+def get_mask(mask, grid='global1_5', region='global'):
     """Get a mask dataset.
 
     Args:
@@ -144,7 +144,7 @@ def get_mask(mask, grid='global1_5'):
             # TODO: Should implement a more resolved land-sea mask for the other grids
             from sheerwater.utils.data_utils import regrid
             mask_ds = land_sea_mask(grid='global0_25', memoize=True)
-            mask_ds = regrid(mask_ds, grid, method='nearest').compute()
+            mask_ds = regrid(mask_ds, grid, method='nearest', region=region).compute()
 
         val = 0.0
         if '-' in mask:
@@ -205,7 +205,7 @@ def snap_point_to_grid(point, grid_size, offset):
     return round(float(point+offset)/grid_size) * grid_size - offset
 
 
-def get_grid_ds(grid_id, base="base180"):
+def get_grid_ds(grid_id, base="base180", region='global'):
     """Get a dataset equal to ones for a given region."""
     lons, lats, _, _ = get_grid(grid_id, base=base)
     data = np.ones((len(lons), len(lats)))
@@ -213,6 +213,8 @@ def get_grid_ds(grid_id, base="base180"):
         {"mask": (['lon', 'lat'], data)},
         coords={"lon": lons, "lat": lats}
     )
+    if region != 'global':
+        ds = clip_region(ds, region=region)
     return ds
 
 

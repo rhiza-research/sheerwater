@@ -17,7 +17,7 @@ from sheerwater.decorators import data as sheerwater_data, spatial
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
 })
-def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
+def chirps_raw(year, stations=True, version=2):  # noqa: ARG001
     """CHIRPS raw by year."""
     # Open the datastore
     if not stations and version == 3:
@@ -135,13 +135,13 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
 })
-def chirps_gridded(start_time, end_time, grid, stations=True, version=2, region='global'):
+def chirps_gridded(start_time, end_time, grid, stations=True, version=2, mask=None, region='global'):
     """CHIRPS regridded by year."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
     datasets = []
     for year in years:
-        ds = chirps_raw(year, 'chirps', stations=stations, version=version, filepath_only=True)
+        ds = chirps_raw(year, stations=stations, version=version, filepath_only=True)
         if ds is not None:
             datasets.append(ds)
 
@@ -155,7 +155,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2, region=
 
     # Regrid if not on the native grid
     if grid != 'chirps':
-        ds = regrid(ds, grid, base='base180', method='conservative')
+        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds
 
@@ -167,20 +167,20 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2, region=
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
 })
-def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2, region='global'):
+def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2, mask=None, region='global'):
     """CHIRPS rolled and aggregated."""
-    ds = chirps_gridded(start_time, end_time, grid, stations=stations, version=version, region=region)
+    ds = chirps_gridded(start_time, end_time, grid, stations=stations, version=version, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
 
 @dask_remote
 def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
-                    stations=True, version=2, region='global'):
+                    stations=True, version=2, mask=None, region='global'):
     """A unified chirps caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRP/S.")
-    ds = chirps_rolled(start_time, end_time, agg_days, grid, stations=stations, version=version, region=region)
+    ds = chirps_rolled(start_time, end_time, agg_days, grid, stations=stations, version=version, mask=mask, region=region)
     ds = ds.assign_attrs(sparse=True)
     return ds
 
@@ -188,14 +188,13 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 @dask_remote
 @spatial()
 @timeseries()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
 def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
-             grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+             grid='global0_25', mask='lsm', region='global'):  
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           stations=False, version=2, region=region)
+                           stations=False, version=2, mask=mask, region=region)
 
 
 @dask_remote
@@ -205,47 +204,43 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
 def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
-             grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+             grid='global0_25', mask='lsm', region='global'): 
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           stations=False, version=3, region=region)
+                           stations=False, version=3, mask=mask, region=region)
 
 
 @dask_remote
 @spatial()
 @timeseries()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
 def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
-              grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+              grid='global0_25', mask='lsm', region='global'): 
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           stations=True, version=2, region=region)
+                           stations=True, version=2, mask=mask, region=region)
 
 
 @dask_remote
 @spatial()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
 def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
-              grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+              grid='global0_25', mask='lsm', region='global'): 
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                           stations=True, version=3, region=region)
+                           stations=True, version=3, mask=mask, region=region)
 
 
 @dask_remote
 @spatial()
 @timeseries()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 @sheerwater_data
 def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
     ds = _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
-                         stations=True, version=3, region=region)
-
+                         stations=True, version=3, mask=mask, region=region)
     return ds

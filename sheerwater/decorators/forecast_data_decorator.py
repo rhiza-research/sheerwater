@@ -2,7 +2,7 @@
 from functools import wraps
 from inspect import signature
 
-from sheerwater.utils import apply_mask, convert_init_time_to_pred_time
+from sheerwater.utils import convert_init_time_to_pred_time
 
 # Global registry of data sources
 DATA_REGISTRY = {}
@@ -40,8 +40,6 @@ def data(func):
             variable = bound_args.arguments.get('variable')
             units = 'mm / day' if variable == 'precip' else 'avg. daily C'
 
-            # Apply masking
-            ds = apply_mask(ds, mask, grid=grid)
             # Remove all unneeded dimensions
             ds = ds.drop_vars([var for var in ds.coords if var not in [
                               'time', 'lat', 'lon']])
@@ -96,8 +94,6 @@ def forecast(func):
 
             # Create a new coordinate for valid_time, that is the start_date plus the lead time
             ds = convert_init_time_to_pred_time(ds)
-            # Apply masking
-            ds = apply_mask(ds, mask, grid=grid)
             # Remove all unneeded dimensions
             ds = ds.drop_vars([var for var in ds.coords if var not in [
                               'time', 'prediction_timedelta', 'lat', 'lon', 'member']])

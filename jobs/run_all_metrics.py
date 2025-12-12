@@ -21,7 +21,7 @@ def run_table(combo):
     try:
         return summary_metrics_table(start_time, end_time, variable, truth, metric,
                                      time_grouping=time_grouping, grid=grid, region=region,
-                                     force_overwrite=True, filepath_only=True,
+                                     cache_mode='overwrite', filepath_only=True,
                                      recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
         raise (e)
@@ -42,7 +42,7 @@ def run_grouped(combo):
     try:
         return grouped_metric(start_time, end_time, variable, lead, forecast, truth, metric,
                               spatial=False, time_grouping=time_grouping, grid=grid, region=region,
-                              force_overwrite=True, filepath_only=True, recompute=recompute)
+                              cache_mode='overwrite', filepath_only=True, recompute=recompute)
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:

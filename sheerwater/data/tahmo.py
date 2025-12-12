@@ -17,10 +17,10 @@ def tahmo_deployment():
     raise RuntimeError("Processing not implemented for tahmo_deployment and wasn't found in the cache.")
 
 
-@cache(cache_args=['station_id'])
+@cache(cache_args=['station_id'], fail_if_no_cache=True)
 def tahmo_station_cleaned(station_id):  # noqa: ARG001
     """Stub function to get data cache."""
-    raise RuntimeError("Processing not implemented for tahmo_station_cleaned and wasn't found in the cache.")
+    pass
 
 
 @dask_remote
@@ -59,13 +59,9 @@ def tahmo_raw_daily():
 @spatial()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
-           'chunking': {
-               'time': 365,
-               'lat': 300,
-               'lon': 300,
-           }
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
 })
-def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first', region='global'):  # noqa: ARG001
+def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
     # Get the station list
     stations = tahmo_deployment().compute()
@@ -109,10 +105,10 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo_rolled(start_time, end_time, agg_days,
                  grid='global0_25',
-                 missing_thresh=0.9, cell_aggregation='first', region='global'):
+                 missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
     """Tahmo rolled and aggregated."""
     # Get the data
-    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation, region=region)
+    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
 
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
@@ -125,11 +121,11 @@ def tahmo_rolled(start_time, end_time, agg_days,
 
 @dask_remote
 def _tahmo_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', region='global'):
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
     if variable != 'precip':
         raise ValueError("TAHMO only supports precip")
 
-    ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation, region=region)
+    ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation, mask=mask, region=region)
     ds = ds[[variable]]
 
     # Note that this is sparse
@@ -166,4 +162,4 @@ def tahmo_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
                           grid=grid,
-                          missing_thresh=missing_thresh, cell_aggregation='mean', region=region)
+                          missing_thresh=missing_thresh, cell_aggregation='mean', mask=mask, region=region)

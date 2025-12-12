@@ -84,10 +84,14 @@ def fuxi_single_forecast(date):
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
-def fuxi_raw(start_time, end_time, delayed=False):
-    """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries."""
+def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False):
+    """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries.
+
+    TODO: we should ad a regriddring / gridding step here.
+    """
     dates = pd.date_range(start_time, end_time)
 
     datasets = []
@@ -122,9 +126,9 @@ def fuxi_raw(start_time, end_time, delayed=False):
 @spatial()
 @cache(cache_args=['variable', 'agg_days', 'prob_type'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
-def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabilistic', region='global'):
+def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabilistic', mask=None, region='global'):
     """Roll and aggregate the FuXi data."""
-    ds = fuxi_raw(start_time, end_time)
+    ds = fuxi_raw(start_time, end_time, mask=mask, region=region)
 
     # sort the lat dim and change the lon dim
     ds = lon_base_change(ds)
@@ -172,7 +176,7 @@ def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_typ
     forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
     forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
-    ds = fuxi_rolled(forecast_start, forecast_end, variable, prob_type=prob_type, agg_days=agg_days, region=region)
+    ds = fuxi_rolled(forecast_start, forecast_end, variable, prob_type=prob_type, agg_days=agg_days, mask=mask, region=region)
 
     # Reanme to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})

@@ -14,7 +14,7 @@ from sheerwater.decorators import forecast as sheerwater_forecast, spatial
 @spatial()
 @cache(cache_args=['variable', 'init_hour', 'grid'],
        backend_kwargs={'chunking': {"lat": 721, "lon": 1440, "lead_time": 1, "time": 30}})
-def graphcast_daily(start_time, end_time, variable, init_hour=0, grid='global0_25', region='global'):  # noqa: ARG001
+def graphcast_daily(start_time, end_time, variable, init_hour=0, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
     """A daily Graphcast forecast."""
     if init_hour != 0:
         raise ValueError("Only 0 init hour supported.")
@@ -90,7 +90,7 @@ def graphcast_daily(start_time, end_time, variable, init_hour=0, grid='global0_2
                },
            }
        })
-def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global0_25', region='global'):  # noqa: ARG001
+def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
     """A daily Graphcast forecast."""
     if init_hour != 0:
         raise ValueError("Only 0 init hour supported.")
@@ -173,14 +173,14 @@ def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global
                },
            }
        })
-def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0, grid='global0_25', region='global'):  # noqa: ARG001
+def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
     """Regrid for the original Weathernext datasource."""
-    ds = graphcast_daily(start_time, end_time, variable, init_hour=init_hour, grid='global0_25', region=region)
+    ds = graphcast_daily(start_time, end_time, variable, init_hour=init_hour, grid='global0_25', mask=mask, region=region)
     if grid == 'global0_25':
         return ds
 
     # Regrid onto appropriate grid
-    ds = regrid(ds, grid, base='base180', method='conservative', output_chunks={"lat": 121, "lon": 240})
+    ds = regrid(ds, grid, base='base180', method='conservative', output_chunks={"lat": 121, "lon": 240}, region=region)
 
     return ds
 
@@ -198,10 +198,10 @@ def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0, grid='gl
                },
            }
        })
-def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_25', region='global'):
+def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_25', mask=None, region='global'):
     """A rolled and aggregated Graphcast forecast."""
     # Grab the init 0 forecast; don't need to regrid
-    ds = graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid=grid, region=region)
+    ds = graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid=grid, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="lead_time", agg_fn="mean")
     return ds
 
@@ -223,7 +223,7 @@ def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, pro
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid, region=region)
+    ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
     ds = ds.assign_attrs(prob_type="deterministic")
 
 

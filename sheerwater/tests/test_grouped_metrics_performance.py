@@ -83,7 +83,7 @@ def test_grouped_metrics_performance_summary():
                 mask=mask,
                 region=region,
                 recompute=True,
-                force_overwrite=True
+                cache_mode='overwrite'
             )
             elapsed = time.time() - start
 
@@ -153,7 +153,7 @@ def test_grouped_metrics_performance_comprehensive():
             region=region,
             # recompute=['metric'],
             recompute=False,
-            force_overwrite=True
+            cache_mode='overwrite'
         )
         elapsed = time.time() - start
 

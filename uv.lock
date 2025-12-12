@@ -3240,8 +3240,8 @@ wheels = [
 
 [[package]]
 name = "nuthatch"
-version = "0.2.2.dev4+gc9b4afa15"
-source = { git = "https://github.com/rhiza-research/nuthatch?rev=adkins%2Flocal_postprocess#c9b4afa15a9ab14f4995fe20d4b165f2a3b8f7a2" }
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "dask", extra = ["dataframe"] },
@@ -3259,6 +3259,10 @@ dependencies = [
     { name = "tomli-w" },
     { name = "xarray" },
     { name = "zarr" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a4/ca/9a1e3f346eb157259bfdfc97bcd706caeec75295d3aa3fef0b73272ad1f7/nuthatch-0.3.0.tar.gz", hash = "sha256:3fa35f7ed96d3f8f47faa6f19f909db2536a4bce3eaa32533d12ec6acf33763e", size = 180659, upload-time = "2025-12-12T17:41:40.417Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/ee/30ad6eeccc682803662d1e4c6c44c7ce36d1674d1e675a910f0403444b1b/nuthatch-0.3.0-py3-none-any.whl", hash = "sha256:fb9d5f020cc1487e269af827b17decdd8de1392d3f997a4cdeb9cfafd3021333", size = 43134, upload-time = "2025-12-12T17:41:39.356Z" },
 ]
 
 [[package]]
@@ -4941,7 +4945,7 @@ requires-dist = [
     { name = "netcdf4" },
     { name = "numcodecs", specifier = "<0.16.0" },
     { name = "numpy" },
-    { name = "nuthatch", git = "https://github.com/rhiza-research/nuthatch?rev=adkins%2Flocal_postprocess" },
+    { name = "nuthatch" },
     { name = "opt-einsum", specifier = ">=3.4.0" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "properscoring" },

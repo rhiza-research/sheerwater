@@ -7,7 +7,7 @@ import numpy as np
 import properscoring
 import xarray as xr
 from nuthatch import cache as cache_decorator
-from nuthatch.processors import timeseries as timeseries_decorator
+from nuthatch.processors import timeseries as timeseries_decorator, spatial as spatial_decorator
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -33,29 +33,32 @@ def statistic(cache=False, name=None,
 
     """
     def create_statistic(func):
-        # Register the statistic function with the registry
-        # We'll register the wrapped function instead of the original
+        # Create a global statistic as a cachable function with keys that accepts data
         @timeseries_decorator(timeseries=timeseries)
-        @cache_decorator(cache=cache, cache_args=cache_args,
+        @spatial_decorator()
+        @cache_decorator(cache=cache, cache_args=cache_args, data_type=data_type,
                          backend_kwargs={
                              'chunking': chunking,
                              'chunk_by_arg': chunk_by_arg
                          })
         def global_statistic(
+            data, data_key, 
             start_time, end_time,
-            data,
             variable, agg_days, forecast, truth,
-            data_key, grid, statistic,
+            grid, mask, region,
+            statistic,
             **cache_kwargs
         ):
-            # Pass the cache kwargs through
+            # Pass the cache kwargs through to the statistics function
             cache_kwargs = {
+                'data_key': data_key, 
+                'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
-                'data_key': data_key, 'grid': grid,
-                'statistic': statistic, 'start_time': start_time, 'end_time': end_time,
+                'grid': grid, 'mask': mask, 'region': region,
+                'statistic': statistic,
             }
             ds = func(data=data, **cache_kwargs)
-            # Assign attributes in one call
+            # Assign metric attributes in one call
             ds = ds.assign_attrs(
                 prob_type=data['prob_type'],
                 forecast=forecast,
@@ -68,17 +71,11 @@ def statistic(cache=False, name=None,
         def wrapper(
             data, **cache_kwargs
         ):
-            # Remove start and end time from the kwargs so they can be
-            # passed positionally as the cacheable operator requires
-            start_time = cache_kwargs.pop('start_time')
-            end_time = cache_kwargs.pop('end_time')
-
             # Set the statistic to the function name in lowercase
             cache_kwargs['statistic'] = name
 
             # Call the global statistic function
             ds = global_statistic(
-                start_time, end_time,
                 data=data, memoize=True,
                 **cache_kwargs,
             )

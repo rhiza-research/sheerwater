@@ -1,7 +1,7 @@
 [project]
 name = "sheerwater"
 dynamic = ["version"]
-description = "Equitable weather and climate forecasting benchmarking package."
+description = "Africa-first library for data, forecasts, and benchmarking."
 readme = "README.md"
 requires-python = ">= 3.12"
 authors = [
@@ -49,7 +49,7 @@ dependencies = [
     "numcodecs<0.16.0",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch @ git+https://github.com/rhiza-research/nuthatch@adkins/local_postprocess",
+    "nuthatch",
 
 ]
 
@@ -90,6 +90,7 @@ managed = true
 
 [tool.autopep8]
 max_line_length = 120
+aggressive = 0
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
