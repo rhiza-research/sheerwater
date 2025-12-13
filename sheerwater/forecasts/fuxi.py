@@ -16,7 +16,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, lon_base_change, roll_and_agg, shift_by_days
 from sheerwater.utils.secrets import huggingface_read_token
-from sheerwater.decorators import forecast as sheerwater_forecast, spatial
+from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
@@ -161,11 +161,9 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 
 
 @dask_remote
-@timeseries()
-@spatial()
+@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@sheerwater_forecast
 def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""

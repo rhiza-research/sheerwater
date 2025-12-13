@@ -27,7 +27,7 @@ from sheerwater.utils import (
     regrid,
     roll_and_agg,
 )
-from sheerwater.decorators import spatial
+from sheerwater.interfaces import spatial
 
 
 ########################################################################
@@ -311,7 +311,6 @@ def iri_ecmwf(start_time, end_time, variable, forecast_type,
 
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
-@spatial()
 @cache(cache_args=['variable', 'forecast_type', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
                                     "start_date": 29, "start_year": 29,

@@ -7,7 +7,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
 
-from sheerwater.decorators import data as sheerwater_data, spatial
+from sheerwater.interfaces import data as sheerwater_data, spatial
 
 @dask_remote
 @cache(cache_args=['year', 'version'],
@@ -75,11 +75,10 @@ def imerg_rolled(start_time, end_time, agg_days, grid, version, mask=None, regio
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
+
 @dask_remote
-@spatial()
-@timeseries()
+@sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-@sheerwater_data
 def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  
     """IMERG Final."""
     if variable not in ['precip']:
@@ -88,10 +87,8 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1, g
 
 
 @dask_remote
-@spatial()
-@timeseries()
+@sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-@sheerwater_data
 def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  
     """IMERG late."""
     if variable not in ['precip']:
@@ -100,10 +97,8 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1, gr
 
 
 @dask_remote
-@spatial()
-@timeseries()
+@sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
-@sheerwater_data
 def imerg(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  
     """Alias for IMERG final."""
     if variable not in ['precip']:

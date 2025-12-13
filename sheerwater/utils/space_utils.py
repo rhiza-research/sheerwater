@@ -6,7 +6,6 @@ from nuthatch import cache
 
 from .region_utils import get_region_data
 
-
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
     """Get a slice of the globe from the dataset.
 
@@ -120,42 +119,6 @@ def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', la
     return ds
 
 
-@cache(cache_args=['mask', 'grid'])
-def get_mask(mask, grid='global1_5', region='global'):
-    """Get a mask dataset.
-
-    Args:
-        mask (str): The mask to apply. One of: 'lsm', None
-            To get different land-sea masks, use 'lsm-<value>'. For example, 'lsm-0.5' will return a mask
-            where the mask is greater than 0.5. Defaults to 0.0.
-        grid (str): The grid resolution of the dataset.
-
-    Returns:
-        xr.Dataset: Mask dataset.
-    """
-    if mask is None:
-        return get_grid_ds(grid)
-    elif 'lsm' in mask:
-        # Import here to avoid circular imports
-        from sheerwater.regions_and_masks import land_sea_mask
-        if grid == 'global1_5' or grid == 'global0_25':
-            mask_ds = land_sea_mask(grid=grid, memoize=True).compute()
-        else:
-            # TODO: Should implement a more resolved land-sea mask for the other grids
-            from sheerwater.utils.data_utils import regrid
-            mask_ds = land_sea_mask(grid='global0_25', memoize=True)
-            mask_ds = regrid(mask_ds, grid, method='nearest', region=region).compute()
-
-        val = 0.0
-        if '-' in mask:
-            # Convert to boolean mask
-            val = float(mask.split('-')[1])
-        mask_ds['mask'] = mask_ds['mask'] > val
-        return mask_ds
-    else:
-        raise NotImplementedError("Only land-sea or None mask is implemented.")
-
-
 def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
     """Apply a mask to a dataset.
 
@@ -172,7 +135,8 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         return ds
 
     if isinstance(mask, str):
-        mask_ds = get_mask(mask, grid)
+        from sheerwater.regions_and_masks import spatial_mask
+        mask_ds = spatial_mask(mask, grid)
     else:
         mask_ds = mask
 

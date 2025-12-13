@@ -6,10 +6,10 @@ import numpy as np
 import xarray as xr
 
 from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
-from sheerwater.decorators import get_data, get_forecast
-from sheerwater.regions_and_masks import region_labels
+from sheerwater.interfaces import get_data, get_forecast
+from sheerwater.regions_and_masks import region_labels, spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_mask, get_region_level, groupby_time, latitude_weights, clip_region
+from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
@@ -253,7 +253,7 @@ class Metric(ABC):
         region_level, _ = get_region_level(self.space_grouping)
         region_ds = region_labels(grid=self.grid, space_grouping=region_level,
                                   region=self.region, memoize=True).compute()
-        mask_ds = get_mask(self.mask, self.grid, memoize=True)
+        mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
         if self.region != 'global':
             mask_ds = clip_region(mask_ds, region=self.region)
 

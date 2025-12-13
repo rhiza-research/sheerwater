@@ -7,20 +7,19 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5_rolled
-from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
-from sheerwater.decorators import forecast as sheerwater_forecast, spatial
+from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
+from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
-@spatial()
 @cache(cache=False,
        cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
                                     "start_date": 29, "start_year": 29,
                                     "model_issuance_date": 1}})
 def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noqa ARG001
-                           run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
+                           run_type='average', time_group='weekly', grid="global1_5"):
     """Fetches IFS extended range forecast data from the WeatherBench2 dataset.
 
     Args:
@@ -65,7 +64,7 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
     else:
         ds = ds.rename({'time': 'start_date'})
 
-    ds = ds.drop('valid_time')
+    ds = ds.drop_vars('valid_time')
 
     # If a specific run, select
     if isinstance(run_type, int):
@@ -110,7 +109,7 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
     """
     """IRI ECMWF average forecast with regridding."""
     ds = ifs_extended_range_raw(start_time, end_time, variable, forecast_type,
-                                run_type, time_group=time_group, grid='global1_5', mask=mask, region=region)
+                                run_type, time_group=time_group, grid='global1_5')
     # Convert to base180 longitude
     ds = lon_base_change(ds, to_base="base180")
 
@@ -126,7 +125,10 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
         ds = np.maximum(ds, 0)
     if grid == 'global1_5':
         return ds
-    # Regrid onto appropriate grid
+
+    _, _, size, _ = get_grid(grid)
+    if size < 1.5:
+        raise NotImplementedError("Unable to regrid ECMWF smaller than 1.5x1.5")
     if forecast_type == 'reforecast':
         raise NotImplementedError("Regridding reforecast data should be done with extreme care. It's big.")
 
@@ -389,11 +391,9 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 
 
 @dask_remote
-@timeseries()
-@spatial()
+@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@sheerwater_forecast
 def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
@@ -403,11 +403,8 @@ def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, 
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
-@sheerwater_forecast
+@sheerwater_forecast()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""

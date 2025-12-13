@@ -7,7 +7,7 @@ from sheerwater.utils import start_remote
 
 def test_precip_range():
     """Ensemble mean precipitation range for forecasters and reanalysis are reasonable."""
-    start_remote(remote_config='large_cluster', remote_name='test_forecasts')
+    start_remote(remote_config='large_cluster')
     start_time = "2016-01-01"
     end_time = "2016-12-31"
     variable = "precip"
@@ -24,6 +24,7 @@ def test_precip_range():
                            prob_type=prob_type, grid=grid, mask=mask, region=region)
         ds3 = ecmwf_ifs_er_debiased(start_time, end_time, variable, agg_days=7,
                                     prob_type=prob_type, grid=grid, mask=mask, region=region)
+        import pdb; pdb.set_trace()
         ds4 = climatology_2015(start_time, end_time, variable, agg_days=7,
                                prob_type=prob_type, grid=grid, mask=mask, region=region)
         ds5 = climatology_rolling(start_time, end_time, variable, agg_days=7,

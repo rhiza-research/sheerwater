@@ -7,14 +7,15 @@ import numpy as np
 import properscoring
 import xarray as xr
 from nuthatch import cache as cache_decorator
-from nuthatch.processors import timeseries as timeseries_decorator, spatial as spatial_decorator
+from nuthatch.processors import timeseries as timeseries_decorator
+from sheerwater.interfaces import spatial
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
 
 
 def statistic(cache=False, name=None,
-              data_type='array', timeseries='time',
+              timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
                           'data_key', 'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
@@ -35,8 +36,8 @@ def statistic(cache=False, name=None,
     def create_statistic(func):
         # Create a global statistic as a cachable function with keys that accepts data
         @timeseries_decorator(timeseries=timeseries)
-        @spatial_decorator()
-        @cache_decorator(cache=cache, cache_args=cache_args, data_type=data_type,
+        @spatial()
+        @cache_decorator(cache=cache, cache_args=cache_args,
                          backend_kwargs={
                              'chunking': chunking,
                              'chunk_by_arg': chunk_by_arg
@@ -45,8 +46,8 @@ def statistic(cache=False, name=None,
             data, data_key, 
             start_time, end_time,
             variable, agg_days, forecast, truth,
-            grid, mask, region,
-            statistic,
+            statistic, grid, 
+            mask=None, region='global',
             **cache_kwargs
         ):
             # Pass the cache kwargs through to the statistics function
