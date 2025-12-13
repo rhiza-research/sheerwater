@@ -17,7 +17,7 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
 })
-def chirps_raw(year, stations=True, version=2):  # noqa: ARG001
+def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
     """CHIRPS raw by year."""
     # Open the datastore
     if not stations and version == 3:
