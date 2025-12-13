@@ -51,7 +51,12 @@ class SheerwaterDataset(NuthatchProcessor):
         except KeyError:
             raise ValueError("Forecast decorator requires grid, agg_days, and variable to be passed.")
 
-        self.units = 'mm / day' if self.variable == 'precip' else 'avg. daily C'
+        if self.variable == 'precip':
+            self.units = 'mm / day'
+        elif self.variable == 'tmp2m':
+            self.units = 'avg. daily C'
+        else:
+            self.units = None
         return args, kwargs
 
     def post_process(self, ds):
@@ -59,12 +64,16 @@ class SheerwaterDataset(NuthatchProcessor):
             # Clip to specified region
             ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
             ds = apply_mask(ds, self.mask, grid=self.grid)
-            ds = ds.assign_attrs({'agg_days': float(self.agg_days),
-                                'variable': self.variable,
-                                'units': self.units,
-                                'grid': self.grid,
-                                'mask': self.mask,
-                                'region': self.region})
+            attrs = {
+                'agg_days': float(self.agg_days),
+                'variable': self.variable,
+                'grid': self.grid,
+                'mask': self.mask,
+                'region': self.region
+            }
+            if self.units is not None:
+                attrs['units'] = self.units
+            ds = ds.assign_attrs(attrs)
 
         else:
             raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")

@@ -65,9 +65,7 @@ class spatial(NuthatchProcessor):
             test = apply_mask(test, self.mask, grid=self.grid)
             if test.notnull().count().compute() == 0:
                 print("""WARNING: The cached array does not have data within
-                          the region {self.region}. Triggering recompute.
-                          If you do not want to recompute the result set
-                          `validate_data=False`""")
+                          the region {self.region}. If you want to continue, set `validate_data=False`""")
                 return False
             else:
                 return True
