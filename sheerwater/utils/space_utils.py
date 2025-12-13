@@ -2,9 +2,11 @@
 import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
-from nuthatch import cache
+import logging
 
 from .region_utils import get_region_data
+
+logger = logging.getLogger(__name__)
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
     """Get a slice of the globe from the dataset.
@@ -279,7 +281,7 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     elif ds[lon_col].min() < 0.0:
         base = "base180"
     else:
-        print("Warning: Dataset base is ambiguous")
+        logger.warning("Warning: Dataset base is ambiguous")
         return 0
 
     if dsp[lon_colp].max() > 180.0:
@@ -287,7 +289,7 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     elif dsp[lon_colp].min() < 0.0:
         basep = "base180"
     else:
-        print("Warning: Dataset base is ambiguous")
+        logger.warning("Warning: Dataset base is ambiguous")
         return 0
 
     # If bases are identifiable and unequal
