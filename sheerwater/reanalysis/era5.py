@@ -8,7 +8,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.interfaces import data as sheerwater_data, spatial 
+from sheerwater.interfaces import data as sheerwater_data, spatial
 
 from sheerwater.utils import (
     dask_remote,
@@ -359,6 +359,8 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask (str): The mask to apply to the data.
+        region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
     ds = era5_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)

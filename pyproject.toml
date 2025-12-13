@@ -50,7 +50,6 @@ dependencies = [
     "pyzstd==0.16.2",
     "properscoring",
     "nuthatch",
-
 ]
 
 [dependency-groups]

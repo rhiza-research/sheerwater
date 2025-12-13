@@ -71,7 +71,7 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
         region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
-    ds = cbam_gridded(start_time, end_time, variable, grid=grid, region=region)
+    ds = cbam_gridded(start_time, end_time, variable, grid=grid, mask=mask, region=region)
     if agg_days == 1:
         return ds
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")

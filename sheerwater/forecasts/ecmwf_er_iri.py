@@ -315,7 +315,7 @@ def iri_ecmwf(start_time, end_time, variable, forecast_type,
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
                                     "start_date": 29, "start_year": 29,
                                     "model_issuance_date": 1}})
-def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="global1_5", region='global'):
+def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="global1_5"):
     """Fetches forecast data from the ECMWF IRI dataset.
 
     Args:
@@ -384,9 +384,9 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="glob
                },
            }
        })
-def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='global1_5', region='global'):
+def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='global1_5', mask=None, region='global'):
     """IRI ECMWF average forecast with regridding."""
-    ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid='global1_5', region=region)
+    ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid='global1_5')
     # Convert to base180 longitude
     ds = lon_base_change(ds, to_base="base180")
 
@@ -412,7 +412,7 @@ def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='g
            }
        })
 def ecmwf_rolled(start_time, end_time, variable, forecast_type,
-                 agg_days=14, grid="global1_5", region='global'):
+                 agg_days=14, grid="global1_5", mask=None, region='global'):
     """Fetches forecast data from the ECMWF IRI dataset.
 
     Args:
@@ -426,7 +426,7 @@ def ecmwf_rolled(start_time, end_time, variable, forecast_type,
         region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
-    ds = ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid=grid, region=region)
+    ds = ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid=grid, mask=mask, region=region)
     ds = ds.chunk({'lat': 721, 'lon': 1440})
     if forecast_type == "reforecast":
         ds = ds.chunk({'start_year': 29, 'model_issuance_date': 1})

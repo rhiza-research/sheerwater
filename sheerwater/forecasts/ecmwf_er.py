@@ -342,20 +342,20 @@ def ifs_extended_range_rolled(start_time, end_time, variable,
     run_type = 'perturbed' if prob_type == 'probabilistic' else 'average'
     if debiased:
         fn = ifs_extended_range_debiased_regrid
-        kwargs = {'margin_in_days': 6, 'region': region}
+        kwargs = {'margin_in_days': 6}
     else:
         fn = ifs_extended_range
-        kwargs = {'forecast_type': 'forecast', 'region': region}
+        kwargs = {'forecast_type': 'forecast'}
 
     if agg_days not in [1, 7, 14]:  # not one of the precomputed time groups
         ds = fn(start_time, end_time, variable,
-                run_type=run_type, time_group='daily', grid=grid, mask=mask, **kwargs)
+                run_type=run_type, time_group='daily', grid=grid, mask=mask, region=region, **kwargs)
         # Get aggregated variable
         ds[variable] = roll_and_agg(ds[variable], agg=agg_days, agg_col='lead_time', agg_fn='mean')
     else:
         time_group = {1: 'daily', 7: 'weekly', 14: 'biweekly'}[agg_days]
         ds = fn(start_time, end_time, variable,
-                run_type=run_type, time_group=time_group, grid=grid, mask=mask, **kwargs)
+                run_type=run_type, time_group=time_group, grid=grid, mask=mask, region=region, **kwargs)
     return ds
 
 

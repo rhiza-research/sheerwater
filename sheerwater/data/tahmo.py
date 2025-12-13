@@ -144,7 +144,7 @@ def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
                           grid=grid,
-                          missing_thresh=missing_thresh, cell_aggregation='first', region=region)
+                          missing_thresh=missing_thresh, cell_aggregation='first', mask=mask, region=region)
 
 
 @dask_remote
