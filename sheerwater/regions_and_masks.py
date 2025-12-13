@@ -8,10 +8,12 @@ import xarray as xr
 from nuthatch import cache
 
 from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, get_region_data, lon_base_change
+from sheerwater.interfaces import spatial
 
 
+@spatial()
 @cache(cache_args=['grid'])
-def land_sea_mask(grid="global1_5"):
+def land_sea_mask(grid="global1_5", mask=None, region='global'):
     """Get the ECMWF global land sea mask for the given grid.
 
     Args:
@@ -71,6 +73,41 @@ def land_sea_mask(grid="global1_5"):
     ds = ds.compute()
     os.remove(path)
     return ds
+
+@cache(cache_args=['mask', 'grid'], memoize=True)
+def spatial_mask(mask, grid='global1_5', region='global'):
+    """Get a mask dataset.
+
+    Args:
+        mask (str): The mask to apply. One of: 'lsm', None
+            To get different land-sea masks, use 'lsm-<value>'. For example, 'lsm-0.5' will return a mask
+            where the mask is greater than 0.5. Defaults to 0.0.
+        grid (str): The grid resolution of the dataset.
+
+    Returns:
+        xr.Dataset: Mask dataset.
+    """
+    if mask is None:
+        return get_grid_ds(grid)
+    elif 'lsm' in mask:
+        # Import here to avoid circular imports
+        if grid == 'global1_5' or grid == 'global0_25':
+            mask_ds = land_sea_mask(grid=grid).compute()
+        else:
+            # TODO: Should implement a more resolved land-sea mask for the other grids
+            from sheerwater.utils.data_utils import regrid
+            mask_ds = land_sea_mask(grid='global0_25')
+            mask_ds = regrid(mask_ds, grid, method='nearest', region=region).compute()
+
+        val = 0.0
+        if '-' in mask:
+            # Convert to boolean mask
+            val = float(mask.split('-')[1])
+        mask_ds['mask'] = mask_ds['mask'] > val
+        return mask_ds
+    else:
+        raise NotImplementedError("Only land-sea or None mask is implemented.")
+
 
 
 @cache(cache_args=['grid', 'space_grouping', 'region'],

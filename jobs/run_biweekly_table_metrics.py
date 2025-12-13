@@ -29,7 +29,7 @@ def run_metrics_table(combo):
     try:
         biweekly_metric_table(start_time, end_time, variable, "era5", metric_name,
                               time_grouping=time_grouping, grid=grid, region=region,
-                              force_overwrite=True, filepath_only=filepath_only,
+                              cache_mode='overwrite', filepath_only=filepath_only,
                               recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
         raise (e)

@@ -47,7 +47,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
     return ds_agg
 
 
-def regrid(ds, output_grid, method='conservative', base="base180", output_chunks=None):
+def regrid(ds, output_grid, method='conservative', base="base180", output_chunks=None, region='global'):
     """Regrid a dataset to a new grid.
 
     Args:
@@ -58,9 +58,10 @@ def regrid(ds, output_grid, method='conservative', base="base180", output_chunks
         base (str): The base of the longitudes. One of 'base180', 'base360'.
         output_chunks (dict): Chunks for the output dataset (optional).
             Only used for conservative regridding.
+        region (str): The region to clip the data to.
     """
     # Interpret the grid
-    ds_out = get_grid_ds(output_grid, base=base)
+    ds_out = get_grid_ds(output_grid, base=base, region=region)
     # Output chunks only for conservative regridding
     kwargs = {'output_chunks': output_chunks} if method == 'conservative' else {}
     regridder = getattr(ds.regrid, method)

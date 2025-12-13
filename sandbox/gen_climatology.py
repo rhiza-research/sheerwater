@@ -45,19 +45,19 @@ for var, grid in product(vars, grids):
     # Update standard 30-year climatology
     if UPDATE_CLIM:
         ds = climatology_raw(var, first_year, last_year, grid=grid,
-                             remote=True, recompute=True, force_overwrite=True)
+                             remote=True, recompute=True, cache_mode='overwrite')
 
     if UPDATE_CLIM_ABC:
         for mask, region in product(masks, regions):
             ds = climatology_abc(var, first_year, last_year, grid=grid,  # noqa: F821
                                  mask=mask, region=region,
-                                 remote=True,  recompute=True, force_overwrite=True)
+                                 remote=True,  recompute=True, cache_mode='overwrite')
 
     for agg_days in agg_days:
         if UPDATE_CLIM_ROLLING:
             ds = climatology_rolling_agg(rolling_start_time, end_time, variable=var,
                                          clim_years=clim_years, agg_days=agg_days, grid=grid,
-                                         remote=True, recompute=True, force_overwrite=True
+                                         remote=True, recompute=True, cache_mode='overwrite'
                                          )
 
         if UPDATE_CLIM_ROLLING_ABC:
@@ -65,13 +65,13 @@ for var, grid in product(vars, grids):
                 ds = climatology_rolling_abc(rolling_start_time, end_time, variable=var,  # noqa: F821
                                              clim_years=clim_years, agg_days=agg_days, grid=grid,
                                              mask=mask, region=region,
-                                             remote=True,  recompute=True, force_overwrite=True
+                                             remote=True,  recompute=True, cache_mode='overwrite'
                                              )
 
         if UPDATE_CLIM_TREND:
             ds = climatology_linear_weights(var, first_year=first_year, last_year=last_year,
                                             agg_days=agg_days, grid=grid,
-                                            remote=True, recompute=True, force_overwrite=True
+                                            remote=True, recompute=True, cache_mode='overwrite'
                                             )
 
         for prob_type in prob_types:

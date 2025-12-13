@@ -24,10 +24,10 @@ def run_grouped(combo):
     try:
         fn = get_datasource_fn(forecast)
         fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid,
-                  recompute=recompute, force_overwrite=True)
+                  recompute=recompute, cache_mode='overwrite')
         fn = get_datasource_fn(truth)
         return fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid,
-                  recompute=recompute, force_overwrite=True)
+                  recompute=recompute, cache_mode='overwrite')
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:

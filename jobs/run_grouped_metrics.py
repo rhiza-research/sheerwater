@@ -28,7 +28,7 @@ def run_grouped(combo):
         return metric(start_time, end_time, variable, agg_days=agg_days, forecast=forecast,
                       truth=truth, metric_name=metric_name,
                       spatial=False, time_grouping=time_grouping, grid=grid, region=region,
-                      force_overwrite=True, filepath_only=True, recompute=recompute, retry_null_cache=True)
+                      cache_mode='overwrite', filepath_only=True, recompute=recompute, retry_null_cache=True)
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:
