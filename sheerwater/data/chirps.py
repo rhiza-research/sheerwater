@@ -141,7 +141,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2, mask=No
 
     datasets = []
     for year in years:
-        ds = chirps_raw(year, grid, stations=stations, version=version, filepath_only=True)
+        ds = chirps_raw(year, 'chirps', stations=stations, version=version, filepath_only=True)
         if ds is not None:
             datasets.append(ds)
 
