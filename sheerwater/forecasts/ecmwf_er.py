@@ -91,7 +91,8 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
            }
 })
 def ifs_extended_range(start_time, end_time, variable, forecast_type,
-                       run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
+                       run_type='average', time_group='weekly',
+                       grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Fetches IFS extended range forecast and reforecast data from the WeatherBench2 dataset.
 
     Args:
@@ -106,6 +107,8 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
         time_group (str): The time grouping to use. One of: "daily", "weekly", "biweekly"
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
     """
     """IRI ECMWF average forecast with regridding."""
     ds = ifs_extended_range_raw(start_time, end_time, variable, forecast_type,
@@ -203,7 +206,9 @@ def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type
 @spatial()
 @cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 1000, "member": 1}})
-def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
+def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
+                            time_group='weekly', grid="global1_5", mask=None,
+                            region='global'):
     """Computes the bias of ECMWF reforecasts for all leads."""
     # Fetch the reforecast data to calculate how many leads we need
     if time_group == 'weekly':
@@ -218,8 +223,10 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', t
     # Accumulate all the per lead biases
     biases = []
     for i in leads:
-        biases.append(ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=i,
-                                                  run_type=run_type, time_group=time_group, grid=grid, mask=mask, region=region))
+        biases.append(ifs_er_reforecast_lead_bias(
+            start_time, end_time, variable, lead=i,
+            run_type=run_type, time_group=time_group, grid=grid,
+            mask=mask, region=region))
     # Concatenate leads and unstack
     ds_biases = xr.concat(biases, dim='lead_time')
     return ds_biases
@@ -299,11 +306,15 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
                },
            }
 })
-def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in_days=6,
-                                       run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
+def ifs_extended_range_debiased_regrid(start_time, end_time, variable,
+                                       margin_in_days=6, run_type='average',
+                                       time_group='weekly', grid="global1_5",
+                                       mask=None, region='global'):
     """Computes the debiased ECMWF forecasts."""
-    ds = ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=margin_in_days,
-                                     run_type=run_type, time_group=time_group, grid='global1_5', mask=mask, region=region)
+    ds = ifs_extended_range_debiased(start_time, end_time, variable,
+                                     margin_in_days=margin_in_days,
+                                     run_type=run_type, time_group=time_group,
+                                     grid='global1_5', mask=mask, region=region)
     if grid == 'global1_5':
         return ds
 

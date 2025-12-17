@@ -158,7 +158,9 @@ def climatology_agg_raw(variable, first_year=1985, last_year=2014,
                }
            }
 })
-def climatology_rolling_agg(start_time, end_time, variable, clim_years=30, agg_days=7, grid="global1_5", mask=None, region='global'):
+def climatology_rolling_agg(start_time, end_time, variable, clim_years=30,
+                            agg_days=7, grid="global1_5", mask=None,
+                            region='global'):
     """Compute a rolling {clim_years}-yr climatology of the ERA5 data.
 
     Args:
@@ -168,6 +170,8 @@ def climatology_rolling_agg(start_time, end_time, variable, clim_years=30, agg_d
         clim_years: Number of years to compute climatology over.
         agg_days (int): Aggregation period in days.
         grid: Grid resolution of the data.
+        mask: Spatial mask to apply.
+        region: Region to compute climatology for.
     """
     #  Get reanalysis data for the appropriate look back period
     # We need data from clim_years before the start_time until 1 year before the end_time
@@ -196,7 +200,8 @@ def climatology_rolling_agg(start_time, end_time, variable, clim_years=30, agg_d
 @spatial()
 @cache(cache_args=['variable', 'agg_days', 'grid'],
        backend_kwargs={'chunking': {"lat": 300, "lon": 300, "time": 366}})
-def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7, grid="global1_5", mask=None, region='global'):
+def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7,
+                          grid="global1_5", mask=None, region='global'):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
     Args:
@@ -207,6 +212,8 @@ def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7, grid="glob
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
     """
     # Get single day, masked data between start and end years
     ds = era5_rolled(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
@@ -230,7 +237,9 @@ def _era5_rolled_for_clim(start_time, end_time, variable, agg_days=7, grid="glob
                }
            }
 })
-def climatology_linear_weights(variable, first_year=1985, last_year=2014, agg_days=7, grid='global1_5', mask=None, region='global'):
+def climatology_linear_weights(variable, first_year=1985, last_year=2014,
+                               agg_days=7, grid='global1_5', mask=None,
+                               region='global'):
     """Fit the climatological trend for a specific day of year.
 
     Args:
@@ -239,12 +248,16 @@ def climatology_linear_weights(variable, first_year=1985, last_year=2014, agg_da
         last_year: Last year of the climatology.
         agg_days: Aggregation period in days.
         grid: Grid resolution of the data.
+        mask: Spatial mask to apply.
+        region: Region to compute climatology for.
     """
     start_time = f"{first_year}-01-01"
     end_time = f"{last_year}-12-31"
 
     # Get single day, masked data between start and end years
-    ds = _era5_rolled_for_clim(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = _era5_rolled_for_clim(start_time, end_time, variable=variable,
+                               agg_days=agg_days, grid=grid, mask=mask,
+                               region=region)
 
     def fit_trend(sub_ds):
         return sub_ds.swap_dims({"time": "year"}).polyfit(dim='year', deg=1)
@@ -266,8 +279,10 @@ def climatology_linear_weights(variable, first_year=1985, last_year=2014, agg_da
                }
            }
        })
-def climatology_rolled(start_time, end_time, variable, first_year=1985, last_year=2014,
-                       trend=False, prob_type='deterministic', agg_days=7, grid="global1_5", mask=None, region='global'):
+def climatology_rolled(start_time, end_time, variable, first_year=1985,
+                       last_year=2014, trend=False, prob_type='deterministic',
+                       agg_days=7, grid="global1_5", mask=None,
+                       region='global'):
     """Generates a forecast timeseries of climatology.
 
     Args:
@@ -280,6 +295,8 @@ def climatology_rolled(start_time, end_time, variable, first_year=1985, last_yea
         prob_type (str): The type of forecast to generate.
         agg_days (int): The aggregation period to use, in days
         grid (str): The grid to produce the forecast on.
+        mask: Spatial mask to apply.
+        region: Region to compute climatology for.
     """
     # Create a target date dataset
     target_dates = get_dates(start_time, end_time, stride='day', return_string=False)
@@ -327,7 +344,7 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
                             first_year=first_year, last_year=last_year,
                             trend=trend,
                             prob_type=prob_type,
-                            agg_days=agg_days, 
+                            agg_days=agg_days,
                             grid=grid, mask=mask, region=region)
 
     if prob_type == 'deterministic':
@@ -357,7 +374,7 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
-                     grid='global0_25', mask='lsm', region='global'):  
+                     grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1990, last_year=2019,
                                 trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
@@ -368,7 +385,7 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
-                           grid='global0_25', mask='lsm', region='global'):  
+                           grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, first_year=1985, last_year=2014,
                                 trend=True, prob_type=prob_type, grid=grid, mask=mask, region=region)
@@ -379,7 +396,7 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
-                        grid='global0_25', mask='lsm', region='global'):  
+                        grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecasts are available for rolling climatology.")
@@ -393,7 +410,9 @@ def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='det
     end_dt -= relativedelta(years=1)  # exclude the most recent year for operational forecasting (handles leap year)
     new_end = datetime.strftime(end_dt, "%Y-%m-%d")
 
-    ds = climatology_rolling_agg(new_start, new_end, variable, clim_years=30, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = climatology_rolling_agg(new_start, new_end, variable,
+                                  clim_years=30, agg_days=agg_days,
+                                  grid=grid, mask=mask, region=region)
 
     # Undo yearly time shifting
     times = [x + pd.DateOffset(years=1) for x in ds.time.values]

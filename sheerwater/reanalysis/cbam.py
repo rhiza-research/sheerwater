@@ -41,6 +41,7 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5", mask=None, re
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask (str): The mask to apply to the data.
         region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
@@ -68,6 +69,7 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask (str): The mask to apply to the data.
         region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array

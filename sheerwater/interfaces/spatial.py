@@ -1,3 +1,4 @@
+"""A decorator for spatial data."""
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
@@ -9,8 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class spatial(NuthatchProcessor):
-    """
-    Processor for spatial data.
+    """Processor for spatial data.
 
     This processor is used to slice a spatial dataset based on the region.
 
@@ -20,18 +20,19 @@ class spatial(NuthatchProcessor):
     """
 
     def __init__(self, region_dim=None, **kwargs):
-        """
-        Initialize the spatial processor.
+        """Initialize the spatial processor.
 
         Args:
-            region_dim: The name of the region dimension. If None, the returned dataset will not be 
+            region_dim (str): The name of the region dimension. If None, the returned dataset will not be
                 assumed to have a region dimesion and region data will be fetched from the region registry
                 before clipping.
+            kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
         super().__init__(**kwargs)
         self.region_dim = region_dim
 
     def process_arguments(self, sig, *args, **kwargs):
+        """Process the arguments for the spatial decorator."""
         # Get default values for the function signature
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
@@ -47,6 +48,7 @@ class spatial(NuthatchProcessor):
         return args, kwargs
 
     def post_process(self, ds):
+        """Post-process the dataset to clip to the region and apply the mask."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
             ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
@@ -59,6 +61,7 @@ class spatial(NuthatchProcessor):
         return ds
 
     def validate(self, ds):
+        """Validate the cached data to ensure it has data within the region."""
         if isinstance(ds, xr.Dataset):
             # Check to see if the dataset extends roughly the full time series set
             test = clip_region(ds, region=self.region, region_dim=self.region_dim)

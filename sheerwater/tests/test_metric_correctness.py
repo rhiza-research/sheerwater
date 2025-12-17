@@ -5,7 +5,7 @@ import numpy as np
 from nuthatch import cache
 
 from sheerwater.metrics import metric
-from sheerwater.utils import dask_remote, start_remote
+from sheerwater.utils import dask_remote
 
 
 @dask_remote

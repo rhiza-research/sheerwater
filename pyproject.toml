@@ -89,7 +89,6 @@ managed = true
 
 [tool.autopep8]
 max_line_length = 120
-aggressive = 0
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -112,6 +111,7 @@ target-version = "py312"
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
+ignore = ["D103"] # missing docstring
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

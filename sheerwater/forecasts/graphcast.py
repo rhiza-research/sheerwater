@@ -173,9 +173,12 @@ def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global
                },
            }
        })
-def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
+def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0,
+                           grid='global0_25', mask=None,
+                           region='global'):  # noqa: ARG001
     """Regrid for the original Weathernext datasource."""
-    ds = graphcast_daily(start_time, end_time, variable, init_hour=init_hour, grid='global0_25', mask=mask, region=region)
+    ds = graphcast_daily(start_time, end_time, variable, init_hour=init_hour,
+                         grid='global0_25', mask=mask, region=region)
     if grid == 'global0_25':
         return ds
 
@@ -221,7 +224,9 @@ def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, pro
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = graphcast_wb_rolled(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = graphcast_wb_rolled(forecast_start, forecast_end, variable,
+                            agg_days=agg_days, grid=grid, mask=mask,
+                            region=region)
     ds = ds.assign_attrs(prob_type="deterministic")
 
 

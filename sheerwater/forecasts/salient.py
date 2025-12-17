@@ -9,17 +9,16 @@ from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
-def salient_blend_raw(variable, timescale="sub-seasonal", version="v9"):
+def salient_blend_raw(variable, timescale="sub-seasonal", version="v9"):  # noqa: ARG001
     """Salient function that returns data from GCP mirror.
 
     Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
         variable (str): The weather variable to fetch.
         timescale (str): The timescale of the forecast. One of:
             - sub-seasonal
             - seasonal
             - long-range
+        version (str): The version of the Salient data to use.
 
     """
     # Pull the Salient dataset
@@ -40,7 +39,8 @@ def salient_blend_raw(variable, timescale="sub-seasonal", version="v9"):
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "forecast_date": 30, 'lead': 1, 'quantiles': 1}
 })
-def salient_blend(start_time, end_time, variable, timescale="sub-seasonal", grid="global0_25", mask=None, region='global'):  # noqa: ARG001
+def salient_blend(start_time, end_time, variable, timescale="sub-seasonal",  # noqa: ARG001
+                  grid="global0_25", mask=None, region='global'):  # noqa: ARG001
     """Processed Salient forecast files."""
     ds = salient_blend_raw(variable, timescale=timescale)
     ds = ds.dropna('forecast_date', how='all')
@@ -139,7 +139,9 @@ def salient_gem_raw(start_time, end_time, variable, grid='global0_25', mask=None
        backend_kwargs={
            'chunking': {"lat": 20, "lon": 20, "forecast_date": 30, 'lead': 126, 'sample': 200}
 })
-def salient_gem_rolled(start_time, end_time, variable, agg_days=7, grid='global0_25', mask=None, region='eastern_africa'):
+def salient_gem_rolled(start_time, end_time, variable, agg_days=7, grid='global0_25',
+                       mask=None, region='eastern_africa'):
+    """Salient GEM rolled and aggregated."""
     ds = salient_gem_raw(start_time, end_time, variable, grid=grid, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="lead", agg_fn="mean")
     return ds

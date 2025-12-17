@@ -43,16 +43,16 @@ def statistic(cache=False, name=None,
                              'chunk_by_arg': chunk_by_arg
                          })
         def global_statistic(
-            data, data_key, 
+            data, data_key,
             start_time, end_time,
             variable, agg_days, forecast, truth,
-            statistic, grid, 
+            statistic, grid,
             mask=None, region='global',
             **cache_kwargs
         ):
             # Pass the cache kwargs through to the statistics function
             cache_kwargs = {
-                'data_key': data_key, 
+                'data_key': data_key,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
                 'grid': grid, 'mask': mask, 'region': region,

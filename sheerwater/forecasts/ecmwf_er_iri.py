@@ -384,7 +384,9 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="glob
                },
            }
        })
-def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='global1_5', mask=None, region='global'):
+def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type,
+                          grid='global1_5', mask=None,  # noqa: ARG001
+                          region='global'):
     """IRI ECMWF average forecast with regridding."""
     ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid='global1_5')
     # Convert to base180 longitude
@@ -417,6 +419,13 @@ def ecmwf_rolled(start_time, end_time, variable, forecast_type,
 
     Args:
         start_time (str): The start date to fetch data for.
+        end_time (str): The end date to fetch.
+        variable (str): The weather variable to fetch.
+        forecast_type (str): The type of forecast to fetch.
+        agg_days (int): The aggregation period to use, in days.
+        grid (str): The grid resolution to fetch the data at.
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
         end_time (str): The end date to fetch.
         variable (str): The weather variable to fetch.
         forecast_type (str): The type of forecast to fetch. One of "forecast" or "hindcast".

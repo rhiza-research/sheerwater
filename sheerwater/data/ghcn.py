@@ -134,7 +134,8 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 @spatial()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', mask=None, region='global', delayed=True):
+def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
+          mask=None, region='global', delayed=True):  # noqa: ARG001
     """Final gridded station data before aggregation."""
     # Get years between start time and end time
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)

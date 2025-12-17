@@ -435,10 +435,10 @@ class SEEPS(Metric):
         last_year = 2020
         # Get the wet threshold and dry fraction
         self.metric_data['data']['wet_threshold'] = seeps_wet_threshold(
-            first_year=first_year, last_year=last_year, agg_days=self.agg_days, 
+            first_year=first_year, last_year=last_year, agg_days=self.agg_days,
             grid=self.grid, mask=self.mask, region=self.region)
         self.metric_data['data']['dry_fraction'] = seeps_dry_fraction(
-            first_year=first_year, last_year=last_year, 
+            first_year=first_year, last_year=last_year,
             agg_days=self.agg_days, grid=self.grid, mask=self.mask, region=self.region)
 
         # Update the metric data key to include the wet threshold and dry fraction year range

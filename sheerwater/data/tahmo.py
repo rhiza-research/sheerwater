@@ -10,7 +10,6 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
-
 @cache(cache_args=[])
 def tahmo_deployment():
     """Stub function to get deployment cache."""

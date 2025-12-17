@@ -135,7 +135,8 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
 })
-def chirps_gridded(start_time, end_time, grid, stations=True, version=2, mask=None, region='global'):
+def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
+                   mask=None, region='global'):  # noqa: ARG001
     """CHIRPS regridded by year."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
@@ -180,7 +181,9 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
     """A unified chirps caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRP/S.")
-    ds = chirps_rolled(start_time, end_time, agg_days, grid, stations=stations, version=version, mask=mask, region=region)
+    ds = chirps_rolled(start_time, end_time, agg_days, grid,
+                       stations=stations, version=version, mask=mask,
+                       region=region)
     ds = ds.assign_attrs(sparse=True)
     return ds
 
@@ -189,7 +192,7 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
-             grid='global0_25', mask='lsm', region='global'):  
+             grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=False, version=2, mask=mask, region=region)
@@ -200,7 +203,7 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
-             grid='global0_25', mask='lsm', region='global'): 
+             grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=False, version=3, mask=mask, region=region)
@@ -210,7 +213,7 @@ def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
-              grid='global0_25', mask='lsm', region='global'): 
+              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=True, version=2, mask=mask, region=region)
@@ -220,7 +223,7 @@ def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
-              grid='global0_25', mask='lsm', region='global'): 
+              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, agg_days, grid=grid,
                            stations=True, version=3, mask=mask, region=region)

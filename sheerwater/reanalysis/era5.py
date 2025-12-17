@@ -70,6 +70,8 @@ def era5_land_daily_year(year, variable, mask=None, region='global'):
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask (str): The mask to apply to the data.
+        region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
     start_time = str(year) + '-01-01'
@@ -122,6 +124,8 @@ def era5_land_daily(start_time, end_time, variable, mask=None, region='global'):
         start_time: Start date for the data range.
         end_time: End date for the data range.
         variable: Variable to fetch.
+        mask (str): The mask to apply to the data.
+        region (str): The region to clip the data to.
     """
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
@@ -184,6 +188,8 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask (str): The mask to apply to the data.
+        region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
     ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
@@ -269,6 +275,8 @@ def era5_daily(start_time, end_time, variable, grid="global1_5", mask=None, regi
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
             - global0_25: 0.25 degree global grid
+        mask (str): The mask to apply to the data.
+        region (str): The region to clip the data to.
     """
     if grid != 'global0_25':
         raise ValueError("Only ERA5 native 0.25 degree grid is implemented.")

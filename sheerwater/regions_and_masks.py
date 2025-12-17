@@ -8,12 +8,10 @@ import xarray as xr
 from nuthatch import cache
 
 from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, get_region_data, lon_base_change
-from sheerwater.interfaces import spatial
 
 
-@spatial()
 @cache(cache_args=['grid'])
-def land_sea_mask(grid="global1_5", mask=None, region='global'):
+def land_sea_mask(grid="global1_5"):
     """Get the ECMWF global land sea mask for the given grid.
 
     Args:
@@ -83,6 +81,7 @@ def spatial_mask(mask, grid='global1_5', region='global'):
             To get different land-sea masks, use 'lsm-<value>'. For example, 'lsm-0.5' will return a mask
             where the mask is greater than 0.5. Defaults to 0.0.
         grid (str): The grid resolution of the dataset.
+        region (str): The region to clip to. A specific instance of a space group
 
     Returns:
         xr.Dataset: Mask dataset.

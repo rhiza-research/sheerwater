@@ -1,6 +1,4 @@
 """A decorator for identifying data sources."""
-from functools import wraps
-from inspect import signature
 
 import xarray as xr
 
@@ -15,8 +13,7 @@ DATA_REGISTRY = {}
 FORECAST_REGISTRY = {}
 
 class SheerwaterDataset(NuthatchProcessor):
-    """
-    Processor for a Sheerwater dataset, either forecast or data of a standard format. 
+    """Processor for a Sheerwater dataset, either forecast or data of a standard format.
 
     This processor is used to convert forecast with init time and prediction timedelta to a valid time coordinate.
 
@@ -26,18 +23,19 @@ class SheerwaterDataset(NuthatchProcessor):
     """
 
     def __init__(self, region_dim=None, **kwargs):
-        """
-        Initialize the spatial processor.
+        """Initialize the spatial processor.
 
         Args:
-            region_dim: The name of the region dimension. If None, the returned dataset will not be 
+            region_dim (str): The name of the region dimension. If None, the returned dataset will not be
                 assumed to have a region dimesion and region data will be fetched from the region registry
                 before clipping.
+            kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
         super().__init__(**kwargs)
         self.region_dim = region_dim
 
     def process_arguments(self, sig, *args, **kwargs):
+        """Process the arguments for the datasets decorator."""
         # Get default values for the function signature
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
@@ -60,6 +58,7 @@ class SheerwaterDataset(NuthatchProcessor):
         return args, kwargs
 
     def post_process(self, ds):
+        """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
             ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
@@ -80,6 +79,7 @@ class SheerwaterDataset(NuthatchProcessor):
         return ds
 
     def validate(self, ds):
+        """Validate the cached data to ensure it has data within the region."""
         # Check to see if the dataset extends roughly the full time series set
         test = clip_region(ds, region=self.region, region_dim=self.region_dim)
         test = apply_mask(test, self.mask, grid=self.grid)
@@ -95,11 +95,13 @@ class SheerwaterDataset(NuthatchProcessor):
 class data(SheerwaterDataset):
     """Processor for a Sheerwater data. It supports xarray datasets."""
     def __call__(self, func):
+        """Call the parent class and register the data in the global data registry."""
         wrapped = super().__call__(func)
         DATA_REGISTRY[func.__name__] = wrapped
         return wrapped
 
     def post_process(self, ds):
+        """Post-processor for a Sheerwater data. It supports xarray datasets."""
         # Implment masking and region clipping and timeseries postprocessing
         ds = super().post_process(ds)
 
@@ -111,11 +113,13 @@ class data(SheerwaterDataset):
 class forecast(SheerwaterDataset):
     """Processor for a Sheerwater forecast. It supports xarray datasets."""
     def __call__(self, func):
+        """Call the forecast decorator and register it in the global forecast registry."""
         wrapped = super().__call__(func)
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
     def post_process(self, ds):
+        """Convert the init time and prediction timedelta to a valid time coordinate labeled 'time'."""
         # # Convert the init time and prediction timedelta to a valid time coordinate labeled 'time'
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             # If we haven't converted from init time to valid times, do so now

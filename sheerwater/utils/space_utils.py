@@ -92,8 +92,8 @@ def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', la
         ds (xr.Dataset): The dataset to clip to a specific region.
         region (str): The region to clip to. One of:
             - africa, conus, global
-        region_dim (str): The name of the region dimension. If None, the region data will be fetched from the region registry.
-        region_data (geopandas.GeoDataFrame): The region data to clip to. If None, will be fetched from the region registry.
+        region_dim (str): The name of the region dimension. If None, region data is fetched from the region registry.
+        region_data (geopandas.GeoDataFrame): The region data to clip to. If None, is fetched from the region registry.
         lon_dim (str): The name of the longitude dimension.
         lat_dim (str): The name of the latitude dimension.
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.

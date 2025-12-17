@@ -152,7 +152,9 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, 
                },
            }
 })
-def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='deterministic', grid='global0_25', mask=None, region='global'):
+def gencast_rolled(start_time, end_time, variable, agg_days,
+                   prob_type='deterministic', grid='global0_25', mask=None,
+                   region='global'):
     """A rolled and aggregated gencast forecast."""
     ds = gencast_daily(start_time, end_time, variable, grid, mask=mask, region=region)
 
