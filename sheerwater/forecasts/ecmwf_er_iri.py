@@ -27,6 +27,7 @@ from sheerwater.utils import (
     regrid,
     roll_and_agg,
 )
+from sheerwater.interfaces import spatial
 
 
 ########################################################################
@@ -370,6 +371,7 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="glob
 
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
+@spatial()
 @cache(cache_args=['variable', 'forecast_type', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
@@ -382,7 +384,9 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="glob
                },
            }
        })
-def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='global1_5'):
+def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type,
+                          grid='global1_5', mask=None,  # noqa: ARG001
+                          region='global'):
     """IRI ECMWF average forecast with regridding."""
     ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid='global1_5')
     # Convert to base180 longitude
@@ -391,12 +395,13 @@ def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='g
     if grid == 'global1_5':
         return ds
     # Regrid onto appropriate grid
-    ds = regrid(ds, grid, base='base180', grid_chunks={"lat": 120, "lon": 120})
+    ds = regrid(ds, grid, base='base180', grid_chunks={"lat": 120, "lon": 120}, region=region)
     return ds
 
 
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
+@spatial()
 @cache(cache_args=['variable', 'forecast_type', 'agg', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
@@ -409,20 +414,28 @@ def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid='g
            }
        })
 def ecmwf_rolled(start_time, end_time, variable, forecast_type,
-                 agg_days=14, grid="global1_5"):
+                 agg_days=14, grid="global1_5", mask=None, region='global'):
     """Fetches forecast data from the ECMWF IRI dataset.
 
     Args:
         start_time (str): The start date to fetch data for.
         end_time (str): The end date to fetch.
         variable (str): The weather variable to fetch.
+        forecast_type (str): The type of forecast to fetch.
+        agg_days (int): The aggregation period to use, in days.
+        grid (str): The grid resolution to fetch the data at.
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
+        end_time (str): The end date to fetch.
+        variable (str): The weather variable to fetch.
         forecast_type (str): The type of forecast to fetch. One of "forecast" or "hindcast".
         agg_days (int): The aggregation period, in days.
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
+        region (str): The region to clip the data to.
     """
     # Read and combine all the data into an array
-    ds = ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid=grid)
+    ds = ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid=grid, mask=mask, region=region)
     ds = ds.chunk({'lat': 721, 'lon': 1440})
     if forecast_type == "reforecast":
         ds = ds.chunk({'start_year': 29, 'model_issuance_date': 1})

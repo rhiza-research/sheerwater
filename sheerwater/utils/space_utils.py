@@ -2,10 +2,11 @@
 import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
-from nuthatch import cache
+import logging
 
 from .region_utils import get_region_data
 
+logger = logging.getLogger(__name__)
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
     """Get a slice of the globe from the dataset.
@@ -84,13 +85,15 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=True):
+def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', lat_dim='lat', drop=True):
     """Clip a dataset to a region.
 
     Args:
         ds (xr.Dataset): The dataset to clip to a specific region.
         region (str): The region to clip to. One of:
             - africa, conus, global
+        region_dim (str): The name of the region dimension. If None, region data is fetched from the region registry.
+        region_data (geopandas.GeoDataFrame): The region data to clip to. If None, is fetched from the region registry.
         lon_dim (str): The name of the longitude dimension.
         lat_dim (str): The name of the latitude dimension.
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
@@ -99,54 +102,23 @@ def clip_region(ds, region, lon_dim='lon', lat_dim='lat', drop=True):
     if region == 'global':
         return ds
 
-    region_data = get_region_data(region)
-    if len(region_data) != 1:
-        raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
-
-    # Set up dataframe for clipping
-    ds = ds.rio.write_crs("EPSG:4326")
-    ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
-
-    # Clip the grid to the boundary of Shapefile
-    ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
-
-    return ds
-
-
-@cache(cache_args=['mask', 'grid'])
-def get_mask(mask, grid='global1_5'):
-    """Get a mask dataset.
-
-    Args:
-        mask (str): The mask to apply. One of: 'lsm', None
-            To get different land-sea masks, use 'lsm-<value>'. For example, 'lsm-0.5' will return a mask
-            where the mask is greater than 0.5. Defaults to 0.0.
-        grid (str): The grid resolution of the dataset.
-
-    Returns:
-        xr.Dataset: Mask dataset.
-    """
-    if mask is None:
-        return get_grid_ds(grid)
-    elif 'lsm' in mask:
-        # Import here to avoid circular imports
-        from sheerwater.regions_and_masks import land_sea_mask
-        if grid == 'global1_5' or grid == 'global0_25':
-            mask_ds = land_sea_mask(grid=grid, memoize=True).compute()
-        else:
-            # TODO: Should implement a more resolved land-sea mask for the other grids
-            from sheerwater.utils.data_utils import regrid
-            mask_ds = land_sea_mask(grid='global0_25', memoize=True)
-            mask_ds = regrid(mask_ds, grid, method='nearest').compute()
-
-        val = 0.0
-        if '-' in mask:
-            # Convert to boolean mask
-            val = float(mask.split('-')[1])
-        mask_ds['mask'] = mask_ds['mask'] > val
-        return mask_ds
+    if region_dim is not None:
+        # If we already have a region dimension, just select the region
+        ds = ds.sel(**{region_dim: region})
     else:
-        raise NotImplementedError("Only land-sea or None mask is implemented.")
+        # If we don't have a region dimension we need to clip to the region
+        if region_data is None:
+            # If not passed, fetch the region data from the region registry
+            region_data = get_region_data(region)
+
+        if len(region_data) != 1:
+            raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
+        # Set up dataframe for clipping
+        ds = ds.rio.write_crs("EPSG:4326")
+        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+        # Clip the grid to the boundary of Shapefile
+        ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
+    return ds
 
 
 def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
@@ -165,7 +137,8 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         return ds
 
     if isinstance(mask, str):
-        mask_ds = get_mask(mask, grid)
+        from sheerwater.regions_and_masks import spatial_mask
+        mask_ds = spatial_mask(mask, grid)
     else:
         mask_ds = mask
 
@@ -192,11 +165,13 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         ds = ds.where(mask_ds['mask'] > val, drop=False)
     return ds
 
+
 def snap_point_to_grid(point, grid_size, offset):
     """Snap a point to a provided grid and offset."""
     return round(float(point+offset)/grid_size) * grid_size - offset
 
-def get_grid_ds(grid_id, base="base180"):
+
+def get_grid_ds(grid_id, base="base180", region='global'):
     """Get a dataset equal to ones for a given region."""
     lons, lats, _, _ = get_grid(grid_id, base=base)
     data = np.ones((len(lons), len(lats)))
@@ -204,6 +179,8 @@ def get_grid_ds(grid_id, base="base180"):
         {"mask": (['lon', 'lat'], data)},
         coords={"lon": lons, "lat": lats}
     )
+    if region != 'global':
+        ds = clip_region(ds, region=region)
     return ds
 
 
@@ -304,7 +281,7 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     elif ds[lon_col].min() < 0.0:
         base = "base180"
     else:
-        print("Warning: Dataset base is ambiguous")
+        logger.warning("Warning: Dataset base is ambiguous")
         return 0
 
     if dsp[lon_colp].max() > 180.0:
@@ -312,7 +289,7 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     elif dsp[lon_colp].min() < 0.0:
         basep = "base180"
     else:
-        print("Warning: Dataset base is ambiguous")
+        logger.warning("Warning: Dataset base is ambiguous")
         return 0
 
     # If bases are identifiable and unequal

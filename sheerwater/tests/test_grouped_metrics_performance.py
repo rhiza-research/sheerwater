@@ -83,7 +83,7 @@ def test_grouped_metrics_performance_summary():
                 mask=mask,
                 region=region,
                 recompute=True,
-                force_overwrite=True
+                cache_mode='overwrite'
             )
             elapsed = time.time() - start
 
@@ -128,7 +128,8 @@ def test_grouped_metrics_performance_comprehensive():
     # metric_name = "mae"
     grid = "global1_5"
     mask = "lsm"
-    region = "country"
+    region = "global"
+    space_grouping = "country"
     # region = "countr"
     # time_grouping = "month"
     time_grouping = None
@@ -145,13 +146,14 @@ def test_grouped_metrics_performance_comprehensive():
             truth=truth,
             metric_name=metric_name,
             time_grouping=time_grouping,
+            space_grouping=space_grouping,
             spatial=False,
             grid=grid,
             mask=mask,
             region=region,
             # recompute=['metric'],
             recompute=False,
-            force_overwrite=True
+            cache_mode='overwrite'
         )
         elapsed = time.time() - start
 
@@ -188,5 +190,7 @@ def test_grouped_metrics_performance_comprehensive():
 if __name__ == "__main__":
     # start_remote(remote_config=['xxxlarge_node', 'single_cluster'], remote_name='single_cluster_test')
     # test_grouped_metrics_performance_summary()
-    start_remote(remote_config='xlarge_cluster', remote_name='nuthatch_genevieve')
-    test_grouped_metrics_performance()
+    # start_remote(remote_config='xlarge_cluster', remote_name='nuthatch_genevieve')
+    start_remote(remote_config='xlarge_cluster')
+    test_grouped_metrics_performance_comprehensive()
+    # test_grouped_metrics_performance()

@@ -7,9 +7,8 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5_rolled
-from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
-
-from .forecast_decorator import forecast
+from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
+from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
@@ -65,7 +64,7 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
     else:
         ds = ds.rename({'time': 'start_date'})
 
-    ds = ds.drop('valid_time')
+    ds = ds.drop_vars('valid_time')
 
     # If a specific run, select
     if isinstance(run_type, int):
@@ -75,6 +74,7 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
 
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
+@spatial()
 @cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
@@ -91,7 +91,8 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
            }
 })
 def ifs_extended_range(start_time, end_time, variable, forecast_type,
-                       run_type='average', time_group='weekly', grid="global1_5"):
+                       run_type='average', time_group='weekly',
+                       grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Fetches IFS extended range forecast and reforecast data from the WeatherBench2 dataset.
 
     Args:
@@ -106,6 +107,8 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
         time_group (str): The time grouping to use. One of: "daily", "weekly", "biweekly"
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
     """
     """IRI ECMWF average forecast with regridding."""
     ds = ifs_extended_range_raw(start_time, end_time, variable, forecast_type,
@@ -125,7 +128,10 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
         ds = np.maximum(ds, 0)
     if grid == 'global1_5':
         return ds
-    # Regrid onto appropriate grid
+
+    _, _, size, _ = get_grid(grid)
+    if size < 1.5:
+        raise NotImplementedError("Unable to regrid ECMWF smaller than 1.5x1.5")
     if forecast_type == 'reforecast':
         raise NotImplementedError("Regridding reforecast data should be done with extreme care. It's big.")
 
@@ -139,20 +145,21 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
     ds = ds.chunk(chunks)
     # Need all lats / lons in a single chunk for the output to be reasonable
     ds = regrid(ds, grid, base='base180', method='conservative',
-                output_chunks={"lat": 721, "lon": 1440})
+                output_chunks={"lat": 721, "lon": 1440}, region=region)
     return ds
 
 
 @dask_remote
 @timeseries(timeseries='model_issuance_date')
+@spatial()
 @cache(cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 200, "member": 50}})
 def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type='average',
-                                time_group='weekly', grid="global1_5"):
+                                time_group='weekly', grid="global1_5", mask=None, region='global'):
     """Computes the bias of ECMWF reforecasts for a specific lead."""
     # Fetch the reforecast data; get's the past 20 years associated with each start date
     ds_deb = ifs_extended_range(start_time, end_time, variable, forecast_type="reforecast",
-                                run_type=run_type, time_group=time_group, grid=grid)
+                                run_type=run_type, time_group=time_group, grid=grid, mask=mask, region=region)
 
     # Get the appropriate lead
     n_leads = len(ds_deb.lead_time)
@@ -170,7 +177,7 @@ def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type
 
     # Get the pre-aggregated ERA5 data
     agg = {'daily': 1, 'weekly': 7, 'biweekly': 14}[time_group]
-    ds_truth = era5_rolled(new_start, new_end, variable, agg_days=agg, grid=grid)
+    ds_truth = era5_rolled(new_start, new_end, variable, agg_days=agg, grid=grid, mask=mask, region=region)
 
     def get_bias(ds_sub):
         """Get the 20-year estimated bias of the reforecast data."""
@@ -196,9 +203,12 @@ def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type
 
 @dask_remote
 @timeseries(timeseries='model_issuance_date')
+@spatial()
 @cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 1000, "member": 1}})
-def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', time_group='weekly', grid="global1_5"):
+def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
+                            time_group='weekly', grid="global1_5", mask=None,
+                            region='global'):
     """Computes the bias of ECMWF reforecasts for all leads."""
     # Fetch the reforecast data to calculate how many leads we need
     if time_group == 'weekly':
@@ -213,8 +223,10 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', t
     # Accumulate all the per lead biases
     biases = []
     for i in leads:
-        biases.append(ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=i,
-                                                  run_type=run_type, time_group=time_group, grid=grid))
+        biases.append(ifs_er_reforecast_lead_bias(
+            start_time, end_time, variable, lead=i,
+            run_type=run_type, time_group=time_group, grid=grid,
+            mask=mask, region=region))
     # Concatenate leads and unstack
     ds_biases = xr.concat(biases, dim='lead_time')
     return ds_biases
@@ -222,6 +234,7 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', t
 
 @dask_remote
 @timeseries(timeseries='start_date')
+@spatial()
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
@@ -237,15 +250,15 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average', t
            }
 })
 def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6,
-                                run_type='average', time_group='weekly', grid="global1_5"):
+                                run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
     """Computes the debiased ECMWF forecasts."""
     # Get bias data from reforecast; for now, debias with deterministic bias
     ds_b = ifs_er_reforecast_bias(start_time, end_time, variable,
-                                  run_type='average', time_group=time_group, grid=grid)
+                                  run_type='average', time_group=time_group, grid=grid, mask=mask, region=region)
 
     # Get forecast data
     ds_f = ifs_extended_range(start_time, end_time, variable, forecast_type='forecast',
-                              run_type=run_type, time_group=time_group, grid=grid)
+                              run_type=run_type, time_group=time_group, grid=grid, mask=mask, region=region)
     if time_group == 'weekly':
         leads = [np.timedelta64(x, 'D') for x in [0, 7, 14, 21, 28, 35]]
     elif time_group == 'biweekly':
@@ -277,6 +290,7 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
 
 @dask_remote
 @timeseries(timeseries='start_date')
+@spatial()
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
@@ -292,11 +306,15 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
                },
            }
 })
-def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in_days=6,
-                                       run_type='average', time_group='weekly', grid="global1_5"):
+def ifs_extended_range_debiased_regrid(start_time, end_time, variable,
+                                       margin_in_days=6, run_type='average',
+                                       time_group='weekly', grid="global1_5",
+                                       mask=None, region='global'):
     """Computes the debiased ECMWF forecasts."""
-    ds = ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=margin_in_days,
-                                     run_type=run_type, time_group=time_group, grid='global1_5')
+    ds = ifs_extended_range_debiased(start_time, end_time, variable,
+                                     margin_in_days=margin_in_days,
+                                     run_type=run_type, time_group=time_group,
+                                     grid='global1_5', mask=mask, region=region)
     if grid == 'global1_5':
         return ds
 
@@ -310,12 +328,13 @@ def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in
     ds = ds.chunk(chunks)
     # Need all lats / lons in a single chunk for the output to be reasonable
     ds = regrid(ds, grid, base='base180', method='conservative',
-                output_chunks={"lat": 721, "lon": 1440})
+                output_chunks={"lat": 721, "lon": 1440}, region=region)
     return ds
 
 
 @dask_remote
 @timeseries(timeseries='start_date')
+@spatial()
 @cache(cache_args=['variable', 'prob_type', 'agg_days', 'grid', 'debiased'],
        cache_disable_if={'agg_days': [1, 7, 14]},
        backend_kwargs={
@@ -329,7 +348,7 @@ def ifs_extended_range_debiased_regrid(start_time, end_time, variable, margin_in
 })
 def ifs_extended_range_rolled(start_time, end_time, variable,
                               prob_type='deterministic', agg_days=7,
-                              grid="global1_5", debiased=True):
+                              grid="global1_5", debiased=True, mask=None, region='global'):
     """Standard format forecast data for aggregated ECMWF forecasts."""
     run_type = 'perturbed' if prob_type == 'probabilistic' else 'average'
     if debiased:
@@ -341,13 +360,13 @@ def ifs_extended_range_rolled(start_time, end_time, variable,
 
     if agg_days not in [1, 7, 14]:  # not one of the precomputed time groups
         ds = fn(start_time, end_time, variable,
-                run_type=run_type, time_group='daily', grid=grid, **kwargs)
+                run_type=run_type, time_group='daily', grid=grid, mask=mask, region=region, **kwargs)
         # Get aggregated variable
         ds[variable] = roll_and_agg(ds[variable], agg=agg_days, agg_col='lead_time', agg_fn='mean')
     else:
         time_group = {1: 'daily', 7: 'weekly', 14: 'biweekly'}[agg_days]
         ds = fn(start_time, end_time, variable,
-                run_type=run_type, time_group=time_group, grid=grid, **kwargs)
+                run_type=run_type, time_group=time_group, grid=grid, mask=mask, region=region, **kwargs)
     return ds
 
 
@@ -362,7 +381,7 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
     ds = ifs_extended_range_rolled(forecast_start, forecast_end, variable, prob_type=prob_type,
-                                   agg_days=agg_days, grid=grid, debiased=debiased)
+                                   agg_days=agg_days, grid=grid, debiased=debiased, mask=mask, region=region)
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
@@ -383,8 +402,7 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 
 
 @dask_remote
-@timeseries()
-@forecast
+@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
@@ -396,10 +414,8 @@ def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, 
 
 
 @dask_remote
-@timeseries()
-@forecast
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+@sheerwater_forecast()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""

@@ -11,8 +11,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid
-
-from .data_decorator import data
+from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
 @cache(cache_args=[])
@@ -29,13 +28,7 @@ def ghcn_station_list():
 
 @dask_remote
 @cache(cache_args=['year', 'grid', 'cell_aggregation'],
-       backend_kwargs={
-           'chunking': {
-               'time': 365,
-               'lat': 300,
-               'lon': 300,
-           }
-})
+       backend_kwargs={'chunking': {'time': 365, 'lat': 300, 'lon': 300}})
 def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     """Get a by year station data and save it as a zarr."""
     obs = dd.read_csv(f"s3://noaa-ghcn-pds/csv/by_year/{year}.csv",
@@ -138,9 +131,11 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', delayed=True):
+def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
+          mask=None, region='global', delayed=True):  # noqa: ARG001
     """Final gridded station data before aggregation."""
     # Get years between start time and end time
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
@@ -167,27 +162,27 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first', del
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd_rolled(start_time, end_time, agg_days,
-                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
+                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
     """GHCND rolled and aggregated."""
     # Get the data
-    ds = ghcnd(start_time, end_time, grid, cell_aggregation)
+    ds = ghcnd(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
 
     # Roll and agg
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
-
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
     return ds
 
 
 @dask_remote
 def _ghcn_unified(start_time, end_time, variable, agg_days,
-                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first'):
+                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
     """Standard interface for ghcn data."""
     ds = ghcnd_rolled(start_time, end_time, agg_days=agg_days, grid=grid,
-                      missing_thresh=missing_thresh, cell_aggregation=cell_aggregation)
+                      missing_thresh=missing_thresh, cell_aggregation=cell_aggregation, mask=mask, region=region)
 
     # Get the variable
     variable_ghcn = get_variable(variable, 'ghcn')
@@ -201,28 +196,22 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@data
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+@sheerwater_data()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'])
 def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
-         grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-         missing_thresh=0.9):
+         grid='global0_25', mask='lsm', region='global', missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
-                         grid=grid,
+                         grid=grid, mask=mask, region=region,
                          missing_thresh=missing_thresh, cell_aggregation='first')
 
 
 @dask_remote
-@data
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+@sheerwater_data()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'])
 def ghcn_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
-             grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-             missing_thresh=0.9):
+             grid='global0_25', mask='lsm', region='global', missing_thresh=0.9):
     """Standard interface for ghcn data."""
     return _ghcn_unified(start_time, end_time, variable, agg_days=agg_days,
-                         grid=grid,
+                         grid=grid, mask=mask, region=region,
                          missing_thresh=missing_thresh, cell_aggregation='mean')

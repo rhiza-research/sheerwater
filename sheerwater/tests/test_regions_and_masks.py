@@ -77,7 +77,7 @@ def test_region_labels():
     region_data = get_region_data("eastern_africa")
     assert len(region_data) == 1
 
-    region_data = get_region_data("meteorological_zones")
+    region_data = get_region_data("meteorological_zone")
     assert len(region_data) == 3
 
     region_data = get_region_data("sheerwater_region")

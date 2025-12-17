@@ -15,4 +15,4 @@ if __name__ == "__main__":
         ds = salient_blend(start_time, end_time, var, timescale=timescale,
                            grid=grid,
                            remote=True, remote_name='regrid-salient', remote_config='xxlarge_cluster',
-                           recompute=True, force_overwrite=True)
+                           recompute=True, cache_mode='overwrite')

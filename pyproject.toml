@@ -1,7 +1,7 @@
 [project]
 name = "sheerwater"
 dynamic = ["version"]
-description = "Equitable weather and climate forecasting benchmarking package."
+description = "Africa-first library for data, forecasts, and benchmarking."
 readme = "README.md"
 requires-python = ">= 3.12"
 authors = [
@@ -111,6 +111,7 @@ target-version = "py312"
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
 unfixable = []
+ignore = ["D103"] # missing docstring
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

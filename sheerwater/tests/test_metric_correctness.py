@@ -5,7 +5,7 @@ import numpy as np
 from nuthatch import cache
 
 from sheerwater.metrics import metric
-from sheerwater.utils import dask_remote, start_remote
+from sheerwater.utils import dask_remote
 
 
 @dask_remote
@@ -54,7 +54,7 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
         mask=mask,
         grid='global1_5',
         recompute=recompute,
-        force_overwrite=True,
+        cache_mode='overwrite',
     )
 
     # Convert from new metric format to old format by selection region and lead time
@@ -296,7 +296,7 @@ def plot_comparison(forecast="ecmwf_ifs_er_debiased", metric="mae", variable="pr
 
 if __name__ == "__main__":
     # Start remote cluster
-    start_remote(remote_config='xlarge_cluster')
+    # start_remote(remote_config='xlarge_cluster')
 
     print("Starting simple metrics comparison test...")
     # Run multiple test combinations

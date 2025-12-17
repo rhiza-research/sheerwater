@@ -5,8 +5,8 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.forecasts.forecast_decorator import forecast
 from sheerwater.utils import dask_remote, lon_base_change, regrid, roll_and_agg, shift_by_days
+from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
@@ -111,6 +111,7 @@ def gencast_daily_year(year, variable, init_hour=0):
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['variable', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, 'member': 10},
@@ -120,7 +121,7 @@ def gencast_daily_year(year, variable, init_hour=0):
                },
            }
 })
-def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: ARG001
+def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
     """A daily gencast forecast."""
     ds1 = gencast_daily_year(year='2020', variable=variable, init_hour=0)
     ds2 = gencast_daily_year(year='2021', variable=variable, init_hour=0)
@@ -134,13 +135,14 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: A
     # Regrid
     if grid != 'global0_25':
         ds = regrid(ds, grid, base='base180', method='conservative',
-                    output_chunks={"lat": 721, "lon": 1440})
+                    output_chunks={"lat": 721, "lon": 1440}, region=region)
 
     return ds
 
 
 @dask_remote
 @timeseries()
+@spatial()
 @cache(cache_args=['variable', 'agg_days', 'prob_type', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, "member": 10},
@@ -150,9 +152,11 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25'):  # noqa: A
                },
            }
 })
-def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='deterministic', grid='global0_25'):
+def gencast_rolled(start_time, end_time, variable, agg_days,
+                   prob_type='deterministic', grid='global0_25', mask=None,
+                   region='global'):
     """A rolled and aggregated gencast forecast."""
-    ds = gencast_daily(start_time, end_time, variable, grid)
+    ds = gencast_daily(start_time, end_time, variable, grid, mask=mask, region=region)
 
     if prob_type == 'deterministic':
         ds = ds.mean(dim='member')
@@ -165,8 +169,7 @@ def gencast_rolled(start_time, end_time, variable, agg_days, prob_type='determin
 
 
 @dask_remote
-@timeseries()
-@forecast
+@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
 def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
@@ -181,7 +184,7 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_
 
     # Get the data with the right days
     ds = gencast_rolled(start_time=forecast_start, end_time=forecast_end, variable=variable,
-                        agg_days=agg_days, prob_type=prob_type, grid=grid)
+                        agg_days=agg_days, prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:

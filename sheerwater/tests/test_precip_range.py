@@ -7,7 +7,7 @@ from sheerwater.utils import start_remote
 
 def test_precip_range():
     """Ensemble mean precipitation range for forecasters and reanalysis are reasonable."""
-    start_remote(remote_config='large_cluster', remote_name='test_forecasts')
+    start_remote(remote_config='large_cluster')
     start_time = "2016-01-01"
     end_time = "2016-12-31"
     variable = "precip"
