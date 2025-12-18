@@ -232,9 +232,7 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
-       backend_kwargs={
-           'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""

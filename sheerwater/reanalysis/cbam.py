@@ -57,7 +57,7 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5", mask=None, re
        cache_disable_if={'agg_days': 1},
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "time": 30}
-       })
+})
 def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", mask=None, region='global'):
     """Aggregates the hourly ERA5 data into daily data and rolls.
 
@@ -82,7 +82,8 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
