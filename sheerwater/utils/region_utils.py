@@ -34,6 +34,8 @@ import os
 import geopandas as gpd
 from shapely.geometry import box
 
+from nuthatch import cache
+
 from .general_utils import load_object
 
 
@@ -140,7 +142,8 @@ def get_region_level(region):
     return region_level, regions
 
 
-def get_region_data(region):
+@cache(cache_args=['region'], backend='basic')
+def region_data(region):
     """Get the boundary shapefile for a given region.
 
     Args:
@@ -296,7 +299,7 @@ def plot_by_region(ds, region, variable, file_string='none', title='Regional Map
     import numpy as np
 
     # Get the region GeoDataFrame and metric bounds
-    gdf = get_region_data(region)
+    gdf = region_data(region)
     # Extract the data values
     try:
         data = ds[variable]

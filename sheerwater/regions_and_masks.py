@@ -7,7 +7,7 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, get_region_data, lon_base_change
+from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, region_data, lon_base_change
 
 
 @cache(cache_args=['grid'])
@@ -132,7 +132,7 @@ def region_labels(grid='global1_5', space_grouping='country', region='global'):
         xarray.Dataset: Dataset with added region coordinate
     """
     # Get the list of regions for the specified admin level
-    region_data = get_region_data(space_grouping)
+    region_data = region_data(space_grouping)
 
     # Get the grid dataframe
     ds = get_grid_ds(grid)

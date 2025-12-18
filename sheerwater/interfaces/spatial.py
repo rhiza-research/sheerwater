@@ -51,10 +51,18 @@ class spatial(NuthatchProcessor):
         """Post-process the dataset to clip to the region and apply the mask."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
-            ds = apply_mask(ds, self.mask, grid=self.grid)
-            # TODO: add support for pandas and dask dataframes?
-            # elif isinstance(ds, pd.DataFrame) or isinstance(ds, dd.DataFrame):
+            if not (hasattr(ds, 'region') and ds.region== self.region):
+                # Only clip region if the dataframe hasn't already been clipped
+                ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
+            if not (hasattr(ds, 'mask') and ds.mask == self.mask):
+                # Only apply mask if this dataframe has not already been masked
+                ds = apply_mask(ds, self.mask, grid=self.grid)
+            attrs = {
+                'grid': self.grid,
+                'mask': self.mask,
+                'region': self.region
+            }
+            ds = ds.assign_attrs(attrs)
         else:
             raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")
 
