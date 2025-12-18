@@ -171,7 +171,8 @@ def gencast_rolled(start_time, end_time, variable, agg_days,
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""

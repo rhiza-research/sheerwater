@@ -89,7 +89,7 @@ def graphcast_daily(start_time, end_time, variable, init_hour=0, grid='global0_2
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
                },
            }
-       })
+})
 def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global0_25', mask=None, region='global'):  # noqa: ARG001
     """A daily Graphcast forecast."""
     if init_hour != 0:
@@ -172,7 +172,7 @@ def graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid='global
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
                },
            }
-       })
+})
 def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0,
                            grid='global0_25', mask=None,
                            region='global'):  # noqa: ARG001
@@ -200,7 +200,7 @@ def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0,
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
                },
            }
-       })
+})
 def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_25', mask=None, region='global'):
     """A rolled and aggregated Graphcast forecast."""
     # Grab the init 0 forecast; don't need to regrid
@@ -212,7 +212,8 @@ def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
               grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Graphcast interface."""
@@ -225,10 +226,9 @@ def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, pro
 
     # Get the data with the right days
     ds = graphcast_wb_rolled(forecast_start, forecast_end, variable,
-                            agg_days=agg_days, grid=grid, mask=mask,
-                            region=region)
+                             agg_days=agg_days, grid=grid, mask=mask,
+                             region=region)
     ds = ds.assign_attrs(prob_type="deterministic")
-
 
     # Rename to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})

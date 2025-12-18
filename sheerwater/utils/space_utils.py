@@ -4,9 +4,10 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 import logging
 
-from .region_utils import get_region_data
+from .region_utils import region_data
 
 logger = logging.getLogger(__name__)
+
 
 def get_globe_slice(ds, lon_slice, lat_slice, lon_dim='lon', lat_dim='lat', base="base180"):
     """Get a slice of the globe from the dataset.
@@ -85,7 +86,7 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', lat_dim='lat', drop=True):
+def clip_region(ds, region, region_dim=None, region_df=None, lon_dim='lon', lat_dim='lat', drop=True):
     """Clip a dataset to a region.
 
     Args:
@@ -93,7 +94,7 @@ def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', la
         region (str): The region to clip to. One of:
             - africa, conus, global
         region_dim (str): The name of the region dimension. If None, region data is fetched from the region registry.
-        region_data (geopandas.GeoDataFrame): The region data to clip to. If None, is fetched from the region registry.
+        region_df (geopandas.GeoDataFrame): The region data to clip to. If None, is fetched from the region registry.
         lon_dim (str): The name of the longitude dimension.
         lat_dim (str): The name of the latitude dimension.
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
@@ -107,17 +108,17 @@ def clip_region(ds, region, region_dim=None, region_data=None, lon_dim='lon', la
         ds = ds.sel(**{region_dim: region})
     else:
         # If we don't have a region dimension we need to clip to the region
-        if region_data is None:
+        if region_df is None:
             # If not passed, fetch the region data from the region registry
-            region_data = get_region_data(region)
+            region_df = region_data(region)
 
-        if len(region_data) != 1:
+        if len(region_df) != 1:
             raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
         # Set up dataframe for clipping
         ds = ds.rio.write_crs("EPSG:4326")
         ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
         # Clip the grid to the boundary of Shapefile
-        ds = ds.rio.clip(region_data.geometry, region_data.crs, drop=drop)
+        ds = ds.rio.clip(region_df.geometry, region_df.crs, drop=drop)
     return ds
 
 
@@ -281,7 +282,9 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     elif ds[lon_col].min() < 0.0:
         base = "base180"
     else:
-        logger.warning("Warning: Dataset base is ambiguous")
+        # Dataset base is ambiguous
+        logger.info('Performing spatial data on a subset of data. Cannot check if longitude convention matches.'
+                    'Please ensure that your dataframes are using the same longitude convention.')
         return 0
 
     if dsp[lon_colp].max() > 180.0:
@@ -289,7 +292,8 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     elif dsp[lon_colp].min() < 0.0:
         basep = "base180"
     else:
-        logger.warning("Warning: Dataset base is ambiguous")
+        logger.info('Performing spatial data on a subset of data. Cannot check if longitude convention matches.'
+                    'Please ensure that your dataframes are using the same longitude convention.')
         return 0
 
     # If bases are identifiable and unequal

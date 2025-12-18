@@ -24,6 +24,9 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         agg_fn (str): Aggregation function. One of mean or sum.
         agg_thresh(int): number of data required to agg.
     """
+    if agg_thresh is None:
+        # If no agg_thresh is provided, use the full aggregation period by default
+        agg_thresh = agg
     agg_kwargs = {
         f"{agg_col}": agg,
         "min_periods": agg_thresh,
@@ -39,6 +42,9 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
 
     # Check to see if coord is a time value
     assert np.issubdtype(ds[agg_col].dtype, np.timedelta64) or np.issubdtype(ds[agg_col].dtype, np.datetime64)
+
+    # Chop off the first agg-1 days, which will be all NaNs
+    ds_agg = ds_agg.isel(**{f"{agg_col}": slice(agg-1, None)})
 
     # Correct coords to left-align the aggregated forecast window
     # (default is right aligned)

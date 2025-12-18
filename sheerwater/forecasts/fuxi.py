@@ -87,7 +87,7 @@ def fuxi_single_forecast(date):
 @spatial()
 @cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
-def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False): # noqa: ARG001
+def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False):  # noqa: ARG001
     """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries.
 
     TODO: we should ad a regriddring / gridding step here.
@@ -163,7 +163,8 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""

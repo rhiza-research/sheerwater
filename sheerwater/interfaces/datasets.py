@@ -61,8 +61,12 @@ class SheerwaterDataset(NuthatchProcessor):
         """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
-            ds = apply_mask(ds, self.mask, grid=self.grid)
+            if not (hasattr(ds, 'region') and ds.region== self.region):
+                # Only clip region if the dataframe hasn't already been clipped
+                ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
+            if not (hasattr(ds, 'mask') and ds.mask == self.mask):
+                # Only apply mask if this dataframe has not already been masked
+                ds = apply_mask(ds, self.mask, grid=self.grid)
             attrs = {
                 'agg_days': float(self.agg_days),
                 'variable': self.variable,

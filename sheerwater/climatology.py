@@ -361,7 +361,8 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                      grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -372,7 +373,8 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                      grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -383,7 +385,8 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
                            grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -394,7 +397,8 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
                         grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
@@ -411,8 +415,8 @@ def climatology_rolling(start_time, end_time, variable, agg_days, prob_type='det
     new_end = datetime.strftime(end_dt, "%Y-%m-%d")
 
     ds = climatology_rolling_agg(new_start, new_end, variable,
-                                  clim_years=30, agg_days=agg_days,
-                                  grid=grid, mask=mask, region=region)
+                                 clim_years=30, agg_days=agg_days,
+                                 grid=grid, mask=mask, region=region)
 
     # Undo yearly time shifting
     times = [x + pd.DateOffset(years=1) for x in ds.time.values]

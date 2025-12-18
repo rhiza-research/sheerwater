@@ -203,7 +203,8 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 @dask_remote
 @sheerwater_data()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'): # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
@@ -380,7 +381,8 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'): # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
