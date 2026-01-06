@@ -96,7 +96,7 @@ custom_regions = {
 def get_country_gdf():
     """Get the country GeoDataFrame."""
     # World geojson downloaded from https://geojson-maps.kyd.au
-    filepath = 'gs://sheerwater-datalake/regions/world_50m.geojson'
+    filepath = 'gs://sheerwater-public-datalake/regions/world_50m.geojson'
     country_gdf = gpd.read_file(load_object(filepath))
     country_gdf = country_gdf[['name_en', 'continent', 'region_un', 'subregion', 'region_wb', 'geometry']]
     # Clean string columns for consistent, lowercase, and underscore-separated names
@@ -142,7 +142,6 @@ def get_region_level(region):
     return region_level, regions
 
 
-@cache(cache_args=['region'], backend='basic')
 def region_data(region):
     """Get the boundary shapefile for a given region.
 
