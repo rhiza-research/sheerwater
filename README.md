@@ -47,7 +47,7 @@ print(val)
 
 ## Available data
 
-| Dataset | Variations | Grids | Aggregations (days) | Available date range | Notes |
+| Dataset | Variations | Grids | Aggregations (days) | Available date range <img width=75/> | Notes |
 |---|:---:|:---:|:---:|---|---|
 | IMERG | imerg_late, imerg_final | imerg (native), global0_25, global1_5 | 1, 5, 7, 10 | 1998-01-01<br>2024-12-31 |  |
 | CHIRPS | chirps_v2, chirps_v3,<br>chirp_v2, chirp_v3 | chirps, global0_25, global1_5 | 1, 5, 7, 10 | 2000-06-01<br>2024-12-31 | Some variations extend back to 1998 |
