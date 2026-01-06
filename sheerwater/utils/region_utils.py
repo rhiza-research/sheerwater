@@ -93,6 +93,8 @@ custom_regions = {
 }
 
 
+# By enabling caching this can be cached locally
+@cache(cache=True, cache_args=[])
 def get_country_gdf():
     """Get the country GeoDataFrame."""
     # World geojson downloaded from https://geojson-maps.kyd.au
