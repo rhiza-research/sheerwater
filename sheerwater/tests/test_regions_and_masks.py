@@ -1,6 +1,6 @@
 """Test the regions and masking functions."""
 from sheerwater.regions_and_masks import land_sea_mask
-from sheerwater.utils.region_utils import get_region_data
+from sheerwater.utils.region_utils import region_data
 from sheerwater.utils.space_utils import get_grid
 
 
@@ -64,21 +64,21 @@ def test_get_grid():
 def test_region_labels():
     """Test the region labels function."""
     # Get region data for a single country
-    region_data = get_region_data("indonesia")
+    region_data = region_data("indonesia")
     assert region_data.iloc[0]['region_name'] == "indonesia"
 
-    region_data = get_region_data("country")
+    region_data = region_data("country")
     assert len(region_data) == 242
 
     # Get for all continents
-    region_data = get_region_data("continent")
+    region_data = region_data("continent")
     assert len(region_data) == 8
 
-    region_data = get_region_data("eastern_africa")
+    region_data = region_data("eastern_africa")
     assert len(region_data) == 1
 
-    region_data = get_region_data("meteorological_zone")
+    region_data = region_data("meteorological_zone")
     assert len(region_data) == 3
 
-    region_data = get_region_data("sheerwater_region")
+    region_data = region_data("sheerwater_region")
     assert len(region_data) == 3

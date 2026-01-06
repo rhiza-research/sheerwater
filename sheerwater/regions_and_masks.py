@@ -7,7 +7,7 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, get_region_data, lon_base_change
+from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, region_data, lon_base_change
 
 
 @cache(cache_args=['grid'])
@@ -132,7 +132,7 @@ def region_labels(grid='global1_5', space_grouping='country', region='global'):
         xarray.Dataset: Dataset with added region coordinate
     """
     # Get the list of regions for the specified admin level
-    region_data = get_region_data(space_grouping)
+    region_df = region_data(space_grouping)
 
     # Get the grid dataframe
     ds = get_grid_ds(grid)
@@ -143,14 +143,14 @@ def region_labels(grid='global1_5', space_grouping='country', region='global'):
         ds = clip_region(ds, region=region)
 
     # Loop through each region and label grid cells
-    for i, rn in region_data.iterrows():
-        print(i+1, '/', len(region_data.region_name), rn.region_name)
+    for i, rn in region_df.iterrows():
+        print(i+1, '/', len(region_df.region_name), rn.region_name)
         # Clip the grid to the boundary of Shapefile
         world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
         #  Add geometry to the dataframe and clip
         world_ds = world_ds.rio.write_crs("EPSG:4326")
         world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
-        region_ds = world_ds.rio.clip(rn, region_data.crs, drop=False)
+        region_ds = world_ds.rio.clip(rn, region_df.crs, drop=False)
         # Assign the region name to the region coordinate
         ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
 
