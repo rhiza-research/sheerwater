@@ -49,7 +49,7 @@ dependencies = [
     "numcodecs<0.16.0",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch @ git+https://github.com/rhiza-research/nuthatch.git@geflaspo/cleanup",
+    "nuthatch",
 ]
 
 [dependency-groups]
