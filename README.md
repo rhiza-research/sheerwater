@@ -45,6 +45,22 @@ val = metric("2016-01-01", "2022-12-31", forecast="era5", truth="ghcn", variable
 print(val)
 ```
 
+## Data access and storage philosophy
+
+Sheerwater access and transforms terra- and sometimes peta-byte scale datasets. It uses [Nuthatch](github.com/rhiza-research/nuthatch) 
+to store, recall and slice these datasets to enable more efficient access.  In Nuthatch the results of functions
+are stored in caches based on the function name and the arguments that are passed. When the same function is called with
+the same key arguments, the data is returned rather than running the function.
+Datasets are primarily stored in cloud storage buckets - ``caches`` - some of which are public and some of which are access-restricted. 
+When a function is called, Nuthatch therefore checks to see if a global view of the data exists, it slices the data down in time and space
+as requested by the function arguments, and then it returns that data, or a view of that data, back to the user.
+Nuthatch also enables a user to copy a slice of data to their local machine and then reuse that data for more efficient repeated analysis.
+
+When you install Sheerwater you are automatically configured to access all of Sheerwater's public data through Nuthatch.
+Therefore when you call Sheerwater functions, you will mostly just be hitting pre-computed results, but the code serves as a self-documenting
+API of how the data was transformed from its source to the result and enables users with enough compute to rerun the code either for
+purposes of verification or to compute the functions with arguments that have not already been computed and stored.
+
 ## Available data
 
 | Dataset | Variations | Grids | Aggregations (days) | Available date range <img width=75/> | Notes |
@@ -53,7 +69,7 @@ print(val)
 | CHIRPS | chirps_v2, chirps_v3,<br>chirp_v2, chirp_v3 | chirps, global0_25, global1_5 | 1, 5, 7, 10 | 2000-06-01<br>2024-12-31 | Some variations extend back to 1998 |
 | ERA5 | era5 | global0_25, global1_5 | 1, 5, 7, 10 | 1998-01-01<br>2024-12-31 | From google ARCO <br>only tmp2m and precip regridded |
 | GHCN | ghcn, ghcn_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 1998-01-01<br>2024-12-31 | ghcn picks a random station in a grid cell,<br>ghcn_avg averageas all stations in a grid cell |
-| TAHMO | tahmo, tahmo_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 2016-01-01<br>2025-06-01 | Requires TAHMO Data Agreement<br><br>tahmo picks a random station in a grid cell,<br>tahmo_avg averageas all stations in a grid cell |
+| TAHMO | tahmo, tahmo_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 2016-01-01<br>2025-06-01 | Requires TAHMO Data Agreement, not in public bucket.<br><br>tahmo picks a random station in a grid cell,<br>tahmo_avg averageas all stations in a grid cell |
 | ECMWF IFS ER | ecmwf_ifs_er | global1_5 | 1, 7, 14 | 2016-01-04<br>2023-02-12 | From the weatherbench archive, known version |
 | FuXi S2S | fuxi | global1_5 | 7 | 2016-01-03<br>2022-02-02 | Only precip and tmp2m |
 
