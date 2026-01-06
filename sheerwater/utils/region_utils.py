@@ -110,7 +110,7 @@ def get_country_gdf():
 
 def get_region_level(region):
     """Get the level of a region and the regions at that level."""
-    country_gdf = get_country_gdf()
+    country_gdf = get_country_gdf(memoize=True)
     if region is None:
         region = 'global'
 
@@ -161,7 +161,7 @@ def region_data(region):
     region = clean_name(region)
 
     # Get the region data needed to form the GeoDataFrame
-    country_gdf = get_country_gdf()
+    country_gdf = get_country_gdf(memoize=True)
     region_level, regions = get_region_level(region)
 
     # Form the GeoDataFrame for the region
