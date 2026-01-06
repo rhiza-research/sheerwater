@@ -48,7 +48,6 @@ class spatial(NuthatchProcessor):
         return args, kwargs
 
     def post_process(self, ds):
-        print("Post-processing")
         """Post-process the dataset to clip to the region and apply the mask."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
