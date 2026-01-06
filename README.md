@@ -49,13 +49,13 @@ print(val)
 
 | Dataset | Variations | Grids | Aggregations (days) | Available date range | Notes |
 |---|:---:|:---:|:---:|---|---|
-| IMERG | imerg_late, imerg_final | imerg (native), global0_25, global1_5 | 1, 5, 7, 10 | 1998-01-01 - 2024-12-31 |  |
-| CHIRPS | chirps_v2, chirps_v3, <br>chirp_v2, chirp_v3 | chirps, global0_25, global1_5 | 1, 5, 7, 10 | 2000-06-01 - 2024-12-31 | Some variations extend back to 1998 |
-| ERA5 | era5 | global0_25, global1_5 | 1, 5, 7, 10 | 1998-01-01 - 2024-12-31 | From google ARCO <br>only tmp2m and precip regridded |
-| GHCN | ghcn, ghcn_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 1998-01-01 - 2024-12-31 | ghcn picks a random station in a grid cell,<br>ghcn_avg averageas all stations in a grid cell |
-| TAHMO | tahmo, tahmo_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 2016-01-01 - 2025-06-01 | Requires TAHMO Data Agreement<br><br>tahmo picks a random station in a grid cell,<br>tahmo_avg averageas all stations in a grid cell |
-| ECMWF IFS ER | ecmwf_ifs_er | global1_5 | 1, 7, 14 | 2016-01-04 - 2023-02-12 | From the weatherbench archive, known version |
-| FuXi S2S | fuxi | global1_5 | 7 | 2016-01-03 - 2022-02-02 | Only precip and tmp2m |
+| IMERG | imerg_late, imerg_final | imerg (native), global0_25, global1_5 | 1, 5, 7, 10 | 1998-01-01<br>2024-12-31 |  |
+| CHIRPS | chirps_v2, chirps_v3,<br>chirp_v2, chirp_v3 | chirps, global0_25, global1_5 | 1, 5, 7, 10 | 2000-06-01<br>2024-12-31 | Some variations extend back to 1998 |
+| ERA5 | era5 | global0_25, global1_5 | 1, 5, 7, 10 | 1998-01-01<br>2024-12-31 | From google ARCO <br>only tmp2m and precip regridded |
+| GHCN | ghcn, ghcn_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 1998-01-01<br>2024-12-31 | ghcn picks a random station in a grid cell,<br>ghcn_avg averageas all stations in a grid cell |
+| TAHMO | tahmo, tahmo_avg | global0_25, global1_5 | 1, 5, 7, 10, 14, 30 | 2016-01-01<br>2025-06-01 | Requires TAHMO Data Agreement<br><br>tahmo picks a random station in a grid cell,<br>tahmo_avg averageas all stations in a grid cell |
+| ECMWF IFS ER | ecmwf_ifs_er | global1_5 | 1, 7, 14 | 2016-01-04<br>2023-02-12 | From the weatherbench archive, known version |
+| FuXi S2S | fuxi | global1_5 | 7 | 2016-01-03<br>2022-02-02 | Only precip and tmp2m |
 
 Additional data accessors may be available. Please reach out if you see it in the code base but it's not listed here.
 
