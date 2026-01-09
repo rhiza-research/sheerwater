@@ -2,16 +2,13 @@
 import logging
 import os
 import pwd
-<<<<<<< HEAD
 from functools import wraps
 
 import coiled
 from coiled.credentials.google import send_application_default_credentials
 from dask.distributed import Client, LocalCluster, get_client
-=======
 import ray
 from ray.util.dask import ray_dask_get, enable_dask_on_ray, disable_dask_on_ray
->>>>>>> f612876 (add ray try)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
