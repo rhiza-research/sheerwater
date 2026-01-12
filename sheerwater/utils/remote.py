@@ -8,6 +8,7 @@ import coiled
 from coiled.credentials.google import send_application_default_credentials
 from dask.distributed import Client, LocalCluster, get_client
 import ray
+from ray.runtime_env import RuntimeEnv
 from ray.util.dask import ray_dask_get, enable_dask_on_ray, disable_dask_on_ray
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,12 @@ def start_remote(remote_name=None, remote_config=None):
     cluster.get_client()
 
 
+def start_ray_remote():
+    print("Connecting to ray cluster...")
+    ray.init(ignore_reinit_error=True)
+    enable_dask_on_ray()
+
+
 def dask_remote(func):
     """Decorator to run a function on a remote dask cluster."""
     @wraps(func)
@@ -129,10 +136,12 @@ def dask_remote(func):
 
             start_remote(remote_name, remote_config)
         elif 'remote' in kwargs and kwargs['remote'] == 'ray':
-            ray.init(runtime_env={'excludes': ['.git']}, ignore_reinit_error=True)
+            print("Connecting to remote ray cluster...")
+            ray.init("ray://127.0.0.1:10001", runtime_env=RuntimeEnv(working_dir="."), ignore_reinit_error=True)
             enable_dask_on_ray()
         elif 'local_ray' in kwargs and kwargs['local_ray']:
-            ray.init(runtime_env={'excludes': ['.git']}, ignore_reinit_error=True)
+            print("Starting local ray cluster...")
+            ray.init(ignore_reinit_error=True)
             enable_dask_on_ray()
         elif 'local_dask' in kwargs and kwargs['local_dask']:
             # Setup a local cluster

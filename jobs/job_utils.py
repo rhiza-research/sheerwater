@@ -21,8 +21,8 @@ def parse_args():
     parser.add_argument("--variable", type=str, nargs='*', help="Variables to evaluate.")
     parser.add_argument("--metric", type=str, nargs='*', help="Metrics to evaluate.")
     parser.add_argument("--grid", type=str, nargs='*', help="Grids to evaluate.")
-    parser.add_argument("--region", type=str, nargs='*', help="Regions to evaluate.")
-    parser.add_argument("--agg_days", type=int, nargs='*', help="Aggregation days to evaluate.")
+    parser.add_argument("--space-grouping", type=str, nargs='*', help="space-groupings to evaluate.")
+    parser.add_argument("--agg-days", type=int, nargs='*', help="Aggregation days to evaluate.")
     parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
     parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
     parser.add_argument("--parallelism", type=int, default=1, help="Number of runs to run in parallel.")
@@ -112,9 +112,9 @@ def parse_args():
     if args.grid:
         grids = args.grid
 
-    regions = ["continent", "subregion", "global", "country"]
-    if args.region:
-        regions = args.region
+    space_groupings = ["continent", "subregion", "global", "country"]
+    if args.space_grouping:
+        space_groupings = args.space_grouping
 
     if args.station_evaluation:
         agg_days = [1, 5, 7, 10, 14, 30]
@@ -136,7 +136,7 @@ def parse_args():
         remote_config = args.remote_config
 
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
-            regions, agg_days, time_groupings, args.parallelism,
+            space_groupings, agg_days, time_groupings, args.parallelism,
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
 
 

@@ -1,9 +1,9 @@
 [project]
 name = "sheerwater"
-dynamic = ["version"]
+version = "0.2.5"
 description = "Africa-first library for data, forecasts, and benchmarking."
 readme = "README.md"
-requires-python = ">= 3.12"
+requires-python = "== 3.12.9"
 authors = [
     { name = "Genevieve Flaspohler", email = "genevieve@rhizaresearch.org" },
     { name = "Joshua Adkins", email = "josh@rhizaresearch.org" }
@@ -74,8 +74,8 @@ dev = [
 requires = ["hatchling==1.26.3", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[tool.hatch.version]
-source = "vcs"
+#[tool.hatch.version]
+#source = "vcs"
 
 [tool.hatch.metadata]
 allow-direct-references = true

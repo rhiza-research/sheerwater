@@ -161,6 +161,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     return ds
 
 
+@dask_remote
 @timeseries()
 @spatial()
 @cache(cache_args=['grid', 'agg_days', 'stations', 'version'],
