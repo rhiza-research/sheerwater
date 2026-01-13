@@ -254,6 +254,10 @@ def era5_raw(start_time, end_time, variable, grid="global0_25", mask=None, regio
 
     # Raw latitudes are in descending order
     ds = ds.sortby('lat')
+
+    # Convert to base180 longitude
+    ds = lon_base_change(ds, to_base="base180")
+
     ds = ds.rename_vars(name_dict={var: variable})
 
     return ds
@@ -266,7 +270,7 @@ def era5_raw(start_time, end_time, variable, grid="global0_25", mask=None, regio
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "time": 30}
 })
-def era5_daily(start_time, end_time, variable, grid="global1_5", mask=None, region='global'):
+def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, region='global'): # noqa: ARG001
     """Aggregates the hourly ERA5 data into daily data.
 
     Args:
@@ -283,10 +287,8 @@ def era5_daily(start_time, end_time, variable, grid="global1_5", mask=None, regi
         raise ValueError("Only ERA5 native 0.25 degree grid is implemented.")
 
     # Read and combine all the data into an array
-    ds = era5_raw(start_time, end_time, variable, grid='global0_25', mask=mask, region=region)
+    ds = era5_raw(start_time, end_time, variable, grid='global0_25')
 
-    # Convert to base180 longitude
-    ds = lon_base_change(ds, to_base="base180")
 
     K_const = 273.15
     if variable == 'tmp2m':
