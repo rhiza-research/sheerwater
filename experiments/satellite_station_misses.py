@@ -56,27 +56,10 @@ def get_error_times(false_negatives):
     pts = pts[["time", "lat", "lon"]].reset_index(drop=True)
     return pts
 
-def get_precip_pts(start_time, end_time, source, pts, days=1, grid='global0_25', region='ghana'):
-    if source == "imerg":
-        data = imerg(start_time, end_time, grid=grid, region=region, agg_days=days)
-    elif source == "chirps":
-        data = chirps(start_time, end_time, grid=grid, region=region, agg_days=days)
-    elif source == "tahmo":
-        data = tahmo_avg(start_time, end_time, grid=grid, region=region, agg_days=days)
-    else:
-        raise ValueError(f"Source {source} not supported")
-    data = data.sel(time=pts.time, lat=pts.lat, lon=pts.lon)
-    data = data.to_dataframe().reset_index().drop(columns="point")
-    # rename precip to source
-    data = data.rename(columns={"precip": f"{source}_precip"})
-    return data
-
-def get_data_pts(data_fn, start_time, end_time, pts, days=1, grid='global0_25', region='ghana'):
-    data = data_fn(start_time, end_time, grid=grid, region=region, agg_days=days)
+def get_data_pts(data, pts):
     data = data.sel(time=pts.time, lat=pts.lat, lon=pts.lon)
     data = data.to_dataframe().reset_index().drop(columns="point")
     return data
-
 
 def run_and_save(year, days, precip_threshold, grid='global0_25', region='ghana'):
     start_time = f"{year}-01-01"
@@ -88,59 +71,55 @@ def run_and_save(year, days, precip_threshold, grid='global0_25', region='ghana'
                                                       days=days, precip_threshold=precip_threshold,
                                                       grid=grid, region=region))
     chirps_miss["chirps_miss"] = True
+    # Get imerg misses
+    imerg_miss = get_error_times(get_false_negatives(start_time, end_time, satellite="imerg",
+                                                      days=days, precip_threshold=precip_threshold,
+                                                      grid=grid, region=region))
+    imerg_miss["imerg_miss"] = True  
 
-    # Get false negatives in imerg data (ie imerg missed precipitation event that stations detected)
-    satellite = "imerg"
-    fn_imerg = get_false_negatives(start_time, end_time, days=days, satellite=satellite, precip_threshold=precip_threshold, grid=grid, region=region)
-    # get error times (lat, lon, time) where imerg missed precipitation event that stations detected
-    error_times_imerg = get_error_times(fn_imerg)
-    error_times_imerg["imerg_miss"] = True
-
-    # join imerg and tahmo error times
-    error_times = error_times_chirps.merge(error_times_imerg, on=["lat", "lon", "time"], how="outer")
+    # join chirps and imerg misses
+    misses = chirps_miss.merge(imerg_miss, on=["lat", "lon", "time"], how="outer")
+    misses["time"] = pd.to_datetime(misses["time"])
     # fill nans in imerg_miss and tahmo_miss with False
-    error_times["imerg_miss"] = error_times["imerg_miss"].fillna(False)
-    error_times["chirps_miss"] = error_times["chirps_miss"].fillna(False)
-    # set time to datetime
-    error_times["time"] = pd.to_datetime(error_times["time"])
+    misses["imerg_miss"] = misses["imerg_miss"].fillna(False)
+    misses["chirps_miss"] = misses["chirps_miss"].fillna(False)
 
-    # Get the pointwise indices of the events, for indexing into data arrays
-    error_pts = xr.Dataset({"time" : ("point", error_times.time), 
-    "lat" : ("point", error_times.lat), 
-    "lon": ("point", error_times.lon),})
+    # Get the pointwise indices of the misses
+    miss_pts = xr.Dataset({"time" : ("point", misses.time), 
+                           "lat" : ("point", misses.lat), 
+                           "lon": ("point", misses.lon),})
 
-    import pdb; pdb.set_trace()
-    imerg_data = get_data_pts(imerg, start_time, end_time, error_pts, days=days, grid=grid, region=region)
+    """Add precipitation average values"""
+    for precip_source in ["imerg", "chirps", "tahmo_avg"]:
+        data = eval(precip_source)(start_time, end_time, grid=grid, region=region, agg_days=days)
+        data = get_data_pts(data, miss_pts)
+        data = data.rename(columns={"precip": f"{precip_source}_precip"})
+        misses = misses.merge(data, on=["time", "lat", "lon"], how="left")
 
-    """Get imerg, chirps, and tahmo values and join on times"""
-    imerg_data = get_precip_pts(start_time, end_time, "imerg", error_pts, days=days, grid=grid, region=region)
-    chirps_data = get_precip_pts(start_time, end_time, "chirps", error_pts, days=days, grid=grid, region=region)
-    tahmo_data = get_precip_pts(start_time, end_time, "tahmo", error_pts, days=days, grid=grid, region=region)
-    # join imerg, chirps, and tahmo data on times to error_times
-    error_times = error_times.merge(imerg_data, on=["time", "lat", "lon"], how="left").merge(chirps_data, on=["time", "lat", "lon"], how="left").merge(tahmo_data, on=["time", "lat", "lon"], how="left")
-
-    """Get era5 temperature values and join on times"""
-    #era5_data = get_temperature_pts(start_time, end_time, "era5", error_pts, days=days, grid=grid, region=region)
-    # join era5 data on times to error_times
-    #error_times = error_times.merge(era5_data, on=["time", "lat", "lon"], how="left")
+    """Add temperature values"""
+    temp = era5(start_time, end_time, variable="tmp2m", grid=grid, region=region, agg_days=days)
+    temp = get_data_pts(temp, miss_pts)
+    temp = temp.rename(columns={"tmp2m": "era5_tmp2m"})
+    misses = misses.merge(temp, on=["time", "lat", "lon"], how="left")
     
     """Get tahmo station counts per cell and join to error_times"""
     # get tahmo counts
-    tahmo_counts_grid, tahmo_counts_sparse = get_tahmo_counts(start_time, end_time, grid=grid, region=region)
+    _, tahmo_counts_sparse = get_tahmo_counts(start_time, end_time, grid=grid, region=region)
     # join tahmo_counts to error_times on lat, lon
-    error_times = error_times.merge(tahmo_counts_sparse, on=["lat", "lon"], how="left")
-    # order error times by number of stations and time
-    error_times = error_times.sort_values(by=["counts", "time"], ascending=False)
-    # convert station_ids to list of strings
-    error_times["station_ids"] = error_times["station_ids"].apply(lambda x: x.tolist())
+    misses = misses.merge(tahmo_counts_sparse, on=["lat", "lon"], how="left")
+    import pdb; pdb.set_trace()
 
-    """Save results to csv"""
+    """Organize and save results"""
+    # order misses by number of stations and time
+    misses = misses.sort_values(by=["counts", "time"], ascending=False)
+    # convert station_ids to list of strings
+    misses["station_ids"] = misses["station_ids"].apply(lambda x: x.tolist())
     # to csv
     dir = "results/satellite_misses"
     file_name = f"{dir}/{region}_{days}d_{precip_threshold}mm_{year}.csv"
     # ssave and make directory if it doesn't exist
     os.makedirs(dir, exist_ok=True)
-    error_times.to_csv(file_name, index=False)
+    misses.to_csv(file_name, index=False)
 
 if __name__ == "__main__":
     start_remote()
@@ -152,10 +131,16 @@ if __name__ == "__main__":
     region = "ghana"
 
     # event definition
-    days = 3
-    precip_threshold = 20
+    days = 5
+    precip_threshold = 38
 
-    for year in years:
-        run_and_save(year, days, precip_threshold, grid, region)
+    days_list = [3, 5, 11, 10]
+    precip_threshold_list = [20, 38, 40, 25]
+
+    for event_idx in range(len(days_list)):
+        days = days_list[event_idx]
+        precip_threshold = precip_threshold_list[event_idx]
+        for year in years:
+            run_and_save(year, days, precip_threshold, grid, region)
 
     
