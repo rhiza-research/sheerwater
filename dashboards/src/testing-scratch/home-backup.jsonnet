@@ -66,7 +66,7 @@
         "dynamicFieldDisplayValues": false,
         "dynamicHtmlGraphics": false,
         "dynamicProps": false,
-        "html": "\n<div class=\"container\">\n    <div class=\"title\">\n        Project Nimbus Preliminary Results\n    </div>\n    <div class=\"container\">\n        <a href=\"https://benchmarks.sheerwater.rhizaresearch.org/d/ee2jzeymn1o8wf/summary-results-tables?orgId=1\"><div class=\"fixed met-table\"><span>Metrics Tables</span></div></a>\n        <a href=\"https://benchmarks.sheerwater.rhizaresearch.org/d/ae39q2k3jv668d/metrics-maps\"><div class=\"fixed met-map\"><span>Metrics Maps</span></div></a>\n    </div>\n</div>",
+        "html": "\n<div class=\"container\">\n    <div class=\"title\">\n        Project Nimbus Preliminary Results\n    </div>\n    <div class=\"container\">\n        <a href=\"d/ee2jzeymn1o8wf/summary-results-tables?orgId=1\"><div class=\"fixed met-table\"><span>Metrics Tables</span></div></a>\n        <a href=\"d/ae39q2k3jv668d/metrics-maps\"><div class=\"fixed met-map\"><span>Metrics Maps</span></div></a>\n    </div>\n</div>",
         "onInit": "\n",
         "onInitOnResize": false,
         "onRender": "",
