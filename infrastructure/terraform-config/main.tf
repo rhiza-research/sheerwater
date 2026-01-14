@@ -145,6 +145,6 @@ module "grafana-weaver" {
   repo_name = local.repo_name
   pr_number = local.pr_number
   grafana_url = local.grafana_url
-  grafana_password = data.google_secret_manager_secret_version.grafana_ephemeral_admin_password.secret_data
+  grafana_password = local.is_prod ? data.google_secret_manager_secret_version.grafana_admin_password.secret_data : data.google_secret_manager_secret_version.grafana_ephemeral_admin_password.secret_data
   grafana_user = "admin"
 }
