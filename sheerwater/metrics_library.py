@@ -554,6 +554,16 @@ class POD(Metric):
         fn = self.grouped_statistics['false_negatives']
         return tp / (tp + fn)
 
+class FalseNegative(Metric):
+    """False Negative metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    categorical = True
+    statistics = ['false_negatives']
+
+    def compute_metric(self):
+        return self.grouped_statistics['false_negatives']
 
 class FAR(Metric):
     """False Alarm Rate metric."""
