@@ -58,7 +58,6 @@ resource "postgresql_role" "write" {
   name = "sheerwater_write"
   password = module.random_password_postgres_read.random_password_value
   login = true
-  create_database = true
 }
 
 ################################################

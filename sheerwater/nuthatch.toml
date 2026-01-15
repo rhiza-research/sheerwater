@@ -1,9 +1,9 @@
 [tool.nuthatch]
 filesystem = "gs://sheerwater-datalake/caches"
-host = "postgres.sheerwater.rhizaresearch.org"
+host = "postgres.shared.rhizaresearch.org"
 port = 5432
 database = "postgres"
-username = "write"
+username = "sheerwater_write"
 driver = "postgresql"
 raster_store = "gs://terracotta-files"
 
