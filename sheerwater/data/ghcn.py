@@ -196,7 +196,12 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="GHCN - Global Historical Climatology Network stations",
+    variables=["precip", "tmp2m"],
+    coverage="Global (sparse station network)",
+    data_type="station",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
@@ -208,7 +213,12 @@ def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="GHCN - Global Historical Climatology Network (cell average)",
+    variables=["precip", "tmp2m"],
+    coverage="Global (sparse station network)",
+    data_type="station",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn_avg(start_time=None, end_time=None, variable='precip', agg_days=1,

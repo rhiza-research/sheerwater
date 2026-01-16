@@ -87,6 +87,9 @@ packages = ["./sheerwater", "./jobs", "./dashboard_data"]
 [tool.uv]
 managed = true
 
+[tool.pytest.ini_options]
+testpaths = ["sheerwater/tests"]
+
 [tool.autopep8]
 max_line_length = 120
 
