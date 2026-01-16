@@ -38,7 +38,23 @@ class Metric(ABC):
     Each of the statistics is implemented by the global_statistic function. The metric class
     will be provided with the mean value of each statistic in each grouping at runtime to operate on and return
     one metric value per grouping.
+
+    Subclasses should define these metadata class attributes:
+        full_name: Human-readable name (e.g., "Mean Absolute Error")
+        description: What the metric measures
+        formula: Mathematical formula (optional)
+        interpretation: How to interpret the values
+        range: Valid range of values (e.g., "[0, infinity)")
+        direction: "lower_is_better", "higher_is_better", or "closer_to_zero"
     """
+    # Metadata class attributes (subclasses should override)
+    full_name: str = None
+    description: str = None
+    formula: str = None
+    interpretation: str = None
+    range: str = None
+    direction: str = None
+
     def __init_subclass__(cls, **kwargs):
         """Automatically register derived Metrics classes with the metric registry."""
         super().__init_subclass__(**kwargs)
@@ -351,6 +367,13 @@ class Metric(ABC):
 
 class MAE(Metric):
     """Mean Absolute Error metric."""
+    full_name = "Mean Absolute Error"
+    description = "Measures the average magnitude of errors without considering direction."
+    formula = "MAE = (1/n) * sum(|forecast - observed|)"
+    interpretation = "Lower is better. Units match the variable being evaluated."
+    range = "[0, infinity)"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
@@ -360,6 +383,13 @@ class MAE(Metric):
 
 class MSE(Metric):
     """Mean Squared Error metric."""
+    full_name = "Mean Squared Error"
+    description = "Measures the average squared magnitude of errors."
+    formula = "MSE = (1/n) * sum((forecast - observed)^2)"
+    interpretation = "Lower is better. More sensitive to outliers than MAE."
+    range = "[0, infinity)"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
@@ -369,6 +399,13 @@ class MSE(Metric):
 
 class RMSE(Metric):
     """Root Mean Squared Error metric."""
+    full_name = "Root Mean Squared Error"
+    description = "Like MAE but gives higher weight to large errors."
+    formula = "RMSE = sqrt((1/n) * sum((forecast - observed)^2))"
+    interpretation = "Lower is better. More sensitive to outliers than MAE."
+    range = "[0, infinity)"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
@@ -381,6 +418,13 @@ class RMSE(Metric):
 
 class Bias(Metric):
     """Bias metric."""
+    full_name = "Bias"
+    description = "Measures systematic over- or under-prediction."
+    formula = "Bias = mean(forecast - observed)"
+    interpretation = "Closer to 0 is better. Positive = over-prediction."
+    range = "(-infinity, infinity)"
+    direction = "closer_to_zero"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
@@ -390,6 +434,13 @@ class Bias(Metric):
 
 class CRPS(Metric):
     """Continuous Ranked Probability Score metric."""
+    full_name = "Continuous Ranked Probability Score"
+    description = "Evaluates probabilistic forecasts against observations."
+    formula = "CRPS = integral of (CDF_forecast - CDF_observed)^2"
+    interpretation = "Lower is better. Measures both calibration and sharpness."
+    range = "[0, infinity)"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = None  # all variables are valid
@@ -399,6 +450,13 @@ class CRPS(Metric):
 
 class Brier(Metric):
     """Brier score metric."""
+    full_name = "Brier Score"
+    description = "Measures accuracy of probabilistic predictions for binary events."
+    formula = "BS = (1/n) * sum((probability - outcome)^2)"
+    interpretation = "Lower is better. 0 = perfect, 1 = worst."
+    range = "[0, 1]"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = ['precip']
@@ -408,6 +466,13 @@ class Brier(Metric):
 
 class SMAPE(Metric):
     """Symmetric Mean Absolute Percentage Error metric."""
+    full_name = "Symmetric Mean Absolute Percentage Error"
+    description = "Percentage error that treats over- and under-predictions symmetrically."
+    formula = "SMAPE = (1/n) * sum(|F - A| / ((|A| + |F|) / 2))"
+    interpretation = "Lower is better. Expressed as a percentage."
+    range = "[0, 200%]"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -417,6 +482,13 @@ class SMAPE(Metric):
 
 class MAPE(Metric):
     """Mean Absolute Percentage Error metric."""
+    full_name = "Mean Absolute Percentage Error"
+    description = "Average percentage error relative to observed values."
+    formula = "MAPE = (1/n) * sum(|forecast - observed| / |observed|)"
+    interpretation = "Lower is better. Can be undefined when observed = 0."
+    range = "[0, infinity)"
+    direction = "lower_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -425,7 +497,14 @@ class MAPE(Metric):
 
 
 class SEEPS(Metric):
-    """Spatial Error in Ensemble Prediction Scale metric."""
+    """Stable Equitable Error in Probability Space metric."""
+    full_name = "Stable Equitable Error in Probability Space"
+    description = "Precipitation-specific metric accounting for climatic differences."
+    formula = "Complex - based on 3x3 contingency table (dry/light/heavy)"
+    interpretation = "Lower is better. Designed specifically for rainfall verification."
+    range = "[0, infinity)"
+    direction = "lower_is_better"
+
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -452,7 +531,14 @@ class SEEPS(Metric):
 
 
 class ACC(Metric):
-    """ACC (Anomaly Correlation Coefficient) metric."""
+    """Anomaly Correlation Coefficient metric."""
+    full_name = "Anomaly Correlation Coefficient"
+    description = "Measures correlation between forecast and observed anomalies."
+    formula = "ACC = corr(forecast - climatology, observed - climatology)"
+    interpretation = "Higher is better. 1.0 = perfect, 0.0 = no skill."
+    range = "[-1, 1]"
+    direction = "higher_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None
@@ -503,6 +589,13 @@ class Pearson(Metric):
     This can be rewritten as:
     r = (covariance - fcst_mean * obs_mean) / (sqrt(squared_fcst - fcst_mean^2) * sqrt(squared_obs - obs_mean^2))
     """
+    full_name = "Pearson Correlation Coefficient"
+    description = "Measures linear correlation between forecast and observations."
+    formula = "r = cov(F, O) / (std(F) * std(O))"
+    interpretation = "Higher is better. 1.0 = perfect positive correlation."
+    range = "[-1, 1]"
+    direction = "higher_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -518,6 +611,13 @@ class Pearson(Metric):
 
 class Heidke(Metric):
     """Heidke Skill Score metric for streaming data."""
+    full_name = "Heidke Skill Score"
+    description = "Categorical skill score comparing to random chance."
+    formula = "HSS = (hits - expected_random) / (n - expected_random)"
+    interpretation = "Higher is better. 0 = no skill, 1 = perfect."
+    range = "(-infinity, 1]"
+    direction = "higher_is_better"
+
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -543,6 +643,13 @@ class Heidke(Metric):
 
 class POD(Metric):
     """Probability of Detection metric."""
+    full_name = "Probability of Detection"
+    description = "Fraction of observed events that were correctly predicted."
+    formula = "POD = true_positives / (true_positives + false_negatives)"
+    interpretation = "Higher is better. Also called 'hit rate'."
+    range = "[0, 1]"
+    direction = "higher_is_better"
+
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -557,6 +664,13 @@ class POD(Metric):
 
 class FAR(Metric):
     """False Alarm Rate metric."""
+    full_name = "False Alarm Rate"
+    description = "Fraction of non-events that were incorrectly predicted as events."
+    formula = "FAR = false_positives / (false_positives + true_negatives)"
+    interpretation = "Lower is better."
+    range = "[0, 1]"
+    direction = "lower_is_better"
+
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -571,6 +685,13 @@ class FAR(Metric):
 
 class ETS(Metric):
     """Equitable Threat Score metric."""
+    full_name = "Equitable Threat Score"
+    description = "Combines POD and FAR while accounting for random chance."
+    formula = "ETS = (hits - random) / (hits + misses + false_alarms - random)"
+    interpretation = "Higher is better. Balanced skill measure."
+    range = "[-1/3, 1]"
+    direction = "higher_is_better"
+
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -589,6 +710,13 @@ class ETS(Metric):
 
 class CSI(Metric):
     """Critical Success Index metric."""
+    full_name = "Critical Success Index"
+    description = "Ratio of correct event forecasts to total events and false alarms."
+    formula = "CSI = true_positives / (true_positives + false_positives + false_negatives)"
+    interpretation = "Higher is better. Also called Threat Score."
+    range = "[0, 1]"
+    direction = "higher_is_better"
+
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -604,6 +732,13 @@ class CSI(Metric):
 
 class FrequencyBias(Metric):
     """Frequency Bias metric."""
+    full_name = "Frequency Bias"
+    description = "Ratio of forecast event frequency to observed event frequency."
+    formula = "FB = (true_positives + false_positives) / (true_positives + false_negatives)"
+    interpretation = "1.0 is ideal. >1 = over-forecasting, <1 = under-forecasting."
+    range = "[0, infinity)"
+    direction = "closer_to_one"
+
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
@@ -636,5 +771,20 @@ def metric_factory(metric_name: str, **init_kwargs) -> Metric:
 
 
 def list_metrics():
-    """List all available metrics in the registry."""
-    return list(SHEERWATER_METRIC_REGISTRY.keys())
+    """List all available metrics in the registry.
+
+    Returns:
+        List of dicts with metric name and metadata (full_name, description, formula, etc.).
+    """
+    result = []
+    for name, cls in SHEERWATER_METRIC_REGISTRY.items():
+        info = {'name': name}
+        for attr in ('full_name', 'description', 'formula', 'interpretation', 'range', 'direction'):
+            value = getattr(cls, attr, None)
+            if value is not None:
+                info[attr] = value
+        # Include valid_variables if restricted
+        if cls.valid_variables is not None:
+            info['valid_for'] = cls.valid_variables
+        result.append(info)
+    return result
