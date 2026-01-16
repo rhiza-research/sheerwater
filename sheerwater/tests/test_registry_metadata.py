@@ -172,6 +172,47 @@ class TestListMetrics:
             assert 'full_name' in seeps
             assert 'Stable Equitable Error' in seeps['full_name']
 
+    def test_list_metrics_has_category_fields(self):
+        """Test that all metrics have prob_type and categorical fields."""
+        metrics = list_metrics()
+        valid_prob_types = ['deterministic', 'probabilistic']
+
+        for metric in metrics:
+            name = metric['name']
+            # Every metric must have prob_type
+            assert 'prob_type' in metric, f"Metric '{name}' missing 'prob_type'"
+            assert metric['prob_type'] in valid_prob_types, \
+                f"Metric '{name}' has invalid prob_type '{metric['prob_type']}'"
+            # Every metric must have categorical
+            assert 'categorical' in metric, f"Metric '{name}' missing 'categorical'"
+            assert isinstance(metric['categorical'], bool), \
+                f"Metric '{name}' categorical must be bool, got {type(metric['categorical'])}"
+
+    def test_specific_metric_categories(self):
+        """Test that specific metrics have correct category values."""
+        metrics = list_metrics()
+        metrics_by_name = {m['name']: m for m in metrics}
+
+        # CRPS is probabilistic, not categorical
+        if 'crps' in metrics_by_name:
+            assert metrics_by_name['crps']['prob_type'] == 'probabilistic'
+            assert metrics_by_name['crps']['categorical'] is False
+
+        # Brier is probabilistic and categorical (binary events)
+        if 'brier' in metrics_by_name:
+            assert metrics_by_name['brier']['prob_type'] == 'probabilistic'
+            assert metrics_by_name['brier']['categorical'] is True
+
+        # MAE is deterministic, not categorical
+        if 'mae' in metrics_by_name:
+            assert metrics_by_name['mae']['prob_type'] == 'deterministic'
+            assert metrics_by_name['mae']['categorical'] is False
+
+        # Heidke is deterministic but categorical
+        if 'heidke' in metrics_by_name:
+            assert metrics_by_name['heidke']['prob_type'] == 'deterministic'
+            assert metrics_by_name['heidke']['categorical'] is True
+
 
 class TestMetricClassAttributes:
     """Tests for metric class metadata attributes."""

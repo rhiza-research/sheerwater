@@ -786,5 +786,8 @@ def list_metrics():
         # Include valid_variables if restricted
         if cls.valid_variables is not None:
             info['valid_for'] = cls.valid_variables
+        # Include category-related attributes
+        info['prob_type'] = getattr(cls, 'prob_type', 'deterministic')
+        info['categorical'] = getattr(cls, 'categorical', False)
         result.append(info)
     return result
