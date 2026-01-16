@@ -154,9 +154,9 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     if "spatial_ref" in ds:
         ds = ds.drop_vars(["spatial_ref"])
 
-    # Regrid if not on the native grid
-    if grid != 'chirps':
-        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
+    # Need to regrid even if on the chirps grid, because the native grid is not 
+    # a regular 0.05x0.05 grid.
+    ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds
 
