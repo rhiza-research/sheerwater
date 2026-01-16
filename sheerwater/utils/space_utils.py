@@ -2,13 +2,8 @@
 import numpy as np
 import xarray as xr
 import logging
-<<<<<<< HEAD
-=======
 import shapely
 
-from .region_utils import region_data
-
->>>>>>> 35a49f8 (mask-based clipping for chirps)
 logger = logging.getLogger(__name__)
 
 
@@ -172,7 +167,6 @@ def get_grid(grid, base="base180"):
         lons = base180_to_base360(lons)
         lons = np.sort(lons)
 
-    # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
     return lons, lats, grid_size, offset
 
 
