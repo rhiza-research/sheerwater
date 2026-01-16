@@ -2,6 +2,8 @@
 """Region definitions for the Sheerwater Benchmarking project.
 
 The regions are defined as follows:
+- admin_level_x: Administrative level x boundaries
+    - Available admin levels: 0 (national), 1 (region), 2 (county), 3 (subcounty)
 - countries
     - 242 unique countries
 - subregions:
@@ -44,8 +46,10 @@ def clean_name(name):
     return name.lower().replace(' ', '_')
 
 
-# Define the class of standard regions
-standard_regions = ['country', 'continent', 'subregion', 'region_un', 'region_wb']
+# A set of standard regions that are above the nationional level - defined by the UN or WB
+super_national_regions = ['country', 'continent', 'subregion', 'region_un', 'region_wb']
+# A set of standard regions that are below the nationional level - defined by the admin level
+sub_national_regions = ['admin_level_1', 'admin_level_2']
 
 # Additionally, allow the construction of custom regions by country list or lat / lon bounding box
 custom_regions = {
@@ -94,8 +98,8 @@ custom_regions = {
 
 
 # By enabling caching this can be cached locally
-@cache(cache=True, cache_args=[])
-def get_country_gdf():
+@cache()
+def country_gdf():
     """Get the country GeoDataFrame."""
     # World geojson downloaded from https://geojson-maps.kyd.au
     filepath = 'gs://sheerwater-public-datalake/regions/world_50m.geojson'
@@ -107,41 +111,54 @@ def get_country_gdf():
         country_gdf[cleaned_col] = country_gdf[col].apply(clean_name)
     return country_gdf
 
+# By enabling caching this can be cached locally
+
+
+@cache(cache_args=['admin_level'])
+def admin_level_gdf(admin_level=2):
+    """Get the admin level GeoDataFrame."""
+    # World geojson downloaded from https://geojson-maps.kyd.au
+    filepath = f'gs://sheerwater-public-datalake/regions/ken_admin{admin_level}.geojson'
+    admin_level_gdf = gpd.read_file(load_object(filepath))
+    admin_level_gdf['admin_name'] = admin_level_gdf[f'adm{admin_level}_name'].apply(clean_name)
+    return admin_level_gdf
+
 
 def get_region_level(region):
     """Get the level of a region and the regions at that level."""
-    country_gdf = get_country_gdf(memoize=True)
     if region is None:
         region = 'global'
 
-    # Find which region level the region is in, and get a list of regions at that level
-    # If a region could possibly match several region levels, it will return the first
-    found = False
-    for level in standard_regions:
-        if found:
-            break
+    country_data = country_gdf(memoize=True)  # country data and all super national regions
+    admin_data = {x: admin_level_gdf(admin_level=x, memoize=True) for x in [1, 2]}
+
+    # First, check if region is one of our conglomerate regions
+    for level in super_national_regions:
         if region == level:
-            region_level = level
-            regions = country_gdf[region_level].unique()
-            found = True
-        if region in country_gdf[level].unique():
-            region_level = level
-            regions = [region]
-            found = True
+            regions = country_data[level].unique()
+            return level, regions
+    for i, level in enumerate(sub_national_regions):
+        if region == level:
+            regions = admin_data[i+1]['admin_name'].unique()
+            return level, regions
     for level, data in custom_regions.items():
-        if found:
-            break
         if region == level:
-            region_level = level
             regions = data.keys()
-            found = True
-        elif region in data.keys():
-            region_level = level
-            regions = [region]
-            found = True
-    if not found:
-        raise ValueError(f"Region {region} not found")
-    return region_level, regions
+            return level, regions
+
+    # If region is a specific instance, we must check within each datasource
+    for level in super_national_regions:
+        if region in country_data[level].unique():
+            return level, [region]
+    for i, level in enumerate(sub_national_regions):
+        if region in admin_data[i+1]['admin_name'].unique():
+            return level, [region]
+    for level, data in custom_regions.items():
+        if region in data.keys():
+            return level, [region]
+
+    # If we still haven't found the region, it's not a valid region
+    raise ValueError(f"Region {region} not found")
 
 
 def region_data(region):
@@ -161,17 +178,24 @@ def region_data(region):
     region = clean_name(region)
 
     # Get the region data needed to form the GeoDataFrame
-    country_gdf = get_country_gdf(memoize=True)
+    country_data = country_gdf(memoize=True)
+    admin_data = {x: admin_level_gdf(admin_level=x, memoize=True) for x in [1, 2]}
     region_level, regions = get_region_level(region)
 
     # Form the GeoDataFrame for the region
     region_names = []
     region_geometries = []
     for reg in regions:
-        if region_level in standard_regions:
+        if region_level in super_national_regions:
             # Handle standard regions
             region_names.append(reg)
-            geometry = country_gdf[country_gdf[region_level] == reg].geometry.union_all()
+            geometry = country_data[country_data[region_level] == reg].geometry.union_all()
+            region_geometries.append(geometry)
+        elif region_level in sub_national_regions:
+            # Handle admin level regions
+            region_names.append(reg)
+            admin_level = int(region_level.split('_')[-1])
+            geometry = admin_data[admin_level][admin_data[admin_level]['admin_name'] == reg].geometry.values[0]
             region_geometries.append(geometry)
         else:
             # Handle custom regions
@@ -186,15 +210,17 @@ def region_data(region):
                 region_geometries.append(region_box)
             elif 'countries' in data:
                 countries = [clean_name(country) for country in data['countries']]
-                region_gdf = country_gdf[country_gdf['country'].isin(countries)]
+                region_gdf = country_data[country_data['country'].isin(countries)]
                 if len(countries) != len(region_gdf):
-                    raise ValueError(f"Some countries were not found: {set(countries) - set(region_gdf['country'])}")
+                    raise ValueError(
+                        f"Some countries were not found: {set(countries) - set(region_gdf['country'])}")
                 geometry = region_gdf.geometry.union_all()
                 region_names.append(reg)
                 region_geometries.append(geometry)
             else:
                 raise ValueError(f"Poorly formatted custom region entry: {data}")
 
+    import pdb; pdb.set_trace()
     gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
