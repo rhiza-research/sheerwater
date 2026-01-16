@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Test script for all forecasts functionality."""
+import pytest
 
 from sheerwater.interfaces import get_forecast
 from sheerwater.utils import start_remote
@@ -45,7 +46,8 @@ def run_forecasting_function(function_name, test_params):
         raise ValueError(f"   ✗ {function_name} failed: {e}")
 
 
-def test_all_forecasts():
+@pytest.mark.remote
+def test_all_forecasts(dask_cluster):  # noqa: ARG001
     """Test all available forecast functions."""
     print("\n=== Testing All Forecast Functions ===")
 
@@ -78,7 +80,8 @@ def test_all_forecasts():
     return results
 
 
-def test_regions():
+@pytest.mark.remote
+def test_regions(dask_cluster):  # noqa: ARG001
     """Test a few key regions with a simple forecast."""
     print("\n=== Testing Different Regions ===")
 
@@ -114,7 +117,8 @@ def test_regions():
         print(f"   ✗ Failed to test regions: {e}")
 
 
-def test_lead_times():
+@pytest.mark.remote
+def test_lead_times(dask_cluster):  # noqa: ARG001
     """Test different lead times with a simple forecast."""
     print("\n=== Testing Different Lead Times ===")
 

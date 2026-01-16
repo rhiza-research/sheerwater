@@ -155,6 +155,16 @@ or
 uv run jupyter lab
 ```
 
+6) Run tests:
+```console
+uv run pytest
+```
+
+Some tests require a remote Dask cluster and will start one automatically. To skip these tests:
+```console
+uv run pytest --skip-remote
+```
+
 ## Deployment and Infrastructure
 
 This repository is integrated with the Rhiza infrastructure for deployment of metrics to databases and integration of those databases into Grafana dashboards for visualization. If you are deploying this code on backend infrastructure with Grafana and Terraform, please read the [Infrastructure README](infrastructure/README.md). 

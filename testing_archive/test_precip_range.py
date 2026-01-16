@@ -1,13 +1,14 @@
 """Test that the precipitation range for the forecasters and reanalysis is reasonable."""
+import pytest
+
 from sheerwater.climatology import climatology_2015, climatology_rolling, climatology_trend_2015
 from sheerwater.forecasts import ecmwf_ifs_er, ecmwf_ifs_er_debiased, salient
 from sheerwater.reanalysis.era5 import era5
-from sheerwater.utils import start_remote
 
 
-def test_precip_range():
+@pytest.mark.remote
+def test_precip_range(dask_cluster):  # noqa: ARG001
     """Ensemble mean precipitation range for forecasters and reanalysis are reasonable."""
-    start_remote(remote_config='large_cluster')
     start_time = "2016-01-01"
     end_time = "2016-12-31"
     variable = "precip"
