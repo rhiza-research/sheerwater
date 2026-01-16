@@ -220,7 +220,6 @@ def region_data(region):
             else:
                 raise ValueError(f"Poorly formatted custom region entry: {data}")
 
-    import pdb; pdb.set_trace()
     gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
