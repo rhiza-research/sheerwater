@@ -359,7 +359,11 @@ def _climatology_unified(start_time, end_time, variable, agg_days,
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="30-year climatology baseline (1985-2014)",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
@@ -371,7 +375,11 @@ def climatology_2015(start_time, end_time, variable, agg_days=7, prob_type='dete
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="30-year climatology baseline (1990-2019)",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
@@ -383,7 +391,11 @@ def climatology_2020(start_time, end_time, variable, agg_days=7, prob_type='dete
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="30-year climatology with trend adjustment (1985-2014)",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
@@ -395,7 +407,11 @@ def climatology_trend_2015(start_time, end_time, variable, agg_days, prob_type='
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="Rolling 30-year climatology baseline",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})

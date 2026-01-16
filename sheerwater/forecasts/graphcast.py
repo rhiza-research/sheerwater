@@ -210,7 +210,11 @@ def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="GraphCast - Google DeepMind's ML weather model",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
