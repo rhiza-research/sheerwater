@@ -78,7 +78,12 @@ def imerg_rolled(start_time, end_time, agg_days, grid, version, mask=None, regio
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="IMERG Final - NASA GPM satellite precipitation",
+    variables=["precip"],
+    coverage="Global (60S-60N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
@@ -90,7 +95,12 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="IMERG Late - NASA GPM near-real-time satellite precipitation",
+    variables=["precip"],
+    coverage="Global (60S-60N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
@@ -102,7 +112,12 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="IMERG Final - NASA GPM satellite precipitation (alias)",
+    variables=["precip"],
+    coverage="Global (60S-60N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,

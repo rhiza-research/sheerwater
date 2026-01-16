@@ -189,7 +189,12 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="CHIRP v2 - Satellite-only precipitation (no station data)",
+    variables=["precip"],
+    coverage="Global land (50S-50N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
              grid='global0_25', mask='lsm', region='global'):
@@ -199,7 +204,12 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="CHIRP v3 - Satellite-only precipitation (no station data)",
+    variables=["precip"],
+    coverage="Global land (50S-50N)",
+    data_type="gridded",
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
@@ -210,7 +220,12 @@ def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="CHIRPS v2 - Satellite-gauge merged precipitation",
+    variables=["precip"],
+    coverage="Global land (50S-50N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
               grid='global0_25', mask='lsm', region='global'):
@@ -220,7 +235,12 @@ def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="CHIRPS v3 - Satellite-gauge merged precipitation",
+    variables=["precip"],
+    coverage="Global land (50S-50N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'])
 def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
               grid='global0_25', mask='lsm', region='global'):
@@ -230,7 +250,12 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="CHIRPS v3 - Satellite-gauge merged precipitation",
+    variables=["precip"],
+    coverage="Global land (50S-50N)",
+    data_type="gridded",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
