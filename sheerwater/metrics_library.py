@@ -75,8 +75,8 @@ class Metric(ABC):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Arguments for calling the data and forecast functions.
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
-                              'variable': self.variable, 'agg_days': self.agg_days,
-                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
+                             'variable': self.variable, 'agg_days': self.agg_days,
+                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
