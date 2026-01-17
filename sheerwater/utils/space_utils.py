@@ -228,8 +228,6 @@ def get_grid(grid, base="base180"):
         lons = np.sort(lons)
 
     # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
-    lons = np.round(lons, 5).astype(np.float32)
-    lats = np.round(lats, 5).astype(np.float32)
     return lons, lats, grid_size, offset
 
 

@@ -90,7 +90,10 @@ def test_admin_regions():
     for admin_level in [1, 2]:
         level_name = f"admin_level_{admin_level}"
         gdf = region_data(level_name)
-        assert len(gdf) > 0
+        if admin_level == 1:
+            assert len(gdf) > 0
+        elif admin_level == 2:
+            assert len(gdf) == 290 
         assert 'region_name' in gdf.columns
         assert 'region_geometry' in gdf.columns
         
