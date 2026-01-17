@@ -100,13 +100,16 @@ def clip_with_mask(ds, region_df, drop=True):
     polygon = region_df.geometry.union_all()
     # the mask can be large; two step filtering will be faster
     # first filter to the bounding box of the region
-    bounds = polygon.bounds
-    bmask = (lon2d >= bounds[0]) & (lon2d <= bounds[2]) & (lat2d >= bounds[1]) & (lat2d <= bounds[3])
+    lon_min, lat_min, lon_max, lat_max = polygon.bounds
+    bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
     # then filter to the precise polygon
     mask[bmask] = shapely.intersects_xy(polygon, lon2d[bmask], lat2d[bmask])
     # convert to xarray
     mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
-    return ds.where(mask, drop=drop)
+    ds = ds.where(mask, drop=False)
+    if drop:
+        ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
+    return ds
 
 
 def snap_point_to_grid(point, grid_size, offset):
