@@ -6,14 +6,13 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg
+from sheerwater.utils import dask_remote, regrid, roll_and_agg, run_in_parallel
 
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 @dask_remote
-@spatial()
 @cache(cache_args=['date'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+       backend_kwargs={'chunking': {'lat': 14000, 'lon': 14000, 'time': 1}})
 def roa_raw(date):
     """ROA Data share opening"""
     # Open the datastore
@@ -21,6 +20,9 @@ def roa_raw(date):
     dt = pd.to_datetime(date)
 
     gsf = [fs.open(x) for x in fs.glob(f'gs://sheerwater-datalake/rain_over_africa/{dt.year}/{dt.month:02}/MSG*{dt.year}{dt.month:02}{dt.day:02}-*.nc')]
+
+    if len(gsf) == 0:
+        return None
 
     def preprocess(ds):
         """Preprocess the dataset to add the member dimension."""
@@ -49,11 +51,17 @@ def roa_raw(date):
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def roa_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa: ARG001
     """Regridded version of whole roa dataset."""
-    years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
+    days = pd.date_range(start_time, end_time)
+
+    def run_day(day):
+        ds = roa_raw(day, filepath_only=True)
+        return ds
+
+    run_in_parallel(run_day, days, 10)
 
     datasets = []
-    for year in years:
-        ds = roa_raw(year, filepath_only=True)
+    for day in days:
+        ds = roa_raw(day, filepath_only=True)
         datasets.append(ds)
 
     ds = xr.open_mfdataset(datasets,
