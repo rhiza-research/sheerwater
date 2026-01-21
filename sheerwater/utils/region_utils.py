@@ -42,7 +42,7 @@ from .general_utils import load_object
 
 
 # A set of standard regions that are above the nationional level - defined by the UN or WB
-super_national_regions = ['continent', 'subregion', 'region_un', 'region_wb']
+global_regions = ['continent', 'subregion', 'region_un', 'region_wb']
 # A set of standard regions that are below the nationional level - defined by the admin level
 # admin level 0 is the same as country, but we include it for consistency
 admin_level_regions = ['admin_level_0', 'admin_level_1', 'admin_level_2']
@@ -224,7 +224,7 @@ def reconcile_country_name(country_name):
 
 
 @cache()
-def super_national_regions_gdf():
+def global_regions_gdf():
     """Get the country GeoDataFrame."""
     # World geojson downloaded from https://geojson-maps.kyd.au
     filepath = 'gs://sheerwater-public-datalake/regions/world_50m.geojson'
@@ -237,8 +237,8 @@ def super_national_regions_gdf():
     return country_gdf
 
 
-def super_national_regions_to_country():
-    """A dictionary mapping super national regions to countries.
+def global_regions_to_country():
+    """A dictionary mapping global regions to countries.
 
     For example, 
     {
@@ -251,16 +251,16 @@ def super_national_regions_to_country():
         },
     }
     """
-    df = super_national_regions_gdf()
-    super_national_regions_to_country = {}
-    for region in super_national_regions:
-        super_national_regions_to_country[region] = {}
+    df = global_regions_gdf()
+    global_regions_to_country = {}
+    for region in global_regions:
+        global_regions_to_country[region] = {}
         values = set(df[region])
         for val in values:
             countries = df[df[region] == val]['country']
             countries = [x for x in countries if x != 'no_region']
-            super_national_regions_to_country[region][val] = set(countries)
-    return super_national_regions_to_country
+            global_regions_to_country[region][val] = set(countries)
+    return global_regions_to_country
 
 
 @cache(cache_args=['admin_level'])
@@ -281,9 +281,9 @@ def region_levels_and_labels():
         sub = admin_level_gdf(admin_level=int(region.split('_')[-1]), recompute=True, cache_mode='overwrite')
         labels_dict[region] = sorted(set(sub['admin_name']))
 
-    # Add all the super national regions
-    df = super_national_regions_gdf(recompute=True, cache_mode='overwrite')
-    for region in super_national_regions:
+    # Add all the global regions
+    df = global_regions_gdf(recompute=True, cache_mode='overwrite')
+    for region in global_regions:
         labels_dict[region] = sorted(set(df[region]))
     return labels_dict
 
@@ -320,44 +320,36 @@ def get_region_level(region):
             return level, [region]
 
 
-def region_data(region):
-    """Get the boundary shapefile for a given region.
+@cache(cache_args=['region_level'])
+def full_region_data(region_level):
+    """Get the boundary shapefile for a given region level.
 
     Args:
-        region (str): The region to get the data for. Can be either
-            a region level (e.g., 'countries', 'admin_level_1') or a specific region within that level (e.g., 'indonesia', 'kenya'). 
-            For example, both 'countries' and 'indonesia' are valid region arguments.
-
+        region (str): The region to get the data for. Must be 
+            a region level (e.g., 'countries', 'admin_level_1')
     Returns:
         gdf (gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:
             - 'region_name': the name of the region,
             - 'region_geometry': its geometry as a shapely object.
     """
-    # Get the region data needed to form the GeoDataFrame
-    if region == 'country':
-        region = 'admin_level_0'
-    region_level, regions = get_region_level(region)
-
-    # Remove no-region from the regions list
-    regions = [r for r in regions if r != 'no_region']
-
-    # If an admin region, fetch that t
+    regions = region_levels_and_labels()[region_level]
     if region_level in admin_level_regions:
         # Get all region objects in the regions list
-        region_data = admin_level_gdf(int(region_level.split('_')[-1]))
-        gdf = region_data[region_data['admin_name'].isin(regions)]
+        gdf = admin_level_gdf(int(region_level.split('_')[-1]))
         gdf = gdf[['admin_name', 'geometry']]
         gdf = gdf.rename(columns={
             'admin_name': 'region_name',
             'geometry': 'region_geometry',
         })
-    elif region_level in super_national_regions:
-        country_gdf = super_national_regions_gdf()
-        super_mapping = super_national_regions_to_country()
+    elif region_level in global_regions:
+        # Need to use the global regions df here, otherwise there are gaps in the 
+        # geometry coverage.
+        country_gdf = global_regions_gdf()
+        global_mapping = global_regions_to_country()
         region_names = []
         region_geometries = []
         for reg in regions:
-            countries = super_mapping[region_level][reg]
+            countries = global_mapping[region_level][reg]
             region_gdf = country_gdf[country_gdf['country'].isin(countries)]
             geometry = region_gdf.geometry.union_all()
             region_names.append(reg)
@@ -396,6 +388,24 @@ def region_data(region):
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
     return gdf
+
+
+def region_data(region):
+    """Get geopandas GeoDataFrame with the geometry for a given region.
+
+    Args: 
+        region (str): The region to get the data for. Must be 
+            a region level (e.g., 'countries', 'admin_level_1') or a specific region within that level (e.g., 'indonesia', 'kenya'). 
+            For example, both 'countries' and 'indonesia' are valid region arguments.
+
+    Returns:
+        gdf (geopandas.GeoDataFrame): A GeoDataFrame for the region, with columns:
+            - 'region_name': the name of the region,
+            - 'region_geometry': its geometry as a shapely object.
+    """
+    region_level, regions = get_region_level(region)
+    full_data = full_region_data(region_level)
+    return full_data[full_data['region_name'].isin(regions)]
 
 
 def to_name(name):
