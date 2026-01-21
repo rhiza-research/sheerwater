@@ -36,19 +36,69 @@ import os
 import geopandas as gpd
 from shapely.geometry import box
 
-import dask.dataframe as dd
-
-
 from nuthatch import cache
 
 from .general_utils import load_object
+
+
+# A set of standard regions that are above the nationional level - defined by the UN or WB
+super_national_regions = ['continent', 'subregion', 'region_un', 'region_wb']
+# A set of standard regions that are below the nationional level - defined by the admin level
+# admin level 0 is the same as country, but we include it for consistency
+admin_level_regions = ['admin_level_0', 'admin_level_1', 'admin_level_2']
+
+# Additionally, allow the construction of custom regions by country list or lat / lon bounding box
+custom_regions = {
+    'sheerwater_region': {
+        'nimbus_east_africa': {
+            'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
+        },
+        'nimbus_west_africa': {
+            'countries': ['benin', 'burkina_faso', 'cabo_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
+        },
+        'conus': {
+            'countries': ['united_states_of_america'],
+        }
+    },
+    'meteorological_zone': {
+        'tropics': {
+            'lons': [-180.0, 180.0],
+            'lats': [-23.5, 23.5]
+        },
+        'extratropics_northern': {
+            'lons': [-180.0, 180.0],
+            'lats': [-90.0, -23.5],
+        },
+        'extratropics_southern': {
+            'lons': [-180.0, 180.0],
+            'lats': [23.5, 90.0],
+        }
+    },
+    'hemisphere': {
+        'northern_hemisphere': {
+            'lons': [-180.0, 180.0],
+            'lats': [0.0, 90.0]
+        },
+        'southern_hemisphere': {
+            'lons': [-180.0, 180.0],
+            'lats': [-90.0, 0.0]
+        }
+    },
+    'global': {
+        'global': {
+            'lons': [-180.0, 180.0],
+            'lats': [-90.0, 90.0]
+        }
+    }
+}
 
 
 def clean_name(name):
     """Clean a name to make matching easier and replace non-English characters."""
     import unicodedata
 
-    if name is None:
+    # unsupported region names
+    if name in [None, '', '_', '-', '-_', ' ']:
         return 'no_region'
     name = name.lower().replace(' ', '_').strip()
     name = name.replace('&', 'and')
@@ -166,66 +216,13 @@ def reconcile_country_name(country_name):
     if country_name in standardization_map:
         return standardization_map[country_name]
     # Then check if it's explicitly unsupported
-    elif country_name in unsupported_regions:
-        return 'no_region'
+    # elif country_name in unsupported_regions:
+        # return 'no_region'
     # Otherwise keep as-is (assumed to be a recognized country)
     else:
         return country_name
 
 
-# A set of standard regions that are above the nationional level - defined by the UN or WB
-super_national_regions = ['continent', 'subregion', 'region_un', 'region_wb']
-# A set of standard regions that are below the nationional level - defined by the admin level
-# admin level 0 is the same as country, but we include it for consistency
-admin_level_regions = ['admin_level_0', 'admin_level_1', 'admin_level_2']
-
-# Additionally, allow the construction of custom regions by country list or lat / lon bounding box
-custom_regions = {
-    'sheerwater_region': {
-        'nimbus_east_africa': {
-            'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
-        },
-        'nimbus_west_africa': {
-            'countries': ['benin', 'burkina_faso', 'cabo_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
-        },
-        'conus': {
-            'countries': ['united_states_of_america'],
-        }
-    },
-    'meteorological_zone': {
-        'tropics': {
-            'lons': [-180.0, 180.0],
-            'lats': [-23.5, 23.5]
-        },
-        'extratropics_northern': {
-            'lons': [-180.0, 180.0],
-            'lats': [-90.0, -23.5],
-        },
-        'extratropics_southern': {
-            'lons': [-180.0, 180.0],
-            'lats': [23.5, 90.0],
-        }
-    },
-    'hemisphere': {
-        'northern_hemisphere': {
-            'lons': [-180.0, 180.0],
-            'lats': [0.0, 90.0]
-        },
-        'southern_hemisphere': {
-            'lons': [-180.0, 180.0],
-            'lats': [-90.0, 0.0]
-        }
-    },
-    'global': {
-        'global': {
-            'lons': [-180.0, 180.0],
-            'lats': [-90.0, 90.0]
-        }
-    }
-}
-
-
-# By enabling caching this can be cached locally
 @cache()
 def super_national_regions_gdf():
     """Get the country GeoDataFrame."""
@@ -240,15 +237,38 @@ def super_national_regions_gdf():
     return country_gdf
 
 
-@cache(cache_args=['admin_level'], backend='parquet')
+def super_national_regions_to_country():
+    """A dictionary mapping super national regions to countries.
+
+    For example, 
+    {
+        'continent': {
+            'asia': ['china', 'india', 'japan'],
+            'europe': ['france', 'germany', 'italy'],
+        },
+        'region_un': {
+            'americas': ['united_states', 'canada'],
+        },
+    }
+    """
+    df = super_national_regions_gdf()
+    super_national_regions_to_country = {}
+    for region in super_national_regions:
+        super_national_regions_to_country[region] = {}
+        values = set(df[region])
+        for val in values:
+            countries = df[df[region] == val]['country']
+            countries = [x for x in countries if x != 'no_region']
+            super_national_regions_to_country[region][val] = set(countries)
+    return super_national_regions_to_country
+
+
+@cache(cache_args=['admin_level'])
 def admin_level_gdf(admin_level=2):
     """Get the admin level GeoDataFrame."""
     filepath = f'gs://sheerwater-public-datalake/regions/geoBoundariesCGAZ_ADM{admin_level}.geojson'
     df = gpd.read_file(load_object(filepath))
     df['admin_name'] = df['shapeName'].apply(clean_name)
-    df = df.set_index('admin_name')
-    ddf = dd.from_pandas(df, npartitions=5)
-
     return df
 
 
@@ -258,54 +278,46 @@ def region_levels_and_labels():
     labels_dict = {}
     # Populate all admin level regions
     for region in admin_level_regions:
-        sub = admin_level_gdf(admin_level=int(region.split('_')[-1]), recompute=True)
+        sub = admin_level_gdf(admin_level=int(region.split('_')[-1]), recompute=True, cache_mode='overwrite')
         labels_dict[region] = sorted(set(sub['admin_name']))
 
     # Add all the super national regions
-    df = super_national_regions_gdf()
+    df = super_national_regions_gdf(recompute=True, cache_mode='overwrite')
     for region in super_national_regions:
         labels_dict[region] = sorted(set(df[region]))
-
-    import pdb
-    pdb.set_trace()
     return labels_dict
 
 
 def get_region_level(region):
-    """Get the level of a region and the regions at that level."""
+    """For a given region, return which level that region is at and all regions at that level.
+
+    If the region is a specific instance of a region level, return the level and only
+        that region instance.
+
+    Args:
+        region (str): The region to get the level of.
+
+    Returns:
+        level (str): The level of the region.
+        regions (list): All regions at that level.
+    """
     if region is None:
-        region = 'global'
+        return 'global', ['global']
 
-    country_data = country_gdf(memoize=True)  # country data and all super national regions
-    admin_data = {x: admin_level_gdf(admin_level=x, memoize=True) for x in [1, 2]}
+    # Iterate through the standard regions dicts
+    # Will return the first level that the region is found at
+    labels_dict = region_levels_and_labels()
+    for level, locations in labels_dict.items():
+        if region == level:
+            return level, locations
+        elif region in locations:
+            return level, [region]
 
-    # First, check if region is one of our conglomerate regions
-    for level in super_national_regions:
-        if region == level:
-            regions = country_data[level].unique()
-            return level, regions
-    for i, level in enumerate(sub_national_regions):
-        if region == level:
-            regions = admin_data[i+1]['admin_name'].unique()
-            return level, regions
     for level, data in custom_regions.items():
         if region == level:
-            regions = data.keys()
-            return level, regions
-
-    # If region is a specific instance, we must check within each datasource
-    for level in super_national_regions:
-        if region in country_data[level].unique():
+            return level, data.keys()
+        elif region in data.keys():
             return level, [region]
-    for i, level in enumerate(sub_national_regions):
-        if region in admin_data[i+1]['admin_name'].unique():
-            return level, [region]
-    for level, data in custom_regions.items():
-        if region in data.keys():
-            return level, [region]
-
-    # If we still haven't found the region, it's not a valid region
-    raise ValueError(f"Region {region} not found")
 
 
 def region_data(region):
@@ -313,39 +325,49 @@ def region_data(region):
 
     Args:
         region (str): The region to get the data for. Can be either
-            a region level or a specific region within that level. So, for example,
-            both 'countries' and 'indonesia' are valid regions.
+            a region level (e.g., 'countries', 'admin_level_1') or a specific region within that level (e.g., 'indonesia', 'kenya'). 
+            For example, both 'countries' and 'indonesia' are valid region arguments.
 
     Returns:
         gdf (gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:
             - 'region_name': the name of the region,
             - 'region_geometry': its geometry as a shapely object.
     """
-    # Standardize input region name
-    region = clean_name(region)
-
     # Get the region data needed to form the GeoDataFrame
-    country_data = country_gdf(memoize=True)
-    admin_data = {x: admin_level_gdf(admin_level=x, memoize=True) for x in [1, 2]}
+    if region == 'country':
+        region = 'admin_level_0'
     region_level, regions = get_region_level(region)
 
-    # Form the GeoDataFrame for the region
-    region_names = []
-    region_geometries = []
-    for reg in regions:
-        if region_level in super_national_regions:
-            # Handle standard regions
+    # Remove no-region from the regions list
+    regions = [r for r in regions if r != 'no_region']
+
+    # If an admin region, fetch that t
+    if region_level in admin_level_regions:
+        # Get all region objects in the regions list
+        region_data = admin_level_gdf(int(region_level.split('_')[-1]))
+        gdf = region_data[region_data['admin_name'].isin(regions)]
+        gdf = gdf[['admin_name', 'geometry']]
+        gdf = gdf.rename(columns={
+            'admin_name': 'region_name',
+            'geometry': 'region_geometry',
+        })
+    elif region_level in super_national_regions:
+        country_gdf = super_national_regions_gdf()
+        super_mapping = super_national_regions_to_country()
+        region_names = []
+        region_geometries = []
+        for reg in regions:
+            countries = super_mapping[region_level][reg]
+            region_gdf = country_gdf[country_gdf['country'].isin(countries)]
+            geometry = region_gdf.geometry.union_all()
             region_names.append(reg)
-            geometry = country_data[country_data[region_level] == reg].geometry.union_all()
             region_geometries.append(geometry)
-        elif region_level in sub_national_regions:
-            # Handle admin level regions
-            region_names.append(reg)
-            admin_level = int(region_level.split('_')[-1])
-            geometry = admin_data[admin_level][admin_data[admin_level]['admin_name'] == reg].geometry.values[0]
-            region_geometries.append(geometry)
-        else:
-            # Handle custom regions
+        gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
+    elif region_level in custom_regions:
+        admin_0 = admin_level_gdf(admin_level=0)
+        region_names = []
+        region_geometries = []
+        for reg in regions:
             data = custom_regions[region_level][reg]
             if 'lats' in data and 'lons' in data:
                 # Create a shapefile (GeoDataFrame) from lat/lon boundaries as a rectangular Polygon
@@ -357,7 +379,7 @@ def region_data(region):
                 region_geometries.append(region_box)
             elif 'countries' in data:
                 countries = [clean_name(country) for country in data['countries']]
-                region_gdf = country_data[country_data['country'].isin(countries)]
+                region_gdf = admin_0[admin_0['admin_name'].isin(countries)]
                 if len(countries) != len(region_gdf):
                     raise ValueError(
                         f"Some countries were not found: {set(countries) - set(region_gdf['country'])}")
@@ -366,8 +388,11 @@ def region_data(region):
                 region_geometries.append(geometry)
             else:
                 raise ValueError(f"Poorly formatted custom region entry: {data}")
+        gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
+    else:
+        raise ValueError(f"Invalid region level: {region_level}")
 
-    gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
+    # Set the geometry and CRS
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
     return gdf
