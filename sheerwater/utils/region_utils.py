@@ -118,10 +118,19 @@ def country_gdf():
 def admin_level_gdf(admin_level=2):
     """Get the admin level GeoDataFrame."""
     # World geojson downloaded from https://geojson-maps.kyd.au
-    filepath = f'gs://sheerwater-public-datalake/regions/ken_admin{admin_level}.geojson'
+    # filepath = f'gs://sheerwater-public-datalake/regions/ken_admin{admin_level}.geojson'
+    filepath = f'gs://sheerwater-public-datalake/regions/geoBoundariesCGAZ_ADM{admin_level}.geojson'
     admin_level_gdf = gpd.read_file(load_object(filepath))
-    admin_level_gdf['admin_name'] = admin_level_gdf[f'adm{admin_level}_name'].apply(clean_name)
+    admin_level_gdf['admin_name'] = admin_level_gdf['shapeName'].apply(clean_name)
     return admin_level_gdf
+
+
+@cache()
+def region_levels_and_labels():
+    """A dictionary of region levels and their labels, as small as possible to enable fast lookup."""
+    import pdb; pdb.set_trace()
+    super_national_regions_gdf = country_gdf()
+    pass
 
 
 def get_region_level(region):
