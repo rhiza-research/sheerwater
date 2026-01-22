@@ -36,6 +36,9 @@ import os
 import geopandas as gpd
 from shapely.geometry import box
 
+import numpy as np
+import xarray as xr
+
 from nuthatch import cache
 
 from .general_utils import load_object
@@ -319,6 +322,9 @@ def get_region_level(region):
         elif region in data.keys():
             return level, [region]
 
+    else:
+        raise ValueError(f"Invalid region: {region}")
+
 
 @cache(cache_args=['region_level'])
 def full_region_data(region_level):
@@ -342,7 +348,7 @@ def full_region_data(region_level):
             'geometry': 'region_geometry',
         })
     elif region_level in global_regions:
-        # Need to use the global regions df here, otherwise there are gaps in the 
+        # Need to use the global regions df here, otherwise there are gaps in the
         # geometry coverage.
         country_gdf = global_regions_gdf()
         global_mapping = global_regions_to_country()

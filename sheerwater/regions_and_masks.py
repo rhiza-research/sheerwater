@@ -7,7 +7,8 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, region_data, lon_base_change
+from sheerwater.utils import (cdsapi_secret, clip_region, get_grid, get_grid_ds, region_levels_and_labels,
+                              region_data, lon_base_change, load_object, get_region_level)
 
 
 @cache(cache_args=['grid'])
@@ -72,6 +73,7 @@ def land_sea_mask(grid="global1_5"):
     os.remove(path)
     return ds
 
+
 @cache(cache_args=['mask', 'grid'], memoize=True)
 def spatial_mask(mask, grid='global1_5', region='global'):
     """Get a mask dataset.
@@ -89,10 +91,10 @@ def spatial_mask(mask, grid='global1_5', region='global'):
     if mask is None:
         return get_grid_ds(grid)
     elif 'lsm' in mask:
-        # Import here to avoid circular imports
         if grid == 'global1_5' or grid == 'global0_25':
             mask_ds = land_sea_mask(grid=grid).compute()
         else:
+            # Import here to avoid circular imports
             # TODO: Should implement a more resolved land-sea mask for the other grids
             from sheerwater.utils.data_utils import regrid
             mask_ds = land_sea_mask(grid='global0_25')
@@ -108,15 +110,35 @@ def spatial_mask(mask, grid='global1_5', region='global'):
         raise NotImplementedError("Only land-sea or None mask is implemented.")
 
 
+def space_grouping_to_regions(space_grouping):
+    """Get the regions for a given space grouping.
+
+    Space groupings are a string of the form: 'admin_level_x-layer1-layer2-...-layerN'
+    where admin_level_x is the admin level of the region, and layer1, layer2, ... 
+    are additional layers that apply combinatorically  
+    """
+    groups = space_grouping.split('-')
+    try:
+        # If the first group is admin boundary
+        region_level, regions = get_region_level(groups[0])
+        admin_group = groups[0]
+        layers = groups[1:]
+    except ValueError:
+        # Otherwise
+        admin_group = None
+        layers = groups
+
+    return admin_group, layers
+
 
 @cache(cache_args=['grid', 'space_grouping', 'region'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def region_labels(grid='global1_5', space_grouping='country', region='global'):
+def admin_region_labels(grid='global1_5', space_grouping='country', region='global'):
     """Generate a dataset with a region coordinate at a specific space grouping.
 
     Available space groupings are
      - 'country', 'continent', 'subregion', 'region_un', 'region_wb', 'meteorological_zone',
-        'hemisphere', 'global', and 'sheerwater_region'.
+        'hemisphere', 'global', and 'sheerwater_region'. The admin level region is also available.
 
     Args:
         grid (str): The grid to fetch the data at.  Note that only
@@ -132,29 +154,169 @@ def region_labels(grid='global1_5', space_grouping='country', region='global'):
         xarray.Dataset: Dataset with added region coordinate
     """
     # Get the list of regions for the specified admin level
-    region_df = region_data(space_grouping)
+    admin_df = region_data(space_grouping)
 
     # Get the grid dataframe
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
     # Fixed data type of strings of length 40
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
+    ds = ds.assign_coords(admin_region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_admin', dtype='U40').data))
     if region != 'global':
+        # Clip here for efficiency
         ds = clip_region(ds, region=region)
 
+    # If admin group, construct the admin gridded dataframe
     # Loop through each region and label grid cells
-    for i, rn in region_df.iterrows():
-        print(i+1, '/', len(region_df.region_name), rn.region_name)
+    for i, rn in admin_df.iterrows():
+        print(i+1, '/', len(admin_df.region_name), rn.region_name)
         # Clip the grid to the boundary of Shapefile
         world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
         #  Add geometry to the dataframe and clip
         world_ds = world_ds.rio.write_crs("EPSG:4326")
         world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
-        region_ds = world_ds.rio.clip(rn, region_df.crs, drop=False)
+        region_ds = world_ds.rio.clip(rn, admin_df.crs, drop=False)
         # Assign the region name to the region coordinate
-        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
-
+        ds['admin_region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['admin_region'])
     return ds
 
 
-__all__ = ['land_sea_mask', 'region_labels']
+@cache(cache_args=['grid', 'space_grouping', 'region'],
+       backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+def region_labels(grid='global1_5', space_grouping='country', region='global'):
+    """Generate a dataset with a region coordinate at a specific space grouping.
+
+    Args:
+        grid (str): The grid to fetch the data at.  Note that only
+            the resolution of the specified grid is used.
+        space_grouping (str):
+            - country, continent, subregion, region_un, region_wb, meteorological_zone,
+              hemisphere, sheerwater_region
+        region (str): The region to clip to. A specific instance of a space group
+            -global, or any specific instance of the space groupings above, e.g., africa
+
+
+    Returns:
+        xarray.Dataset: Dataset with added region coordinate
+    """
+    layers = space_grouping.split('-')
+    regions_and_labels = region_levels_and_labels()
+    layer_grids = []
+    for layer in layers:
+        if layer in regions_and_labels:
+            # One of the standard admin levels
+            layer_df = admin_region_labels(space_grouping=layer, grid=grid, region=region)
+        else:
+            if layer == 'agroecological_zone':
+                layer_df = agroecological_zone_labels(grid=grid, recompute=True)
+            else:
+                raise ValueError(f"Invalid layer: {layer}")
+            layer_df = clip_region(layer_df, region=region)
+        layer_grids.append(layer_df)
+
+    # Create a a new dataset with the concatonation of all the layers
+    ds = xr.merge(layer_grids)
+    # This pesky spatial_ref coordinate is not needed
+    if 'spatial_ref' in ds.coords:
+        ds = ds.drop_vars('spatial_ref')
+
+    # Find all the region coordinates
+    region_coords = [x for x in ds.coords if x not in ds.dims]
+
+    coords_values = [ds[x].values.flatten() for x in region_coords]
+    combined_region_coords = np.array(['_'.join(map(str, vals)) for vals in zip(*coords_values)], dtype='U40')
+    ds = ds.assign_coords(region=(('lat', 'lon'), combined_region_coords.reshape(ds.lat.size, ds.lon.size)))
+    return ds
+
+
+def agroecological_zones_name_dict():
+    """Human-readable labels for the agroecological zones."""
+    # zone labels from https://data.apps.fao.org/catalog/dataset/0bb7237a-6740-4ea3-b2a1-e26b1647e4e0
+    zone_labels = {
+        0: "No data",
+        1: "Tropics, lowland; semi-arid",
+        2: "Tropics, lowland; sub-humid",
+        3: "Tropics, lowland; humid",
+        4: "Tropics, highland; semi-arid",
+        5: "Tropics, highland; sub-humid",
+        6: "Tropics, highland; humid",
+        7: "Sub-tropics, warm; semi-arid",
+        8: "Sub-tropics, warm; sub-humid",
+        9: "Sub-tropics, warm; humid",
+        10: "Sub-tropics, moderately cool; semi-arid",
+        11: "Sub-tropics, moderately cool; sub-humid",
+        12: "Sub-tropics, moderately cool; humid",
+        13: "Sub-tropics, cool; semi-arid",
+        14: "Sub-tropics, cool; sub-humid",
+        15: "Sub-tropics, cool; humid",
+        16: "Temperate, moderate; dry",
+        17: "Temperate, moderate; moist",
+        18: "Temperate, moderate; wet",
+        19: "Temperate, cool; dry",
+        20: "Temperate, cool; moist",
+        21: "Temperate, cool; wet",
+        22: "Cold, no permafrost; dry",
+        23: "Cold, no permafrost; moist",
+        24: "Cold, no permafrost; wet",
+        25: "Dominantly very steep terrain",
+        26: "Land with severe soil/terrain limitations",
+        27: "Land with ample irrigated soils",
+        28: "Dominantly hydromorphic soils",
+        29: "Desert/Arid climate",
+        30: "Boreal/Cold climate",
+        31: "Arctic/Very cold climate",
+        32: "Dominantly built-up land",
+        33: "Dominantly water"
+    }
+    return zone_labels
+
+
+@cache(cache_args=['grid'])
+def agroecological_zone_labels(grid='global1_5'):
+    """Get the agroecological zones as an xarray dataset."""
+    # Downloaded from https://data.apps.fao.org/catalog/iso/9a9ed6cf-83cc-4b42-b295-305184d3f0b8
+    tif_path = 'gs://sheerwater-public-datalake/regions/agroecological_zones.tif'
+    ds = xr.open_dataset(load_object(tif_path), engine='rasterio')
+    ds = ds.rename({'x': 'lon', 'y': 'lat'})
+    ds = ds.squeeze('band').drop(['band', 'spatial_ref'])
+    ds = ds.rename_vars({'band_data': 'agroecological_zone'})
+
+    da = ds.agroecological_zone.fillna(0)
+    da = da.astype(np.int32)
+
+    # Import here to avoid circular imports
+    from sheerwater.utils.data_utils import regrid
+    da = regrid(da, grid, base='base180', method='conservative')
+    # Should use most common here, but is failing with error
+    # *** ValueError: zero-size array to reduction operation fmax which has no identity
+    # in the flox call. Can debug another day...
+    # da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={'values': np.unique(da.values)})
+    ds = da.to_dataset(name='agroecological_zone')
+
+    # Convert back to integer
+    ds['agroecological_zone'] = ds['agroecological_zone'].astype(np.int32)
+
+    def map_labels(x):
+        try:
+            x = int(x)
+        except ValueError:
+            return "Unknown"
+        name = agroecological_zones_name_dict().get(x, "Unknown")
+        name = name.replace('; ', '_').replace(', ', '_').replace(' ', '_').lower().strip()
+        return name
+
+    # Vectorized mapping function
+    vectorized_map = np.vectorize(map_labels)
+
+    # Apply to your DataArray
+    ds['agroecological_zone'] = xr.apply_ufunc(
+        vectorized_map,
+        ds['agroecological_zone'],
+        vectorize=True
+    )
+
+    # Convert variables to a coordinate
+    ds = ds.set_coords('agroecological_zone')
+    return ds
+
+
+__all__ = ['land_sea_mask', 'region_labels', 'agroecological_zones']
