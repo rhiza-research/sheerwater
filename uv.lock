@@ -5166,7 +5166,7 @@ requires-dist = [
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "tqdm" },
-    { name = "xarray", specifier = "==2025.1.0" },
+    { name = "xarray", specifier = "==2025.8.0" },
     { name = "xarray-regrid" },
     { name = "zarr", specifier = "==2.18.3" },
 ]
@@ -5652,16 +5652,16 @@ wheels = [
 
 [[package]]
 name = "xarray"
-version = "2025.1.0"
+version = "2025.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "packaging" },
     { name = "pandas" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/41/35/ee1464a168fc90ea73df419b5902c9f0dece40f9a7d8a0017b17c1badc18/xarray-2025.1.0.tar.gz", hash = "sha256:e48fd44c918f127d553ec1c05faac1cadc9ab9402e210ecc440b64b0dfcfda4c", size = 3256313, upload-time = "2025-01-03T21:12:45.518Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/55/18055bc943029d25fb8f260b7e3b1485c30646ccf503a5e4a744d31a3b78/xarray-2025.8.0.tar.gz", hash = "sha256:323d4169ce72d4ef849de2b0bd122f9cd2905b82c7558169930dc16070982bab", size = 3034425, upload-time = "2025-08-14T16:52:13.872Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/a8/2c2d85b3695804a23bc48171655f7427d1befdc20f0e91dde98334f8d0f7/xarray-2025.1.0-py3-none-any.whl", hash = "sha256:bff8017a47f6092c152c4745307a26adc3e31bfeb1b81abe6a2e62eda99a3687", size = 1240716, upload-time = "2025-01-03T21:12:42.356Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/c8/0f8db9d9478de8d70cbcae2056588401e26168e269d6d9919bf2ecb01f78/xarray-2025.8.0-py3-none-any.whl", hash = "sha256:1c454f32b38c93df68e450238c9473fe21248b8572d42ddd58c5170bb30934ee", size = 1342279, upload-time = "2025-08-14T16:52:10.956Z" },
 ]
 
 [[package]]
