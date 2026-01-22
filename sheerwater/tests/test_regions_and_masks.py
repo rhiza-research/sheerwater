@@ -2,7 +2,8 @@
 import pytest
 import geopandas as gpd
 
-from sheerwater.regions_and_masks import land_sea_mask
+from sheerwater.regions_and_masks import land_sea_mask, region_labels, admin_region_labels
+from sheerwater.metrics import metric
 from sheerwater.utils.region_utils import (
     clean_name,
     reconcile_country_name,
@@ -147,6 +148,85 @@ def test_region_data_invalid_region():
     """Test region_data raises error for invalid region."""
     with pytest.raises(ValueError, match="Invalid region"):
         region_data("nonexistent_region_xyz")
+
+
+def test_country_alias():
+    """Test that 'country' works as an alias for 'admin_level_0' everywhere."""
+    # Test in region_data
+    gdf_country = region_data("country")
+    gdf_admin0 = region_data("admin_level_0")
+    assert len(gdf_country) == len(gdf_admin0)
+    assert set(gdf_country['region_name']) == set(gdf_admin0['region_name'])
+
+    # Test in admin_region_labels
+    ds_country = admin_region_labels(grid='global1_5', admin_level='country', region='global')
+    ds_admin0 = admin_region_labels(grid='global1_5', admin_level='admin_level_0', region='global')
+    assert set(ds_country.admin_region.values.flatten()) == set(ds_admin0.admin_region.values.flatten())
+
+    # Test in region_labels (string and list)
+    ds_country_str = region_labels(grid='global1_5', space_grouping='country', region='global')
+    ds_country_list = region_labels(grid='global1_5', space_grouping=['country'], region='global')
+    ds_admin0 = region_labels(grid='global1_5', space_grouping='admin_level_0', region='global')
+    assert set(ds_country_str.region.values.flatten()) == set(ds_admin0.region.values.flatten())
+    assert set(ds_country_list.region.values.flatten()) == set(ds_admin0.region.values.flatten())
+
+
+def test_region_labels_input_formats():
+    """Test region_labels with string and list inputs."""
+    ds_str = region_labels(grid='global1_5', space_grouping='country', region='global')
+    ds_list = region_labels(grid='global1_5', space_grouping=['country'], region='global')
+
+    assert 'region' in ds_str.coords
+    assert 'region' in ds_list.coords
+    assert len(ds_str.lat) > 0
+    assert len(ds_list.lat) > 0
+    # String and list should produce same results
+    assert set(ds_str.region.values.flatten()) == set(ds_list.region.values.flatten())
+
+
+def test_region_labels_list_ordering():
+    """Test that list ordering doesn't matter for region_labels."""
+    ds1 = region_labels(grid='global1_5', space_grouping=['admin_level_1', 'agroecological_zone'], region='global')
+    ds2 = region_labels(grid='global1_5', space_grouping=['agroecological_zone', 'admin_level_1'], region='global')
+    
+    regions1 = set(ds1.region.values.flatten())
+    regions2 = set(ds2.region.values.flatten())
+    
+    # They should have the same region names (order-independent)
+    assert regions1 == regions2
+
+
+def test_region_labels_multiple_admin_regions_error():
+    """Test that passing multiple admin regions raises an error."""
+    with pytest.raises(ValueError, match="Only one admin region can be specified"):
+        region_labels(grid='global1_5', space_grouping=['admin_level_1', 'admin_level_2'], region='global')
+    
+    with pytest.raises(ValueError, match="Only one admin region can be specified"):
+        region_labels(grid='global1_5', space_grouping=['country', 'admin_level_1'], region='global')
+    
+    with pytest.raises(ValueError, match="Only one admin region can be specified"):
+        region_labels(grid='global1_5', space_grouping=['admin_level_0', 'admin_level_1', 'agroecological_zone'], region='global')
+
+
+def test_metric_with_list_grouping():
+    """Test that metric function accepts list space_grouping."""
+    # Test with a simple metric call using list grouping
+    result = metric(
+        start_time="2016-01-01",
+        end_time="2016-01-08",
+        variable="precip",
+        agg_days=7,
+        forecast="chirps",
+        truth="chirps",
+        metric_name="mae",
+        space_grouping=['country', 'agroecological_zone'],
+        grid="global1_5",
+        region='global'
+    )
+
+    # Verify the result has a region coordinate
+    assert 'region' in result.coords or 'region' in result.dims
+    assert len(result) > 0
 
 
 def test_land_sea_mask():

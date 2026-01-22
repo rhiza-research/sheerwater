@@ -7,8 +7,8 @@ import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils import (cdsapi_secret, clip_region, get_grid, get_grid_ds, region_levels_and_labels,
-                              region_data, lon_base_change, load_object, get_region_level)
+from sheerwater.utils import (cdsapi_secret, clip_region, get_grid, get_grid_ds, admin_levels_and_labels,
+                              region_data, lon_base_change, load_object)
 
 
 @cache(cache_args=['grid'])
@@ -110,30 +110,9 @@ def spatial_mask(mask, grid='global1_5', region='global'):
         raise NotImplementedError("Only land-sea or None mask is implemented.")
 
 
-def space_grouping_to_regions(space_grouping):
-    """Get the regions for a given space grouping.
-
-    Space groupings are a string of the form: 'admin_level_x-layer1-layer2-...-layerN'
-    where admin_level_x is the admin level of the region, and layer1, layer2, ...
-    are additional layers that apply combinatorically.
-    """
-    groups = space_grouping.split('-')
-    try:
-        # If the first group is admin boundary
-        region_level, regions = get_region_level(groups[0])
-        admin_group = groups[0]
-        layers = groups[1:]
-    except ValueError:
-        # Otherwise
-        admin_group = None
-        layers = groups
-
-    return admin_group, layers
-
-
-@cache(cache_args=['grid', 'space_grouping', 'region'],
+@cache(cache_args=['grid', 'admin_level', 'region'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def admin_region_labels(grid='global1_5', space_grouping='country', region='global'):
+def admin_region_labels(grid='global1_5', admin_level='country', region='global'):
     """Generate a dataset with a region coordinate at a specific space grouping.
 
     Available space groupings are
@@ -143,9 +122,9 @@ def admin_region_labels(grid='global1_5', space_grouping='country', region='glob
     Args:
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
-        space_grouping (str):
+        admin_level (str): A single admin level:
             - country, continent, subregion, region_un, region_wb, meteorological_zone,
-              hemisphere, sheerwater_region
+              hemisphere, sheerwater_region, or admin_level_0, admin_level_1, admin_level_2
         region (str): The region to clip to. A specific instance of a space group
             -global, or any specific instance of the space groupings above, e.g., africa
 
@@ -153,8 +132,12 @@ def admin_region_labels(grid='global1_5', space_grouping='country', region='glob
     Returns:
         xarray.Dataset: Dataset with added region coordinate
     """
+    # Normalize 'country' to 'admin_level_0'
+    if admin_level == 'country':
+        admin_level = 'admin_level_0'
+
     # Get the list of regions for the specified admin level
-    admin_df = region_data(space_grouping)
+    admin_df = region_data(admin_level)
 
     # Get the grid dataframe
     ds = get_grid_ds(grid)
@@ -182,15 +165,15 @@ def admin_region_labels(grid='global1_5', space_grouping='country', region='glob
 
 @cache(cache_args=['grid', 'space_grouping', 'region'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def region_labels(grid='global1_5', space_grouping='country', region='global'):
+def region_labels(grid='global1_5', space_grouping=None, region='global'):
     """Generate a dataset with a region coordinate at a specific space grouping.
 
     Args:
         grid (str): The grid to fetch the data at.  Note that only
             the resolution of the specified grid is used.
-        space_grouping (str):
-            - country, continent, subregion, region_un, region_wb, meteorological_zone,
-              hemisphere, sheerwater_region
+        space_grouping (str or list): Region grouping(s):
+            - A string for a single grouping: 'country', 'continent', 'subregion', etc.
+            - A list for multiple groupings: ['country'], ['admin_level_1', 'agroecological_zone'], etc.
         region (str): The region to clip to. A specific instance of a space group
             -global, or any specific instance of the space groupings above, e.g., africa
 
@@ -198,11 +181,35 @@ def region_labels(grid='global1_5', space_grouping='country', region='global'):
     Returns:
         xarray.Dataset: Dataset with added region coordinate
     """
-    layers = space_grouping.split('-')
-    regions_and_labels = region_levels_and_labels()
+    if space_grouping is None:
+        space_grouping = ['country']
+
+    # Convert single string to list (treat as single region, don't split by dashes)
+    if isinstance(space_grouping, str):
+        layers = [space_grouping]
+    elif isinstance(space_grouping, list):
+        layers = space_grouping
+    else:
+        raise TypeError(f"space_grouping must be a str or list, got {type(space_grouping)}")
+
+    # Normalize 'country' to 'admin_level_0' in all layers
+    layers = ['admin_level_0' if layer == 'country' else layer for layer in layers]
+
+    # Sort alphabetically to ensure consistent results regardless of input order
+    layers = sorted(layers)
+
+    # Validate that only one admin region is specified
+    labels_dict = admin_levels_and_labels()
+    admin_regions_in_list = [layer for layer in layers if layer in labels_dict.keys()]
+    if len(admin_regions_in_list) > 1:
+        raise ValueError(
+            f"Only one admin region can be specified in space_grouping. "
+            f"Found {len(admin_regions_in_list)}: {admin_regions_in_list}"
+        )
+
     layer_grids = []
     for layer in layers:
-        if layer in regions_and_labels:
+        if layer in labels_dict:
             # One of the standard admin levels
             layer_df = admin_region_labels(space_grouping=layer, grid=grid, region=region)
         else:
