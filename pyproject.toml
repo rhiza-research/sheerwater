@@ -28,6 +28,7 @@ dependencies = [
     "zarr==2.18.3",
     "h5py",
     "netcdf4",
+    "psycopg2",
     "h5netcdf",
     "psycopg2",
     "scipy",
