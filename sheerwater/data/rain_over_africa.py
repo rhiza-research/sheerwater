@@ -32,7 +32,7 @@ def roa_raw(date):
         print(ds)
         return ds
 
-    ds = xr.open_mfdataset(gsf, engine='h5netcdf', parallel=True, combine_attrs="drop_conflicts", preprocess=preprocess, error='warn')
+    ds = xr.open_mfdataset(gsf, engine='h5netcdf', parallel=True, combine_attrs="drop_conflicts", preprocess=preprocess, errors='warn')
     ds = ds.rename({'latitude': 'lat'})
     ds = ds.rename({'longitude': 'lon'})
 
