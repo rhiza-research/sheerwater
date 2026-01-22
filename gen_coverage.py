@@ -6,16 +6,16 @@ from sheerwater.data.coverage_tables import get_coverage
 
 if __name__ == "__main__":
     start_time = "2020-01-01"
-    end_time = "2020-03-01"
+    end_time = "2021-03-01"
     variable = "precip"
     agg_days = 7
     station_data = "ghcn_avg"
-    time_grouping = "month"
-    space_grouping = "country"
+    time_grouping = "month_of_year"
+    space_grouping = None
     grid = "global1_5"
     mask = "lsm"
     region = "global"
-    start_remote(remote_config='large_cluster')
+    start_remote(remote_config='large_cluster', remote_name='mohini_cache_coverage')
     df = get_coverage(start_time, end_time, variable=variable, agg_days=agg_days, station_data=station_data,
                       time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask=mask, region=region,
                       recompute=True, cache_mode="write",

@@ -1,6 +1,7 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
 from nuthatch import cache
+import numpy as np
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
@@ -47,27 +48,21 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
     data['indicator'] = xr.ones_like(data[variable])
     data = groupby_time(data, time_grouping=time_grouping, agg_fn='mean')
 
-    region_ds = region_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+    # mask the data
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
     if region != 'global':
         mask_ds = clip_region(mask_ds, region=region)
-    data = groupby_region(data, region_ds, mask_ds, agg_fn='sum')
+
+    # if space grouping is specified, group by it
+    if space_grouping is not None:
+        region_ds = region_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+        data = groupby_region(data, region_ds, mask_ds, agg_fn='sum')
+    else:
+        data = data.where(mask_ds.mask, np.nan, drop=False)
 
     data['coverage'] = data['non_null'] / data['indicator']
 
     data = data.drop_vars(variable)
     return data
-
-@dask_remote
-@cache(cache_args=["station_data", "time_grouping", "space_grouping"],
-       backend='sql')
-def get_coverage(start_time, end_time, variable='precip', agg_days=7, station_data='ghcn_avg',
-                 time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', region='global'):
-    """Generate coverage data."""
-    ds = coverage(start_time=start_time, end_time=end_time, variable=variable, agg_days=agg_days, 
-    station_data=station_data, time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask=mask, region=region)
-    df = ds.to_dataframe()
-    return df
-
 
 __all__ = ['metric']
