@@ -4,7 +4,7 @@
 The administrative regions are defined as follows:
 - admin_level_x: Administrative level x boundaries
     - Available admin levels: 0 (national level), 1 (region level), 2 (county level)
-- country 
+- country
     - 242 unique countries, an alias for admin_level_0
 - subregion:
   - 'central_america', 'caribbean', 'north_america',
@@ -31,7 +31,6 @@ The administrative regions are defined as follows:
 - global:
   - 'global'
 """
-import os
 import unicodedata
 
 import geopandas as gpd
@@ -105,7 +104,6 @@ custom_regions = {
 
 def clean_name(name):
     """Clean a name to make matching easier and replace non-English characters."""
-
     # unsupported region names
     if name in [None, '', '_', '-', '-_', ' ']:
         return 'no_region'
@@ -417,7 +415,7 @@ def full_admin_data(region_level):
 def region_data(region):
     """Get geopandas GeoDataFrame with the geometry for a given region.
 
-    A lightweight wrapper around full_admin_data that enables a user to pass either a 
+    A lightweight wrapper around full_admin_data that enables a user to pass either a
     high level region level or a specific region within that level.
     For example, both 'country' and 'indonesia' are valid region arguments.
 

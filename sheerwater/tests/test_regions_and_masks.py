@@ -188,10 +188,10 @@ def test_region_labels_list_ordering():
     """Test that list ordering doesn't matter for region_labels."""
     ds1 = region_labels(grid='global1_5', space_grouping=['admin_level_1', 'agroecological_zone'], region='global')
     ds2 = region_labels(grid='global1_5', space_grouping=['agroecological_zone', 'admin_level_1'], region='global')
-    
+
     regions1 = set(ds1.region.values.flatten())
     regions2 = set(ds2.region.values.flatten())
-    
+
     # They should have the same region names (order-independent)
     assert regions1 == regions2
 
@@ -200,12 +200,14 @@ def test_region_labels_multiple_admin_regions_error():
     """Test that passing multiple admin regions raises an error."""
     with pytest.raises(ValueError, match="Only one admin region can be specified"):
         region_labels(grid='global1_5', space_grouping=['admin_level_1', 'admin_level_2'], region='global')
-    
+
     with pytest.raises(ValueError, match="Only one admin region can be specified"):
         region_labels(grid='global1_5', space_grouping=['country', 'admin_level_1'], region='global')
-    
+
     with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5', space_grouping=['admin_level_0', 'admin_level_1', 'agroecological_zone'], region='global')
+        region_labels(grid='global1_5',
+                      space_grouping=['admin_level_0', 'admin_level_1', 'agroecological_zone'],
+                      region='global')
 
 
 def test_metric_with_list_grouping():
