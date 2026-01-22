@@ -338,7 +338,6 @@ def full_region_data(region_level):
             - 'region_name': the name of the region,
             - 'region_geometry': its geometry as a shapely object.
     """
-    regions = region_levels_and_labels()[region_level]
     if region_level in admin_level_regions:
         # Get all region objects in the regions list
         gdf = admin_level_gdf(int(region_level.split('_')[-1]))
@@ -354,6 +353,7 @@ def full_region_data(region_level):
         global_mapping = global_regions_to_country()
         region_names = []
         region_geometries = []
+        regions = region_levels_and_labels()[region_level]
         for reg in regions:
             countries = global_mapping[region_level][reg]
             region_gdf = country_gdf[country_gdf['country'].isin(countries)]
@@ -365,6 +365,7 @@ def full_region_data(region_level):
         admin_0 = admin_level_gdf(admin_level=0)
         region_names = []
         region_geometries = []
+        regions = custom_regions[region_level].keys()
         for reg in regions:
             data = custom_regions[region_level][reg]
             if 'lats' in data and 'lons' in data:
