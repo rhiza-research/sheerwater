@@ -37,11 +37,12 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
              time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm',
              region='global', missing_thresh=0.9):  # noqa: ARG001
     """Compute coverage of a dataset."""
-    # Use the metric registry to get the metric class
+    # Get the station data over the desired period
     station_data_fn = get_data(station_data)
     data = station_data_fn(start_time, end_time, variable, agg_days=agg_days,
                            grid=grid, mask=None, region=region)
 
+    # indicate time/space points that are not null (ie adequate coverage)
     data['non_null'] = data[variable].notnull()
     data['indicator'] = xr.ones_like(data[variable])
     data = groupby_time(data, time_grouping=time_grouping, agg_fn='mean')
@@ -56,6 +57,17 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
 
     data = data.drop_vars(variable)
     return data
+
+@dask_remote
+@cache(cache_args=["station_data", "time_grouping", "space_grouping"],
+       backend='sql')
+def get_coverage(start_time, end_time, variable='precip', agg_days=7, station_data='ghcn_avg',
+                 time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', region='global'):
+    """Generate coverage data."""
+    ds = coverage(start_time=start_time, end_time=end_time, variable=variable, agg_days=agg_days, 
+    station_data=station_data, time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask=mask, region=region)
+    df = ds.to_dataframe()
+    return df
 
 
 __all__ = ['metric']
