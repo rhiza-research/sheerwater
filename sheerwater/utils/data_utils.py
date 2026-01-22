@@ -66,6 +66,7 @@ def regrid(ds, output_grid, method='conservative', base="base180", output_chunks
         output_chunks (dict): Chunks for the output dataset (optional).
             Only used for conservative regridding.
         region (str): The region to clip the data to.
+        regridder_kwargs (dict): Additional keyword arguments for the regridder.
     """
     # Interpret the grid
     ds_out = get_grid_ds(output_grid, base=base, region=region)

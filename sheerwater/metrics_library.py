@@ -7,7 +7,7 @@ import xarray as xr
 
 from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
-from sheerwater.regions_and_masks import admin_region_labels, spatial_mask
+from sheerwater.regions_and_masks import spatial_mask, region_labels
 from sheerwater.statistics_library import statistic_factory
 from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region
 

@@ -93,10 +93,10 @@ def test_admin_regions():
         if admin_level == 1:
             assert len(gdf) > 0
         elif admin_level == 2:
-            assert len(gdf) == 290 
+            assert len(gdf) == 290
         assert 'region_name' in gdf.columns
         assert 'region_geometry' in gdf.columns
-        
+
         # Verify we get the correct region level
         region_level, regions = get_region_level(level_name)
         assert region_level == level_name
@@ -108,13 +108,13 @@ def test_specific_admin_region():
     # First get all admin level 2 regions to find a valid one
     all_admin2 = region_data("admin_level_2")
     assert len(all_admin2) > 0
-    
+
     # Test getting a specific admin level 2 region
     test_region = all_admin2.iloc[0]['region_name']
     specific_region = region_data(test_region)
     assert len(specific_region) == 1
     assert specific_region.iloc[0]['region_name'] == test_region
-    
+
     # Verify we get the correct region level
     region_level, regions = get_region_level(test_region)
     assert region_level == "admin_level_2"

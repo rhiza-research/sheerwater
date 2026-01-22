@@ -36,9 +36,6 @@ import os
 import geopandas as gpd
 from shapely.geometry import box
 
-import numpy as np
-import xarray as xr
-
 from nuthatch import cache
 
 from .general_utils import load_object
@@ -112,8 +109,8 @@ def clean_name(name):
 
 
 def reconcile_country_name(country_name):
-    """
-    Maps a country name variant to its standardized name.
+    """Maps a country name variant to its standardized name.
+
     Unsupported territories/regions are mapped to 'no_region'.
 
     Args:
@@ -192,15 +189,14 @@ def reconcile_country_name(country_name):
     }
 
     # # Disputed territories and dependent territories to map to 'no_region'
-    unsupported_regions = [
-        # Disputed territories
-        'abyei', 'aksai_chin', 'ashmore_and_cartier_islands', 'demchok',
-        'dragonja', 'dramana-shakatoe', 'isla_brasilera', 'kalapani',
-        'koualou', 'liancourt_rocks', "no_man's_land", 'paracel_is',
-        'senkakus', 'siachen-saltoro', 'siachen_glacier', 'somaliland',
-        'spratly_is', 'turkish_republic_of_northern_cyprus',
-        'sanafir_and_tiran_is.'
-    ]
+    # unsupported_regions = [
+    #     # Disputed territories
+    #     'abyei', 'aksai_chin', 'ashmore_and_cartier_islands', 'demchok',
+    #     'dragonja', 'dramana-shakatoe', 'isla_brasilera', 'kalapani',
+    #     'koualou', 'liancourt_rocks', "no_man's_land", 'paracel_is',
+    #     'senkakus', 'siachen-saltoro', 'siachen_glacier', 'somaliland',
+    #     'spratly_is', 'turkish_republic_of_northern_cyprus',
+    #     'sanafir_and_tiran_is.',
     #     # Dependent territories - for now, we will leave territories as they are
     #     'american_samoa', 'anguilla', 'aruba', 'bermuda',
     #     'british_virgin_islands', 'cayman_islands', 'cook_islands', 'curacao',
@@ -243,7 +239,7 @@ def global_regions_gdf():
 def global_regions_to_country():
     """A dictionary mapping global regions to countries.
 
-    For example, 
+    For example,
     {
         'continent': {
             'asia': ['china', 'india', 'japan'],
@@ -322,6 +318,9 @@ def get_region_level(region):
         elif region in data.keys():
             return level, [region]
 
+    # Now check the custom region layers
+    if region == 'agroecological_zone':
+        return 'agroecological_zone', ['agroecological_zone']
     else:
         raise ValueError(f"Invalid region: {region}")
 
@@ -331,8 +330,9 @@ def full_region_data(region_level):
     """Get the boundary shapefile for a given region level.
 
     Args:
-        region (str): The region to get the data for. Must be 
+        region_level (str): The region level to get the data for. Must be
             a region level (e.g., 'countries', 'admin_level_1')
+
     Returns:
         gdf (gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:
             - 'region_name': the name of the region,
@@ -399,9 +399,9 @@ def full_region_data(region_level):
 def region_data(region):
     """Get geopandas GeoDataFrame with the geometry for a given region.
 
-    Args: 
-        region (str): The region to get the data for. Must be 
-            a region level (e.g., 'countries', 'admin_level_1') or a specific region within that level (e.g., 'indonesia', 'kenya'). 
+    Args:
+        region (str): The region to get the data for. Must be
+            a region level (e.g., 'countries', 'admin_level_1') or a specific region within that level (e.g., 'indonesia', 'kenya').
             For example, both 'countries' and 'indonesia' are valid region arguments.
 
     Returns:

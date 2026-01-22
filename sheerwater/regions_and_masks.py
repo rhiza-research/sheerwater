@@ -114,8 +114,8 @@ def space_grouping_to_regions(space_grouping):
     """Get the regions for a given space grouping.
 
     Space groupings are a string of the form: 'admin_level_x-layer1-layer2-...-layerN'
-    where admin_level_x is the admin level of the region, and layer1, layer2, ... 
-    are additional layers that apply combinatorically  
+    where admin_level_x is the admin level of the region, and layer1, layer2, ...
+    are additional layers that apply combinatorically.
     """
     groups = space_grouping.split('-')
     try:
@@ -319,4 +319,4 @@ def agroecological_zone_labels(grid='global1_5'):
     return ds
 
 
-__all__ = ['land_sea_mask', 'region_labels', 'agroecological_zones']
+__all__ = ['land_sea_mask', 'region_labels', 'agroecological_zone_labels']
