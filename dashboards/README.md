@@ -27,6 +27,7 @@ gcloud auth application-default login
 
 ```sh
 git checkout -b <my-feature-branch>
+git commit --allow-empty -m "Your descriptive commit message"
 gh pr create --title "Testing grafana dashboards"
 gh pr edit --add-label "PR-env"
 ./grafana-weaver-bootstrap.sh
