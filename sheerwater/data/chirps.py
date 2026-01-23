@@ -56,12 +56,8 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
             chunks={'y': 1200, 'x': 1200, 'time': 365},
             concat_dim=["time"], compat="override", coords="minimal", combine="nested")
         # remove nodata values
-        ds = ds.where(ds != -9999)
-        # tiff is not masked - apply land-sea mask to the dataset
-        import pdb; pdb.set_trace()
-        mask_ds = spatial_mask(mask='lsm', grid=grid)
-        ds = ds.where(mask_ds.mask, np.nan, drop=False)
-
+        nodata = -9999
+        ds = ds.where(ds != nodata)
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data': 'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
