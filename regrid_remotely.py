@@ -13,12 +13,12 @@ if __name__ == "__main__":
     client = Client()
 
     version = 3 #, 2, 2
-    stations = True # True, False
+    stations = False # True, False
 
     start_remote(remote_config='xxlarge_cluster', remote_name='mohini_regrid_chirps', region='us-central1')
 
-    ds = chirps_gridded(start_time="1998-01-01", end_time="2025-12-31",
+    ds = chirps_gridded(start_time="2000-01-01", end_time="2025-12-31",
                         grid="global0_05",
                         version=version, stations=stations,
-                        recompute=True, cache_mode='overwrite')
+                        recompute=["chirps_gridded", "chirps_raw"], cache_mode='overwrite')
     logging.info("Regridding complete")
