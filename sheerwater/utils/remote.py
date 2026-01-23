@@ -63,18 +63,19 @@ config_options = {
 }
 
 
-def start_remote(remote_name=None, remote_config=None):
+def start_remote(remote_name=None, remote_config=None, region=None):
     """Generic function to start a remote cluster."""
     default_name = 'sheerwater_' + pwd.getpwuid(os.getuid())[0]
 
     coiled_default_options = {
         'name': default_name,
         'n_workers': [3, 8],
-        'idle_timeout': "120 minutes",
+        'idle_timeout': "20 minutes",
         'scheduler_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'worker_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'spot_policy': 'spot_with_fallback',
-        'environ': {'NUTHATCH_ALLOW_INSTALLED_PACKAGE_CONFIGURATION': 'True'}
+        'environ': {'NUTHATCH_ALLOW_INSTALLED_PACKAGE_CONFIGURATION': 'True'},
+        'region': region
     }
 
     if remote_name and isinstance(remote_name, str):
