@@ -229,7 +229,6 @@ def test_metric_with_list_grouping():
         recompute=True
     )
     # Verify the result has a region coordinate
-    import pdb; pdb.set_trace()
     assert 'space_grouping' in result.coords or 'space_grouping' in result.dims
     assert len(result) > 0
 

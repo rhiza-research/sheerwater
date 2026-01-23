@@ -175,5 +175,5 @@ def spw_rainy_onset(ds, onset_group=None, aggregate_group=None, time_dim='time',
     var_name = 'rainy_onset' if not drought_condition else 'rainy_onset_no_drought'
     rainy_ds = rainy_da.to_dataset(name=var_name)
     rainy_ds = apply_mask(rainy_ds, mask, grid=grid)
-    rainy_ds = rainy_ds, grid=grid, region=region)
+    rainy_ds = clip_region(rainy_ds, grid=grid, region=region)
     return rainy_ds

@@ -2,13 +2,11 @@
 import os
 
 import cdsapi
-import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils import (cdsapi_secret, clip_region, get_grid, get_grid_ds, admin_levels_and_labels,
-                              admin_region_data, lon_base_change, load_object)
+from sheerwater.utils import (cdsapi_secret, get_grid, get_grid_ds, lon_base_change)
 
 
 @cache(cache_args=['grid'])
@@ -110,4 +108,4 @@ def spatial_mask(mask, grid='global1_5', region='global'):
         raise NotImplementedError("Only land-sea or None mask is implemented.")
 
 
-__all__ = ['land_sea_mask', 'region_labels', 'agroecological_zone_labels']
+__all__ = ['land_sea_mask', 'spatial_mask']
