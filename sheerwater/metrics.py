@@ -5,7 +5,8 @@ from nuthatch import cache
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
 from sheerwater.regions_and_masks import spatial_mask
-from sheerwater.utils import dask_remote, groupby_region, groupby_time, clip_region, region_labels
+from sheerwater.utils import dask_remote, groupby_region, groupby_time, clip_region
+from sheerwater.regions_layers import region_labels
 
 
 @dask_remote

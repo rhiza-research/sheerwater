@@ -7,21 +7,25 @@ from .plotting_utils import plot_by_region
 from .remote import dask_remote, start_remote
 from .secrets import cdsapi_secret, ecmwf_secret, gap_secret, salient_secret, tahmo_secret, huggingface_read_token
 from .region_utils import (
-    region_labels,
     admin_region_data,
+    clean_region_name,
+    get_combined_region_name,
     get_region_level,
     admin_levels_and_labels,
+    clip_region,
+    agroecological_zone_labels,
+)
+from .space_utils import (
+    get_grid_ds,
+    get_globe_slice,
+    get_grid,
+    is_wrapped,
+    lon_base_change,
+    snap_point_to_grid,
     apply_mask,
     base180_to_base360,
     base360_to_base180,
     check_bases,
-    clip_region,
-    get_globe_slice,
-    get_grid,
-    get_grid_ds,
-    is_wrapped,
-    lon_base_change,
-    snap_point_to_grid,
 )
 from .task_utils import first_satisfied_date
 from .time_utils import (
@@ -89,5 +93,7 @@ __all__ = [
     "plot_by_region",
     "huggingface_read_token",
     "admin_levels_and_labels",
-    "region_labels",
+    "get_combined_region_name",
+    "agroecological_zone_labels",
+    "clean_region_name",
 ]

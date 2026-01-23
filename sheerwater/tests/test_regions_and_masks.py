@@ -5,7 +5,7 @@ import geopandas as gpd
 from sheerwater.regions_and_masks import land_sea_mask
 from sheerwater.metrics import metric
 from sheerwater.utils.region_utils import (
-    clean_name,
+    clean_region_name,
     reconcile_country_name,
     get_region_level,
     admin_region_data,
@@ -15,16 +15,16 @@ from sheerwater.utils.region_utils import (
 from sheerwater.utils import get_grid
 
 
-def test_clean_name():
+def test_clean_region_name():
     """Test name cleaning including unicode and special cases."""
-    assert clean_name("United States") == "united_states_of_america"
-    assert clean_name("South Korea") == "south_korea"
-    assert clean_name("United Kingdom") == "united_kingdom"
-    assert clean_name("São Tomé") == "sao_tome"
-    assert clean_name("Côte d'Ivoire") == "ivory_coast"
-    assert clean_name(None) == "no_region"
-    assert clean_name("") == "no_region"
-    assert clean_name("_") == "no_region"
+    assert clean_region_name("United States") == "united_states_of_america"
+    assert clean_region_name("South Korea") == "south_korea"
+    assert clean_region_name("United Kingdom") == "united_kingdom"
+    assert clean_region_name("São Tomé") == "sao_tome"
+    assert clean_region_name("Côte d'Ivoire") == "ivory_coast"
+    assert clean_region_name(None) == "no_region"
+    assert clean_region_name("") == "no_region"
+    assert clean_region_name("_") == "no_region"
 
 
 def test_reconcile_country_name():
@@ -161,14 +161,14 @@ def test_country_alias():
     assert set(gdf_country['region_name']) == set(gdf_admin0['region_name'])
 
     # Test in admin_region_labels
-    ds_country = admin_region_labels(grid='global1_5', admin_level='country', region='global')
-    ds_admin0 = admin_region_labels(grid='global1_5', admin_level='admin_level_0', region='global')
+    ds_country = admin_region_labels(grid='global1_5', admin_level='country')
+    ds_admin0 = admin_region_labels(grid='global1_5', admin_level='admin_level_0')
     assert set(ds_country.admin_region.values.flatten()) == set(ds_admin0.admin_region.values.flatten())
 
     # Test in region_labels (string and list)
-    ds_country_str = region_labels(grid='global1_5', space_grouping='country', region='global')
-    ds_country_list = region_labels(grid='global1_5', space_grouping=['country'], region='global')
-    ds_admin0 = region_labels(grid='global1_5', space_grouping='admin_level_0', region='global')
+    ds_country_str = region_labels(grid='global1_5', space_grouping='country')
+    ds_country_list = region_labels(grid='global1_5', space_grouping=['country'])
+    ds_admin0 = region_labels(grid='global1_5', space_grouping='admin_level_0')
     assert set(ds_country_str.region.values.flatten()) == set(ds_admin0.region.values.flatten())
     assert set(ds_country_list.region.values.flatten()) == set(ds_admin0.region.values.flatten())
 
@@ -188,8 +188,8 @@ def test_region_labels_input_formats():
 
 def test_region_labels_list_ordering():
     """Test that list ordering doesn't matter for region_labels."""
-    ds1 = region_labels(grid='global1_5', space_grouping=['admin_level_1', 'agroecological_zone'], region='global')
-    ds2 = region_labels(grid='global1_5', space_grouping=['agroecological_zone', 'admin_level_1'], region='global')
+    ds1 = region_labels(grid='global1_5', space_grouping=['admin_level_1', 'agroecological_zone'])
+    ds2 = region_labels(grid='global1_5', space_grouping=['agroecological_zone', 'admin_level_1'])
 
     regions1 = set(ds1.region.values.flatten())
     regions2 = set(ds2.region.values.flatten())
@@ -226,7 +226,8 @@ def test_metric_with_list_grouping():
         space_grouping=['country', 'agroecological_zone'],
         grid="global1_5",
         region=['africa', 'land_with_ample_irrigated_soils'],
-        recompute=True
+        recompute=True,
+        cache_mode='overwrite'
     )
     # Verify the result has a region coordinate
     assert 'space_grouping' in result.coords or 'space_grouping' in result.dims

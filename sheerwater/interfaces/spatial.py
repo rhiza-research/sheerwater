@@ -1,4 +1,5 @@
 """A decorator for spatial data."""
+from functools import wraps
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor

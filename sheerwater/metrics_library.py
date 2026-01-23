@@ -9,7 +9,8 @@ from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_w
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.regions_and_masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region, region_labels
+from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region
+from sheerwater.regions_layers import region_labels
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}

@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 # Global registry of data sources
 DATA_REGISTRY = {}
 FORECAST_REGISTRY = {}
+REGION_LAYER_REGISTRY = {}
+
 
 class SheerwaterDataset(NuthatchProcessor):
     """Processor for a Sheerwater dataset, either forecast or data of a standard format.
@@ -47,7 +49,7 @@ class SheerwaterDataset(NuthatchProcessor):
             self.agg_days = bound_args.arguments['agg_days']
             self.variable = bound_args.arguments['variable']
         except KeyError:
-            raise ValueError("Forecast decorator requires grid, agg_days, and variable to be passed.")
+            raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
         if self.variable == 'precip':
             self.units = 'mm / day'
@@ -96,8 +98,10 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             return True
 
+
 class data(SheerwaterDataset):
     """Processor for a Sheerwater data. It supports xarray datasets."""
+
     def __call__(self, func):
         """Call the parent class and register the data in the global data registry."""
         wrapped = super().__call__(func)
@@ -111,11 +115,13 @@ class data(SheerwaterDataset):
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
-                            'time', 'lat', 'lon']])
+            'time', 'lat', 'lon']])
         return ds
+
 
 class forecast(SheerwaterDataset):
     """Processor for a Sheerwater forecast. It supports xarray datasets."""
+
     def __call__(self, func):
         """Call the forecast decorator and register it in the global forecast registry."""
         wrapped = super().__call__(func)
@@ -134,8 +140,70 @@ class forecast(SheerwaterDataset):
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
-                            'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+            'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
         return ds
+
+
+class region_layer(NuthatchProcessor):
+    """Processor for a Sheerwater region layer. It supports xarray datasets."""
+
+    def __init__(self, region_layer=None, **kwargs):
+        """Initialize the region layer processor.
+
+        Args:
+            region_layer (str): The name of the region layer.
+            kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
+        """
+        super().__init__(**kwargs)
+        self.region_layer = region_layer
+
+    def __call__(self, func):
+        """Call the region layer decorator and register it in the global region layer registry."""
+        wrapped = super().__call__(func)
+        REGION_LAYER_REGISTRY[func.__name__] = wrapped
+        return wrapped
+
+    def process_arguments(self, sig, *args, **kwargs):
+        """Process the arguments for the datasets decorator."""
+        # Get default values for the function signature
+        bound_args = self.bind_signature(sig, *args, **kwargs)
+
+        # Default to global region and no masking if not passed
+        try:
+            self.grid = bound_args.arguments['grid']
+        except KeyError:
+            raise ValueError("Region layer decorator requires grid to be passed.")
+        return args, kwargs
+
+    def post_process(self, ds):
+        """Post-process the dataset to add the region coordinate."""
+        if isinstance(ds, xr.Dataset):
+            attrs = {
+                'grid': self.grid,
+                'region_layer': self.region_layer,
+            }
+            ds = ds.assign_attrs(attrs)
+        else:
+            raise RuntimeError(f"Cannot add region coordinate for data type {type(ds)}")
+        return ds
+
+    def validate(self, ds):
+        """Validate the cached data to ensure it has data within the region."""
+        return True
+
+
+def get_region_layer(region_layer_name):
+    """Get a region layer from the global region layer registry."""
+    # The imports below ensure that all region layers are registered when this is called.
+    import sheerwater.region_layers  # noqa: F401
+    return REGION_LAYER_REGISTRY[region_layer_name]
+
+
+def list_region_layers():
+    """List all region layers in the global region layer registry."""
+    import sheerwater.region_layers  # noqa: F401
+    return list(REGION_LAYER_REGISTRY.keys())
+
 
 def get_forecast(forecast_name):
     """Get a forecast from the global forecast registry."""
@@ -148,24 +216,24 @@ def get_forecast(forecast_name):
 def list_forecasts():
     """List all forecasts in the global forecast registry."""
     # The imports below ensure that all forecast modules are registered when this is called.
-    import sheerwater.forecasts # noqa: F401
-    import sheerwater.climatology # noqa: F401
+    import sheerwater.forecasts  # noqa: F401
+    import sheerwater.climatology  # noqa: F401
     return list(FORECAST_REGISTRY.keys())
 
 
 def get_data(data_name):
     """Get a data source from the global data registry."""
     # The imports below ensure that all forecast modules are registered when this is called.
-    import sheerwater.data # noqa: F401
-    import sheerwater.climatology # noqa: F401
-    import sheerwater.reanalysis # noqa: F401
+    import sheerwater.data  # noqa: F401
+    import sheerwater.climatology  # noqa: F401
+    import sheerwater.reanalysis  # noqa: F401
     return DATA_REGISTRY[data_name]
 
 
 def list_data():
     """List all data sources in the global data registry."""
     # The imports below ensure that all forecast modules are registered when this is called.
-    import sheerwater.data # noqa: F401
-    import sheerwater.climatology # noqa: F401
-    import sheerwater.reanalysis # noqa: F401
+    import sheerwater.data  # noqa: F401
+    import sheerwater.climatology  # noqa: F401
+    import sheerwater.reanalysis  # noqa: F401
     return list(DATA_REGISTRY.keys())
