@@ -1,5 +1,6 @@
 """CHIRPS data product."""
 import datetime
+import numpy as np
 
 import fsspec
 import pandas as pd
@@ -10,6 +11,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
 from sheerwater.interfaces import data as sheerwater_data, spatial
+from sheerwater.regions_and_masks import spatial_mask
 
 
 @dask_remote
@@ -53,6 +55,13 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
             urls, engine='rasterio', preprocess=preprocess,
             chunks={'y': 1200, 'x': 1200, 'time': 365},
             concat_dim=["time"], compat="override", coords="minimal", combine="nested")
+        # remove nodata values
+        ds = ds.where(ds != -9999)
+        # tiff is not masked - apply land-sea mask to the dataset
+        import pdb; pdb.set_trace()
+        mask_ds = spatial_mask(mask='lsm', grid=grid)
+        ds = ds.where(mask_ds.mask, np.nan, drop=False)
+
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data': 'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
@@ -156,7 +165,8 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
 
     # Need to regrid even if on the chirps grid, because the native grid is not 
     # a regular 0.05x0.05 grid.
-    ds = regrid(ds, grid, base='base180', method='conservative', region=region)
+    if grid != "chirps":
+        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds
 

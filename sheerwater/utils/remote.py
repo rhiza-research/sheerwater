@@ -63,7 +63,7 @@ config_options = {
 }
 
 
-def start_remote(remote_name=None, remote_config=None):
+def start_remote(remote_name=None, remote_config=None, region=None):
     """Generic function to start a remote cluster."""
     default_name = 'sheerwater_' + pwd.getpwuid(os.getuid())[0]
 
