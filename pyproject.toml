@@ -21,7 +21,7 @@ dependencies = [
     "google-cloud-storage",
     "google-cloud-secret-manager",
     "cryptography",
-    "xarray==2025.8.0",
+    "xarray==2025.1.0",
     "matplotlib",
     "geopandas",
     "rioxarray",

@@ -29,10 +29,9 @@ def roa_raw(date):
         time = pd.to_datetime(ds.attrs['start_time'])
         ds = ds.assign_coords(time=time)
         ds = ds.expand_dims(dim='time')
-        print(ds)
         return ds
 
-    ds = xr.open_mfdataset(gsf, engine='h5netcdf', parallel=True, combine_attrs="drop_conflicts", preprocess=preprocess, errors='warn')
+    ds = xr.open_mfdataset(gsf, engine='h5netcdf', parallel=True, combine_attrs="drop_conflicts", preprocess=preprocess)
     ds = ds.rename({'latitude': 'lat'})
     ds = ds.rename({'longitude': 'lon'})
 
