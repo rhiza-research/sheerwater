@@ -7,9 +7,9 @@ import xarray as xr
 
 from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
-from sheerwater.regions_and_masks import spatial_mask, region_labels
+from sheerwater.regions_and_masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region
+from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region, region_labels
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
@@ -250,17 +250,32 @@ class Metric(ABC):
         By default, returns the statistic values as is.
         Subclasses can override this for more complex groupings.
         """
-        region_level, _ = get_region_level(self.space_grouping)
-        region_ds = region_labels(grid=self.grid, space_grouping=region_level,
-                                  region=self.region, memoize=True).compute()
+        # Process and clean the space grouping and region arguments
+        if not isinstance(self.space_grouping, list):
+            self.space_grouping = [self.space_grouping]
+        # Convert country to admin_level_0 alias before checking
+        self.space_grouping = ['admin_level_0' if level == 'country' else level for level in self.space_grouping]
+        promoted_levels = [get_region_level(level)[0] for level in self.space_grouping]
+        if not all(x == y for x, y in zip(promoted_levels, self.space_grouping)):
+            raise ValueError("Can only pass high-level regions to the space grouping argument.")
+
+        if not isinstance(self.region, list):
+            self.region = [self.region]
+        promoted_regions = [get_region_level(level)[0] for level in self.region]
+        if not all(x != y for x, y in zip(promoted_regions, self.region)):
+            raise ValueError("Can only pass low-level regions to the region argument.")
+
+        region_ds = region_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
-        if self.region != 'global':
-            mask_ds = clip_region(mask_ds, region=self.region)
 
         ############################################################
         # Aggregate and and check validity of the statistic
         ############################################################
         ds = self.statistic_values
+        if self.region != ['global']:
+            mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
+            region_ds = clip_region(region_ds, grid=self.grid, region=self.region)
+            ds = clip_region(ds, grid=self.grid, region=self.region)
 
         # Drop any extra random coordinates that shouldn't be there
         for coord in ds.coords:
@@ -278,7 +293,7 @@ class Metric(ABC):
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
         # Add the region coordinate to the statistic
-        ds = ds.assign_coords(region=region_ds.region)
+        ds = ds.assign_coords(space_grouping=region_ds.region)
 
         # Aggregate in space
         if not self.spatial:
@@ -297,19 +312,20 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = ds[stat] * ds['weights']
 
-            if region_level == 'global':
+            if self.region == ['global']:
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             else:
-                ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
+                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
 
             for stat in self.statistics:
                 ds[stat] = ds[stat] / ds['weights']
             ds = ds.drop_vars(['weights'])
+            if self.region != ['global']:
+                # If we've passed a region and clipped, drop any null groups
+                ds = ds.dropna(dim='space_grouping', how='all')
         else:
             # If returning a spatial metric, mask and drop
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
-            ds = ds.where((ds.region == self.region).compute(), drop=True)
-            ds = ds.drop_vars('region')
 
         # Assign the final statistic value
         self.grouped_statistics = ds

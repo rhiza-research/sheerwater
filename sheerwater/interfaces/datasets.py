@@ -61,9 +61,9 @@ class SheerwaterDataset(NuthatchProcessor):
         """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            if not (hasattr(ds, 'region') and ds.region== self.region):
+            if not (hasattr(ds, 'region_clip') and ds.region_clip == self.region):
                 # Only clip region if the dataframe hasn't already been clipped
-                ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
+                ds = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
             if not (hasattr(ds, 'mask') and ds.mask == self.mask):
                 # Only apply mask if this dataframe has not already been masked
                 ds = apply_mask(ds, self.mask, grid=self.grid)
@@ -72,7 +72,7 @@ class SheerwaterDataset(NuthatchProcessor):
                 'variable': self.variable,
                 'grid': self.grid,
                 'mask': self.mask,
-                'region': self.region
+                'region_clip': self.region
             }
             if self.units is not None:
                 attrs['units'] = self.units
@@ -85,7 +85,7 @@ class SheerwaterDataset(NuthatchProcessor):
     def validate(self, ds):
         """Validate the cached data to ensure it has data within the region."""
         # Check to see if the dataset extends roughly the full time series set
-        test = clip_region(ds, region=self.region, region_dim=self.region_dim)
+        test = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
         test = apply_mask(test, self.mask, grid=self.grid)
         if test.notnull().count().compute() == 0:
             logger.warning(f"""The cached array does not have data within

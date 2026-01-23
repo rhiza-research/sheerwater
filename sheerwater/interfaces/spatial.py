@@ -42,7 +42,7 @@ class spatial(NuthatchProcessor):
         try:
             self.grid = bound_args.arguments['grid']
         except KeyError:
-            print("WARNING: No grid passed to spatial decorator. Cannot perform masking.")
+            print("WARNING: No grid passed to spatial decorator. Cannot perform masking or region clipping.")
             self.mask = None
             self.grid = None
         return args, kwargs
@@ -51,16 +51,16 @@ class spatial(NuthatchProcessor):
         """Post-process the dataset to clip to the region and apply the mask."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            if not (hasattr(ds, 'region') and ds.region== self.region):
+            if not (hasattr(ds, 'region_clip') and ds.region_clip == self.region):
                 # Only clip region if the dataframe hasn't already been clipped
-                ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
+                ds = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
             if not (hasattr(ds, 'mask') and ds.mask == self.mask):
                 # Only apply mask if this dataframe has not already been masked
                 ds = apply_mask(ds, self.mask, grid=self.grid)
             attrs = {
                 'grid': self.grid,
                 'mask': self.mask,
-                'region': self.region
+                'region_clip': self.region
             }
             ds = ds.assign_attrs(attrs)
         else:
@@ -72,7 +72,7 @@ class spatial(NuthatchProcessor):
         """Validate the cached data to ensure it has data within the region."""
         if isinstance(ds, xr.Dataset):
             # Check to see if the dataset extends roughly the full time series set
-            test = clip_region(ds, region=self.region, region_dim=self.region_dim)
+            test = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
             test = apply_mask(test, self.mask, grid=self.grid)
             if test.notnull().count().compute() == 0:
                 print("""WARNING: The cached array does not have data within

@@ -2,15 +2,17 @@
 import pytest
 import geopandas as gpd
 
-from sheerwater.regions_and_masks import land_sea_mask, region_labels, admin_region_labels
+from sheerwater.regions_and_masks import land_sea_mask
 from sheerwater.metrics import metric
 from sheerwater.utils.region_utils import (
     clean_name,
     reconcile_country_name,
     get_region_level,
-    region_data,
+    admin_region_data,
+    region_labels,
+    admin_region_labels,
 )
-from sheerwater.utils.space_utils import get_grid
+from sheerwater.utils import get_grid
 
 
 def test_clean_name():
@@ -53,8 +55,8 @@ def test_get_region_level():
 
 
 def test_region_data_structure():
-    """Test that region_data returns correct GeoDataFrame structure."""
-    gdf = region_data("kenya")
+    """Test that admin_region_data returns correct GeoDataFrame structure."""
+    gdf = admin_region_data("kenya")
     assert isinstance(gdf, gpd.GeoDataFrame)
     assert 'region_name' in gdf.columns
     assert 'region_geometry' in gdf.columns
@@ -63,10 +65,10 @@ def test_region_data_structure():
 
 
 def test_region_data_admin_levels():
-    """Test region_data for all admin levels and specific regions."""
+    """Test admin_region_data for all admin levels and specific regions."""
     # Test all admin levels
     for level in ["admin_level_0", "admin_level_1", "admin_level_2"]:
-        gdf = region_data(level)
+        gdf = admin_region_data(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
         assert gdf.crs == 'EPSG:4326'
@@ -79,16 +81,16 @@ def test_region_data_admin_levels():
         assert len(regions) > 0
 
     # Test specific country
-    gdf = region_data("kenya")
+    gdf = admin_region_data("kenya")
     assert len(gdf) == 1
     assert gdf.iloc[0]['region_name'] == "kenya"
     assert gdf.crs == 'EPSG:4326'
 
     # Test getting a specific admin level 2 region
-    all_admin2 = region_data("admin_level_2")
+    all_admin2 = admin_region_data("admin_level_2")
     assert len(all_admin2) > 0
     test_region = all_admin2.iloc[0]['region_name']
-    specific_region = region_data(test_region)
+    specific_region = admin_region_data(test_region)
     assert len(specific_region) == 1
     assert specific_region.iloc[0]['region_name'] == test_region
     region_level, regions = get_region_level(test_region)
@@ -98,27 +100,27 @@ def test_region_data_admin_levels():
 
 
 def test_region_data_global_regions():
-    """Test region_data for global regions (continents, subregions, UN, WB)."""
+    """Test admin_region_data for global regions (continents, subregions, UN, WB)."""
     # Test all levels
     for level in ["continent", "subregion", "region_un", "region_wb"]:
-        gdf = region_data(level)
+        gdf = admin_region_data(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
         assert gdf.crs == 'EPSG:4326'
 
     # Test specific regions
     for region in ["africa", "asia", "eastern_africa", "indonesia"]:
-        gdf = region_data(region)
+        gdf = admin_region_data(region)
         assert len(gdf) == 1
         assert gdf.iloc[0]['region_name'] == region
         assert gdf.crs == 'EPSG:4326'
 
 
 def test_region_data_custom_regions():
-    """Test region_data for custom regions."""
+    """Test admin_region_data for custom regions."""
     # Test all custom region levels
     for level in ["sheerwater_region", "meteorological_zone"]:
-        gdf = region_data(level)
+        gdf = admin_region_data(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
         assert gdf.crs == 'EPSG:4326'
@@ -131,13 +133,13 @@ def test_region_data_custom_regions():
         "global",  # global
     ]
     for region in test_regions:
-        gdf = region_data(region)
+        gdf = admin_region_data(region)
         assert len(gdf) == 1
         assert gdf.iloc[0]['region_name'] == region
         assert gdf.crs == 'EPSG:4326'
 
     # Verify sheerwater_region contains expected regions
-    gdf = region_data("sheerwater_region")
+    gdf = admin_region_data("sheerwater_region")
     region_names = gdf['region_name'].tolist()
     assert 'nimbus_east_africa' in region_names
     assert 'nimbus_west_africa' in region_names
@@ -145,16 +147,16 @@ def test_region_data_custom_regions():
 
 
 def test_region_data_invalid_region():
-    """Test region_data raises error for invalid region."""
+    """Test admin_region_data raises error for invalid region."""
     with pytest.raises(ValueError, match="Invalid region"):
-        region_data("nonexistent_region_xyz")
+        admin_region_data("nonexistent_region_xyz")
 
 
 def test_country_alias():
     """Test that 'country' works as an alias for 'admin_level_0' everywhere."""
-    # Test in region_data
-    gdf_country = region_data("country")
-    gdf_admin0 = region_data("admin_level_0")
+    # Test in admin_region_data
+    gdf_country = admin_region_data("country")
+    gdf_admin0 = admin_region_data("admin_level_0")
     assert len(gdf_country) == len(gdf_admin0)
     assert set(gdf_country['region_name']) == set(gdf_admin0['region_name'])
 
@@ -223,11 +225,12 @@ def test_metric_with_list_grouping():
         metric_name="mae",
         space_grouping=['country', 'agroecological_zone'],
         grid="global1_5",
-        region='global'
+        region=['africa', 'land_with_ample_irrigated_soils'],
+        recompute=True
     )
-
     # Verify the result has a region coordinate
-    assert 'region' in result.coords or 'region' in result.dims
+    import pdb; pdb.set_trace()
+    assert 'space_grouping' in result.coords or 'space_grouping' in result.dims
     assert len(result) > 0
 
 
@@ -273,20 +276,20 @@ def test_get_grid():
 
     # Test chirps grid
     lons, lats, grid_size, _ = get_grid("chirps")
-    assert lons[0] == -180.0 + 0.025
-    assert abs(lons[-1] - (180.0 - 0.025)) < 1e-10
-    assert lats[0] == -90.0 + 0.025
-    assert abs(lats[-1] - (90.0 - 0.025)) < 1e-10
-    assert grid_size == 0.05
+    assert pytest.approx(lons[0], abs=1e-10) == -180.0 + 0.025
+    assert pytest.approx(lons[-1], abs=1e-10) == 180.0 - 0.025
+    assert pytest.approx(lats[0], abs=1e-10) == -90.0 + 0.025
+    assert pytest.approx(lats[-1], abs=1e-10) == 90.0 - 0.025
+    assert pytest.approx(grid_size, abs=1e-10) == 0.05
     assert len(lons) == 7200
     assert len(lats) == 3600
 
     # Test imerg grid
     lons, lats, grid_size, _ = get_grid("imerg")
-    assert lons[0] == -180.0 + 0.05
-    assert lons[-1] == 180.0 - 0.05
-    assert lats[0] == -90.0 + 0.05
-    assert lats[-1] == 90.0 - 0.05
-    assert grid_size == 0.1
+    assert pytest.approx(lons[0], abs=1e-10) == -180.0 + 0.05
+    assert pytest.approx(lons[-1], abs=1e-10) == 180.0 - 0.05
+    assert pytest.approx(lats[0], abs=1e-10) == -90.0 + 0.05
+    assert pytest.approx(lats[-1], abs=1e-10) == 90.0 - 0.05
+    assert pytest.approx(grid_size, abs=1e-10) == 0.1
     assert len(lons) == 3600
     assert len(lats) == 1800

@@ -4,8 +4,8 @@ from nuthatch import cache
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
-from sheerwater.regions_and_masks import spatial_mask, region_labels
-from sheerwater.utils import dask_remote, groupby_region, groupby_time, clip_region
+from sheerwater.regions_and_masks import spatial_mask
+from sheerwater.utils import dask_remote, groupby_region, groupby_time, clip_region, region_labels
 
 
 @dask_remote
@@ -49,7 +49,7 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
     region_ds = region_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
     if region != 'global':
-        mask_ds = clip_region(mask_ds, region=region)
+        mask_ds = clip_region(mask_ds, grid=grid, region=region)
     data = groupby_region(data, region_ds, mask_ds, agg_fn='sum')
 
     data['coverage'] = data['non_null'] / data['indicator']
