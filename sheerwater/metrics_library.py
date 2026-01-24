@@ -268,15 +268,14 @@ class Metric(ABC):
 
         region_ds = region_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
+        if self.region != ['global']:
+            mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
+            region_ds = clip_region(region_ds, grid=self.grid, region=self.region)
 
         ############################################################
         # Aggregate and and check validity of the statistic
         ############################################################
         ds = self.statistic_values
-        if self.region != ['global']:
-            mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
-            region_ds = clip_region(region_ds, grid=self.grid, region=self.region)
-            ds = clip_region(ds, grid=self.grid, region=self.region)
 
         # Drop any extra random coordinates that shouldn't be there
         for coord in ds.coords:
@@ -294,7 +293,7 @@ class Metric(ABC):
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
         # Add the region coordinate to the statistic
-        ds = ds.assign_coords(space_grouping=region_ds.region)
+        ds = ds.assign_coords(space_grouping=(('lat', 'lon'), region_ds.region.values))
 
         # Aggregate in space
         if not self.spatial:
@@ -319,7 +318,7 @@ class Metric(ABC):
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
 
             for stat in self.statistics:
-                ds[stat] = ds[stat] / ds['weights']
+                ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
             if self.region != ['global']:
                 # If we've passed a region and clipped, drop any null groups

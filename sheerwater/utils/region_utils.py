@@ -100,7 +100,7 @@ custom_regions = {
 }
 
 # zone labels from https://data.apps.fao.org/catalog/dataset/0bb7237a-6740-4ea3-b2a1-e26b1647e4e0
-agroecological_zone_labels = {
+agroecological_zone_names = {
     0: "No data",
     1: "Tropics, lowland; semi-arid",
     2: "Tropics, lowland; sub-humid",
@@ -401,8 +401,8 @@ def get_region_level(region):
 
     # Now check the custom region layers
     if region == 'agroecological_zone':
-        return 'agroecological_zone', [clean_region_name(x) for x in agroecological_zone_labels.values()]
-    elif region in [clean_region_name(x) for x in agroecological_zone_labels.values()]:
+        return 'agroecological_zone', [clean_region_name(x) for x in agroecological_zone_names.values()]
+    elif region in [clean_region_name(x) for x in agroecological_zone_names.values()]:
         return 'agroecological_zone', [region]
     else:
         raise ValueError(f"Invalid region: {region}")

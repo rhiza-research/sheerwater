@@ -13,7 +13,7 @@ from .region_utils import (
     get_region_level,
     admin_levels_and_labels,
     clip_region,
-    agroecological_zone_labels,
+    agroecological_zone_names,
 )
 from .space_utils import (
     get_grid_ds,
@@ -94,6 +94,6 @@ __all__ = [
     "huggingface_read_token",
     "admin_levels_and_labels",
     "get_combined_region_name",
-    "agroecological_zone_labels",
+    "agroecological_zone_names",
     "clean_region_name",
 ]
