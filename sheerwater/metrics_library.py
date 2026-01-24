@@ -251,21 +251,29 @@ class Metric(ABC):
         By default, returns the statistic values as is.
         Subclasses can override this for more complex groupings.
         """
-        # Process and clean the space grouping and region arguments
+        ############################################################
+        # 1. Process and clean the space grouping and region arguments
+        ############################################################
         if not isinstance(self.space_grouping, list):
             self.space_grouping = [self.space_grouping]
         # Convert country to admin_level_0 alias before checking
         self.space_grouping = ['admin_level_0' if level == 'country' else level for level in self.space_grouping]
-        promoted_levels = [get_region_level(level)[0] for level in self.space_grouping]
-        if not all(x == y for x, y in zip(promoted_levels, self.space_grouping)):
+        # Remove global from the grouping check
+        check_groupings = [x for x in self.space_grouping if x != 'global']
+        promoted_levels = [get_region_level(level)[0] for level in check_groupings]
+        if not all(x == y for x, y in zip(promoted_levels, check_groupings)):
             raise ValueError("Can only pass high-level regions to the space grouping argument.")
 
         if not isinstance(self.region, list):
             self.region = [self.region]
-        promoted_regions = [get_region_level(level)[0] for level in self.region]
-        if not all(x != y for x, y in zip(promoted_regions, self.region)):
+        check_regions = [x for x in self.region if x != 'global']
+        promoted_regions = [get_region_level(level)[0] for level in check_regions]
+        if not all(x != y for x, y in zip(promoted_regions, check_regions)):
             raise ValueError("Can only pass low-level regions to the region argument.")
 
+        ############################################################
+        # 2. Fetch the region and mask data
+        ############################################################
         region_ds = region_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
         if self.region != ['global']:
@@ -273,7 +281,7 @@ class Metric(ABC):
             region_ds = clip_region(region_ds, grid=self.grid, region=self.region)
 
         ############################################################
-        # Aggregate and and check validity of the statistic
+        # 3. Aggregate in time
         ############################################################
         ds = self.statistic_values
 
@@ -282,9 +290,6 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        ############################################################
-        # Statistic aggregation
-        ############################################################
         # Create a non_null indicator and add it to the statistic
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
@@ -295,7 +300,9 @@ class Metric(ABC):
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), region_ds.region.values))
 
-        # Aggregate in space
+        ############################################################
+        # 4. Aggregate in space and apply spatial weighting
+        ############################################################
         if not self.spatial:
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
