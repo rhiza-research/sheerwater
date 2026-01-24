@@ -60,7 +60,7 @@ def statistic(cache=False, name=None,
             }
             ds = func(data=data, **cache_kwargs)
             # Assign metric attributes in one call and carry forward relevent attributes from the data
-            # carrying through clipping and masking attributes helps ensure 
+            # carrying through clipping and masking attributes helps ensure
             # no redundant computations are performed
             ds = ds.assign_attrs(
                 prob_type=data['prob_type'],

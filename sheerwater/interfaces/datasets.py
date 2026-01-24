@@ -187,7 +187,7 @@ class region_layer(NuthatchProcessor):
             raise RuntimeError(f"Cannot add region coordinate for data type {type(ds)}")
         return ds
 
-    def validate(self, ds):
+    def validate(self, ds):  # noqa: ARG002
         """Validate the cached data to ensure it has data within the region."""
         return True
 

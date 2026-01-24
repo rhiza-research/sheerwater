@@ -271,6 +271,8 @@ class Metric(ABC):
         if not all(x != y for x, y in zip(promoted_regions, check_regions)):
             raise ValueError("Can only pass low-level regions to the region argument.")
 
+        import pdb
+        pdb.set_trace()
         ############################################################
         # 2. Fetch the region and mask data
         ############################################################
@@ -319,7 +321,7 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = ds[stat] * ds['weights']
 
-            if self.region == ['global']:
+            if self.space_grouping == ['global']:
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             else:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)

@@ -32,7 +32,6 @@ The administrative regions are defined as follows:
   - 'global'
 """
 import numpy as np
-import xarray as xr
 import logging
 import unicodedata
 import geopandas as gpd

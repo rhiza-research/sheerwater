@@ -4,7 +4,6 @@ import xarray as xr
 from nuthatch import cache
 from sheerwater.utils import (
     get_grid_ds, load_object, regrid,
-    get_region_level, clean_region_name,
     admin_region_data, agroecological_zone_names,
     admin_levels_and_labels, get_combined_region_name)
 from sheerwater.interfaces import region_layer
@@ -73,7 +72,7 @@ def agroecological_zone_labels(grid='global1_5'):
     da = da.astype(np.int32)
 
     # Import here to avoid circular imports
-    da = regrid(da, grid, base='base180', method='conservative')
+    da = regrid(da, grid, base='base180', method='nearest')
     # Should use most common here, but is failing with error
     # *** ValueError: zero-size array to reduction operation fmax which has no identity
     # in the flox call. Can debug another day...
