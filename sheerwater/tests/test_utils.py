@@ -23,7 +23,11 @@ def test_no_chirps_grid():
     """Test that we can not regrid to the chirps grid."""
     ds = xr.Dataset(
         {"precip": (["time", "lat", "lon"], np.random.rand(10, 10, 10))},
-        coords={"time": pd.date_range("2000-01-01", periods=10), "lat": np.linspace(-90, 90, 10), "lon": np.linspace(-180, 180, 10)}
+        coords={
+            "time": pd.date_range("2000-01-01", periods=10),
+            "lat": np.linspace(-90, 90, 10),
+            "lon": np.linspace(-180, 180, 10)
+        }
     )
     with pytest.raises(NotImplementedError):
         regrid(ds, "chirps")
