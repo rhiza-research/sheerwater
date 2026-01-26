@@ -1,6 +1,5 @@
 """CHIRPS data product."""
 import datetime
-import numpy as np
 
 import fsspec
 import pandas as pd
@@ -11,7 +10,6 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
 from sheerwater.interfaces import data as sheerwater_data, spatial
-from sheerwater.regions_and_masks import spatial_mask
 
 
 @dask_remote
@@ -159,7 +157,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     if "spatial_ref" in ds:
         ds = ds.drop_vars(["spatial_ref"])
 
-    # Need to regrid even if on the chirps grid, because the native grid is not 
+    # Need to regrid even if on the chirps grid, because the native grid is not
     # a regular 0.05x0.05 grid.
     if grid != "chirps":
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
