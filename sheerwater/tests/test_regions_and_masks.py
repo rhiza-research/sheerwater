@@ -9,9 +9,8 @@ from sheerwater.utils.region_utils import (
     reconcile_country_name,
     get_region_level,
     admin_region_data,
-    region_labels,
-    admin_region_labels,
 )
+from sheerwater.regions_layers import admin_region_labels, region_labels
 from sheerwater.utils import get_grid
 
 

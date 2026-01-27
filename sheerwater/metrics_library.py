@@ -271,8 +271,6 @@ class Metric(ABC):
         if not all(x != y for x, y in zip(promoted_regions, check_regions)):
             raise ValueError("Can only pass low-level regions to the region argument.")
 
-        import pdb
-        pdb.set_trace()
         ############################################################
         # 2. Fetch the region and mask data
         ############################################################

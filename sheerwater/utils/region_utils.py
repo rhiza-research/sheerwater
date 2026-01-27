@@ -31,10 +31,12 @@ The administrative regions are defined as follows:
 - global:
   - 'global'
 """
-import numpy as np
 import logging
 import unicodedata
+import numpy as np
+import pandas as pd
 import geopandas as gpd
+import gcsfs
 from shapely.geometry import box
 from nuthatch import cache
 from .general_utils import load_object
@@ -145,6 +147,7 @@ agroecological_zone_names = {
 def clean_region_name(name):
     """Clean a name to make matching easier and replace non-English characters."""
     # unsupported region names
+    name = str(name)  # convert to string
     if name in [None, '', '_', '-', '-_', ' ']:
         return 'no_region'
     name = name.lower().replace(' ', '_').strip()
@@ -337,12 +340,38 @@ def admin_level_gdf(admin_level=2):
             - 'admin_name': the name of the admin level,
             - 'geometry': its geometry as a shapely object.
     """
-    # World geojson downloaded from https://www.geoboundaries.org/globalDownloads.html
+    # World lo-res admin boundaries at the county level downloaded from https://github.com/stephanietuerk/admin-boundaries
+    dir = {
+        0: 'Admin0_simp50',
+        1: 'Admin1_simp10',
+        2: 'Admin2_simp05',
+    }
+    path = f'gs://sheerwater-public-datalake/regions/admin-boundaries/lo-res/{dir[admin_level]}'
+
+    fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
+    files = fs.ls(path)
+    dfs = []
+    for file in files:
+        sub = gpd.read_file(load_object(file))
+        dfs.append(sub)
+    # Concat geopandas dataframes
+    df = gpd.GeoDataFrame(pd.concat(dfs, ignore_index=True))
+    df = df.set_geometry('geometry')
+
     if admin_level not in [0, 1, 2]:
         raise ValueError(f"Invalid admin level: {admin_level}")
-    filepath = f'gs://sheerwater-public-datalake/regions/geoBoundariesCGAZ_ADM{admin_level}.geojson'
-    df = gpd.read_file(load_object(filepath))
-    df['admin_name'] = df['shapeName'].apply(clean_region_name)
+
+    # Clean and construct 'admin_name' according to admin level
+    df['clean0'] = df['NAME_0'].apply(clean_region_name)
+    if admin_level == 0:
+        df['admin_name'] = df['clean0']
+    elif admin_level == 1:
+        df['clean1'] = df['NAME_1'].apply(clean_region_name)
+        df['admin_name'] = df['clean0'] + '-' + df['clean1']
+    elif admin_level == 2:
+        df['clean1'] = df['NAME_1'].apply(clean_region_name)
+        df['clean2'] = df['NAME_2'].apply(clean_region_name)
+        df['admin_name'] = df['clean0'] + '-' + df['clean1'] + '-' + df['clean2']
     return df
 
 

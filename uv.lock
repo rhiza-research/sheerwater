@@ -3339,8 +3339,8 @@ wheels = [
 
 [[package]]
 name = "nuthatch"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
+version = "0.4.3.dev2+gcee1124f9"
+source = { git = "https://github.com/rhiza-research/nuthatch.git?rev=geflaspo%2Fmemoizer_len#cee1124f93603452e2a33dd85e0b42a70f924178" }
 dependencies = [
     { name = "click" },
     { name = "dask", extra = ["dataframe"] },
@@ -3358,10 +3358,6 @@ dependencies = [
     { name = "tomli-w" },
     { name = "xarray" },
     { name = "zarr" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/d6/79f9b5604de54565996aa38b3be49426f60e9947c82a122edbb3b08d67b9/nuthatch-0.4.1.tar.gz", hash = "sha256:043fa40c3388daa35926e734deaa50e593b4d840107be4586e647eeb8b5dac8c", size = 186569, upload-time = "2026-01-23T19:47:32.477Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/e6/954953a0cee03e40d5cb135108036a01adcdf9934013ef6b5fc6249a990f/nuthatch-0.4.1-py3-none-any.whl", hash = "sha256:b4bd14d53939cbd4aad68738c8680c6a9a6e773d03b333c70f53461e00452c90", size = 45897, upload-time = "2026-01-23T19:47:33.834Z" },
 ]
 
 [[package]]
@@ -5143,7 +5139,7 @@ requires-dist = [
     { name = "netcdf4" },
     { name = "numcodecs", specifier = "<0.16.0" },
     { name = "numpy" },
-    { name = "nuthatch" },
+    { name = "nuthatch", git = "https://github.com/rhiza-research/nuthatch.git?rev=geflaspo%2Fmemoizer_len" },
     { name = "opt-einsum", specifier = ">=3.4.0" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "properscoring" },

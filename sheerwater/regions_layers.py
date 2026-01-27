@@ -6,9 +6,9 @@ from sheerwater.utils import (
     get_grid_ds, load_object, regrid,
     admin_region_data, agroecological_zone_names,
     admin_levels_and_labels, get_combined_region_name)
-from sheerwater.interfaces import region_layer
+from sheerwater.interfaces import region_layer, spatial
 
-
+@spatial()
 @region_layer(region_layer='admin_region')
 @cache(cache_args=['grid', 'admin_level'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
@@ -57,8 +57,9 @@ def admin_region_labels(grid='global1_5', admin_level='country'):
     return ds
 
 
+@spatial()
 @region_layer(region_layer='agroecological_zone')
-@cache(cache_args=['grid'])
+@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
 def agroecological_zone_labels(grid='global1_5'):
     """Get the agroecological zones as an xarray dataset."""
     # Downloaded from https://data.apps.fao.org/catalog/iso/9a9ed6cf-83cc-4b42-b295-305184d3f0b8
@@ -71,12 +72,12 @@ def agroecological_zone_labels(grid='global1_5'):
     da = ds.agroecological_zone.fillna(0)
     da = da.astype(np.int32)
 
-    # Import here to avoid circular imports
-    da = regrid(da, grid, base='base180', method='nearest')
-    # Should use most common here, but is failing with error
-    # *** ValueError: zero-size array to reduction operation fmax which has no identity
-    # in the flox call. Can debug another day...
-    # da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={'values': np.unique(da.values)})
+    # Sort latitude and longitude values in descending order
+    # NEED TO DO THIS OR REGRIDDING WILL FAIL
+    da = da.sortby('lat', ascending=True)
+    da = da.sortby('lon', ascending=True)
+
+    da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={'values': np.unique(da.values)})
     ds = da.to_dataset(name='agroecological_zone')
 
     # Convert back to integer
@@ -106,6 +107,7 @@ def agroecological_zone_labels(grid='global1_5'):
     return ds
 
 
+@spatial()
 @region_layer(region_layer='region')
 @cache(cache_args=['grid', 'space_grouping'], memoize=True,
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
