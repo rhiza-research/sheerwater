@@ -18,7 +18,7 @@ __all__ = [
     "imerg_late",
     "imerg_final",
     "tahmo",
-    "tahmo_avg"
+    "tahmo_avg",
     "knust",
-    "knust_avg"
+    "knust_avg",
 ]

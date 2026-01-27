@@ -2,8 +2,6 @@
 import math
 from functools import partial
 
-import dask
-import dask.dataframe as dd
 import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
@@ -15,7 +13,8 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 @cache(cache_args=[])
 def knust_ashanti():
     # Open the netcdf datasets and standardize
-    ashanti = xr.open_dataset('gs://sheerwater-datalake/knust_stations/ashanti.nc', engine='h5netcdf')
+    ashanti = xr.open_dataset('gs://sheerwater-datalake/knust_stations/ashanti.nc',
+                              engine='h5netcdf')
     ashanti = ashanti.swap_dims({'ncells':'station_id'})
     ashanti = ashanti.dropna(dim='time')
     ashanti = ashanti.reset_coords('lat')
@@ -26,7 +25,8 @@ def knust_ashanti():
 @cache(cache_args=[])
 def knust_dacciwa():
     dacciwa = xr.open_mfdataset(['gs://sheerwater-datalake/knust_stations/dacciwa/dacciwa_rg_daily_2015-2017.nc',
-                                 'gs://sheerwater-datalake/knust_stations/dacciwa/dacciwa_rg_daily_2018-2019.nc'], engine='h5netcdf')
+                                 'gs://sheerwater-datalake/knust_stations/dacciwa/dacciwa_rg_daily_2018-2019.nc'],
+                                engine='h5netcdf')
     dacciwa = dacciwa.rename({'station': 'station_id', 'stat_lat': 'lat', 'stat_lon': 'lon'})
     dacciwa['station_id'] = dacciwa['station_id'].astype(str)
     dacciwa['lat'] = dacciwa.lat.isel(time=0)
@@ -36,7 +36,8 @@ def knust_dacciwa():
 
 @cache(cache_args=[])
 def knust_furiflood():
-    furiflood = xr.open_dataset('gs://sheerwater-datalake/knust_stations/furiflood_kumasi_raingauge_data/furiflood_rg_01-D.nc', engine='h5netcdf')
+    furiflood = xr.open_dataset('gs://sheerwater-datalake/knust_stations/furiflood_kumasi_raingauge_data/furiflood_rg_01-D.nc',
+                                engine='h5netcdf')
     furiflood = furiflood.rename({'latitude': 'lat', 'longitude': 'lon'})
     furiflood['station_id'] = furiflood['station_id'].astype(str)
     return furiflood
@@ -50,7 +51,6 @@ def knust_furiflood():
 })
 def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     """Get knust data from the QC controlled stations."""
-
     ashanti = knust_ashanti()
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
