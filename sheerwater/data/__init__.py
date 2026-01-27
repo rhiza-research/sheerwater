@@ -5,6 +5,7 @@ from .imerg import imerg, imerg_final, imerg_late
 from .tahmo import tahmo, tahmo_avg
 from .knust import knust, knust_avg
 from .rain_over_africa import rain_over_africa
+from .tamsat import tamsat
 
 # Use __all__ to define what is part of the public API.
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "knust",
     "knust_avg",
     "rain_over_africa",
+    "tamsat"
 ]
