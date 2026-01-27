@@ -90,4 +90,4 @@ def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days
 
     ds = roa_gridded(start_time, end_time, grid, mask=mask, region=region)
     ds = ds[[variable]]
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    return roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
