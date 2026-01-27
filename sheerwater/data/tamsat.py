@@ -11,7 +11,8 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tamsat_raw():
     """Access raw tamsat data."""
-    ds = xr.open_dataset("http://gws-access.jasmin.ac.uk/public/tamsat/rfe/data_degraded/v3.1/daily/0.25/rfe1983-present_daily_0.25.v3.1.nc", engine="h5netcdf")
+    ds = xr.open_dataset("http://gws-access.jasmin.ac.uk/public/tamsat/rfe/data_degraded/v3.1/daily/0.25/rfe1983-present_daily_0.25.v3.1.nc",
+                         engine="h5netcdf")
     return ds
 
 
