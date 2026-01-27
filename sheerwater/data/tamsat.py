@@ -25,14 +25,16 @@ def tamsat_gridded(start_time, end_time, grid, mask=None, region='global'): # no
     """Regridded version of whole roa dataset."""
     ds = tamsat_raw()
 
+    # Rename variable and select precip
     ds = ds.rename({'rfe': 'precip'})
-    # Rename variables
     ds = ds[['precip']]
 
     _, _, grid_size, _ = get_grid(grid)
 
     # Regrid if not on the native grid
-    if grid_size < 0.25:
+    if grid == 'tamsat':
+        pass
+    elif grid_size < 0.25:
         raise ValueError("The sheerwater TAMSAT datasource does not support grids smaller than 0.25")
     else:
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
@@ -48,7 +50,6 @@ def tamsat(start_time=None, end_time=None, variable='precip', agg_days=1,
                 grid='global0_25', mask='lsm', region='global'):
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by TAMSAT.")
-
 
     ds = tamsat_gridded(start_time, end_time, grid, mask=mask, region=region)
     return roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
