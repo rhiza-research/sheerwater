@@ -179,8 +179,8 @@ class region_layer(NuthatchProcessor):
         """Post-process the dataset to add the region coordinate."""
         if isinstance(ds, xr.Dataset):
             attrs = {
-                'grid': self.grid,
-                'region_layer': self.region_layer,
+                '_grid': self.grid,
+                '_region_layer': self.region_layer,
             }
             ds = ds.assign_attrs(attrs)
         else:
