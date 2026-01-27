@@ -1,4 +1,4 @@
-"""Rain over Africa data product."""
+"""Rain over Africa data product. https://rainoverafrica.ai/ ."""
 import gcsfs
 import xarray as xr
 import pandas as pd
@@ -25,7 +25,7 @@ def roa_raw(date):
         return None
 
     def preprocess(ds):
-        """Preprocess the dataset to add the member dimension."""
+        """Preprocess the dataset to add the time dimension."""
         time = pd.to_datetime(ds.attrs['start_time'])
         ds = ds.assign_coords(time=time)
         ds = ds.expand_dims(dim='time')
@@ -37,6 +37,8 @@ def roa_raw(date):
 
     # Aggregate up to daily data
     resampled_ds = xr.Dataset()
+
+    # Units in mm/hour every 15 minutes - multiply by 0.25 to get total mm
     resampled_ds['precip'] = ds['posterior_mean'].resample(time='1D').sum() * 0.25
     resampled_ds['max_probability_precip'] = ds['probability_precip'].resample(time='1D').max()
 
@@ -86,7 +88,6 @@ def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days
                 grid='global0_25', mask='lsm', region='global'):
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by ROA.")
-
 
     ds = roa_gridded(start_time, end_time, grid, mask=mask, region=region)
     ds = ds[[variable]]
