@@ -3339,8 +3339,8 @@ wheels = [
 
 [[package]]
 name = "nuthatch"
-version = "0.4.3.dev2+gcee1124f9"
-source = { git = "https://github.com/rhiza-research/nuthatch.git?rev=geflaspo%2Fmemoizer_len#cee1124f93603452e2a33dd85e0b42a70f924178" }
+version = "0.4.3.dev3+g3c743ebf0"
+source = { git = "https://github.com/rhiza-research/nuthatch.git?rev=geflaspo%2Fmemoizer_len#3c743ebf0a1b2e5fdc180d5510e2f450d717a5d1" }
 dependencies = [
     { name = "click" },
     { name = "dask", extra = ["dataframe"] },

@@ -162,7 +162,7 @@ def region_labels(grid='global1_5', space_grouping=None):
             else:
                 raise ValueError(f"Invalid layer: {layer}")
         layer_grids.append(layer_df)
-        layer_coords.append(layer_df.region_layer)
+        layer_coords.append(layer_df._region_layer)
 
     # Create a a new dataset with the concatonation of all the layers
     ds = xr.merge(layer_grids)

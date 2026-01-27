@@ -148,7 +148,7 @@ def clean_region_name(name):
     """Clean a name to make matching easier and replace non-English characters."""
     # unsupported region names
     name = str(name)  # convert to string
-    if name in [None, '', '_', '-', '-_', ' ']:
+    if name in [None, 'none', 'None', '', '_', '-', '-_', ' ']:
         return 'no_region'
     name = name.lower().replace(' ', '_').strip()
     name = name.replace('&', 'and')
@@ -328,7 +328,7 @@ def global_regions_to_country():
 
 
 @cache(cache_args=['admin_level'])
-def admin_level_gdf(admin_level=2):
+def admin_level_gdf(admin_level=2, remote=False):
     """A datasoruce of administrative boundaries at a given level.
 
     Args:
@@ -339,39 +339,61 @@ def admin_level_gdf(admin_level=2):
         gdf(gpd.GeoDataFrame): A GeoDataFrame for the admin level, with columns:
             - 'admin_name': the name of the admin level,
             - 'geometry': its geometry as a shapely object.
+        remote(bool): Whether to read the data from the remote filesystem.
     """
     # World lo-res admin boundaries at the county level downloaded from https://github.com/stephanietuerk/admin-boundaries
+    if admin_level not in [0, 1, 2]:
+        raise ValueError(f"Invalid admin level: {admin_level}")
     dir = {
         0: 'Admin0_simp50',
         1: 'Admin1_simp10',
         2: 'Admin2_simp05',
     }
-    path = f'gs://sheerwater-public-datalake/regions/admin-boundaries/lo-res/{dir[admin_level]}'
+    if remote:
+        path = f'gs://sheerwater-public-datalake/regions/admin-boundaries/lo-res/{dir[admin_level]}'
+    else:
+        path = f'../admin-boundaries/lo-res/{dir[admin_level]}'
 
-    fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
-    files = fs.ls(path)
+    if remote:
+        fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
+        files = fs.ls(path)
+    else:
+        import os
+        files = os.listdir(path)
     dfs = []
     for file in files:
-        sub = gpd.read_file(load_object(file))
+        if remote:
+            sub = gpd.read_file(load_object(file))
+        else:
+            sub = gpd.read_file(os.path.join(path, file))
+        if 'Name' in sub:
+            # There is an inconsistency in the original datasource where the column
+            # is labeled 'Name' instead of 'NAME_0'
+            sub = sub.rename(columns={'Name': 'NAME_0'})
+
+        if 'GID_0' in sub and str((sub['GID_0'].iloc[0])) == 'MCO':
+            # Fix an error in the origional datasource where MCO is labeled as Macao, instead of Monaco
+            sub['NAME_0'] = 'Monaco'
         dfs.append(sub)
     # Concat geopandas dataframes
     df = gpd.GeoDataFrame(pd.concat(dfs, ignore_index=True))
     df = df.set_geometry('geometry')
 
-    if admin_level not in [0, 1, 2]:
-        raise ValueError(f"Invalid admin level: {admin_level}")
-
     # Clean and construct 'admin_name' according to admin level
     df['clean0'] = df['NAME_0'].apply(clean_region_name)
     if admin_level == 0:
         df['admin_name'] = df['clean0']
-    elif admin_level == 1:
+    if admin_level == 1:
         df['clean1'] = df['NAME_1'].apply(clean_region_name)
         df['admin_name'] = df['clean0'] + '-' + df['clean1']
     elif admin_level == 2:
         df['clean1'] = df['NAME_1'].apply(clean_region_name)
         df['clean2'] = df['NAME_2'].apply(clean_region_name)
         df['admin_name'] = df['clean0'] + '-' + df['clean1'] + '-' + df['clean2']
+
+    # Ensure that all countries were found
+    if admin_level == 0 and not len(np.unique(df['admin_name'])) == len(files):
+        raise ValueError(f"Some countries were not found in the admin level {admin_level} data")
     return df
 
 

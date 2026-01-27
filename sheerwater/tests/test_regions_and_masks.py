@@ -200,15 +200,13 @@ def test_region_labels_list_ordering():
 def test_region_labels_multiple_admin_regions_error():
     """Test that passing multiple admin regions raises an error."""
     with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5', space_grouping=['admin_level_1', 'admin_level_2'], region='global')
+        region_labels(grid='global1_5', space_grouping=['admin_level_1', 'admin_level_2'])
 
     with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5', space_grouping=['country', 'admin_level_1'], region='global')
+        region_labels(grid='global1_5', space_grouping=['country', 'admin_level_1'])
 
     with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5',
-                      space_grouping=['admin_level_0', 'admin_level_1', 'agroecological_zone'],
-                      region='global')
+        region_labels(grid='global1_5', space_grouping=['admin_level_0', 'admin_level_1', 'agroecological_zone'])
 
 
 def test_metric_with_list_grouping():
