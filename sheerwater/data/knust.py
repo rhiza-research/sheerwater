@@ -52,8 +52,11 @@ def knust_furiflood():
 def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     """Get knust data from the QC controlled stations."""
     ashanti = knust_ashanti()
+
+    # Extra reset coords necessary for an unkown reason. Zarr wasn't updating coords vs vars appropriately
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
+
     dacciwa = knust_dacciwa()
     furiflood = knust_furiflood()
 
@@ -91,6 +94,7 @@ def _knust_unified(start_time, end_time, variable, agg_days,
     ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
     ds = ds.rename({'precipitation_amount': 'precip'})
 
+    # Apply grid to fill out lat/lon
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
