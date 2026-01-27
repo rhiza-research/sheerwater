@@ -1,10 +1,12 @@
 # ruff: noqa: E501 <- line too long
-"""Region definitions for the Sheerwater Benchmarking project.
+"""Space and geography utility functions for all parts of the data pipeline.
 
-The regions are defined as follows:
-- countries
-    - 242 unique countries
-- subregions:
+The administrative regions are defined as follows:
+- admin_level_x: Administrative level x boundaries
+    - Available admin levels: 0 (national level), 1 (region level), 2 (county level)
+- country
+    - 242 unique countries, an alias for admin_level_0
+- subregion:
   - 'central_america', 'caribbean', 'north_america',
   - 'south_eastern_asia', 'western_asia', 'south_asia',
   - 'eastern_asia', 'central_asia', 'seven_seas_open_ocean',
@@ -15,37 +17,43 @@ The regions are defined as follows:
   - 'polynesia', 'micronesia', 'antarctica'
 - regions_un: United Nations regions
   - 'americas', 'asia', 'africa', 'europe', 'oceania', 'antarctica'
-- regions_wb
+- regions_wb:
   - 'latin_america_and_caribbean', 'north_america',
   - 'europe_and_central_asia', 'east_asia_and_pacific', 'south_asia',
   - 'middle_east_and_north_africa', 'sub_saharan_africa', 'antarctica'
-- continents
+- continent
     - 'north_america', 'asia', 'south_america', 'africa', 'europe',
     - 'oceania', 'antarctica', 'seven_seas_open_ocean'
-- meteorological_zones
+- meteorological_zone
   - 'tropics', 'extratropics'
-- hemispheres
+- hemisphere
   - 'northern_hemisphere', 'southern_hemisphere'
 - global:
   - 'global'
 """
-import os
-
+import logging
+import unicodedata
+import numpy as np
+import pandas as pd
 import geopandas as gpd
+import gcsfs
 from shapely.geometry import box
-
 from nuthatch import cache
-
 from .general_utils import load_object
+import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 
-def clean_name(name):
-    """Clean a name to make matching easier."""
-    return name.lower().replace(' ', '_')
+logger = logging.getLogger(__name__)
 
+##################################################################
+# Administrative region definitions, including custom regions
+##################################################################
 
-# Define the class of standard regions
-standard_regions = ['country', 'continent', 'subregion', 'region_un', 'region_wb']
+# A set of standard regions that are above the nationional level - defined by the UN or WB
+global_regions = ['continent', 'subregion', 'region_un', 'region_wb']
+# A set of standard regions that are below the nationional level - defined by the admin level
+# admin level 0 is the same as country, but we include it for consistency
+admin_level_regions = ['admin_level_0', 'admin_level_1', 'admin_level_2']
 
 # Additionally, allow the construction of custom regions by country list or lat / lon bounding box
 custom_regions = {
@@ -54,7 +62,7 @@ custom_regions = {
             'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
         },
         'nimbus_west_africa': {
-            'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
+            'countries': ['benin', 'burkina_faso', 'cabo_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
         },
         'conus': {
             'countries': ['united_states_of_america'],
@@ -92,11 +100,194 @@ custom_regions = {
     }
 }
 
+# zone labels from https://data.apps.fao.org/catalog/dataset/0bb7237a-6740-4ea3-b2a1-e26b1647e4e0
+agroecological_zone_names = {
+    0: "No data",
+    1: "Tropics, lowland; semi-arid",
+    2: "Tropics, lowland; sub-humid",
+    3: "Tropics, lowland; humid",
+    4: "Tropics, highland; semi-arid",
+    5: "Tropics, highland; sub-humid",
+    6: "Tropics, highland; humid",
+    7: "Sub-tropics, warm; semi-arid",
+    8: "Sub-tropics, warm; sub-humid",
+    9: "Sub-tropics, warm; humid",
+    10: "Sub-tropics, moderately cool; semi-arid",
+    11: "Sub-tropics, moderately cool; sub-humid",
+    12: "Sub-tropics, moderately cool; humid",
+    13: "Sub-tropics, cool; semi-arid",
+    14: "Sub-tropics, cool; sub-humid",
+    15: "Sub-tropics, cool; humid",
+    16: "Temperate, moderate; dry",
+    17: "Temperate, moderate; moist",
+    18: "Temperate, moderate; wet",
+    19: "Temperate, cool; dry",
+    20: "Temperate, cool; moist",
+    21: "Temperate, cool; wet",
+    22: "Cold, no permafrost; dry",
+    23: "Cold, no permafrost; moist",
+    24: "Cold, no permafrost; wet",
+    25: "Dominantly very steep terrain",
+    26: "Land with severe soil/terrain limitations",
+    27: "Land with ample irrigated soils",
+    28: "Dominantly hydromorphic soils",
+    29: "Desert/Arid climate",
+    30: "Boreal/Cold climate",
+    31: "Arctic/Very cold climate",
+    32: "Dominantly built-up land",
+    33: "Dominantly water"
+}
 
-# By enabling caching this can be cached locally
-@cache(cache=True, cache_args=[])
-def get_country_gdf():
-    """Get the country GeoDataFrame."""
+
+##################################################################
+# Region utilities
+##################################################################
+
+
+def clean_region_name(name):
+    """Clean a name to make matching easier and replace non-English characters."""
+    # unsupported region names
+    name = str(name)  # convert to string
+    if name in [None, 'none', 'None', '', '_', '-', '-_', ' ']:
+        return 'no_region'
+    name = name.lower().replace(' ', '_').strip()
+    name = name.replace('&', 'and')
+    # Normalize unicode string to remove accents, e.g., 'são_tomé_and_príncipe' -> 'sao_tome_and_principe'
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+
+    # If region is country data, reconcile the name
+    name = reconcile_country_name(name)
+    return name
+
+
+def get_combined_region_name(region):
+    """Get the standard name of a combined region (e.g., 'country-agroecological_zone').
+
+    Assumes that regions are passed in as a list of strings.
+    """
+    if isinstance(region, str):
+        return region
+    return '-'.join([clean_region_name(x) for x in region])
+
+
+def reconcile_country_name(country_name):
+    """Maps a country name variant to its standardized name.
+
+    Unsupported territories/regions are mapped to 'no_region'.
+
+    Args:
+        country_name: String with a country name variant
+
+    Returns:
+        str: Standardized country name or 'no_region'
+    """
+    # Define standardized mappings for recognized countries
+    standardization_map = {
+        # China variants
+        'ch-in': 'china',
+        "people's_republic_of_china": 'china',
+
+        # Cape Verde variants
+        'cabo_verde': 'cape_verde',
+
+        # Central African Republic variants
+        'central_african_rep': 'central_african_republic',
+
+        # Congo variants
+        'congo,_dem_rep_of_the': 'democratic_republic_of_the_congo',
+        'congo,_rep_of_the': 'republic_of_the_congo',
+
+        # Czech Republic variants
+        'czech_republic': 'czechia',
+
+        # Ivory Coast variants
+        "cote_d'ivoire": 'ivory_coast',
+
+        # Timor-Leste variants
+        'east_timor': 'timor-leste',
+
+        # Eswatini variants
+        'swaziland': 'eswatini',
+
+        # The Bahamas variants
+        'bahamas,_the': 'the_bahamas',
+
+        # The Gambia variants
+        'gambia,_the': 'the_gambia',
+
+        # Korea variants
+        'korea,_north': 'north_korea',
+        'korea,_south': 'south_korea',
+
+        # Macedonia variants
+        'macedonia': 'north_macedonia',
+
+        # Marshall Islands variants
+        'marshall_is': 'marshall_islands',
+
+        # Micronesia variants
+        'micronesia,_fed_states_of': 'federated_states_of_micronesia',
+
+        # Myanmar variants
+        'burma': 'myanmar',
+
+        # Solomon Islands variants
+        'solomon_is': 'solomon_islands',
+
+        # Saint variants (abbreviated)
+        'st_kitts_and_nevis': 'saint_kitts_and_nevis',
+        'st_lucia': 'saint_lucia',
+        'st_vincent_and_the_grenadines': 'saint_vincent_and_the_grenadines',
+
+        # US variants
+        'united_states': 'united_states_of_america',
+
+        # Falkland Islands variants
+        'falkland_islands_(uk)': 'falkland_islands',
+
+        # Palestine variants
+        'gaza_strip': 'palestine',
+        'west_bank': 'palestine',
+    }
+
+    # # Disputed territories and dependent territories to map to 'no_region'
+    # unsupported_regions = [
+    #     # Disputed territories
+    #     'abyei', 'aksai_chin', 'ashmore_and_cartier_islands', 'demchok',
+    #     'dragonja', 'dramana-shakatoe', 'isla_brasilera', 'kalapani',
+    #     'koualou', 'liancourt_rocks', "no_man's_land", 'paracel_is',
+    #     'senkakus', 'siachen-saltoro', 'siachen_glacier', 'somaliland',
+    #     'spratly_is', 'turkish_republic_of_northern_cyprus',
+    #     'sanafir_and_tiran_is.',
+    #     # Dependent territories - for now, we will leave territories as they are
+    #     'american_samoa', 'anguilla', 'aruba', 'bermuda',
+    #     'british_virgin_islands', 'cayman_islands', 'cook_islands', 'curacao',
+    #     'faroe_islands', 'french_polynesia', 'french_southern_and_antarctic_lands',
+    #     'guam', 'guernsey', 'hong_kong', 'isle_of_man', 'jersey',
+    #     'macau', 'montserrat', 'new_caledonia', 'niue', 'norfolk_island',
+    #     'northern_mariana_islands', 'pitcairn_islands', 'puerto_rico',
+    #     'saint_barthelemy', 'saint_helena', 'saint_martin', 'saint_pierre_and_miquelon',
+    #     'sint_maarten', 'turks_and_caicos_islands', 'united_states_virgin_islands',
+    #     'wallis_and_futuna', 'aland', 'british_indian_ocean_territory',
+    #     'heard_island_and_mcdonald_islands', 'australian_indian_ocean_territories',
+    #     'south_georgia_and_the_south_sandwich_islands'
+    # }
+
+    # First check if it has a standardization mapping
+    if country_name in standardization_map:
+        return standardization_map[country_name]
+    # Then check if it's explicitly unsupported
+    # For now, we will leave territories as they are
+    # elif country_name in unsupported_regions:
+        # return 'no_region'
+    # Otherwise keep as-is (assumed to be a recognized country)
+    else:
+        return country_name
+
+
+@cache()
+def global_regions_gdf():
+    """A datasource that maps countries to their global administrative regions."""
     # World geojson downloaded from https://geojson-maps.kyd.au
     filepath = 'gs://sheerwater-public-datalake/regions/world_50m.geojson'
     country_gdf = gpd.read_file(load_object(filepath))
@@ -104,77 +295,214 @@ def get_country_gdf():
     # Clean string columns for consistent, lowercase, and underscore-separated names
     for col in ["name_en", "continent", "region_un", "subregion", "region_wb"]:
         cleaned_col = "country" if col == "name_en" else col
-        country_gdf[cleaned_col] = country_gdf[col].apply(clean_name)
+        country_gdf[cleaned_col] = country_gdf[col].apply(clean_region_name)
     return country_gdf
 
 
-def get_region_level(region):
-    """Get the level of a region and the regions at that level."""
-    country_gdf = get_country_gdf(memoize=True)
-    if region is None:
-        region = 'global'
+def global_regions_to_country():
+    """A helful mapping of global administrative regions to a list of their constituent countries.
 
-    # Find which region level the region is in, and get a list of regions at that level
-    # If a region could possibly match several region levels, it will return the first
-    found = False
-    for level in standard_regions:
-        if found:
-            break
-        if region == level:
-            region_level = level
-            regions = country_gdf[region_level].unique()
-            found = True
-        if region in country_gdf[level].unique():
-            region_level = level
-            regions = [region]
-            found = True
-    for level, data in custom_regions.items():
-        if found:
-            break
-        if region == level:
-            region_level = level
-            regions = data.keys()
-            found = True
-        elif region in data.keys():
-            region_level = level
-            regions = [region]
-            found = True
-    if not found:
-        raise ValueError(f"Region {region} not found")
-    return region_level, regions
+    Derived from the global_regions_gdf.
+
+    For example,
+    {
+        'continent': {
+            'asia': ['china', 'india', 'japan'],
+            'europe': ['france', 'germany', 'italy'],
+        },
+        'region_un': {
+            'americas': ['united_states', 'canada'],
+        },
+    }
+    """
+    df = global_regions_gdf()
+    global_regions_to_country = {}
+    for region in global_regions:
+        global_regions_to_country[region] = {}
+        values = set(df[region])
+        for val in values:
+            countries = df[df[region] == val]['country']
+            countries = [x for x in countries if x != 'no_region']
+            global_regions_to_country[region][val] = set(countries)
+    return global_regions_to_country
 
 
-def region_data(region):
-    """Get the boundary shapefile for a given region.
+@cache(cache_args=['admin_level'])
+def admin_level_gdf(admin_level=2, remote=False):
+    """A datasoruce of administrative boundaries at a given level.
 
     Args:
-        region (str): The region to get the data for. Can be either
-            a region level or a specific region within that level. So, for example,
-            both 'countries' and 'indonesia' are valid regions.
+        admin_level(int): The admin level to get the data for. Must be
+            an admin level(e.g., 0, 1, 2).
+        remote(bool): Whether to read the data from the remote filesystem.
 
     Returns:
-        gdf (gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:
+        gdf(gpd.GeoDataFrame): A GeoDataFrame for the admin level, with columns:
+            - 'admin_name': the name of the admin level,
+            - 'geometry': its geometry as a shapely object.
+    """
+    # World lo-res admin boundaries at the county level downloaded from https://github.com/stephanietuerk/admin-boundaries
+    if admin_level not in [0, 1, 2]:
+        raise ValueError(f"Invalid admin level: {admin_level}")
+    dir = {
+        0: 'Admin0_simp50',
+        1: 'Admin1_simp10',
+        2: 'Admin2_simp05',
+    }
+    if remote:
+        path = f'gs://sheerwater-public-datalake/regions/admin-boundaries/lo-res/{dir[admin_level]}'
+    else:
+        path = f'../admin-boundaries/lo-res/{dir[admin_level]}'
+
+    if remote:
+        fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
+        files = fs.ls(path)
+    else:
+        import os
+        files = os.listdir(path)
+    dfs = []
+    for file in files:
+        if remote:
+            sub = gpd.read_file(load_object(file))
+        else:
+            sub = gpd.read_file(os.path.join(path, file))
+        if 'Name' in sub:
+            # There is an inconsistency in the original datasource where the column
+            # is labeled 'Name' instead of 'NAME_0'
+            sub = sub.rename(columns={'Name': 'NAME_0'})
+
+        if 'GID_0' in sub and str((sub['GID_0'].iloc[0])) == 'MCO':
+            # Fix an error in the origional datasource where MCO is labeled as Macao, instead of Monaco
+            sub['NAME_0'] = 'Monaco'
+        dfs.append(sub)
+    # Concat geopandas dataframes
+    df = gpd.GeoDataFrame(pd.concat(dfs, ignore_index=True))
+    df = df.set_geometry('geometry')
+
+    # Clean and construct 'admin_name' according to admin level
+    df['clean0'] = df['NAME_0'].apply(clean_region_name)
+    if admin_level == 0:
+        df['admin_name'] = df['clean0']
+    if admin_level == 1:
+        df['clean1'] = df['NAME_1'].apply(clean_region_name)
+        df['admin_name'] = df['clean0'] + '-' + df['clean1']
+    elif admin_level == 2:
+        df['clean1'] = df['NAME_1'].apply(clean_region_name)
+        df['clean2'] = df['NAME_2'].apply(clean_region_name)
+        df['admin_name'] = df['clean0'] + '-' + df['clean1'] + '-' + df['clean2']
+
+    # Ensure that all countries were found
+    if admin_level == 0 and not len(np.unique(df['admin_name'])) == len(files):
+        raise ValueError(f"Some countries were not found in the admin level {admin_level} data")
+    return df
+
+
+@cache(memoize=True)
+def admin_levels_and_labels():
+    """A dictionary of region levels and their labels, as small as possible to enable fast lookup."""
+    labels_dict = {}
+    # Populate all admin level regions
+    for region in admin_level_regions:
+        sub = admin_level_gdf(admin_level=int(region.split('_')[-1]))
+        labels_dict[region] = sorted(set(sub['admin_name']))
+
+    # Add all the global regions
+    df = global_regions_gdf()
+    for region in global_regions:
+        labels_dict[region] = sorted(set(df[region]))
+    return labels_dict
+
+
+def get_region_level(region):
+    """For a given region, return which level that region is at and all regions at that level.
+
+    If the region is a specific instance of a region level, return the level and only
+        that region instance.
+
+    Args:
+        region(str): The region to get the level of. 'country' is accepted as an alias for 'admin_level_0'.
+
+    Returns:
+        level(str): The level of the region.
+        regions(list): All regions at that level.
+    """
+    if region is None:
+        return 'global', ['global']
+
+    region = clean_region_name(region)
+    # Normalize 'country' to 'admin_level_0'
+    if region == 'country':
+        region = 'admin_level_0'
+
+    # Iterate through the standard regions dicts
+    # Will return the first level that the region is found at
+    labels_dict = admin_levels_and_labels()
+    for level, locations in labels_dict.items():
+        if region == level:
+            return level, locations
+        elif region in locations:
+            return level, [region]
+
+    for level, data in custom_regions.items():
+        if region == level:
+            return level, data.keys()
+        elif region in data.keys():
+            return level, [region]
+
+    # Now check the custom region layers
+    if region == 'agroecological_zone':
+        return 'agroecological_zone', [clean_region_name(x) for x in agroecological_zone_names.values()]
+    elif region in [clean_region_name(x) for x in agroecological_zone_names.values()]:
+        return 'agroecological_zone', [region]
+    else:
+        raise ValueError(f"Invalid region: {region}")
+
+
+@cache(cache_args=['region_level'])
+def full_admin_data(region_level):
+    """Get the boundary shapefile for a given region level.
+
+    Args:
+        region_level(str): The region level to get the data for . Must be
+            a region level(e.g., 'country', 'admin_level_1', 'continent', 'meteorological_zone')
+
+    Returns:
+        gdf(gpd.GeoDataFrame): A GeoDataFrame for the region, with columns:
             - 'region_name': the name of the region,
             - 'region_geometry': its geometry as a shapely object.
     """
-    # Standardize input region name
-    region = clean_name(region)
-
-    # Get the region data needed to form the GeoDataFrame
-    country_gdf = get_country_gdf(memoize=True)
-    region_level, regions = get_region_level(region)
-
-    # Form the GeoDataFrame for the region
-    region_names = []
-    region_geometries = []
-    for reg in regions:
-        if region_level in standard_regions:
-            # Handle standard regions
+    if region_level in admin_level_regions:
+        # Get all region objects in the regions list
+        gdf = admin_level_gdf(int(region_level.split('_')[-1]))
+        gdf = gdf[['admin_name', 'geometry']]
+        gdf = gdf.rename(columns={
+            'admin_name': 'region_name',
+            'geometry': 'region_geometry',
+        })
+    elif region_level in global_regions:
+        # Need to merge the countries invovled in a global region into a single geometry
+        # Need to use the global regions df here, otherwise there are gaps in the
+        # geometry coverage.
+        country_gdf = global_regions_gdf()
+        global_mapping = global_regions_to_country()
+        region_names = []
+        region_geometries = []
+        regions = admin_levels_and_labels()[region_level]
+        for reg in regions:
+            countries = global_mapping[region_level][reg]
+            region_gdf = country_gdf[country_gdf['country'].isin(countries)]
+            geometry = region_gdf.geometry.union_all()
             region_names.append(reg)
-            geometry = country_gdf[country_gdf[region_level] == reg].geometry.union_all()
             region_geometries.append(geometry)
-        else:
-            # Handle custom regions
+        gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
+    elif region_level in custom_regions:
+        # Custom regions are defined by a list of countries or a lat/lon bounding box
+        # Need to merge the countries invovled in a custom region into a single geometry
+        admin_0 = admin_level_gdf(admin_level=0)
+        region_names = []
+        region_geometries = []
+        regions = custom_regions[region_level].keys()
+        for reg in regions:
             data = custom_regions[region_level][reg]
             if 'lats' in data and 'lons' in data:
                 # Create a shapefile (GeoDataFrame) from lat/lon boundaries as a rectangular Polygon
@@ -185,204 +513,118 @@ def region_data(region):
                 region_names.append(reg)
                 region_geometries.append(region_box)
             elif 'countries' in data:
-                countries = [clean_name(country) for country in data['countries']]
-                region_gdf = country_gdf[country_gdf['country'].isin(countries)]
+                countries = [clean_region_name(country) for country in data['countries']]
+                region_gdf = admin_0[admin_0['admin_name'].isin(countries)]
                 if len(countries) != len(region_gdf):
-                    raise ValueError(f"Some countries were not found: {set(countries) - set(region_gdf['country'])}")
+                    raise ValueError(
+                        f"Some countries were not found: {set(countries) - set(region_gdf['country'])}")
                 geometry = region_gdf.geometry.union_all()
                 region_names.append(reg)
                 region_geometries.append(geometry)
             else:
                 raise ValueError(f"Poorly formatted custom region entry: {data}")
+        gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
+    else:
+        raise ValueError(f"Invalid region level: {region_level}")
 
-    gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
+    # Set the geometry and CRS
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
     return gdf
 
 
-def to_name(name):
-    """Convert a name to a more readable format."""
-    if name == 'mae':
-        return 'Mean Absolute Error'
-    elif name == 'mse':
-        return 'Mean Squared Error'
-    elif name == 'rmse':
-        return 'Root Mean Squared Error'
-    elif name == 'bias':
-        return 'Bias'
-    elif name == 'crps':
-        return 'Continuous Ranked Probability Score'
-    elif name == 'brier':
-        return 'Brier Score'
-    elif name == 'smape':
-        return 'Symmetric Mean Absolute Percentage Error'
-    elif name == 'mape':
-        return 'Mean Absolute Percentage Error'
-    elif name == 'seeps':
-        return 'Spatial Error in Ensemble Prediction Scale'
-    elif 'heidke' in name:
-        return f'Heidke Skill Score at {", ".join([mm.split("-")[-1] for mm in name.split("-")[:-1]])} mm'
-    elif 'pod' in name:
-        return f'Probability of Detection at {name.split("-")[-1]} mm'
-    elif 'far' in name:
-        return f'False Alarm Rate at {name.split("-")[-1]} mm'
-    elif 'ets' in name:
-        return f'Equitable Threat Score at {name.split("-")[-1]} mm'
-    elif 'csi' in name:
-        return f'Critical Success Index at {name.split("-")[-1]} mm'
-    elif 'frequency_bias' in name:
-        return f'Frequency Bias at {name.split("-")[-1]} mm'
-    elif name == 'acc':
-        return 'Anomaly Correlation Coefficient'
-    elif name == 'pearson':
-        return 'Pearson Correlation'
-    else:
-        return name
+def admin_region_data(region):
+    """Get geopandas GeoDataFrame with the geometry for a given admin region.
 
-
-def bounds(variable):
-    """Get the bounds for a variable."""
-    if variable == 'mae':
-        return (0.0, None)
-    elif variable == 'mse':
-        return (0.0, None)
-    elif variable == 'rmse':
-        return (0.0, None)
-    elif variable == 'bias':
-        return (None, None)
-    elif variable == 'crps':
-        return (0.0, None)
-    elif variable == 'brier':
-        return (0.0, None)
-    elif variable == 'smape':
-        return (0.0, None)
-    elif variable == 'mape':
-        return (0.0, None)
-    elif variable == 'seeps':
-        return (0.0, 3.0)
-    elif 'heidke' in variable:
-        return (0.0, 1.0)
-    elif 'pod' in variable:
-        return (0.0, 1.0)
-    elif 'far' in variable:
-        return (0.0, 1.0)
-    elif 'ets' in variable:
-        return (0.0, 1.0)
-    elif 'csi' in variable:
-        return (0.0, 1.0)
-    elif 'frequency_bias' in variable:
-        return (None, None)
-    elif variable == 'acc':
-        return (-1.0, 1.0)
-    elif variable == 'pearson':
-        return (-1.0, 1.0)
-    elif variable == 'coverage':
-        return (0.0, None)
-    else:
-        return (None, None)
-
-
-def plot_by_region(ds, region, variable, file_string='none', title='Regional Map'):
-    """Plot a variable from an xarray dataset by region.
+    A lightweight wrapper around full_admin_data that enables a user to pass either a
+    high level region level or a specific region within that level.
+    For example, both 'country' and 'indonesia' are valid region arguments.
 
     Args:
-        ds: xarray DataArray or Dataset with a 'region' coordinate
-        region: Region level or specific region name to plot
-        variable: Variable name if ds is a Dataset (optional)
-        file_string: File path string for saving the plot
-        title: Title for the plot
+        region(str): The region to get the data for . Must be
+            a region level(e.g., 'country', 'admin_level_1') or a specific region within that level(e.g., 'indonesia', 'kenya').
+            'country' is accepted as an alias for 'admin_level_0'.
+            For example, both 'country' and 'indonesia' are valid region arguments.
 
     Returns:
-        matplotlib axes object
+        gdf(geopandas.GeoDataFrame): A GeoDataFrame for the region, with columns:
+            - 'region_name': the name of the region,
+            - 'region_geometry': its geometry as a shapely object.
     """
-    import matplotlib.pyplot as plt
-    import numpy as np
+    region_level, regions = get_region_level(region)
+    full_data = full_admin_data(region_level)
+    return full_data[full_data['region_name'].isin(regions)]
 
-    # Get the region GeoDataFrame and metric bounds
-    gdf = region_data(region)
-    # Extract the data values
-    try:
-        data = ds[variable]
-    except KeyError:
-        data = ds
 
-    # Convert to numpy array if it's a dask array
-    if hasattr(data, 'compute'):
-        data = data.compute()
+def clip_admin_region(ds, admin_region, region_dim=None, lon_dim='lon', lat_dim='lat', drop=True):
+    """Clip a dataset to a region.
 
-    # Extract values for each region in the GeoDataFrame
-    values = []
-    for region_name in gdf.region_name:
-        try:
-            # Select the region and extract the scalar value
-            region_value = data.sel(region=region_name)
-            # Handle case where selection might still have dimensions
-            if region_value.size > 1:
-                # If there are multiple values, take the first or mean
-                region_value = float(region_value.values.flatten()[0])
-            else:
-                region_value = float(region_value.values)
-            values.append(region_value)
-        except (KeyError, ValueError):
-            # Region not found in dataset, use NaN
-            values.append(np.nan)
+    Args:
+        ds (xr.Dataset): The dataset to clip to a specific region.
+        admin_region (str): The admin region to clip to, e.g., 'kenya', 'michigan'
+        region_dim (str): The name of the region dimension. If None, region data is fetched from the region registry.
+        lon_dim (str): The name of the longitude dimension.
+        lat_dim (str): The name of the latitude dimension.
+        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
+    """
+    # No clipping needed
+    if admin_region == 'global':
+        return ds
 
-    # Add values to GeoDataFrame
-    gdf['value'] = values
+    if region_dim is not None:
+        # If we already have a region dimension, just select the region
+        ds = ds.sel(**{region_dim: admin_region})
+    else:
+        region_df = admin_region_data(region=admin_region)
 
-    # Calculate 95th percentile for vmax (excluding NaNs)
-    vmin, vmax = bounds(variable)
-    values_array = np.array(values)
-    valid_values = values_array[~np.isnan(values_array)]
-    if vmin is None:
-        vmin = np.percentile(valid_values, 5)
-    if vmax is None:
-        vmax = np.percentile(valid_values, 95)
+        if len(region_df) != 1:
+            raise ValueError(f"Region {admin_region} has multiple geometries. Cannot clip.")
+        # Set up dataframe for clipping
+        ds = ds.rio.write_crs("EPSG:4326")
+        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+        # Clip the grid to the boundary of Shapefile
+        ds = ds.rio.clip(region_df.geometry, region_df.crs, drop=drop)
+    return ds
 
-    # Reproject to a better projection for world maps (Robinson projection)
-    # Robinson is good for world maps, preserves area relationships well
-    gdf_projected = gdf.to_crs('ESRI:54030')  # Robinson projection
 
-    # Create the plot
-    fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+def clip_region(ds, region, grid, region_dim=None, drop=True):
+    """Clip a dataset to a region.
 
-    # Plot the choropleth map (without legend, we'll add it manually)
-    gdf_projected.plot(column='value', ax=ax, legend=False,
-                       cmap='viridis', edgecolor='black', linewidth=0.5,
-                       vmin=vmin,
-                       vmax=vmax,
-                       missing_kwds={'color': 'red', 'edgecolor': 'black'})
+    Args:
+        ds(xr.Dataset): The dataset to clip to a specific region.
+        region(str, list): The region to clip to. A str or list of strs.
+        grid(str): The grid to clip to.
+        region_dim(str): The name of the region dimension. If None, region data is fetched from the region registry.
+        drop(bool): Whether to drop the original coordinates that are NaN'd by clipping.
+    """
+    if not isinstance(region, list):
+        region = [region]
+    # No clipping needed
+    if region == ['global']:
+        return ds
 
-    # Create colorbar with same height as plot and larger tick labels
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=0.1)
-    sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis,
-                               norm=plt.Normalize(vmin=vmin, vmax=vmax))
-    sm.set_array([])
-    cbar = plt.colorbar(sm, cax=cax)
-    cbar.ax.tick_params(labelsize=12)
+    if region_dim is not None:
+        # If we already have a region dimension, just select the region
+        return ds.where(ds[region_dim] == get_combined_region_name(region), drop=drop)
 
-    # Remove axis labels (not meaningful in projected coordinates)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
+    # Get the high level region for each region in the list
+    promoted_regions = [get_region_level(level)[0] for level in region]
+    if any(x == y for x, y in zip(promoted_regions, region)):
+        raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
 
-    # Set title
-    ax.set_title(title, fontsize=14, pad=10)
+    # Sort the region names by the promoted region levels alphabetically
+    sort_idx = np.argsort(promoted_regions)
+    promoted_regions = [promoted_regions[i] for i in sort_idx]
+    region = [region[i] for i in sort_idx]
 
-    plt.tight_layout()
+    # Form concatonated region string
+    region = [clean_region_name(x) for x in region]
+    region_str = get_combined_region_name(region)
+    from sheerwater.regions_layers import region_labels
+    region_ds = region_labels(space_grouping=promoted_regions, grid=grid)
 
-    # Ensure colorbar height matches plot height exactly
-    ax_pos = ax.get_position()
-    cax_pos = cax.get_position()
-    cax.set_position([cax_pos.x0, ax_pos.y0, cax_pos.width, ax_pos.height])
-    # Save
-    if not os.path.exists('metric_maps'):
-        os.makedirs('metric_maps')
-    plt.savefig(f'metric_maps/{variable}_{region}_{file_string}_map.png')
-    return ax
+    # Rename region to a dummy name to avoid conflicts while clipping
+    region_ds = region_ds.rename({region_ds.region.name: '_clip_region'})
+    ds = ds.where((region_ds._clip_region == region_str).compute(), drop=drop)
+    ds = ds.drop_vars('_clip_region')
+    return ds

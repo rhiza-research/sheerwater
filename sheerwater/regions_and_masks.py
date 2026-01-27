@@ -2,12 +2,11 @@
 import os
 
 import cdsapi
-import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils import cdsapi_secret, clip_region, get_grid, get_grid_ds, region_data, lon_base_change
+from sheerwater.utils import (cdsapi_secret, get_grid, get_grid_ds, lon_base_change)
 
 
 @cache(cache_args=['grid'])
@@ -72,6 +71,7 @@ def land_sea_mask(grid="global1_5"):
     os.remove(path)
     return ds
 
+
 @cache(cache_args=['mask', 'grid'], memoize=True)
 def spatial_mask(mask, grid='global1_5', region='global'):
     """Get a mask dataset.
@@ -89,10 +89,10 @@ def spatial_mask(mask, grid='global1_5', region='global'):
     if mask is None:
         return get_grid_ds(grid)
     elif 'lsm' in mask:
-        # Import here to avoid circular imports
         if grid == 'global1_5' or grid == 'global0_25':
             mask_ds = land_sea_mask(grid=grid).compute()
         else:
+            # Import here to avoid circular imports
             # TODO: Should implement a more resolved land-sea mask for the other grids
             from sheerwater.utils.data_utils import regrid
             mask_ds = land_sea_mask(grid='global0_25')
@@ -108,53 +108,4 @@ def spatial_mask(mask, grid='global1_5', region='global'):
         raise NotImplementedError("Only land-sea or None mask is implemented.")
 
 
-
-@cache(cache_args=['grid', 'space_grouping', 'region'],
-       backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def region_labels(grid='global1_5', space_grouping='country', region='global'):
-    """Generate a dataset with a region coordinate at a specific space grouping.
-
-    Available space groupings are
-     - 'country', 'continent', 'subregion', 'region_un', 'region_wb', 'meteorological_zone',
-        'hemisphere', 'global', and 'sheerwater_region'.
-
-    Args:
-        grid (str): The grid to fetch the data at.  Note that only
-            the resolution of the specified grid is used.
-        space_grouping (str):
-            - country, continent, subregion, region_un, region_wb, meteorological_zone,
-              hemisphere, sheerwater_region
-        region (str): The region to clip to. A specific instance of a space group
-            -global, or any specific instance of the space groupings above, e.g., africa
-
-
-    Returns:
-        xarray.Dataset: Dataset with added region coordinate
-    """
-    # Get the list of regions for the specified admin level
-    region_df = region_data(space_grouping)
-
-    # Get the grid dataframe
-    ds = get_grid_ds(grid)
-    # Assign a dummy region coordinate to all grid cells
-    # Fixed data type of strings of length 40
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
-    if region != 'global':
-        ds = clip_region(ds, region=region)
-
-    # Loop through each region and label grid cells
-    for i, rn in region_df.iterrows():
-        print(i+1, '/', len(region_df.region_name), rn.region_name)
-        # Clip the grid to the boundary of Shapefile
-        world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
-        #  Add geometry to the dataframe and clip
-        world_ds = world_ds.rio.write_crs("EPSG:4326")
-        world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
-        region_ds = world_ds.rio.clip(rn, region_df.crs, drop=False)
-        # Assign the region name to the region coordinate
-        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
-
-    return ds
-
-
-__all__ = ['land_sea_mask', 'region_labels']
+__all__ = ['land_sea_mask', 'spatial_mask']

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from google.cloud import secretmanager
 
-#import salientsdk as sk
+# import salientsdk as sk
 from nuthatch import config_parameter
 
 
@@ -30,6 +30,7 @@ def postgres_write_password():
 
     return key
 
+
 def huggingface_read_token():
     """Get a postgres read password."""
     client = secretmanager.SecretManagerServiceClient()
@@ -39,7 +40,6 @@ def huggingface_read_token():
     key = response.payload.data.decode("UTF-8")
 
     return key
-
 
 
 def postgres_read_password():
@@ -63,11 +63,11 @@ def cdsapi_secret():
         client = secretmanager.SecretManagerServiceClient()
 
         response = client.access_secret_version(
-            request={"name": "projects/750045969992/secrets/cdsapi-beta-geneveive/versions/latest"})
+            request={"name": "projects/750045969992/secrets/cdsapi-key/versions/latest"})
         key = response.payload.data.decode("UTF-8")
 
         # Write it to a file
-        url = "https://cds-beta.climate.copernicus.eu/api"
+        url = "https://cds.climate.copernicus.eu/api"
         cdsapirc1 = f"url: {url}"
         cdsapirc2 = f"key: {key}"
 
@@ -154,7 +154,7 @@ def salient_secret():
     return general_secret("salient-api")
 
 
-#def salient_auth(func):
+# def salient_auth(func):
 #    """Decorator to run function with Salient API login permissions."""
 #    def wrapper(*args, **kwargs):
 #        # See if there are extra function args to run this remotely

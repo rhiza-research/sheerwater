@@ -1,11 +1,7 @@
-"""Space and geography utility functions for all parts of the data pipeline."""
+"""Space utility functions for all parts of the data pipeline."""
 import numpy as np
-import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 import logging
-
-from .region_utils import region_data
-
 logger = logging.getLogger(__name__)
 
 
@@ -86,42 +82,6 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def clip_region(ds, region, region_dim=None, region_df=None, lon_dim='lon', lat_dim='lat', drop=True):
-    """Clip a dataset to a region.
-
-    Args:
-        ds (xr.Dataset): The dataset to clip to a specific region.
-        region (str): The region to clip to. One of:
-            - africa, conus, global
-        region_dim (str): The name of the region dimension. If None, region data is fetched from the region registry.
-        region_df (geopandas.GeoDataFrame): The region data to clip to. If None, is fetched from the region registry.
-        lon_dim (str): The name of the longitude dimension.
-        lat_dim (str): The name of the latitude dimension.
-        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
-    """
-    # No clipping needed
-    if region == 'global':
-        return ds
-
-    if region_dim is not None:
-        # If we already have a region dimension, just select the region
-        ds = ds.sel(**{region_dim: region})
-    else:
-        # If we don't have a region dimension we need to clip to the region
-        if region_df is None:
-            # If not passed, fetch the region data from the region registry
-            region_df = region_data(region)
-
-        if len(region_df) != 1:
-            raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
-        # Set up dataframe for clipping
-        ds = ds.rio.write_crs("EPSG:4326")
-        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
-        # Clip the grid to the boundary of Shapefile
-        ds = ds.rio.clip(region_df.geometry, region_df.crs, drop=drop)
-    return ds
-
-
 def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
     """Apply a mask to a dataset.
 
@@ -172,7 +132,7 @@ def snap_point_to_grid(point, grid_size, offset):
     return round(float(point+offset)/grid_size) * grid_size - offset
 
 
-def get_grid_ds(grid_id, base="base180", region='global'):
+def get_grid_ds(grid_id, base="base180"):
     """Get a dataset equal to ones for a given region."""
     lons, lats, _, _ = get_grid(grid_id, base=base)
     data = np.ones((len(lons), len(lats)))
@@ -180,8 +140,6 @@ def get_grid_ds(grid_id, base="base180", region='global'):
         {"mask": (['lon', 'lat'], data)},
         coords={"lon": lons, "lat": lats}
     )
-    if region != 'global':
-        ds = clip_region(ds, region=region)
     return ds
 
 
@@ -228,8 +186,6 @@ def get_grid(grid, base="base180"):
         lons = np.sort(lons)
 
     # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
-    lons = np.round(lons, 5).astype(np.float32)
-    lats = np.round(lats, 5).astype(np.float32)
     return lons, lats, grid_size, offset
 
 

@@ -126,6 +126,9 @@ select = ["E", "F", "W", "D", "ARG"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.format]
+indent-style = "space"
+
 [tool.nuthatch]
 filesystem = "gs://sheerwater-datalake/caches"
 host = "postgres.shared.rhizaresearch.org"
