@@ -33,22 +33,26 @@ def metric(start_time, end_time, variable, agg_days, forecast, truth,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'station_data',
-                   'time_grouping', 'grid', 'mask', 'region', 'missing_thresh'])
+                   'time_grouping', 'space_grouping', 'grid', 'mask', 'region', 'missing_thresh'])
 def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, station_data='ghcn_avg',
              time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm',
              region='global', missing_thresh=0.9):  # noqa: ARG001
     """Compute coverage of a dataset."""
     # Get the station data over the desired period
+    # data will have dimensions time (# of agg_days periods) x space (# grid cells)
     station_data_fn = get_data(station_data)
     data = station_data_fn(start_time, end_time, variable, agg_days=agg_days,
-                           grid=grid, mask=None, region=region)
+                           grid=grid, mask=None, region=region, missing_thresh=missing_thresh)
 
     # indicate time/space points that are not null (ie adequate coverage)
+    # an agg_day - grid cell will be covered if at least one station covers 90% of days
     data['non_null'] = data[variable].notnull()
     data['indicator'] = xr.ones_like(data[variable])
-    data = groupby_time(data, time_grouping=time_grouping, agg_fn='mean')
 
-    # mask the data
+    # count of agg_days periods covered in a time grouping at each cell.
+    data = groupby_time(data, time_grouping=time_grouping, agg_fn='sum')
+
+    # get spatial mask for data
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
     if region != 'global':
         mask_ds = clip_region(mask_ds, region=region)
