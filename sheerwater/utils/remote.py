@@ -70,12 +70,11 @@ def start_remote(remote_name=None, remote_config=None):
     coiled_default_options = {
         'name': default_name,
         'n_workers': [3, 8],
-        'idle_timeout': "60 minutes",
+        'idle_timeout': "120 minutes",
         'scheduler_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'worker_vm_types': ['c2-standard-8', 'c3-standard-8'],
         'spot_policy': 'spot_with_fallback',
-        'environ': {'NUTHATCH_ALLOW_INSTALLED_PACKAGE_CONFIGURATION': 'True'},
-        'use_best_zone': True,
+        'environ': {'NUTHATCH_ALLOW_INSTALLED_PACKAGE_CONFIGURATION': 'True'}
     }
 
     if remote_name and isinstance(remote_name, str):
@@ -92,9 +91,7 @@ def start_remote(remote_name=None, remote_config=None):
             remote_config = [remote_config]
 
         for conf in remote_config:
-            if isinstance(conf, dict):
-                coiled_default_options.update(conf)
-            elif isinstance(conf, str) and conf in config_options:
+            if conf in config_options:
                 coiled_default_options.update(config_options[conf])
             else:
                 print(f"Unknown preset remote config option {conf}. Skipping.")
