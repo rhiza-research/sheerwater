@@ -334,12 +334,12 @@ def admin_level_gdf(admin_level=2, remote=False):
     Args:
         admin_level(int): The admin level to get the data for. Must be
             an admin level(e.g., 0, 1, 2).
+        remote(bool): Whether to read the data from the remote filesystem.
 
     Returns:
         gdf(gpd.GeoDataFrame): A GeoDataFrame for the admin level, with columns:
             - 'admin_name': the name of the admin level,
             - 'geometry': its geometry as a shapely object.
-        remote(bool): Whether to read the data from the remote filesystem.
     """
     # World lo-res admin boundaries at the county level downloaded from https://github.com/stephanietuerk/admin-boundaries
     if admin_level not in [0, 1, 2]:
