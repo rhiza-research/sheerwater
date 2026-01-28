@@ -1,4 +1,5 @@
 """Spatial grouping and masking functionality for Sheerwater."""
+# ruff: noqa: E501 <- line too long, ignore for the long country list
 import gcsfs
 from functools import partial
 import geopandas as gpd
@@ -9,10 +10,17 @@ import numpy as np
 import xarray as xr
 from shapely.geometry import box
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
-# ruff: noqa: E501 <- line too long
 
 from nuthatch import cache
 from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object
+
+import warnings
+from rasterio.errors import ShapeSkipWarning
+
+warnings.filterwarnings(
+    "ignore",
+    category=ShapeSkipWarning,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +36,7 @@ custom_multinational_subdivisions_definitions = {
             'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
         },
         'nimbus_west_africa': {
-            'countries': ['benin', 'burkina_faso', 'cabo_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
+            'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
         },
         'conus': {
             'countries': ['united_states_of_america'],
@@ -109,6 +117,7 @@ def reconcile_country_name(country_name):
 
         # The Gambia variants
         'gambia,_the': 'the_gambia',
+        'gambia': 'the_gambia',
 
         # Korea variants
         'korea,_north': 'north_korea',
@@ -133,6 +142,9 @@ def reconcile_country_name(country_name):
         'st_kitts_and_nevis': 'saint_kitts_and_nevis',
         'st_lucia': 'saint_lucia',
         'st_vincent_and_the_grenadines': 'saint_vincent_and_the_grenadines',
+
+        # Virgin Islands variants
+        'virgin_islands,_u.s.': 'virgin_islands',
 
         # US variants
         'united_states': 'united_states_of_america',
@@ -168,6 +180,28 @@ def clean_spatial_subdivision_name(name):
 
 
 @cache(cache_args=['admin_level'])
+def admin_level_gdf_legacy(admin_level=2):
+    """A datasoruce of administrative boundaries at a given level.
+
+    Args:
+        admin_level(int): The admin level to get the data for. Must be
+            an admin level(e.g., 0, 1, 2).
+
+    Returns:
+        gdf(gpd.GeoDataFrame): A GeoDataFrame for the admin level, with columns:
+            - 'admin_name': the name of the admin level,
+            - 'geometry': its geometry as a shapely object.
+    """
+    # World geojson downloaded from https://www.geoboundaries.org/globalDownloads.html
+    if admin_level not in [0, 1, 2]:
+        raise ValueError(f"Invalid admin level: {admin_level}")
+    filepath = f'gs://sheerwater-public-datalake/regions/geoBoundariesCGAZ_ADM{admin_level}.geojson'
+    df = gpd.read_file(load_object(filepath))
+    df['admin_name'] = df['shapeName'].apply(clean_spatial_subdivision_name)
+    return df
+
+
+@cache(cache_args=['admin_level'])
 def admin_level_gdf(admin_level=2, remote=False):
     """A datasoruce of administrative boundaries at a given level.
 
@@ -184,8 +218,20 @@ def admin_level_gdf(admin_level=2, remote=False):
     # World lo-res admin boundaries at the county level downloaded from https://github.com/stephanietuerk/admin-boundaries
     if admin_level not in [0, 1, 2]:
         raise ValueError(f"Invalid admin level: {admin_level}")
+
+    if admin_level == 0:
+        # This low res admin 0 does not contain cape verde, for example
+        # path = 'gs://sheerwater-public-datalake/regions/low_res_admin_0.geojson'
+
+        # Use this source instead fo countries
+        path = 'gs://sheerwater-public-datalake/regions/world_50m.geojson'
+        df = gpd.read_file(load_object(path))
+        df['admin_name'] = df['name_en'].apply(clean_spatial_subdivision_name)
+        return df
+
+    # Otherwise, read from the admin-boundaries/lo-res directory
+    # Note that this data source does not contain cape verde, for example
     dir = {
-        0: 'Admin0_simp50',
         1: 'Admin1_simp10',
         2: 'Admin2_simp05',
     }
@@ -230,10 +276,6 @@ def admin_level_gdf(admin_level=2, remote=False):
         df['clean1'] = df['NAME_1'].apply(clean_spatial_subdivision_name)
         df['clean2'] = df['NAME_2'].apply(clean_spatial_subdivision_name)
         df['admin_name'] = df['clean0'] + '-' + df['clean1'] + '-' + df['clean2']
-
-    # Ensure that all countries were found
-    if admin_level == 0 and not len(np.unique(df['admin_name'])) == len(files):
-        raise ValueError(f"Some countries were not found in the admin level {admin_level} data")
     return df
 
 
@@ -285,7 +327,7 @@ def political_subdivision_geodataframe(level):
 
     Args:
         level(str): The level to get the data for . Must be
-            a level(e.g., 'country', 'admin_level_1', 'continent', 'meteorological_zone')
+            a level(e.g., 'country', 'admin_1', 'continent', 'meteorological_zone')
 
     Returns:
         gdf(gpd.GeoDataFrame): A GeoDataFrame for the level, with columns:
@@ -360,7 +402,7 @@ def political_subdivision_geodataframe(level):
 
 # zone labels from https://data.apps.fao.org/catalog/dataset/0bb7237a-6740-4ea3-b2a1-e26b1647e4e0
 agroecological_zone_names = {
-    0: "No data",
+    0: "No region",
     1: "Tropics, lowland; semi-arid",
     2: "Tropics, lowland; sub-humid",
     3: "Tropics, lowland; humid",
@@ -397,6 +439,26 @@ agroecological_zone_names = {
 }
 
 
+@cache(memoize=True)
+def spatial_subdivision_regions():
+    """A dictionary containing all the regions for each spatial subdivision for quick look up.
+
+    # TODO: could divide by level and perhaps quieried in order of size to make as fast as possible?
+    """
+    vals = {}
+    # First, check the political subdivisions
+    for subdivision in political_subdivisions.keys():
+        df = political_subdivision_geodataframe(subdivision)
+        vals[subdivision] = df['region_name'].values
+
+    for subdivision in other_subdivisions.keys():
+        if subdivision == 'agroecological_zone':
+            vals[subdivision] = [clean_spatial_subdivision_name(x) for x in agroecological_zone_names.values()]
+        else:
+            raise ValueError(f"Invalid subdivision: {subdivision}")
+    return vals
+
+
 def get_spatial_subdivision_level(name):
     """For a given spatial subdivision, return the level of that spatial subdivision.
 
@@ -422,18 +484,10 @@ def get_spatial_subdivision_level(name):
         return name, 0
 
     # First, check the political subdivisions
-    for subdivision in political_subdivisions.keys():
-        df = political_subdivision_geodataframe(subdivision)
-        if name in df['region_name'].values:
+    vals = spatial_subdivision_regions()
+    for subdivision, regions in vals.items():
+        if name in regions:
             return subdivision, 1
-
-    # Check the other subdivisions
-    for subdivision in other_subdivisions.keys():
-        if subdivision == 'agroecological_zone':
-            if name in [clean_spatial_subdivision_name(x) for x in agroecological_zone_names.values()]:
-                return subdivision, 1
-        else:
-            raise ValueError(f"Invalid subdivision: {subdivision}")
     raise ValueError(f"Invalid spatial subdivision: {name}")
 
 
@@ -550,8 +604,8 @@ custom_multinational_subdivisions = {
 # admin level 0 is the same as country, but we include it for consistency
 subnational_subdivisions = {
     'country': partial(political_subdivision_labels, level='country'),
-    'admin_level_1': partial(political_subdivision_labels, level='admin_level_1'),
-    'admin_level_2': partial(political_subdivision_labels, level='admin_level_2')
+    'admin_1': partial(political_subdivision_labels, level='admin_1'),
+    'admin_2': partial(political_subdivision_labels, level='admin_2')
 }
 political_subdivisions = {**multinational_subdivisions, **subnational_subdivisions, **custom_multinational_subdivisions}
 # Other subdivisions that are not administrative, but are still spatial
@@ -575,7 +629,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
             the resolution of the specified grid is used.
         space_grouping(str or list): Region grouping(s):
             - A string for a single grouping: 'country', 'continent', 'subregion', etc.
-            - A list for multiple groupings: ['country'], ['admin_level_1', 'agroecological_zone'], etc.
+            - A list for multiple groupings: ['country'], ['admin_1', 'agroecological_zone'], etc.
 
     Returns:
         xarray.Dataset: Dataset with added region coordinate
@@ -610,6 +664,14 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
     coords_values = [ds[x].values.flatten() for x in ds_coords]
     combined_region_coords = np.array(['-'.join(vals) for vals in zip(*coords_values)], dtype='U40')
     ds = ds.assign_coords(region=(('lat', 'lon'), combined_region_coords.reshape(ds.lat.size, ds.lon.size)))
+
+    # If we have a mask variable, drop it
+    if 'mask' in ds.data_vars:
+        ds = ds.drop_vars('mask')
+
+    # If we have a mask variable, drop it
+    if 'mask' in ds.data_vars:
+        ds = ds.drop_vars('mask')
     return ds
 
 ##############################################################################
@@ -630,12 +692,19 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     if region == 'global' or region is None or 'global' in region:
         return ds
 
+    if ds.lat.size == 0 and ds.lon.size == 0:
+        # If the dataset is empty / dimensionless, return it untouched
+        return ds
+
     if not isinstance(region, list):
         region = [region]
 
     if region_dim is not None:
         # If we already have a region dimension, just select the region
         return ds.where(ds[region_dim] == '-'.join(region), drop=drop)
+
+    # Form concatonated region string
+    region = [clean_spatial_subdivision_name(x) for x in region]
 
     # Get the high level region for each region in the list
     promoted_levels = []
@@ -650,14 +719,12 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     promoted_levels = [promoted_levels[i] for i in sort_idx]
     region = [region[i] for i in sort_idx]
 
-    # Form concatonated region string
-    region = [clean_spatial_subdivision_name(x) for x in region]
     region_str = '-'.join(region)
-    ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
+    region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
 
     # Rename region to a dummy name to avoid conflicts while clipping
-    ds = ds.rename({ds.region.name: '_clip_region'})
-    ds = ds.where((ds._clip_region == region_str).compute(), drop=drop)
+    region_ds = region_ds.rename({'region': '_clip_region'})
+    ds = ds.where((region_ds._clip_region == region_str).compute(), drop=drop)
     ds = ds.drop_vars('_clip_region')
     return ds
 
@@ -675,6 +742,11 @@ def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True)
     # No clipping needed
     if geometry is None:
         return ds
+
+    if ds.lat.size == 0 and ds.lon.size == 0:
+        # If the dataset is empty / dimensionless, return it untouched
+        return ds
+
     # Set up dataframe for clipping
     ds = ds.rio.write_crs("EPSG:4326")
     ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
@@ -694,8 +766,12 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
             strictly less than this value will be masked).
         grid (str): The grid resolution of the dataset.
     """
-    # No masking needed
+    # No masking needed if mask is None or the dataset is empty / dimensionless
     if mask is None:
+        return ds
+
+    if ds.lat.size == 0 and ds.lon.size == 0:
+        # If the dataset is empty / dimensionless, return it untouched
         return ds
 
     if isinstance(mask, str):
@@ -719,10 +795,11 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
     ds['lon'] = np.round(ds.lon, 5).astype(np.float32)
     ds['lat'] = np.round(ds.lat, 5).astype(np.float32)
 
+    masking_ds = mask_ds['mask'] > val
     if isinstance(var, str):
         # Mask a single variable
-        ds[var] = ds[var].where(mask_ds['mask'] > val, drop=False)
+        ds[var] = ds[var].where(masking_ds, drop=False)
     else:
         # Mask multiple variables
-        ds = ds.where(mask_ds['mask'] > val, drop=False)
+        ds = ds.where(masking_ds, drop=False)
     return ds

@@ -105,9 +105,13 @@ def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
     which accounts for the fact that grid cells near the poles are smaller
     in area than those near the equator.
     """
+    if ds.lat.size == 0:
+        # Handle empty 
+        return xr.DataArray(np.array([]), coords=[ds[lat_dim]], dims=[lat_dim]).expand_dims({lon_dim: ds[lon_dim]})
     # Calculate latitude cell bounds
     lat_rad = np.deg2rad(ds[lat_dim].values)
     pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
+
     if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
         # Dealing with the full globe
         lower_bound = -pi_over_2

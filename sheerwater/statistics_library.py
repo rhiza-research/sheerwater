@@ -8,7 +8,7 @@ import properscoring
 import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
-from sheerwater.interfaces import spatial
+from sheerwater.interfaces import spatial, add_spatial_attrs
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -66,13 +66,11 @@ def statistic(cache=False, name=None,
                 prob_type=data['prob_type'],
                 forecast=forecast,
                 truth=truth,
-                region_clip=region,
-                grid=grid,
-                mask=mask,
                 agg_days=float(agg_days),
                 variable=variable,
                 statistic=statistic
             )
+            ds = add_spatial_attrs(ds, grid=grid, mask=mask, region=region)
             return ds
 
         @wraps(func)

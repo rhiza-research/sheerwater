@@ -188,6 +188,14 @@ def is_wrapped(lons):
 
 def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
     """Check if the bases of two datasets are the same."""
+    if ds.lat.size == 0 and ds.lon.size == 0:
+        # If the dataset is empty / dimensionless, return it untouched
+        return 0
+    if dsp.lat.size == 0 and dsp.lon.size == 0:
+        # If the dataset is empty / dimensionless, return it untouched
+        return 0
+
+    import pdb; pdb.set_trace()
     if ds[lon_col].max() > 180.0:
         base = "base360"
     elif ds[lon_col].min() < 0.0:
