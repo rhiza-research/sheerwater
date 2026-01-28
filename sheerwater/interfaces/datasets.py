@@ -3,7 +3,8 @@
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time, clip_region, apply_mask
+from sheerwater.utils import convert_init_time_to_pred_time
+from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 import logging
 logger = logging.getLogger(__name__)
@@ -12,6 +13,26 @@ logger = logging.getLogger(__name__)
 DATA_REGISTRY = {}
 FORECAST_REGISTRY = {}
 REGION_LAYER_REGISTRY = {}
+
+
+def add_spatial_attrs(ds, grid, mask, region):
+    """Add processing attributes to a dataset."""
+    attrs = {
+        'post_processed_grid': grid,
+        'post_processed_mask': mask,
+        'post_processed_region': region
+    }
+    return ds.assign_attrs(attrs)
+
+
+def check_spatial_attr(ds, attr):
+    """Check if the dataset has the correct attributes."""
+    if 'grid' in attr and ds.attrs.get('post_processed_grid') != attr['grid']:
+        return False
+    if 'mask' in attr and ds.attrs.get('post_processed_mask') != attr['mask']:
+        return False
+    if 'region' in attr and ds.attrs.get('post_processed_region') != attr['region']:
+        return False
 
 
 class SheerwaterDataset(NuthatchProcessor):
@@ -63,22 +84,20 @@ class SheerwaterDataset(NuthatchProcessor):
         """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            if not (hasattr(ds, '_region') and ds._region == self.region):
+            if not check_attrs(ds, region=self.region):
                 # Only clip region if the dataframe hasn't already been clipped
                 ds = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
-            if not (hasattr(ds, '_mask') and ds._mask == self.mask):
+            if not check_attrs(ds, mask=self.mask):
                 # Only apply mask if this dataframe has not already been masked
                 ds = apply_mask(ds, self.mask, grid=self.grid)
             attrs = {
                 'agg_days': float(self.agg_days),
-                '_variable': self.variable,
-                '_grid': self.grid,
-                '_mask': self.mask,
-                '_region': self.region
+                'variable': self.variable,
             }
             if self.units is not None:
                 attrs['units'] = self.units
             ds = ds.assign_attrs(attrs)
+            ds = add_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
 
         else:
             raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")
@@ -114,8 +133,7 @@ class data(SheerwaterDataset):
         ds = super().post_process(ds)
 
         # Remove all unneeded dimensions
-        ds = ds.drop_vars([var for var in ds.coords if var not in [
-            'time', 'lat', 'lon']])
+        ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon']])
         return ds
 
 
@@ -139,70 +157,9 @@ class forecast(SheerwaterDataset):
         ds = super().post_process(ds)
 
         # Remove all unneeded dimensions
-        ds = ds.drop_vars([var for var in ds.coords if var not in [
-            'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+        ds = ds.drop_vars([var for var in ds.coords if
+                           var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']])
         return ds
-
-
-class region_layer(NuthatchProcessor):
-    """Processor for a Sheerwater region layer. It supports xarray datasets."""
-
-    def __init__(self, region_layer=None, **kwargs):
-        """Initialize the region layer processor.
-
-        Args:
-            region_layer (str): The name of the region layer.
-            kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
-        """
-        super().__init__(**kwargs)
-        self.region_layer = region_layer
-
-    def __call__(self, func):
-        """Call the region layer decorator and register it in the global region layer registry."""
-        wrapped = super().__call__(func)
-        REGION_LAYER_REGISTRY[func.__name__] = wrapped
-        return wrapped
-
-    def process_arguments(self, sig, *args, **kwargs):
-        """Process the arguments for the datasets decorator."""
-        # Get default values for the function signature
-        bound_args = self.bind_signature(sig, *args, **kwargs)
-
-        # Default to global region and no masking if not passed
-        try:
-            self.grid = bound_args.arguments['grid']
-        except KeyError:
-            raise ValueError("Region layer decorator requires grid to be passed.")
-        return args, kwargs
-
-    def post_process(self, ds):
-        """Post-process the dataset to add the region coordinate."""
-        if isinstance(ds, xr.Dataset):
-            attrs = {
-                '_grid': self.grid,
-                '_region_layer': self.region_layer,
-            }
-            ds = ds.assign_attrs(attrs)
-        else:
-            raise RuntimeError(f"Cannot add region coordinate for data type {type(ds)}")
-        return ds
-
-    def validate(self, ds):  # noqa: ARG002
-        """Validate the cached data to ensure it has data within the region."""
-        return True
-
-
-def get_region_layer(region_layer_name):
-    """Get a region layer from the global region layer registry."""
-    # The imports below ensure that all region layers are registered when this is called.
-    import sheerwater.region_layers  # noqa: F401
-    return REGION_LAYER_REGISTRY[region_layer_name]
-
-
-def list_region_layers():
-    """List all region layers in the global region layer registry."""
-    import sheerwater.region_layers  # noqa: F401
-    return list(REGION_LAYER_REGISTRY.keys())
 
 
 def get_forecast(forecast_name):

@@ -7,10 +7,10 @@ import xarray as xr
 
 from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
-from sheerwater.regions_and_masks import spatial_mask
+from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region
-from sheerwater.regions_layers import region_labels
+from sheerwater.utils import groupby_time, latitude_weights
+from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
@@ -252,36 +252,16 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         ############################################################
-        # 1. Process and clean the space grouping and region arguments
+        # 1. Fetch the region and mask data
         ############################################################
-        if not isinstance(self.space_grouping, list):
-            self.space_grouping = [self.space_grouping]
-        # Convert country to admin_level_0 alias before checking
-        self.space_grouping = ['admin_level_0' if level == 'country' else level for level in self.space_grouping]
-        # Remove global from the grouping check
-        check_groupings = [x for x in self.space_grouping if x != 'global']
-        promoted_levels = [get_region_level(level)[0] for level in check_groupings]
-        if not all(x == y for x, y in zip(promoted_levels, check_groupings)):
-            raise ValueError("Can only pass high-level regions to the space grouping argument.")
-
-        if not isinstance(self.region, list):
-            self.region = [self.region]
-        check_regions = [x for x in self.region if x != 'global']
-        promoted_regions = [get_region_level(level)[0] for level in check_regions]
-        if not all(x != y for x, y in zip(promoted_regions, check_regions)):
-            raise ValueError("Can only pass low-level regions to the region argument.")
-
-        ############################################################
-        # 2. Fetch the region and mask data
-        ############################################################
-        region_ds = region_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
+        region_ds = space_grouping_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
         if self.region != ['global']:
             mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
             region_ds = clip_region(region_ds, grid=self.grid, region=self.region)
 
         ############################################################
-        # 3. Aggregate in time
+        # 2. Aggregate in time
         ############################################################
         ds = self.statistic_values
 
@@ -301,7 +281,7 @@ class Metric(ABC):
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), region_ds.region.values))
 
         ############################################################
-        # 4. Aggregate in space and apply spatial weighting
+        # 3. Aggregate in space and apply spatial weighting
         ############################################################
         if not self.spatial:
             # Group by region and average in space, while applying weighting for mask

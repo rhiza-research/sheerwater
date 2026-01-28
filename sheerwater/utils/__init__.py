@@ -6,15 +6,6 @@ from .grouping_utils import groupby_region, groupby_time, latitude_weights, mean
 from .plotting_utils import plot_by_region
 from .remote import dask_remote, start_remote
 from .secrets import cdsapi_secret, ecmwf_secret, gap_secret, salient_secret, tahmo_secret, huggingface_read_token
-from .region_utils import (
-    admin_region_data,
-    clean_region_name,
-    get_combined_region_name,
-    get_region_level,
-    admin_levels_and_labels,
-    clip_region,
-    agroecological_zone_names,
-)
 from .space_utils import (
     get_grid_ds,
     get_globe_slice,
@@ -22,7 +13,6 @@ from .space_utils import (
     is_wrapped,
     lon_base_change,
     snap_point_to_grid,
-    apply_mask,
     base180_to_base360,
     base360_to_base180,
     check_bases,

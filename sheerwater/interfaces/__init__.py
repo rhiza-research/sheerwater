@@ -1,6 +1,7 @@
 """Standard interfaces for Sheerwater data, forecasts, and region layers."""
-from .datasets import (forecast, data, region_layer, DATA_REGISTRY, FORECAST_REGISTRY, REGION_LAYER_REGISTRY,
-                       list_forecasts, get_forecast, list_data, get_data, list_region_layers, get_region_layer)
+from .datasets import (forecast, data, DATA_REGISTRY, FORECAST_REGISTRY,
+                       list_forecasts, get_forecast, list_data, get_data,
+                       add_spatial_attrs, check_spatial_attr)
 from .spatial import spatial
 
 __all__ = [
@@ -13,8 +14,6 @@ __all__ = [
     "get_forecast",
     "list_data",
     "get_data",
-    "region_layer",
-    "REGION_LAYER_REGISTRY",
-    "list_region_layers",
-    "get_region_layer",
+    "add_spatial_attrs",
+    "check_spatial_attr",
 ]

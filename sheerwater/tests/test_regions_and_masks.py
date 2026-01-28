@@ -2,15 +2,16 @@
 import pytest
 import geopandas as gpd
 
-from sheerwater.regions_and_masks import land_sea_mask
+from sheerwater.masks import land_sea_mask
 from sheerwater.metrics import metric
-from sheerwater.utils.region_utils import (
+from sheerwater.spatial_subdivisions import (
     clean_region_name,
     reconcile_country_name,
     get_region_level,
     admin_region_data,
+    admin_region_labels,
+    region_labels,
 )
-from sheerwater.regions_layers import admin_region_labels, region_labels
 from sheerwater.utils import get_grid
 
 
@@ -159,10 +160,10 @@ def test_country_alias():
     assert len(gdf_country) == len(gdf_admin0)
     assert set(gdf_country['region_name']) == set(gdf_admin0['region_name'])
 
-    # Test in admin_region_labels
+    # Test in admin_region_labels (spatial_subdivisions uses 'region' coord)
     ds_country = admin_region_labels(grid='global1_5', admin_level='country')
     ds_admin0 = admin_region_labels(grid='global1_5', admin_level='admin_level_0')
-    assert set(ds_country.admin_region.values.flatten()) == set(ds_admin0.admin_region.values.flatten())
+    assert set(ds_country.region.values.flatten()) == set(ds_admin0.region.values.flatten())
 
     # Test in region_labels (string and list)
     ds_country_str = region_labels(grid='global1_5', space_grouping='country')

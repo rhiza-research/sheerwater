@@ -114,6 +114,7 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
            'chunking': {"lat": 73, "lon": 77, "forecast_date": 4, 'lead': 7, 'sample': 200}
 })
 def salient_gem_raw(start_time, end_time, variable, grid='global0_25', mask=None, region='eastern_africa'):  # noqa: ARG001
+    """Salient GEM raw data."""
     # Your credentials are needed to access the store
     storage_options = dict(
         key="8121a8558bc21d1452c22291f8853bc8",

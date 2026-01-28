@@ -82,51 +82,6 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     return ds
 
 
-def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
-    """Apply a mask to a dataset.
-
-    Args:
-        ds (xr.Dataset): Dataset to apply mask to.
-        mask (str): The mask to apply. One of: 'lsm', None
-        var (str): Variable to mask. If None, applies to apply to all variables.
-        val (int): Value to mask below (any value that is
-            strictly less than this value will be masked).
-        grid (str): The grid resolution of the dataset.
-    """
-    # No masking needed
-    if mask is None:
-        return ds
-
-    if isinstance(mask, str):
-        from sheerwater.regions_and_masks import spatial_mask
-        mask_ds = spatial_mask(mask, grid)
-    else:
-        mask_ds = mask
-
-    # Check that the mask and dataset have the same dimensions
-    if not all([dim in ds.dims for dim in mask_ds.dims]):
-        raise ValueError("Mask and dataset must have the same dimensions.")
-
-    if check_bases(ds, mask_ds) == -1:
-        raise ValueError("Datasets have different longitude bases. Cannot mask.")
-
-    # Ensure that the mask and the dataset don't have different precision
-    # This MUST be np.float32 as of 4/28/25...unsure why?
-    # Otherwise the mask doesn't match and lat/lons get dropped
-    mask_ds['lon'] = np.round(mask_ds.lon, 5).astype(np.float32)
-    mask_ds['lat'] = np.round(mask_ds.lat, 5).astype(np.float32)
-    ds['lon'] = np.round(ds.lon, 5).astype(np.float32)
-    ds['lat'] = np.round(ds.lat, 5).astype(np.float32)
-
-    if isinstance(var, str):
-        # Mask a single variable
-        ds[var] = ds[var].where(mask_ds['mask'] > val, drop=False)
-    else:
-        # Mask multiple variables
-        ds = ds.where(mask_ds['mask'] > val, drop=False)
-    return ds
-
-
 def snap_point_to_grid(point, grid_size, offset):
     """Snap a point to a provided grid and offset."""
     return round(float(point+offset)/grid_size) * grid_size - offset
