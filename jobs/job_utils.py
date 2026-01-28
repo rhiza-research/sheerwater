@@ -24,6 +24,7 @@ def parse_args():
     parser.add_argument("--region", type=str, nargs='*', help="Regions to evaluate.")
     parser.add_argument("--agg_days", type=int, nargs='*', help="Aggregation days to evaluate.")
     parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
+    parser.add_argument("--space-grouping", type=str, nargs='*', help="Space groupings to evaluate.")
     parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
     parser.add_argument("--parallelism", type=int, default=1, help="Number of runs to run in parallel.")
     parser.add_argument("--recompute", action=argparse.BooleanOptionalAction,
@@ -130,13 +131,18 @@ def parse_args():
     if args.time_grouping:
         time_groupings = args.time_grouping
         time_groupings = [x if x != 'None' else None for x in time_groupings]
+    
+    space_groupings = [None, "subregion", "country"]
+    if args.space_grouping:
+        space_groupings = args.space_grouping
+        space_groupings = [x if x != 'None' else None for x in space_groupings]
 
     remote_config = ["large_cluster"]
     if args.remote_config:
         remote_config = args.remote_config
 
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
-            regions, agg_days, time_groupings, args.parallelism,
+            regions, agg_days, time_groupings, space_groupings, args.parallelism,
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
 
 
