@@ -1,4 +1,5 @@
-//EXTERNAL:ground_truth_coverage.js
+// EXTERNAL:ground_truth_coverage.js
+
 // Utility function to convert hex color to an RGB object
 function hexToRgb(hex) {
     const bigint = parseInt(hex.slice(1), 16);
@@ -36,7 +37,7 @@ function getColor(value, cmin, cmax, colorMap) {
         throw new Error("Invalid colorMap. Choose 'BrBG', 'balance', or 'RdBu'.");
     }
 
-    let x = (value - cmin) / (cmax 
+    let x = (value - cmin) / (cmax - cmin);
 
     // Clamp value between 0 and 1
     x = Math.min(1, Math.max(0, x));
@@ -124,7 +125,7 @@ const renameDict = {
 // Apply custom renaming to the first column of cellValues
 data_source = data_source.toArray().map(value => renameDict[value] || value);
 
-// get region & station selection & format
+// get station selection & format
 var station = variables['truth'].current.value
 
 function cap(str) {
