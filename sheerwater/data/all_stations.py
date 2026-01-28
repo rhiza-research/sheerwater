@@ -8,41 +8,52 @@ from sheerwater.utils import dask_remote, roll_and_agg
 from sheerwater.data import knust, knust_avg, tahmo, tahmo_avg, ghcn, ghcn_avg
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
+
 @dask_remote
 @timeseries()
 @spatial()
-@cache(cache_args=['grid', 'missing_thresh', 'cell_aggregation'])
-def _stations_aggregated(start_time, end_time, variable,
+@cache(cache_args=['grid', 'missing_thresh', 'cell_aggregation', 'variable'],
+       backend_kwargs = {
+           'chunking': {
+               'time': 365,
+               'lat': 300,
+               'lon': 300,
+           }
+       })
+def stations_aggregated(start_time, end_time, variable,
                          grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
 
     if cell_aggregation == 'first':
-       knust = knust(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
-                     mask=mask, region=region)
-       tahmo = tahmo(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
-                     mask=mask, region=region)
-       ghcn = ghcn(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
-                   mask=mask, region=region)
+       knust_ds = knust(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
+                        mask=mask, region=region)
+       tahmo_ds = tahmo(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
+                        mask=mask, region=region)
+       ghcn_ds = ghcn(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
+                      mask=mask, region=region)
     elif cell_aggregation == 'mean':
-       knust = knust_avg(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
-                         mask=mask, region=region)
-       tahmo = tahmo_avg(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
-                         mask=mask, region=region)
-       ghcn = ghcn_avg(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
-                       mask=mask, region=region)
+       knust_ds = knust_avg(start_time, end_time, variable=variable, grid=grid, agg_days=1,
+                            missing_thresh=missing_thresh, mask=mask, region=region)
+       tahmo_ds = tahmo_avg(start_time, end_time, variable=variable, grid=grid, agg_days=1,
+                            missing_thresh=missing_thresh, mask=mask, region=region)
+       ghcn_ds = ghcn_avg(start_time, end_time, variable=variable, grid=grid, agg_days=1, missing_thresh=missing_thresh,
+                          mask=mask, region=region)
 
-    knust = knust.expand_dims(dim={"source": ["knust"]})
-    knust = knust.chunk({'time': 365, 'lat': 300, 'lon': 300})
-    tahmo = tahmo.expand_dims(dim={"source": ["tahmo"]})
-    ghcn = ghcn.expand_dims(dim={"source": ["ghcn"]})
+    knust_ds = knust_ds.expand_dims(dim={"source": ["knust"]})
+    knust_ds = knust_ds.chunk({'time': 365, 'lat': 300, 'lon': 300})
+    knust_ds['precip'] = knust_ds['precip'].astype('float32')
+    tahmo_ds = tahmo_ds.expand_dims(dim={"source": ["tahmo"]})
+    ghcn_ds = ghcn_ds.expand_dims(dim={"source": ["ghcn"]})
 
     # Concat the datasets
-    ds = xr.merge([knust, tahmo, ghcn])
+    ds = xr.concat([knust_ds, tahmo_ds, ghcn_ds], dim='source')
 
-    # Aggregate them depending on the cell aggregation preserving a variable for the source
     if cell_aggregation == 'first':
-        ds = ds.groupby(['time', 'lat', 'lon']).first()
+        ds = ds.ffill(dim='source')
+        ds = ds.bfill(dim='source')
+        ds = ds.isel(source=0)
+        ds = ds.reset_coords('source', drop=True)
     elif cell_aggregation == 'mean':
-        ds = ds.groupby(['time', 'lat', 'lon']).mean()
+        ds = ds.mean(dim='source')
 
     return ds
 
@@ -51,7 +62,7 @@ def _stations_aggregated(start_time, end_time, variable,
 def _stations_unified(start_time, end_time, variable, agg_days,
                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
     """Standard interface for all station data."""
-    ds = _stations_aggregated(start_time, end_time, variable, grid=grid,
+    ds = stations_aggregated(start_time, end_time, variable, grid=grid,
                               missing_thresh=missing_thresh, cell_aggregation=cell_aggregation,
                               mask=mask, region=region)
 
