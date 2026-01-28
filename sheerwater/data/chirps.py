@@ -53,6 +53,9 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
             urls, engine='rasterio', preprocess=preprocess,
             chunks={'y': 1200, 'x': 1200, 'time': 365},
             concat_dim=["time"], compat="override", coords="minimal", combine="nested")
+        # remove nodata values
+        nodata = -9999
+        ds = ds.where(ds != nodata)
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data': 'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
@@ -154,8 +157,9 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     if "spatial_ref" in ds:
         ds = ds.drop_vars(["spatial_ref"])
 
-    # Regrid if not on the native grid
-    if grid != 'chirps':
+    # Need to regrid even if on the chirps grid, because the native grid is not
+    # a regular 0.05x0.05 grid.
+    if grid != "chirps":
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds

@@ -3,6 +3,7 @@ import numpy as np
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 import xarray as xr
 import logging
+import shapely
 
 from .region_utils import region_data
 
@@ -114,11 +115,43 @@ def clip_region(ds, region, region_dim=None, region_df=None, lon_dim='lon', lat_
 
         if len(region_df) != 1:
             raise ValueError(f"Region {region} has multiple geometries. Cannot clip.")
-        # Set up dataframe for clipping
-        ds = ds.rio.write_crs("EPSG:4326")
-        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
-        # Clip the grid to the boundary of Shapefile
-        ds = ds.rio.clip(region_df.geometry, region_df.crs, drop=drop)
+        if ds.grid == "chirps":
+            # curvilinear grid so clipping must happen through masking
+            ds = clip_with_mask(ds, region_df, drop=drop)
+        else:
+            # Set up dataframe for clipping
+            ds = ds.rio.write_crs("EPSG:4326")
+            ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+            # Clip the grid to the boundary of Shapefile
+            ds = ds.rio.clip(region_df.geometry, region_df.crs, drop=drop)
+    return ds
+
+
+def clip_with_mask(ds, region_df, drop=True):
+    """Clip a dataset to a region using a mask.
+
+    Args:
+        ds (xr.Dataset): Dataset to clip to a region.
+        region_df (geopandas.GeoDataFrame): The region data to clip to.
+        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
+    """
+    # create a mask on the ds grid corresponding to the region
+    lon2d, lat2d = xr.broadcast(ds.lon, ds.lat)
+    lon2d, lat2d = lon2d.values, lat2d.values
+    mask = np.zeros(lon2d.shape, dtype=bool)
+
+    polygon = region_df.geometry.union_all()
+    # the mask can be large; two step filtering will be faster
+    # first filter to the bounding box of the region
+    lon_min, lat_min, lon_max, lat_max = polygon.bounds
+    bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
+    # then filter to the precise polygon
+    mask[bmask] = shapely.intersects_xy(polygon, lon2d[bmask], lat2d[bmask])
+    # convert to xarray
+    mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
+    ds = ds.where(mask, drop=False)
+    if drop:
+        ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
     return ds
 
 
@@ -200,7 +233,7 @@ def get_grid(grid, base="base180"):
     if grid == "global1_5":
         grid_size = 1.5
         offset = 0.0
-    elif grid == "chirps":
+    elif grid == "global0_05":
         grid_size = 0.05
         offset = 0.025
     elif grid == "imerg":
@@ -227,9 +260,6 @@ def get_grid(grid, base="base180"):
         lons = base180_to_base360(lons)
         lons = np.sort(lons)
 
-    # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
-    lons = np.round(lons, 5).astype(np.float32)
-    lats = np.round(lats, 5).astype(np.float32)
     return lons, lats, grid_size, offset
 
 
