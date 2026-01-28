@@ -8,11 +8,11 @@ import logging
 import numpy as np
 import xarray as xr
 from shapely.geometry import box
+import rioxarray  # noqa: F401 - needed to enable .rio attribute
+# ruff: noqa: E501 <- line too long
 
 from nuthatch import cache
 from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object
-import rioxarray  # noqa: F401 - needed to enable .rio attribute
-# ruff: noqa: E501 <- line too long
 
 
 logger = logging.getLogger(__name__)
