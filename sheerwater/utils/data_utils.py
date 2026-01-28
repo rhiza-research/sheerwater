@@ -8,7 +8,6 @@ import numpy as np
 import xarray_regrid  # noqa: F401, import needed for regridding
 
 from .space_utils import get_grid_ds
-from .region_utils import clip_region
 from .time_utils import add_dayofyear
 
 
@@ -72,6 +71,7 @@ def regrid(ds, output_grid, method='conservative', base="base180", output_chunks
     # Interpret the grid
     ds_out = get_grid_ds(output_grid, base=base)
     if region != 'global':
+        from sheerwater.spatial_subdivisions import clip_region
         ds_out = clip_region(ds_out, region=region, grid=output_grid)
     # Output chunks only for conservative regridding
     kwargs = {'output_chunks': output_chunks} if method == 'conservative' else {}

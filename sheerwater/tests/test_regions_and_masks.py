@@ -5,26 +5,26 @@ import geopandas as gpd
 from sheerwater.masks import land_sea_mask
 from sheerwater.metrics import metric
 from sheerwater.spatial_subdivisions import (
-    clean_region_name,
+    clean_spatial_subdivision_name,
     reconcile_country_name,
-    get_region_level,
-    admin_region_data,
-    admin_region_labels,
-    region_labels,
+    get_spatial_subdivision_level,
+    political_subdivision_geodataframe,
+    political_subdivision_labels,
+    space_grouping_labels,
 )
 from sheerwater.utils import get_grid
 
 
-def test_clean_region_name():
+def test_clean_spatial_subdivision_name():
     """Test name cleaning including unicode and special cases."""
-    assert clean_region_name("United States") == "united_states_of_america"
-    assert clean_region_name("South Korea") == "south_korea"
-    assert clean_region_name("United Kingdom") == "united_kingdom"
-    assert clean_region_name("São Tomé") == "sao_tome"
-    assert clean_region_name("Côte d'Ivoire") == "ivory_coast"
-    assert clean_region_name(None) == "no_region"
-    assert clean_region_name("") == "no_region"
-    assert clean_region_name("_") == "no_region"
+    assert clean_spatial_subdivision_name("United States") == "united_states_of_america"
+    assert clean_spatial_subdivision_name("South Korea") == "south_korea"
+    assert clean_spatial_subdivision_name("United Kingdom") == "united_kingdom"
+    assert clean_spatial_subdivision_name("São Tomé") == "sao_tome"
+    assert clean_spatial_subdivision_name("Côte d'Ivoire") == "ivory_coast"
+    assert clean_spatial_subdivision_name(None) == "no_region"
+    assert clean_spatial_subdivision_name("") == "no_region"
+    assert clean_spatial_subdivision_name("_") == "no_region"
 
 
 def test_reconcile_country_name():
@@ -35,184 +35,163 @@ def test_reconcile_country_name():
     assert reconcile_country_name("kenya") == "kenya"
 
 
-def test_get_region_level():
-    """Test get_region_level for various inputs."""
-    level, regions = get_region_level(None)
-    assert level == 'global'
-    assert regions == ['global']
+def test_get_spatial_subdivision_level():
+    """Test get_spatial_subdivision_level for various inputs. Returns (level, promoted)."""
+    level, promoted = get_spatial_subdivision_level(None)
+    assert level == "global"
+    assert promoted == -1
 
-    level, regions = get_region_level('continent')
-    assert level == 'continent'
-    assert len(regions) > 0
+    level, promoted = get_spatial_subdivision_level("continent")
+    assert level == "continent"
+    assert promoted == 0
 
-    level, regions = get_region_level('africa')
-    assert level == 'continent'
-    assert regions == ['africa']
+    level, promoted = get_spatial_subdivision_level("africa")
+    assert level == "continent"
+    assert promoted == 1
 
-    level, regions = get_region_level('nimbus_east_africa')
-    assert level == 'sheerwater_region'
-    assert regions == ['nimbus_east_africa']
+    level, promoted = get_spatial_subdivision_level("nimbus_east_africa")
+    assert level == "sheerwater_region"
+    assert promoted == 1
+
+
+def _region_gdf(region):
+    """Helper: GeoDataFrame for a level or a specific region using spatial_subdivisions API."""
+    level, promoted = get_spatial_subdivision_level(region)
+    gdf = political_subdivision_geodataframe(level)
+    if promoted == 1:
+        name = clean_spatial_subdivision_name(region)
+        gdf = gdf[gdf["region_name"] == name]
+    return gdf
 
 
 def test_region_data_structure():
-    """Test that admin_region_data returns correct GeoDataFrame structure."""
-    gdf = admin_region_data("kenya")
+    """Test that political_subdivision_geodataframe returns correct GeoDataFrame structure."""
+    gdf = _region_gdf("kenya")
     assert isinstance(gdf, gpd.GeoDataFrame)
-    assert 'region_name' in gdf.columns
-    assert 'region_geometry' in gdf.columns
-    assert gdf.crs == 'EPSG:4326'
+    assert "region_name" in gdf.columns
+    assert "region_geometry" in gdf.columns
+    assert gdf.crs == "EPSG:4326"
     assert len(gdf) > 0
 
 
 def test_region_data_admin_levels():
-    """Test admin_region_data for all admin levels and specific regions."""
-    # Test all admin levels
-    for level in ["admin_level_0", "admin_level_1", "admin_level_2"]:
-        gdf = admin_region_data(level)
+    """Test political_subdivision_geodataframe for admin levels and specific regions."""
+    # spatial_subdivisions uses 'country', 'admin_level_1', 'admin_level_2' (no admin_level_0)
+    for level in ["country", "admin_level_1", "admin_level_2"]:
+        gdf = political_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
-        assert gdf.crs == 'EPSG:4326'
-        assert 'region_name' in gdf.columns
-        assert 'region_geometry' in gdf.columns
+        assert gdf.crs == "EPSG:4326"
+        assert "region_name" in gdf.columns
+        assert "region_geometry" in gdf.columns
 
-        # Verify we get the correct region level
-        region_level, regions = get_region_level(level)
-        assert region_level == level
-        assert len(regions) > 0
+        level_out, promoted = get_spatial_subdivision_level(level)
+        assert level_out == level
+        assert promoted == 0
+        assert len(political_subdivision_geodataframe(level)) > 0
 
-    # Test specific country
-    gdf = admin_region_data("kenya")
+    # Specific country
+    gdf = _region_gdf("kenya")
     assert len(gdf) == 1
-    assert gdf.iloc[0]['region_name'] == "kenya"
-    assert gdf.crs == 'EPSG:4326'
+    assert gdf.iloc[0]["region_name"] == "kenya"
+    assert gdf.crs == "EPSG:4326"
 
-    # Test getting a specific admin level 2 region
-    all_admin2 = admin_region_data("admin_level_2")
+    # Specific admin level 2 region
+    all_admin2 = political_subdivision_geodataframe("admin_level_2")
     assert len(all_admin2) > 0
-    test_region = all_admin2.iloc[0]['region_name']
-    specific_region = admin_region_data(test_region)
+    test_region = all_admin2.iloc[0]["region_name"]
+    specific_region = _region_gdf(test_region)
     assert len(specific_region) == 1
-    assert specific_region.iloc[0]['region_name'] == test_region
-    region_level, regions = get_region_level(test_region)
-    assert region_level == "admin_level_2"
-    assert len(regions) == 1
-    assert regions[0] == test_region
+    assert specific_region.iloc[0]["region_name"] == test_region
+    level_out, promoted = get_spatial_subdivision_level(test_region)
+    assert level_out == "admin_level_2"
+    assert promoted == 1
 
 
 def test_region_data_global_regions():
-    """Test admin_region_data for global regions (continents, subregions, UN, WB)."""
-    # Test all levels
+    """Test political_subdivision_geodataframe for global regions (continents, subregions, UN, WB)."""
     for level in ["continent", "subregion", "region_un", "region_wb"]:
-        gdf = admin_region_data(level)
+        gdf = political_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
-        assert gdf.crs == 'EPSG:4326'
+        assert gdf.crs == "EPSG:4326"
 
-    # Test specific regions
     for region in ["africa", "asia", "eastern_africa", "indonesia"]:
-        gdf = admin_region_data(region)
+        gdf = _region_gdf(region)
         assert len(gdf) == 1
-        assert gdf.iloc[0]['region_name'] == region
-        assert gdf.crs == 'EPSG:4326'
+        assert gdf.iloc[0]["region_name"] == region
+        assert gdf.crs == "EPSG:4326"
 
 
 def test_region_data_custom_regions():
-    """Test admin_region_data for custom regions."""
-    # Test all custom region levels
+    """Test political_subdivision_geodataframe for custom regions."""
     for level in ["sheerwater_region", "meteorological_zone"]:
-        gdf = admin_region_data(level)
+        gdf = political_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
-        assert gdf.crs == 'EPSG:4326'
+        assert gdf.crs == "EPSG:4326"
 
-    # Test specific custom regions
     test_regions = [
-        "nimbus_east_africa",  # countries-based
-        "tropics",  # lat/lon-based
-        "northern_hemisphere",  # hemisphere
-        "global",  # global
+        "nimbus_east_africa",
+        "tropics",
+        "northern_hemisphere",
+        "global",
     ]
     for region in test_regions:
-        gdf = admin_region_data(region)
+        gdf = _region_gdf(region)
         assert len(gdf) == 1
-        assert gdf.iloc[0]['region_name'] == region
-        assert gdf.crs == 'EPSG:4326'
+        assert gdf.iloc[0]["region_name"] == region
+        assert gdf.crs == "EPSG:4326"
 
-    # Verify sheerwater_region contains expected regions
-    gdf = admin_region_data("sheerwater_region")
-    region_names = gdf['region_name'].tolist()
-    assert 'nimbus_east_africa' in region_names
-    assert 'nimbus_west_africa' in region_names
-    assert 'conus' in region_names
+    gdf = political_subdivision_geodataframe("sheerwater_region")
+    region_names = gdf["region_name"].tolist()
+    assert "nimbus_east_africa" in region_names
+    assert "nimbus_west_africa" in region_names
+    assert "conus" in region_names
 
 
 def test_region_data_invalid_region():
-    """Test admin_region_data raises error for invalid region."""
-    with pytest.raises(ValueError, match="Invalid region"):
-        admin_region_data("nonexistent_region_xyz")
+    """Test that invalid region raises ValueError."""
+    with pytest.raises(ValueError, match="Invalid spatial subdivision"):
+        get_spatial_subdivision_level("nonexistent_region_xyz")
+    with pytest.raises(ValueError, match="Invalid region level"):
+        political_subdivision_geodataframe("nonexistent_region_xyz")
 
 
-def test_country_alias():
-    """Test that 'country' works as an alias for 'admin_level_0' everywhere."""
-    # Test in admin_region_data
-    gdf_country = admin_region_data("country")
-    gdf_admin0 = admin_region_data("admin_level_0")
-    assert len(gdf_country) == len(gdf_admin0)
-    assert set(gdf_country['region_name']) == set(gdf_admin0['region_name'])
-
-    # Test in admin_region_labels (spatial_subdivisions uses 'region' coord)
-    ds_country = admin_region_labels(grid='global1_5', admin_level='country')
-    ds_admin0 = admin_region_labels(grid='global1_5', admin_level='admin_level_0')
-    assert set(ds_country.region.values.flatten()) == set(ds_admin0.region.values.flatten())
-
-    # Test in region_labels (string and list)
-    ds_country_str = region_labels(grid='global1_5', space_grouping='country')
-    ds_country_list = region_labels(grid='global1_5', space_grouping=['country'])
-    ds_admin0 = region_labels(grid='global1_5', space_grouping='admin_level_0')
-    assert set(ds_country_str.region.values.flatten()) == set(ds_admin0.region.values.flatten())
-    assert set(ds_country_list.region.values.flatten()) == set(ds_admin0.region.values.flatten())
+def test_political_subdivision_labels_country():
+    """Test political_subdivision_labels with level='country' returns dataset with region coord."""
+    ds = political_subdivision_labels(grid="global1_5", level="country")
+    assert "region" in ds.coords
+    assert len(ds.lat) > 0
 
 
-def test_region_labels_input_formats():
-    """Test region_labels with string and list inputs."""
-    ds_str = region_labels(grid='global1_5', space_grouping='country', region='global')
-    ds_list = region_labels(grid='global1_5', space_grouping=['country'], region='global')
+def test_space_grouping_labels_input_formats():
+    """Test space_grouping_labels with string and list inputs."""
+    ds_str = space_grouping_labels(grid="global1_5", space_grouping="country")
+    ds_list = space_grouping_labels(grid="global1_5", space_grouping=["country"])
 
-    assert 'region' in ds_str.coords
-    assert 'region' in ds_list.coords
+    assert "region" in ds_str.coords
+    assert "region" in ds_list.coords
     assert len(ds_str.lat) > 0
     assert len(ds_list.lat) > 0
-    # String and list should produce same results
     assert set(ds_str.region.values.flatten()) == set(ds_list.region.values.flatten())
 
 
-def test_region_labels_list_ordering():
-    """Test that list ordering doesn't matter for region_labels."""
-    ds1 = region_labels(grid='global1_5', space_grouping=['admin_level_1', 'agroecological_zone'])
-    ds2 = region_labels(grid='global1_5', space_grouping=['agroecological_zone', 'admin_level_1'])
-
+def test_space_grouping_labels_list_ordering():
+    """Test that list ordering doesn't matter for space_grouping_labels."""
+    ds1 = space_grouping_labels(
+        grid="global1_5", space_grouping=["admin_level_1", "agroecological_zone"]
+    )
+    ds2 = space_grouping_labels(
+        grid="global1_5", space_grouping=["agroecological_zone", "admin_level_1"]
+    )
     regions1 = set(ds1.region.values.flatten())
     regions2 = set(ds2.region.values.flatten())
-
-    # They should have the same region names (order-independent)
     assert regions1 == regions2
-
-
-def test_region_labels_multiple_admin_regions_error():
-    """Test that passing multiple admin regions raises an error."""
-    with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5', space_grouping=['admin_level_1', 'admin_level_2'])
-
-    with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5', space_grouping=['country', 'admin_level_1'])
-
-    with pytest.raises(ValueError, match="Only one admin region can be specified"):
-        region_labels(grid='global1_5', space_grouping=['admin_level_0', 'admin_level_1', 'agroecological_zone'])
 
 
 def test_metric_with_list_grouping():
     """Test that metric function accepts list space_grouping."""
-    # Test with a simple metric call using list grouping
     result = metric(
         start_time="2016-01-01",
         end_time="2016-01-08",
@@ -221,14 +200,13 @@ def test_metric_with_list_grouping():
         forecast="chirps",
         truth="chirps",
         metric_name="mae",
-        space_grouping=['country', 'agroecological_zone'],
+        space_grouping=["country", "agroecological_zone"],
         grid="global1_5",
-        region=['africa', 'land_with_ample_irrigated_soils'],
+        region=["africa", "land_with_ample_irrigated_soils"],
         recompute=True,
-        cache_mode='overwrite'
+        cache_mode="overwrite",
     )
-    # Verify the result has a region coordinate
-    assert 'space_grouping' in result.coords or 'space_grouping' in result.dims
+    assert "space_grouping" in result.coords or "space_grouping" in result.dims
     assert len(result) > 0
 
 

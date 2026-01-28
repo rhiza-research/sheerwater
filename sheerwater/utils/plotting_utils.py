@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .region_utils import admin_region_data
-
 
 def to_name(name):
     """Convert a name to a more readable format."""
@@ -104,7 +102,8 @@ def plot_by_region(ds, region, variable, file_string='none', title='Regional Map
         matplotlib axes object
     """
     # Get the region GeoDataFrame and metric bounds
-    gdf = admin_region_data(region)
+    from sheerwater.spatial_subdivisions import political_subdivision_geodataframe
+    gdf = political_subdivision_geodataframe(region)
     # Extract the data values
     try:
         data = ds[variable]

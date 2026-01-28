@@ -1,25 +1,18 @@
 """Spatial grouping and masking functionality for Sheerwater."""
-from functools import partial
-from .general_utils import load_object
-from shapely.geometry import box
 import gcsfs
+from functools import partial
 import geopandas as gpd
 import pandas as pd
 import unicodedata
 import logging
 import numpy as np
 import xarray as xr
-from nuthatch import cache
-from sheerwater.utils import get_grid_ds, regrid, check_bases
-# from sheerwater.utils import (
-#     get_grid_ds, load_object, regrid,
-#     admin_region_data, agroecological_zone_names,
-#     admin_levels_and_labels, get_combined_region_name)
-from sheerwater.interfaces import spatial
+from shapely.geometry import box
 
-# ruff: noqa: E501 <- line too long
-"""Space and geography utility functions for all parts of the data pipeline."""
+from nuthatch import cache
+from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
+# ruff: noqa: E501 <- line too long
 
 
 logger = logging.getLogger(__name__)
@@ -449,7 +442,6 @@ def get_spatial_subdivision_level(name):
 ##############################################################################
 
 
-@spatial()
 @cache(cache_args=['grid', 'level'],
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
 def political_subdivision_labels(grid='global1_5', level='country'):
@@ -487,7 +479,6 @@ def political_subdivision_labels(grid='global1_5', level='country'):
     return ds
 
 
-@spatial()
 @cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
 def agroecological_subdivision_labels(grid='global1_5'):
     """Get the agroecological zones as an xarray dataset."""
@@ -574,7 +565,6 @@ spatial_subdivisions = {**political_subdivisions, **other_subdivisions}
 # Spatial subdivision labels
 ##############################################################################
 
-@spatial()
 @cache(cache_args=['grid', 'space_grouping'], memoize=True,
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
 def space_grouping_labels(grid='global1_5', space_grouping='country'):
