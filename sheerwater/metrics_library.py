@@ -565,6 +565,19 @@ class FalseNegative(Metric):
     def compute_metric(self):
         return self.grouped_statistics['false_negatives']
 
+
+class TruePositive(Metric):
+    """True Positive metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    categorical = True
+    statistics = ['true_positives']
+
+    def compute_metric(self):
+        return self.grouped_statistics['true_positives']
+
+
 class FAR(Metric):
     """False Alarm Rate metric."""
     sparse = True
