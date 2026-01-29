@@ -106,7 +106,7 @@ def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
     in area than those near the equator.
     """
     if ds.lat.size == 0:
-        # Handle empty 
+        # Handle empty / dimensionless dataset
         return xr.DataArray(np.array([]), coords=[ds[lat_dim]], dims=[lat_dim]).expand_dims({lon_dim: ds[lon_dim]})
     # Calculate latitude cell bounds
     lat_rad = np.deg2rad(ds[lat_dim].values)
