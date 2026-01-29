@@ -16,6 +16,8 @@ from .space_utils import (
     base180_to_base360,
     base360_to_base180,
     check_bases,
+    add_spatial_attrs,
+    check_spatial_attr,
 )
 from .task_utils import first_satisfied_date
 from .time_utils import (
@@ -78,4 +80,6 @@ __all__ = [
     "get_variable",
     "convert_init_time_to_pred_time",
     "first_satisfied_date",
+    "add_spatial_attrs",
+    "check_spatial_attr",
 ]

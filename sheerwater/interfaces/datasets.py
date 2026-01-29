@@ -3,7 +3,7 @@
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time
+from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 import logging
@@ -12,32 +12,6 @@ logger = logging.getLogger(__name__)
 # Global registry of data sources
 DATA_REGISTRY = {}
 FORECAST_REGISTRY = {}
-
-
-def add_spatial_attrs(ds, grid, mask, region):
-    """Utility function to add processing attributes to a dataset."""
-    attrs = {
-        'post_processed_grid': grid,
-        'post_processed_mask': mask,
-        'post_processed_region': region
-    }
-    return ds.assign_attrs(attrs)
-
-
-def check_spatial_attr(ds, grid=None, mask=None, region=None):
-    """Utility function to check if the dataset has the correct attributes.
-
-    Returns True if the dataset has the correct attributes, False otherwise.
-    """
-    if ds is None:
-        return False
-    if grid is not None and ds.attrs.get('post_processed_grid', None) == grid:
-        return True
-    if mask is not None and ds.attrs.get('post_processed_mask', None) == mask:
-        return True
-    if region is not None and ds.attrs.get('post_processed_region', None) == region:
-        return True
-    return False
 
 
 class SheerwaterDataset(NuthatchProcessor):
