@@ -76,8 +76,8 @@ def test_region_data_structure():
 
 def test_region_data_admin_levels():
     """Test political_subdivision_geodataframe for admin levels and specific regions."""
-    # spatial_subdivisions uses 'country', 'admin_level_1', 'admin_level_2' (no admin_level_0)
-    for level in ["country", "admin_level_1", "admin_level_2"]:
+    # spatial_subdivisions uses 'country', 'admin_1', 'admin_2' (no admin_level_0)
+    for level in ["country", "admin_1", "admin_2"]:
         gdf = political_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
@@ -97,14 +97,14 @@ def test_region_data_admin_levels():
     assert gdf.crs == "EPSG:4326"
 
     # Specific admin level 2 region
-    all_admin2 = political_subdivision_geodataframe("admin_level_2")
+    all_admin2 = political_subdivision_geodataframe("admin_2")
     assert len(all_admin2) > 0
     test_region = all_admin2.iloc[0]["region_name"]
     specific_region = _region_gdf(test_region)
     assert len(specific_region) == 1
     assert specific_region.iloc[0]["region_name"] == test_region
     level_out, promoted = get_spatial_subdivision_level(test_region)
-    assert level_out == "admin_level_2"
+    assert level_out == "admin_2"
     assert promoted == 1
 
 
@@ -180,10 +180,10 @@ def test_space_grouping_labels_input_formats():
 def test_space_grouping_labels_list_ordering():
     """Test that list ordering doesn't matter for space_grouping_labels."""
     ds1 = space_grouping_labels(
-        grid="global1_5", space_grouping=["admin_level_1", "agroecological_zone"]
+        grid="global1_5", space_grouping=["admin_1", "agroecological_zone"]
     )
     ds2 = space_grouping_labels(
-        grid="global1_5", space_grouping=["agroecological_zone", "admin_level_1"]
+        grid="global1_5", space_grouping=["agroecological_zone", "admin_1"]
     )
     regions1 = set(ds1.region.values.flatten())
     regions2 = set(ds2.region.values.flatten())
