@@ -202,13 +202,12 @@ def admin_level_gdf_legacy(admin_level=2):
 
 
 @cache(cache_args=['admin_level'])
-def admin_level_gdf(admin_level=2, remote=False):
+def admin_level_gdf(admin_level=2):
     """A datasoruce of administrative boundaries at a given level.
 
     Args:
         admin_level(int): The admin level to get the data for. Must be
             an admin level(e.g., 0, 1, 2).
-        remote(bool): Whether to read the data from the remote filesystem.
 
     Returns:
         gdf(gpd.GeoDataFrame): A GeoDataFrame for the admin level, with columns:
@@ -222,8 +221,7 @@ def admin_level_gdf(admin_level=2, remote=False):
     if admin_level == 0:
         # This low res admin 0 does not contain cape verde, for example
         # path = 'gs://sheerwater-public-datalake/regions/low_res_admin_0.geojson'
-
-        # Use this source instead fo countries
+        # Use this source instead for countries
         path = 'gs://sheerwater-public-datalake/regions/world_50m.geojson'
         df = gpd.read_file(load_object(path))
         df['admin_name'] = df['name_en'].apply(clean_spatial_subdivision_name)
@@ -235,23 +233,13 @@ def admin_level_gdf(admin_level=2, remote=False):
         1: 'Admin1_simp10',
         2: 'Admin2_simp05',
     }
-    if remote:
-        path = f'gs://sheerwater-public-datalake/regions/admin-boundaries/lo-res/{dir[admin_level]}'
-    else:
-        path = f'../admin-boundaries/lo-res/{dir[admin_level]}'
+    path = f'gs://sheerwater-public-datalake/regions/admin-boundaries/lo-res/{dir[admin_level]}'
 
-    if remote:
-        fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
-        files = fs.ls(path)
-    else:
-        import os
-        files = os.listdir(path)
+    fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
+    files = fs.ls(path)
     dfs = []
     for file in files:
-        if remote:
-            sub = gpd.read_file(load_object(file))
-        else:
-            sub = gpd.read_file(os.path.join(path, file))
+        sub = gpd.read_file(load_object(file))
         if 'Name' in sub:
             # There is an inconsistency in the original datasource where the column
             # is labeled 'Name' instead of 'NAME_0'
