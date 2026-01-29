@@ -635,6 +635,9 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
         xarray.Dataset: Dataset with added region coordinate
     """
     # Convert single string to list (treat as single region, don't split by dashes)
+    if space_grouping is None:
+        space_grouping = 'global'
+
     if not isinstance(space_grouping, list):
         space_grouping = [space_grouping]
 

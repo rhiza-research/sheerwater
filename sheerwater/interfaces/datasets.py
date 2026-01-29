@@ -12,11 +12,10 @@ logger = logging.getLogger(__name__)
 # Global registry of data sources
 DATA_REGISTRY = {}
 FORECAST_REGISTRY = {}
-REGION_LAYER_REGISTRY = {}
 
 
 def add_spatial_attrs(ds, grid, mask, region):
-    """Add processing attributes to a dataset."""
+    """Utility function to add processing attributes to a dataset."""
     attrs = {
         'post_processed_grid': grid,
         'post_processed_mask': mask,
@@ -26,7 +25,10 @@ def add_spatial_attrs(ds, grid, mask, region):
 
 
 def check_spatial_attr(ds, grid=None, mask=None, region=None):
-    """Check if the dataset has the correct attributes."""
+    """Utility function to check if the dataset has the correct attributes.
+
+    Returns True if the dataset has the correct attributes, False otherwise.
+    """
     if ds is None:
         return False
     if grid is not None and ds.attrs.get('post_processed_grid', None) == grid:

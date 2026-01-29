@@ -254,15 +254,15 @@ class Metric(ABC):
         ############################################################
         # 1. Fetch the region and mask data
         ############################################################
-        region_ds = space_grouping_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
-        region_ds = clip_region(region_ds, grid=self.grid, region=self.region)
+        space_grouping_ds = space_grouping_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
+        space_grouping_ds = clip_region(space_grouping_ds, grid=self.grid, region=self.region)
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
         mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
 
         ############################################################
         # 2. Aggregate in time
         ############################################################
-        ds = self.statistic_values # ds will already be clipped to the region and masked
+        ds = self.statistic_values  # ds will already be clipped to the region and masked
 
         # Drop any extra random coordinates that shouldn't be there
         for coord in ds.coords:
@@ -277,7 +277,7 @@ class Metric(ABC):
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
         # Add the region coordinate to the statistic
-        ds = ds.assign_coords(space_grouping=(('lat', 'lon'), region_ds.region.values))
+        ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
 
         ############################################################
         # 3. Aggregate in space and apply spatial weighting
@@ -302,12 +302,14 @@ class Metric(ABC):
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             else:
                 if ds.space_grouping.size > 0:
+                    # Only group if there are grouping values after regional clipping
                     ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
 
             for stat in self.statistics:
                 ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
-            if self.region == 'global' or self.region is None or 'global' in self.region:
+            if self.space_grouping is not None and \
+                    (self.region == 'global' or self.region is None or 'global' in self.region):
                 # If we've passed a global region and clipped, drop any null groups
                 ds = ds.dropna(dim='space_grouping', how='all')
         else:

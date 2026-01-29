@@ -52,10 +52,10 @@ class spatial(NuthatchProcessor):
         """Post-process the dataset to clip to the region and apply the mask."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            if not check_spatial_attr(ds, {'region': self.region}):
+            if not check_spatial_attr(ds, region=self.region):
                 # Only clip region if the dataframe hasn't already been clipped
                 ds = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
-            if not check_spatial_attr(ds, {'mask': self.mask}):
+            if not check_spatial_attr(ds, mask=self.mask):
                 # Only apply mask if this dataframe has not already been masked
                 ds = apply_mask(ds, self.mask, grid=self.grid)
             ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)

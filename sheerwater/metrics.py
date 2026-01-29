@@ -47,11 +47,13 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
     data['indicator'] = xr.ones_like(data[variable])
     data = groupby_time(data, time_grouping=time_grouping, agg_fn='mean')
 
-    region_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
     if region != 'global':
+        space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
         mask_ds = clip_region(mask_ds, grid=grid, region=region)
-    data = groupby_region(data, region_ds, mask_ds, agg_fn='sum')
+
+    data = groupby_region(data, space_grouping_ds, mask_ds, agg_fn='sum')
 
     data['coverage'] = data['non_null'] / data['indicator']
 

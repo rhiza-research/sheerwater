@@ -1,4 +1,4 @@
-"""Standard interfaces for Sheerwater data, forecasts, and region layers."""
+"""Standard interfaces for Sheerwater data and forecasts."""
 from .datasets import (forecast, data, DATA_REGISTRY, FORECAST_REGISTRY,
                        list_forecasts, get_forecast, list_data, get_data,
                        add_spatial_attrs, check_spatial_attr)
