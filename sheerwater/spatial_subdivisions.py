@@ -536,7 +536,7 @@ def spatial_subdivision_regions(grid='global0_25'):
     return vals
 
 
-def get_spatial_subdivision_level(name, grid='global1_5'):
+def get_spatial_subdivision_level(name, grid='global0_25'):
     """For a given spatial subdivision, return the level of that spatial subdivision.
 
     Args:
@@ -659,7 +659,7 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     # Get the high level region for each region in the list
     promoted_levels = []
     for level in region:
-        level, promoted = get_spatial_subdivision_level(level)
+        level, promoted = get_spatial_subdivision_level(level, grid=grid)
         if promoted == 0:
             raise ValueError("Must pass a single region into clip_region, not a subdivision.")
         promoted_levels.append(level)

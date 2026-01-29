@@ -8,8 +8,8 @@ from sheerwater.spatial_subdivisions import (
     clean_spatial_subdivision_name,
     reconcile_country_name,
     get_spatial_subdivision_level,
-    political_subdivision_geodataframe,
-    political_subdivision_labels,
+    polygon_subdivision_geodataframe,
+    polygon_subdivision_labels,
     space_grouping_labels,
 )
 from sheerwater.utils import get_grid
@@ -54,10 +54,10 @@ def test_get_spatial_subdivision_level():
     assert promoted == 1
 
 
-def _region_gdf(region):
+def _region_gdf(region, grid="global1_5"):
     """Helper: GeoDataFrame for a level or a specific region using spatial_subdivisions API."""
-    level, promoted = get_spatial_subdivision_level(region)
-    gdf = political_subdivision_geodataframe(level)
+    level, promoted = get_spatial_subdivision_level(region, grid=grid)
+    gdf = polygon_subdivision_geodataframe(level)
     if promoted == 1:
         name = clean_spatial_subdivision_name(region)
         gdf = gdf[gdf["region_name"] == name]
@@ -65,7 +65,7 @@ def _region_gdf(region):
 
 
 def test_region_data_structure():
-    """Test that political_subdivision_geodataframe returns correct GeoDataFrame structure."""
+    """Test that polygon_subdivision_geodataframe returns correct GeoDataFrame structure."""
     gdf = _region_gdf("kenya")
     assert isinstance(gdf, gpd.GeoDataFrame)
     assert "region_name" in gdf.columns
@@ -75,10 +75,10 @@ def test_region_data_structure():
 
 
 def test_region_data_admin_levels():
-    """Test political_subdivision_geodataframe for admin levels and specific regions."""
+    """Test polygon_subdivision_geodataframe for admin levels and specific regions."""
     # spatial_subdivisions uses 'country', 'admin_1', 'admin_2' (no admin_level_0)
     for level in ["country", "admin_1", "admin_2"]:
-        gdf = political_subdivision_geodataframe(level)
+        gdf = polygon_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
         assert gdf.crs == "EPSG:4326"
@@ -88,7 +88,7 @@ def test_region_data_admin_levels():
         level_out, promoted = get_spatial_subdivision_level(level)
         assert level_out == level
         assert promoted == 0
-        assert len(political_subdivision_geodataframe(level)) > 0
+        assert len(polygon_subdivision_geodataframe(level)) > 0
 
     # Specific country
     gdf = _region_gdf("kenya")
@@ -97,7 +97,7 @@ def test_region_data_admin_levels():
     assert gdf.crs == "EPSG:4326"
 
     # Specific admin level 2 region
-    all_admin2 = political_subdivision_geodataframe("admin_2")
+    all_admin2 = polygon_subdivision_geodataframe("admin_2")
     assert len(all_admin2) > 0
     test_region = all_admin2.iloc[0]["region_name"]
     specific_region = _region_gdf(test_region)
@@ -109,9 +109,9 @@ def test_region_data_admin_levels():
 
 
 def test_region_data_global_regions():
-    """Test political_subdivision_geodataframe for global regions (continents, subregions, UN, WB)."""
+    """Test polygon_subdivision_geodataframe for global regions (continents, subregions, UN, WB)."""
     for level in ["continent", "subregion", "region_un", "region_wb"]:
-        gdf = political_subdivision_geodataframe(level)
+        gdf = polygon_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
         assert gdf.crs == "EPSG:4326"
@@ -124,9 +124,9 @@ def test_region_data_global_regions():
 
 
 def test_region_data_custom_regions():
-    """Test political_subdivision_geodataframe for custom regions."""
+    """Test polygon_subdivision_geodataframe for custom regions."""
     for level in ["sheerwater_region", "meteorological_zone"]:
-        gdf = political_subdivision_geodataframe(level)
+        gdf = polygon_subdivision_geodataframe(level)
         assert isinstance(gdf, gpd.GeoDataFrame)
         assert len(gdf) > 0
         assert gdf.crs == "EPSG:4326"
@@ -143,7 +143,7 @@ def test_region_data_custom_regions():
         assert gdf.iloc[0]["region_name"] == region
         assert gdf.crs == "EPSG:4326"
 
-    gdf = political_subdivision_geodataframe("sheerwater_region")
+    gdf = polygon_subdivision_geodataframe("sheerwater_region")
     region_names = gdf["region_name"].tolist()
     assert "nimbus_east_africa" in region_names
     assert "nimbus_west_africa" in region_names
@@ -155,12 +155,12 @@ def test_region_data_invalid_region():
     with pytest.raises(ValueError, match="Invalid spatial subdivision"):
         get_spatial_subdivision_level("nonexistent_region_xyz")
     with pytest.raises(ValueError, match="Invalid region level"):
-        political_subdivision_geodataframe("nonexistent_region_xyz")
+        polygon_subdivision_geodataframe("nonexistent_region_xyz")
 
 
-def test_political_subdivision_labels_country():
-    """Test political_subdivision_labels with level='country' returns dataset with region coord."""
-    ds = political_subdivision_labels(grid="global1_5", level="country")
+def test_polygon_subdivision_labels_country():
+    """Test polygon_subdivision_labels with level='country' returns dataset with region coord."""
+    ds = polygon_subdivision_labels(grid="global1_5", level="country")
     assert "region" in ds.coords
     assert len(ds.lat) > 0
 
