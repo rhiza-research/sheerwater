@@ -22,57 +22,16 @@ warnings.filterwarnings(
     category=ShapeSkipWarning,
 )
 
+# A global dictionary of spatial subdivisions, indexed by subdivision name
+# defined at the bottom of this file
+global spatial_subdivisions
+
 
 logger = logging.getLogger(__name__)
 
 ##############################################################################
 # Utility functions for spatial subdivisions
 ##############################################################################
-
-# Define the custom regions, allow the construction of custom regions by country list or lat / lon bounding box
-custom_multinational_subdivisions_definitions = {
-    'sheerwater_region': {
-        'nimbus_east_africa': {
-            'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
-        },
-        'nimbus_west_africa': {
-            'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
-        },
-        'conus': {
-            'countries': ['united_states_of_america'],
-        }
-    },
-    'meteorological_zone': {
-        'tropics': {
-            'lons': [-180.0, 180.0],
-            'lats': [-23.5, 23.5]
-        },
-        'extratropics_northern': {
-            'lons': [-180.0, 180.0],
-            'lats': [-90.0, -23.5],
-        },
-        'extratropics_southern': {
-            'lons': [-180.0, 180.0],
-            'lats': [23.5, 90.0],
-        }
-    },
-    'hemisphere': {
-        'northern_hemisphere': {
-            'lons': [-180.0, 180.0],
-            'lats': [0.0, 90.0]
-        },
-        'southern_hemisphere': {
-            'lons': [-180.0, 180.0],
-            'lats': [-90.0, 0.0]
-        }
-    },
-    'global': {
-        'global': {
-            'lons': [-180.0, 180.0],
-            'lats': [-90.0, 90.0]
-        }
-    }
-}
 
 
 def reconcile_country_name(country_name):
@@ -281,37 +240,67 @@ def multinational_gdf():
     return country_gdf
 
 
-def multinational_subdivisions_to_countries():
-    """A helful mapping of multinational administrative regions to a list of their constituent countries.
-
-    Derived from the multinational_gdf.
-
-    For example,
-    {
-        'continent': {
-            'asia': ['china', 'india', 'japan'],
-            'europe': ['france', 'germany', 'italy'],
+# Define the custom regions, allow the construction of custom regions by country list or lat / lon bounding box
+custom_subdivisions_definitions = {
+    'sheerwater_region': {
+        'nimbus_east_africa': {
+            'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
         },
-        'region_un': {
-            'americas': ['united_states', 'canada'],
+        'nimbus_west_africa': {
+            'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
         },
+        'conus': {
+            'countries': ['united_states_of_america'],
+        }
+    },
+    'meteorological_zone': {
+        'tropics': {
+            'lons': [-180.0, 180.0],
+            'lats': [-23.5, 23.5]
+        },
+        'extratropics_northern': {
+            'lons': [-180.0, 180.0],
+            'lats': [-90.0, -23.5],
+        },
+        'extratropics_southern': {
+            'lons': [-180.0, 180.0],
+            'lats': [23.5, 90.0],
+        }
+    },
+    'hemisphere': {
+        'northern_hemisphere': {
+            'lons': [-180.0, 180.0],
+            'lats': [0.0, 90.0]
+        },
+        'southern_hemisphere': {
+            'lons': [-180.0, 180.0],
+            'lats': [-90.0, 0.0]
+        }
+    },
+    'global': {
+        'global': {
+            'lons': [-180.0, 180.0],
+            'lats': [-90.0, 90.0]
+        }
     }
-    """
-    df = multinational_gdf()
-    vals = {}
-    for subdivision in multinational_subdivisions:
-        vals[subdivision] = {}
-        multinational_regions = set(df[subdivision])
-        for val in multinational_regions:
-            countries = df[df[subdivision] == val]['country']
-            countries = [x for x in countries if x != 'no_region']
-            vals[subdivision][val] = set(countries)
-    return vals
+}
 
 
 @cache(cache_args=['level'])
-def political_subdivision_geodataframe(level):
-    """Get the boundary shapefile for a given political subdivision level.
+def polygon_subdivision_geodataframe(level):
+    """Get the boundary geodatarame for a given subdivision level defined by a set of polygons.
+
+    Supports the following levels:
+    1. Multinational subdivisions: 'continent', 'subregion', 'region_un', 'region_wb'
+        - Defined by multinational_gdf(), from the World Bank / UN datasources
+        - Each region is composed of a set of coutries, which are selected and their geometry is unioned to form a region geometry
+    2. Subnational subdivisions: 'country', 'admin_1', 'admin_2' - defined by the admin level
+        - Defined by admin_level_gdf(), from the admin-boundaries/lo-res datasource
+        - Each region is compsed of a single geometry, selected from the admin level dataframe
+    3. Custom regions defined by polygon boundaries: 'sheerwater_region', 'meteorological_zone', 'hemisphere', 'global'
+        - Defined in the dictionary custom_subdivisions_definitions
+        - Each region is composed either of a set of countries, or a lat/lon bounding box. The countries are selected from
+          source (2) above and unioned to form a region geometry, or the lat/lon bounding box is converted to a rectangular Polygon.
 
     Args:
         level(str): The level to get the data for . Must be
@@ -322,7 +311,7 @@ def political_subdivision_geodataframe(level):
             - 'region_name': the name of the region,
             - 'region_geometry': its geometry as a shapely object.
     """
-    if level in subnational_subdivisions.keys():
+    if level in ['country', 'admin_1', 'admin_2']:
         # Get all region objects in the regions list
         if level == 'country':
             admin_level = 0
@@ -334,31 +323,41 @@ def political_subdivision_geodataframe(level):
             'admin_name': 'region_name',
             'geometry': 'region_geometry',
         })
-    elif level in multinational_subdivisions.keys():
+    elif level in ['continent', 'subregion', 'region_un', 'region_wb']:
         # Need to merge the countries invovled in a global region into a single geometry
         # Need to use the global regions df here, otherwise there are gaps in the
         # geometry coverage.
         country_gdf = multinational_gdf()
-        subdivision_to_countries = multinational_subdivisions_to_countries()
+
+        def multinational_subdivisions_to_countries(df, subdivision):
+            """A local helper to map each multinational subdivision to a list of countries."""
+            vals = {}
+            multinational_regions = set(df[subdivision])
+            for val in multinational_regions:
+                countries = df[df[subdivision] == val]['country']
+                countries = [x for x in countries if x != 'no_region']
+                vals[val] = set(countries)
+            return vals
+        subdivision_to_countries = multinational_subdivisions_to_countries(country_gdf, level)
         region_names = []
         region_geometries = []
-        regions = subdivision_to_countries[level].keys()
+        regions = subdivision_to_countries.keys()
         for reg in regions:
-            countries = subdivision_to_countries[level][reg]
+            countries = subdivision_to_countries[reg]
             region_gdf = country_gdf[country_gdf['country'].isin(countries)]
             geometry = region_gdf.geometry.union_all()
             region_names.append(reg)
             region_geometries.append(geometry)
         gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
-    elif level in custom_multinational_subdivisions_definitions.keys():
+    elif level in custom_subdivisions_definitions.keys():
         # Custom regions are defined by a list of countries or a lat/lon bounding box
         # Need to merge the countries invovled in a custom region into a single geometry
         admin_0 = admin_level_gdf(admin_level=0)
         region_names = []
         region_geometries = []
-        regions = custom_multinational_subdivisions_definitions[level].keys()
+        regions = custom_subdivisions_definitions[level].keys()
         for reg in regions:
-            data = custom_multinational_subdivisions_definitions[level][reg]
+            data = custom_subdivisions_definitions[level][reg]
             if 'lats' in data and 'lons' in data:
                 # Create a shapefile (GeoDataFrame) from lat/lon boundaries as a rectangular Polygon
                 tol = 0.005
@@ -386,6 +385,48 @@ def political_subdivision_geodataframe(level):
     gdf = gdf.set_geometry("region_geometry")
     gdf = gdf.set_crs("EPSG:4326")
     return gdf
+
+##############################################################################
+# The fundamental functions that define gridded spatial subdivision datasets
+##############################################################################
+
+
+@cache(cache_args=['grid', 'level'],
+       backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+def polygon_subdivision_labels(grid='global1_5', level='country'):
+    """Generate a gridded dataset with a region coordinate at a specific polygon subdivision level.
+
+    Args:
+        grid(str): The grid to fetch the data at.  Note that only
+            the resolution of the specified grid is used.
+        level(str): A polygon subdivision level, one of the supported levels from
+            polygon_subdivision_geodataframe() above
+
+    Returns:
+        xarray.Dataset: A gridded dataset with a region coordinate at the specified polygon subdivision level.
+    """
+    # Get a geopandas dataframe for the specific subnational level
+    gdf = polygon_subdivision_geodataframe(level)
+
+    # Get the grid dataframe
+    ds = get_grid_ds(grid)
+    # Assign a dummy region coordinate to all grid cells
+    # Fixed data type of strings of length 40
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
+
+    # If admin group, construct the admin gridded dataframe
+    # Loop through each region and label grid cells
+    for i, rn in gdf.iterrows():
+        print(i+1, '/', len(gdf.region_name), rn.region_name)
+        # Clip the grid to the boundary of Shapefile
+        world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
+        #  Add geometry to the dataframe and clip
+        world_ds = world_ds.rio.write_crs("EPSG:4326")
+        world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
+        region_ds = world_ds.rio.clip(rn, gdf.crs, drop=False)
+        # Assign the region name to the region coordinate
+        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
+    return ds
 
 
 # zone labels from https://data.apps.fao.org/catalog/dataset/0bb7237a-6740-4ea3-b2a1-e26b1647e4e0
@@ -425,100 +466,6 @@ agroecological_zone_names = {
     32: "Dominantly built-up land",
     33: "Dominantly water"
 }
-
-
-@cache(memoize=True)
-def spatial_subdivision_regions():
-    """A dictionary containing all the regions for each spatial subdivision for quick look up.
-
-    # TODO: could divide by level and perhaps quieried in order of size to make as fast as possible?
-    """
-    vals = {}
-    # First, check the political subdivisions
-    for subdivision in political_subdivisions.keys():
-        df = political_subdivision_geodataframe(subdivision)
-        vals[subdivision] = df['region_name'].values
-
-    for subdivision in other_subdivisions.keys():
-        if subdivision == 'agroecological_zone':
-            vals[subdivision] = [clean_spatial_subdivision_name(x) for x in agroecological_zone_names.values()]
-        else:
-            raise ValueError(f"Invalid subdivision: {subdivision}")
-    return vals
-
-
-def get_spatial_subdivision_level(name):
-    """For a given spatial subdivision, return the level of that spatial subdivision.
-
-    Args:
-        name(str): The spatial subdivision to get the level of. Can either be a spatial subdivision name
-            or a specific region within that spatial subdivision.
-            e.g., both 'country' and 'indonesia' are valid region arguments.
-
-    Returns:
-        level(str): The level of the spatial subdivision.
-        promoted(int): An indictor of whether the subdivision is promoted to a higher level.
-            -1: for global, not promoted
-            0: for already a subdivision, not promoted
-            1: for a specific region, promoted to a higher level
-    """
-    if name is None or name == 'global':
-        return 'global', -1
-
-    name = clean_spatial_subdivision_name(name)
-
-    # If name is already a high level spatial subdivision, just return that value
-    if name in spatial_subdivisions.keys():
-        return name, 0
-
-    # First, check the political subdivisions
-    vals = spatial_subdivision_regions()
-    for subdivision, regions in vals.items():
-        if name in regions:
-            return subdivision, 1
-    raise ValueError(f"Invalid spatial subdivision: {name}")
-
-
-##############################################################################
-# The fundamental functions that define gridded spatial subdivision datasets
-##############################################################################
-
-
-@cache(cache_args=['grid', 'level'],
-       backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def political_subdivision_labels(grid='global1_5', level='country'):
-    """Generate a gridded dataset with a region coordinate at a specific political subdivision level.
-
-    Args:
-        grid(str): The grid to fetch the data at.  Note that only
-            the resolution of the specified grid is used.
-        level(str): A political subdivision level
-
-    Returns:
-        xarray.Dataset: A gridded dataset with a region coordinate at the specified political subdivision level.
-    """
-    # Get a geopandas dataframe for the specific subnational level
-    gdf = political_subdivision_geodataframe(level)
-
-    # Get the grid dataframe
-    ds = get_grid_ds(grid)
-    # Assign a dummy region coordinate to all grid cells
-    # Fixed data type of strings of length 40
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
-
-    # If admin group, construct the admin gridded dataframe
-    # Loop through each region and label grid cells
-    for i, rn in gdf.iterrows():
-        print(i+1, '/', len(gdf.region_name), rn.region_name)
-        # Clip the grid to the boundary of Shapefile
-        world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
-        #  Add geometry to the dataframe and clip
-        world_ds = world_ds.rio.write_crs("EPSG:4326")
-        world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
-        region_ds = world_ds.rio.clip(rn, gdf.crs, drop=False)
-        # Assign the region name to the region coordinate
-        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
-    return ds
 
 
 @cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
@@ -570,42 +517,58 @@ def agroecological_subdivision_labels(grid='global1_5'):
     return ds
 
 
-##################################################################
-# Spatial subdivision definitions, including custom regions
-# Each spatial subdivision is defined by a function that generates a
-# gridded dataset with a region coordinate at a specific spatial subdivision.
-##################################################################
-# A set of standard regions that are above the nationional level - defined by the UN or WB
-multinational_subdivisions = {
-    'continent': partial(political_subdivision_labels, level='continent'),
-    'subregion': partial(political_subdivision_labels, level='subregion'),
-    'region_un': partial(political_subdivision_labels, level='region_un'),
-    'region_wb': partial(political_subdivision_labels, level='region_wb')
-}
-custom_multinational_subdivisions = {
-    'sheerwater_region': partial(political_subdivision_labels, level='sheerwater_region'),
-    'meteorological_zone': partial(political_subdivision_labels, level='meteorological_zone'),
-    'hemisphere': partial(political_subdivision_labels, level='hemisphere'),
-    'global': partial(political_subdivision_labels, level='global')
-}
-# A set of standard regions that are below the nationional level - defined by the admin level
-# admin level 0 is the same as country, but we include it for consistency
-subnational_subdivisions = {
-    'country': partial(political_subdivision_labels, level='country'),
-    'admin_1': partial(political_subdivision_labels, level='admin_1'),
-    'admin_2': partial(political_subdivision_labels, level='admin_2')
-}
-political_subdivisions = {**multinational_subdivisions, **subnational_subdivisions, **custom_multinational_subdivisions}
-# Other subdivisions that are not administrative, but are still spatial
-other_subdivisions = {'agroecological_zone': agroecological_subdivision_labels}
-
-# Form a dict of all spatial subdivisions (level -> labels function)
-spatial_subdivisions = {**political_subdivisions, **other_subdivisions}
-
-
 ##############################################################################
-# Spatial subdivision labels
+# The final spatial subdivision interface
 ##############################################################################
+
+
+@cache(memoize=True, cache_args=['grid'])
+def spatial_subdivision_regions(grid='global0_25'):
+    """A dictionary containing all the regions for each spatial subdivision for quick look up.
+
+    # TODO: could divide by level and perhaps quieried in order of size to make as fast as possible?
+    """
+    vals = {}
+    # First, check the polygon subdivisions
+    for subdivision in spatial_subdivisions.keys():
+        df = spatial_subdivisions[subdivision](grid=grid)
+        vals[subdivision] = np.unique(df['region'].values)
+    return vals
+
+
+def get_spatial_subdivision_level(name, grid='global1_5'):
+    """For a given spatial subdivision, return the level of that spatial subdivision.
+
+    Args:
+        name(str): The spatial subdivision to get the level of. Can either be a spatial subdivision name
+            or a specific region within that spatial subdivision.
+            e.g., both 'country' and 'indonesia' are valid region arguments.
+        grid(str): The grid to fetch the data at.  Note that only
+            the resolution of the specified grid is used.
+
+    Returns:
+        level(str): The level of the spatial subdivision.
+        promoted(int): An indictor of whether the subdivision is promoted to a higher level.
+            -1: for global, not promoted
+            0: for already a subdivision, not promoted
+            1: for a specific region, promoted to a higher level
+    """
+    if name is None or name == 'global':
+        return 'global', -1
+
+    name = clean_spatial_subdivision_name(name)
+
+    # If name is already a high level spatial subdivision, just return that value
+    if name in spatial_subdivisions.keys():
+        return name, 0
+
+    # First, check the polygon subdivisions
+    vals = spatial_subdivision_regions(grid=grid)
+    for subdivision, regions in vals.items():
+        if name in regions:
+            return subdivision, 1
+    raise ValueError(f"Invalid spatial subdivision: {name}")
+
 
 @cache(cache_args=['grid', 'space_grouping'], memoize=True,
        backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
@@ -659,14 +622,10 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
     # If we have a mask variable, drop it
     if 'mask' in ds.data_vars:
         ds = ds.drop_vars('mask')
-
-    # If we have a mask variable, drop it
-    if 'mask' in ds.data_vars:
-        ds = ds.drop_vars('mask')
     return ds
 
 ##############################################################################
-# Core clipping utility
+# Core clipping / masking utilities
 ##############################################################################
 
 
@@ -722,6 +681,9 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
 
 def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True):
     """Clip a dataset to a passed geometry.
+
+    This is not used in our pipelines, as it doesn't support regions that are not defined
+    by geometries, such as the gridded agroecological zones.
 
     Args:
         ds (xr.Dataset): The dataset to clip to a specific region.
@@ -794,3 +756,29 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         # Mask multiple variables
         ds = ds.where(masking_ds, drop=False)
     return ds
+
+
+##################################################################
+# Spatial subdivision definitions, including custom regions
+# Each spatial subdivision is defined by a function that generates a
+# gridded dataset with a region coordinate at a specific spatial subdivision.
+##################################################################
+spatial_subdivisions = {
+    # A set of standard regions that are above the nationional level - defined by the UN or WB
+    'continent': partial(polygon_subdivision_labels, level='continent'),
+    'subregion': partial(polygon_subdivision_labels, level='subregion'),
+    'region_un': partial(polygon_subdivision_labels, level='region_un'),
+    'region_wb': partial(polygon_subdivision_labels, level='region_wb'),
+    # Custom regions defined by polygon boundaries
+    'sheerwater_region': partial(polygon_subdivision_labels, level='sheerwater_region'),
+    'meteorological_zone': partial(polygon_subdivision_labels, level='meteorological_zone'),
+    'hemisphere': partial(polygon_subdivision_labels, level='hemisphere'),
+    'global': partial(polygon_subdivision_labels, level='global'),
+    # A set of standard regions that are below the nationional level - defined by the admin level
+    # admin level 0 is the same as country, but we include it for consistency
+    'country': partial(polygon_subdivision_labels, level='country'),
+    'admin_1': partial(polygon_subdivision_labels, level='admin_1'),
+    'admin_2': partial(polygon_subdivision_labels, level='admin_2'),
+    # Custom agroecological zones
+    'agroecological_zone': agroecological_subdivision_labels
+}
