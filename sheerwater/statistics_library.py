@@ -8,7 +8,8 @@ import properscoring
 import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
-from sheerwater.interfaces import spatial, add_spatial_attrs
+from sheerwater.interfaces import spatial
+from sheerwater.utils import add_spatial_attrs
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
