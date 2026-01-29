@@ -300,10 +300,12 @@ class Metric(ABC):
 
             if self.space_grouping is None:
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
+            elif ds.space_grouping.size > 0:
+                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
             else:
-                if ds.space_grouping.size > 0:
-                    # Only group if there are grouping values after regional clipping
-                    ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+                # If we don't have any valid space groups after clipping, the dataframe is empty
+                # we can just continue
+                pass
 
             for stat in self.statistics:
                 ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
