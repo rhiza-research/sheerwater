@@ -532,8 +532,14 @@ def spatial_subdivision_regions(grid='global0_25'):
     """
     vals = {}
     for subdivision in spatial_subdivisions.keys():
-        df = spatial_subdivisions[subdivision](grid=grid)
-        vals[subdivision] = np.unique(df['region'].values)
+        if spatial_subdivisions[subdivision][1] is not None:
+            # If the subdivision is a geometry region, get the regions from the geometry
+            gdf = spatial_subdivisions[subdivision][1]()
+            vals[subdivision] = np.unique(gdf['region_name'].values)
+        else:
+            # If the subdivision is a gridded region, get the regions from the grid
+            df = spatial_subdivisions[subdivision][0](grid=grid)
+            vals[subdivision] = np.unique(df['region'].values)
     return vals
 
 
@@ -568,6 +574,9 @@ def get_spatial_subdivision_level(name, grid='global0_25'):
     for subdivision, regions in vals.items():
         if name in regions:
             return subdivision, 1
+
+    import pdb
+    pdb.set_trace()
     raise ValueError(f"Invalid spatial subdivision: {name}")
 
 
