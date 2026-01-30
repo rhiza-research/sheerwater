@@ -478,7 +478,8 @@ def agroecological_subdivision_labels(grid='global1_5'):
     ds = ds.squeeze('band').drop(['band', 'spatial_ref'])
     ds = ds.rename_vars({'band_data': 'agroecological_zone'})
 
-    da = ds.agroecological_zone.fillna(0)
+    # Fill Nas with mostly water label
+    da = ds.agroecological_zone.fillna(33)
     da = da.astype(np.int32)
 
     # Sort latitude and longitude values in descending order
@@ -486,7 +487,8 @@ def agroecological_subdivision_labels(grid='global1_5'):
     da = da.sortby('lat', ascending=True)
     da = da.sortby('lon', ascending=True)
 
-    da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={'values': np.unique(da.values)})
+    da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={
+                'values': np.unique(da.values), 'fill_value': 33})
     ds = da.to_dataset(name='region')
 
     # Convert back to integer
@@ -529,7 +531,6 @@ def spatial_subdivision_regions(grid='global0_25'):
     # TODO: could divide by level and perhaps quieried in order of size to make as fast as possible?
     """
     vals = {}
-    # First, check the polygon subdivisions
     for subdivision in spatial_subdivisions.keys():
         df = spatial_subdivisions[subdivision](grid=grid)
         vals[subdivision] = np.unique(df['region'].values)
@@ -603,7 +604,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
     ds_list = []
     ds_coords = []
     for level in space_grouping:
-        labels_ds = spatial_subdivisions[level](grid=grid)
+        labels_ds = spatial_subdivisions[level](grid=grid, recompute=True)
         labels_ds = labels_ds.rename({'region': f'{level}_region'})
         ds_list.append(labels_ds)
         ds_coords.append(f'{level}_region')
@@ -618,10 +619,6 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
     coords_values = [ds[x].values.flatten() for x in ds_coords]
     combined_region_coords = np.array(['-'.join(vals) for vals in zip(*coords_values)], dtype='U40')
     ds = ds.assign_coords(region=(('lat', 'lon'), combined_region_coords.reshape(ds.lat.size, ds.lon.size)))
-
-    # If we have a mask variable, drop it
-    if 'mask' in ds.data_vars:
-        ds = ds.drop_vars('mask')
     return ds
 
 ##############################################################################
@@ -653,7 +650,7 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
         # If we already have a region dimension, just select the region
         return ds.where(ds[region_dim] == '-'.join(region), drop=drop)
 
-    # Form concatonated region string
+    # Clean the region names
     region = [clean_spatial_subdivision_name(x) for x in region]
 
     # Get the high level region for each region in the list
@@ -669,13 +666,31 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     promoted_levels = [promoted_levels[i] for i in sort_idx]
     region = [region[i] for i in sort_idx]
 
-    region_str = '-'.join(region)
-    region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
+    #########################################################
+    # Clip to geometry regions
+    #########################################################
+    clipped_regions = [(i, x) for i, x in enumerate(promoted_levels) if spatial_subdivisions[x][1] is not None]
+    if len(clipped_regions) > 1:
+        raise ValueError(f"Cannot clip to multiple geometry regions at the same time: {clipped_regions}.")
 
-    # Rename region to a dummy name to avoid conflicts while clipping
-    region_ds = region_ds.rename({'region': '_clip_region'})
-    ds = ds.where((region_ds._clip_region == region_str).compute(), drop=drop)
-    ds = ds.drop_vars('_clip_region')
+    if len(clipped_regions) == 1:
+        i, region_name = clipped_regions[0]
+        region_idx = region[i]
+        gdf = spatial_subdivisions[region_name][1]()
+        sub = gdf[gdf['region_name'] == region_idx]
+        ds = clip_by_geometry(ds, sub.geometry, drop=drop)
+
+    #########################################################
+    # Select gridded regions
+    #########################################################
+    gridded_regions = [(i, x) for i, x in enumerate(promoted_levels) if spatial_subdivisions[x][1] is None]
+    if len(gridded_regions) > 0:
+        # Prepare string for select of gridded regions
+        region_str = '-'.join([region[i] for i, _ in gridded_regions])
+        region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
+        region_ds = region_ds.rename({'region': '_clip_region'})
+        ds = ds.where((region_ds._clip_region == region_str), drop=False)
+        ds = ds.drop_vars('_clip_region')
     return ds
 
 
@@ -703,8 +718,14 @@ def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True)
     # Set up dataframe for clipping
     ds = ds.rio.write_crs("EPSG:4326")
     ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+    # swap region coordinate to a data variables
     # Clip the grid to the passed geometry
-    ds = ds.rio.clip(geometry, ds.crs, drop=drop)
+    # check if the dataset has variables
+
+    if len(ds.data_vars) == 0:
+        # Must have a data variable to clip
+        ds['mask'] = xr.ones_like(ds.lat * ds.lon, dtype=np.int32)
+    ds = ds.rio.clip(geometry, geometry.crs, drop=drop)
     return ds
 
 
@@ -760,25 +781,27 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
 
 ##################################################################
 # Spatial subdivision definitions, including custom regions
-# Each spatial subdivision is defined by a function that generates a
-# gridded dataset with a region coordinate at a specific spatial subdivision.
+# Each spatial subdivision is defined by a tuple of a function that generates a
+# gridded dataset with a region coordinate at a specific spatial subdivision,
+# and a function that generates a geodataframe for the spatial subdivision. If the
+# spatial subdivision is not defined by a set of polygons, the second function is None.
 ##################################################################
 spatial_subdivisions = {
     # A set of standard regions that are above the nationional level - defined by the UN or WB
-    'continent': partial(polygon_subdivision_labels, level='continent'),
-    'subregion': partial(polygon_subdivision_labels, level='subregion'),
-    'region_un': partial(polygon_subdivision_labels, level='region_un'),
-    'region_wb': partial(polygon_subdivision_labels, level='region_wb'),
+    'continent': [partial(polygon_subdivision_labels, level='continent'), partial(polygon_subdivision_geodataframe, level='continent')],
+    'subregion': [partial(polygon_subdivision_labels, level='subregion'), partial(polygon_subdivision_geodataframe, level='subregion')],
+    'region_un': [partial(polygon_subdivision_labels, level='region_un'), partial(polygon_subdivision_geodataframe, level='region_un')],
+    'region_wb': [partial(polygon_subdivision_labels, level='region_wb'), partial(polygon_subdivision_geodataframe, level='region_wb')],
     # Custom regions defined by polygon boundaries
-    'sheerwater_region': partial(polygon_subdivision_labels, level='sheerwater_region'),
-    'meteorological_zone': partial(polygon_subdivision_labels, level='meteorological_zone'),
-    'hemisphere': partial(polygon_subdivision_labels, level='hemisphere'),
-    'global': partial(polygon_subdivision_labels, level='global'),
+    'sheerwater_region': [partial(polygon_subdivision_labels, level='sheerwater_region'), partial(polygon_subdivision_geodataframe, level='sheerwater_region')],
+    'meteorological_zone': [partial(polygon_subdivision_labels, level='meteorological_zone'), partial(polygon_subdivision_geodataframe, level='meteorological_zone')],
+    'hemisphere': [partial(polygon_subdivision_labels, level='hemisphere'), partial(polygon_subdivision_geodataframe, level='hemisphere')],
+    'global': [partial(polygon_subdivision_labels, level='global'), partial(polygon_subdivision_geodataframe, level='global')],
     # A set of standard regions that are below the nationional level - defined by the admin level
     # admin level 0 is the same as country, but we include it for consistency
-    'country': partial(polygon_subdivision_labels, level='country'),
-    'admin_1': partial(polygon_subdivision_labels, level='admin_1'),
-    'admin_2': partial(polygon_subdivision_labels, level='admin_2'),
+    'country': [partial(polygon_subdivision_labels, level='country'), partial(polygon_subdivision_geodataframe, level='country')],
+    'admin_1': [partial(polygon_subdivision_labels, level='admin_1'), partial(polygon_subdivision_geodataframe, level='admin_1')],
+    'admin_2': [partial(polygon_subdivision_labels, level='admin_2'), partial(polygon_subdivision_geodataframe, level='admin_2')],
     # Custom agroecological zones
-    'agroecological_zone': agroecological_subdivision_labels
+    'agroecological_zone': [agroecological_subdivision_labels, None]
 }

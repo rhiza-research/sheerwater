@@ -254,9 +254,10 @@ class Metric(ABC):
         ############################################################
         # 1. Fetch the region and mask data
         ############################################################
-        space_grouping_ds = space_grouping_labels(grid=self.grid, space_grouping=self.space_grouping).compute()
-        space_grouping_ds = clip_region(space_grouping_ds, grid=self.grid, region=self.region)
+        space_grouping_ds = space_grouping_labels(grid=self.grid, space_grouping=self.space_grouping)
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
+
+        space_grouping_ds = clip_region(space_grouping_ds, grid=self.grid, region=self.region)
         mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
 
         ############################################################
@@ -310,10 +311,8 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
-            if self.space_grouping is not None and \
-                    (self.region == 'global' or self.region is None or 'global' in self.region):
-                # If we've passed a global region and clipped, drop any null groups
-                ds = ds.dropna(dim='space_grouping', how='all')
+            # If we've passed a global region and clipped, drop any null groups
+            ds = ds.dropna(dim='space_grouping', how='all')
         else:
             # If returning a spatial metric, mask and drop
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
