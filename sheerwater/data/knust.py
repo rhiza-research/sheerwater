@@ -12,6 +12,7 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 
 @cache(cache_args=[])
 def knust_ashanti():
+    """KNUST Ashanti station data source."""
     # Open the netcdf datasets and standardize
     ashanti = xr.open_dataset('gs://sheerwater-datalake/knust_stations/ashanti.nc',
                               engine='h5netcdf')
@@ -24,6 +25,7 @@ def knust_ashanti():
 
 @cache(cache_args=[])
 def knust_dacciwa():
+    """KNUST Dacciwa station data source."""
     dacciwa = xr.open_mfdataset(['gs://sheerwater-datalake/knust_stations/dacciwa/dacciwa_rg_daily_2015-2017.nc',
                                  'gs://sheerwater-datalake/knust_stations/dacciwa/dacciwa_rg_daily_2018-2019.nc'],
                                 engine='h5netcdf')
@@ -36,6 +38,7 @@ def knust_dacciwa():
 
 @cache(cache_args=[])
 def knust_furiflood():
+    """KNUST Furiflood station data source."""
     furiflood = xr.open_dataset('gs://sheerwater-datalake/knust_stations/furiflood_kumasi_raingauge_data/furiflood_rg_01-D.nc',
                                 engine='h5netcdf')
     furiflood = furiflood.rename({'latitude': 'lat', 'longitude': 'lon'})

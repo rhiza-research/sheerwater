@@ -7,9 +7,10 @@ import xarray as xr
 
 from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
-from sheerwater.regions_and_masks import region_labels, spatial_mask
+from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import get_region_level, groupby_time, latitude_weights, clip_region
+from sheerwater.utils import groupby_time, latitude_weights
+from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
@@ -75,8 +76,8 @@ class Metric(ABC):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Arguments for calling the data and forecast functions.
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
-                              'variable': self.variable, 'agg_days': self.agg_days,
-                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
+                             'variable': self.variable, 'agg_days': self.agg_days,
+                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
@@ -250,26 +251,25 @@ class Metric(ABC):
         By default, returns the statistic values as is.
         Subclasses can override this for more complex groupings.
         """
-        region_level, _ = get_region_level(self.space_grouping)
-        region_ds = region_labels(grid=self.grid, space_grouping=region_level,
-                                  region=self.region, memoize=True).compute()
+        ############################################################
+        # 1. Fetch the region and mask data
+        ############################################################
+        space_grouping_ds = space_grouping_labels(grid=self.grid, space_grouping=self.space_grouping)
         mask_ds = spatial_mask(self.mask, self.grid, memoize=True)
-        if self.region != 'global':
-            mask_ds = clip_region(mask_ds, region=self.region)
+
+        space_grouping_ds = clip_region(space_grouping_ds, grid=self.grid, region=self.region)
+        mask_ds = clip_region(mask_ds, grid=self.grid, region=self.region)
 
         ############################################################
-        # Aggregate and and check validity of the statistic
+        # 2. Aggregate in time
         ############################################################
-        ds = self.statistic_values
+        ds = self.statistic_values  # ds will already be clipped to the region and masked
 
         # Drop any extra random coordinates that shouldn't be there
         for coord in ds.coords:
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        ############################################################
-        # Statistic aggregation
-        ############################################################
         # Create a non_null indicator and add it to the statistic
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
@@ -278,9 +278,11 @@ class Metric(ABC):
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
         # Add the region coordinate to the statistic
-        ds = ds.assign_coords(region=region_ds.region)
+        ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
 
-        # Aggregate in space
+        ############################################################
+        # 3. Aggregate in space and apply spatial weighting
+        ############################################################
         if not self.spatial:
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
@@ -297,19 +299,23 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = ds[stat] * ds['weights']
 
-            if region_level == 'global':
+            if self.space_grouping is None:
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
+            elif ds.space_grouping.size > 0:
+                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
             else:
-                ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
+                # If we don't have any valid space groups after clipping, the dataframe is empty
+                # we can just continue
+                pass
 
             for stat in self.statistics:
-                ds[stat] = ds[stat] / ds['weights']
+                ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
+            # If we've passed a global region and clipped, drop any null groups
+            ds = ds.dropna(dim='space_grouping', how='all')
         else:
             # If returning a spatial metric, mask and drop
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
-            ds = ds.where((ds.region == self.region).compute(), drop=True)
-            ds = ds.drop_vars('region')
 
         # Assign the final statistic value
         self.grouped_statistics = ds

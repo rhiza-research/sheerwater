@@ -9,6 +9,7 @@ import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
 from sheerwater.interfaces import spatial
+from sheerwater.utils import add_spatial_attrs
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -59,13 +60,18 @@ def statistic(cache=False, name=None,
                 'statistic': statistic,
             }
             ds = func(data=data, **cache_kwargs)
-            # Assign metric attributes in one call
+            # Assign metric attributes in one call and carry forward relevent attributes from the data
+            # carrying through clipping and masking attributes helps ensure
+            # no redundant computations are performed
             ds = ds.assign_attrs(
                 prob_type=data['prob_type'],
                 forecast=forecast,
                 truth=truth,
+                agg_days=float(agg_days),
+                variable=variable,
                 statistic=statistic
             )
+            ds = add_spatial_attrs(ds, grid=grid, mask=mask, region=region)
             return ds
 
         @wraps(func)

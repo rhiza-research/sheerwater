@@ -3,7 +3,8 @@
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time, clip_region, apply_mask
+from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr
+from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 import logging
 logger = logging.getLogger(__name__)
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 # Global registry of data sources
 DATA_REGISTRY = {}
 FORECAST_REGISTRY = {}
+
 
 class SheerwaterDataset(NuthatchProcessor):
     """Processor for a Sheerwater dataset, either forecast or data of a standard format.
@@ -47,7 +49,7 @@ class SheerwaterDataset(NuthatchProcessor):
             self.agg_days = bound_args.arguments['agg_days']
             self.variable = bound_args.arguments['variable']
         except KeyError:
-            raise ValueError("Forecast decorator requires grid, agg_days, and variable to be passed.")
+            raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
         if self.variable == 'precip':
             self.units = 'mm / day'
@@ -61,23 +63,20 @@ class SheerwaterDataset(NuthatchProcessor):
         """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
         if isinstance(ds, xr.Dataset):
             # Clip to specified region
-            if not (hasattr(ds, 'region') and ds.region== self.region):
+            if not check_spatial_attr(ds, region=self.region):
                 # Only clip region if the dataframe hasn't already been clipped
-                ds = clip_region(ds, region=self.region, region_dim=self.region_dim)
-            if not (hasattr(ds, 'mask') and ds.mask == self.mask):
+                ds = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
+            if not check_spatial_attr(ds, mask=self.mask):
                 # Only apply mask if this dataframe has not already been masked
                 ds = apply_mask(ds, self.mask, grid=self.grid)
             attrs = {
                 'agg_days': float(self.agg_days),
                 'variable': self.variable,
-                'grid': self.grid,
-                'mask': self.mask,
-                'region': self.region
             }
             if self.units is not None:
                 attrs['units'] = self.units
             ds = ds.assign_attrs(attrs)
-
+            ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
         else:
             raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")
         return ds
@@ -85,7 +84,7 @@ class SheerwaterDataset(NuthatchProcessor):
     def validate(self, ds):
         """Validate the cached data to ensure it has data within the region."""
         # Check to see if the dataset extends roughly the full time series set
-        test = clip_region(ds, region=self.region, region_dim=self.region_dim)
+        test = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
         test = apply_mask(test, self.mask, grid=self.grid)
         if test.notnull().count().compute() == 0:
             logger.warning(f"""The cached array does not have data within
@@ -96,8 +95,10 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             return True
 
+
 class data(SheerwaterDataset):
     """Processor for a Sheerwater data. It supports xarray datasets."""
+
     def __call__(self, func):
         """Call the parent class and register the data in the global data registry."""
         wrapped = super().__call__(func)
@@ -110,12 +111,13 @@ class data(SheerwaterDataset):
         ds = super().post_process(ds)
 
         # Remove all unneeded dimensions
-        ds = ds.drop_vars([var for var in ds.coords if var not in [
-                            'time', 'lat', 'lon']])
+        ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon']])
         return ds
+
 
 class forecast(SheerwaterDataset):
     """Processor for a Sheerwater forecast. It supports xarray datasets."""
+
     def __call__(self, func):
         """Call the forecast decorator and register it in the global forecast registry."""
         wrapped = super().__call__(func)
@@ -133,9 +135,10 @@ class forecast(SheerwaterDataset):
         ds = super().post_process(ds)
 
         # Remove all unneeded dimensions
-        ds = ds.drop_vars([var for var in ds.coords if var not in [
-                            'time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+        ds = ds.drop_vars([var for var in ds.coords if
+                           var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']])
         return ds
+
 
 def get_forecast(forecast_name):
     """Get a forecast from the global forecast registry."""
@@ -148,24 +151,24 @@ def get_forecast(forecast_name):
 def list_forecasts():
     """List all forecasts in the global forecast registry."""
     # The imports below ensure that all forecast modules are registered when this is called.
-    import sheerwater.forecasts # noqa: F401
-    import sheerwater.climatology # noqa: F401
+    import sheerwater.forecasts  # noqa: F401
+    import sheerwater.climatology  # noqa: F401
     return list(FORECAST_REGISTRY.keys())
 
 
 def get_data(data_name):
     """Get a data source from the global data registry."""
     # The imports below ensure that all forecast modules are registered when this is called.
-    import sheerwater.data # noqa: F401
-    import sheerwater.climatology # noqa: F401
-    import sheerwater.reanalysis # noqa: F401
+    import sheerwater.data  # noqa: F401
+    import sheerwater.climatology  # noqa: F401
+    import sheerwater.reanalysis  # noqa: F401
     return DATA_REGISTRY[data_name]
 
 
 def list_data():
     """List all data sources in the global data registry."""
     # The imports below ensure that all forecast modules are registered when this is called.
-    import sheerwater.data # noqa: F401
-    import sheerwater.climatology # noqa: F401
-    import sheerwater.reanalysis # noqa: F401
+    import sheerwater.data  # noqa: F401
+    import sheerwater.climatology  # noqa: F401
+    import sheerwater.reanalysis  # noqa: F401
     return list(DATA_REGISTRY.keys())
