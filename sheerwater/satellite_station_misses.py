@@ -3,7 +3,7 @@ from sheerwater.utils import start_remote
 import numpy as np
 from sheerwater.metrics import metric
 from sheerwater.reanalysis.era5 import era5
-from sheerwater.utils.space_utils import clip_region
+from sheerwater.spatial_subdivisions import clip_region
 from sheerwater.utils import get_grid, snap_point_to_grid
 from sheerwater.data.tahmo import tahmo_deployment
 import xarray as xr
@@ -33,7 +33,7 @@ def get_tahmo_counts(start_time, end_time, grid='global0_25', region="africa"):
     # set the counts in the xarray
     grid_counts["counts"] = sparse_counts.counts.to_xarray().reindex_like(grid_counts)
     # clip to the region
-    grid_counts = clip_region(grid_counts, region=region)
+    grid_counts = clip_region(grid_counts, region=region, grid=grid)
 
     return grid_counts, sparse_counts
 
@@ -52,7 +52,7 @@ def get_metric(start_time, end_time, precip_threshold, days, satellite="imerg", 
     ds = metric(start_time, end_time, variable="precip", agg_days=days, grid=grid,
                       forecast=satellite, truth=truth, metric_name=metric_name,
                       spatial=True, time_grouping="daily") # don't aggregate by time, get a daily result
-    ds = clip_region(ds, region=region)
+    ds = clip_region(ds, region=region, grid=grid)
     # rename metric column to "metric"
     ds = ds.rename(rename_dict)
     return ds
