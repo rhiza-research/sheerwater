@@ -29,7 +29,6 @@ dependencies = [
     "h5py",
     "netcdf4",
     "h5netcdf",
-    "psycopg2",
     "scipy",
     "requests",
     "ecmwf-api-client",
