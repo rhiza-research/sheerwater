@@ -613,7 +613,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
     ds_list = []
     ds_coords = []
     for level in space_grouping:
-        labels_ds = spatial_subdivisions[level](grid=grid, recompute=True)
+        labels_ds = spatial_subdivisions[level][0](grid=grid, recompute=True)
         labels_ds = labels_ds.rename({'region': f'{level}_region'})
         ds_list.append(labels_ds)
         ds_coords.append(f'{level}_region')
