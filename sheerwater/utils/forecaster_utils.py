@@ -1,4 +1,8 @@
+# ruff: noqa: E501
+
 """Variable-related utility functions for all parts of the data pipeline."""
+
+
 def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
                                    lead_time_dim='prediction_timedelta', valid_time_dim='time'):
     """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
@@ -22,6 +26,9 @@ def get_variable(variable_name, variable_type='era5'):
 
         # Surface variables (6):
         ('tmp2m', '2m_temperature', '2m_temperature', '2m_temperature', 'temp', 'tmp2m', 'temp', 't2m'),
+        ("d2m", "2m_dewpoint_temperature", '2m_dewpoint_temperature', '2m_dewpoint_temperature', None, None, None, 'd2m'),
+        # relative humidity at surface isn't natively supported in ERA5, derived from d2m and tmp2m
+        ("rh2m", None, None, None, None, None, None, None),
         ('precip', 'total_precipitation', 'total_precipitation_6hr', 'total_precipitation_24hr',
          'precip', 'precip', 'precip', 'tp'),
         ("vwind10m", "10m_v_component_of_wind", "10m_v_component_of_wind", None, None, None, None, 'v10'),
@@ -35,9 +42,8 @@ def get_variable(variable_name, variable_type='era5'):
         ("uwind", "u_component_of_wind", "u_component_of_wind", None, None, None, None, None),
         ("vwind", "v_component_of_wind", "v_component_of_wind", None, None, None, None, None),
         ("hgt", "geopotential", "geopotential", None, None, None, None, None),
-        ("q", "specific_humidity", "specific_humidity", None, None, None, None, 'specific_humidity'),
-        ("d2m", "2m_temperature", "2m_temperature", None, None, None, None, 'd2m'),
         ("w", "vertical_velocity", "vertical_velocity", None, None, None, None, None),
+        ("q", "specific_humidity", "specific_humidity", None, None, None, None, None),
     ]
 
     name_index = variable_ordering.index(variable_type)
