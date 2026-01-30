@@ -205,7 +205,7 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'): # noqa: ARG001
+def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
@@ -236,8 +236,8 @@ def era5_raw(start_time, end_time, variable, grid="global0_25", mask=None, regio
     """ERA5 function that returns data from Google ARCO."""
     if grid != 'global0_25':
         raise NotImplementedError(
-                "Only ERA5 native 0.25 degree grid is implemented for the raw, hourly data."
-                "Please call the era5_daily_regrid function to access daily ERA5 data on other grids.")
+            "Only ERA5 native 0.25 degree grid is implemented for the raw, hourly data."
+            "Please call the era5_daily_regrid function to access daily ERA5 data on other grids.")
 
     # Pull the google dataset
     ds = xr.open_zarr('gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3',
@@ -270,7 +270,7 @@ def era5_raw(start_time, end_time, variable, grid="global0_25", mask=None, regio
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "time": 30}
 })
-def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, region='global'): # noqa: ARG001
+def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, region='global'):  # noqa: ARG001
     """Aggregates the hourly ERA5 data into daily data.
 
     Args:
@@ -286,32 +286,49 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
     if grid != 'global0_25':
         raise ValueError("Only ERA5 native 0.25 degree grid is implemented.")
 
-    # Read and combine all the data into an array
-    ds = era5_raw(start_time, end_time, variable, grid='global0_25')
-
-
     K_const = 273.15
     if variable == 'tmp2m':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').mean(dim='time')
     elif variable == 'tmax2m':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').max(dim='time')
     elif variable == 'tmin2m':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').min(dim='time')
     elif variable == 'precip':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
         ds = ds.resample(time='D').sum(dim='time')
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
     elif variable == 'ssrd':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds = ds.resample(time='D').sum(dim='time')
         ds = np.maximum(ds, 0)
+    elif variable == 'rh2m':
+        # Read and combine all the data into an array
+        ds1 = era5_raw(start_time, end_time, 'd2m', grid='global0_25')
+        ds2 = era5_raw(start_time, end_time, 'tmp2m', grid='global0_25')
+        ds = xr.merge([ds1, ds2])
+        # Convert to Celsius
+        ds['tmp2m'] = ds['tmp2m'] - K_const
+        ds['d2m'] = ds['d2m'] - K_const
+
+        # Apply the Magnus formula to derive the relative humidity
+        # Using this formula: https://bmcnoldy.earth.miami.edu/Humidity.html
+        saturation_water_vapor_pressure = np.exp(17.625 * ds['d2m'] / (243.04 + ds['d2m']))  # in hPa
+        water_vapor_pressure = np.exp(17.625 * ds['tmp2m'] / (243.04 + ds['tmp2m']))  # in hPa
+        ds['rh2m'] = 100.0 * water_vapor_pressure / saturation_water_vapor_pressure
+        ds.attrs.update(units='%')
+        ds = ds.drop_vars(['d2m', 'tmp2m'])
     else:
         raise ValueError(f"Variable {variable} not implemented.")
     return ds
@@ -385,7 +402,7 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'): # noqa: ARG001
+def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
