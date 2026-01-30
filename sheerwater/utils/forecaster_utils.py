@@ -35,7 +35,8 @@ def get_variable(variable_name, variable_type='era5'):
         ("uwind", "u_component_of_wind", "u_component_of_wind", None, None, None, None, None),
         ("vwind", "v_component_of_wind", "v_component_of_wind", None, None, None, None, None),
         ("hgt", "geopotential", "geopotential", None, None, None, None, None),
-        ("q", "specific_humidity", "specific_humidity", None, None, None, None, None),
+        ("q", "specific_humidity", "specific_humidity", None, None, None, None, 'specific_humidity'),
+        ("d2m", "2m_temperature", "2m_temperature", None, None, None, None, 'd2m'),
         ("w", "vertical_velocity", "vertical_velocity", None, None, None, None, None),
     ]
 
