@@ -31,6 +31,7 @@ def get_variable(variable_name, variable_type='era5'):
         ("rh2m", None, None, None, None, None, None, None),
         ('precip', 'total_precipitation', 'total_precipitation_6hr', 'total_precipitation_24hr',
          'precip', 'precip', 'precip', 'tp'),
+        ("tcwv", "total_column_water_vapour", "total_column_water_vapour", None, None, None, None, None),
         ("vwind10m", "10m_v_component_of_wind", "10m_v_component_of_wind", None, None, None, None, 'v10'),
         ("uwind10m", "10m_u_component_of_wind", "10m_u_component_of_wind", None, None, None, None, 'u10'),
         ("msl", "mean_sea_level_pressure", "mean_sea_level_pressure", None, None, None, None, None),

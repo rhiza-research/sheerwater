@@ -309,6 +309,10 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
         ds = ds.resample(time='D').sum(dim='time')
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
+    elif variable == 'tcwv':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
+        ds.attrs.update(units='kg/m^2')
+        ds = ds.resample(time='D').sum(dim='time')
     elif variable == 'ssrd':
         ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds = ds.resample(time='D').sum(dim='time')
