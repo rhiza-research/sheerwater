@@ -127,7 +127,6 @@ resource "postgresql_grant" "write_public_terracottads" {
   role = postgresql_role.write.name
   schema = "public"
   object_type = "table"
-  objects = ["datasets"]
   privileges = [
     "DELETE",
     "INSERT",
