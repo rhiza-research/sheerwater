@@ -87,6 +87,9 @@ packages = ["./sheerwater", "./jobs", "./dashboard_data"]
 [tool.uv]
 managed = true
 
+[tool.uv.sources]
+nuthatch = { git = "https://github.com/rhiza-research/nuthatch", branch = "adkins/terracotta" }
+
 [tool.autopep8]
 max_line_length = 120
 
