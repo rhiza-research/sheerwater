@@ -47,8 +47,14 @@ def get_metric(start_time, end_time, precip_threshold, days, satellite="imerg", 
     elif which_metric == "true_positive":
         metric_name = f"truepositive-{average_precip_threshold:.2f}"
         rename_dict = {"truepositive" : "metric"}
+    elif which_metric == "true_negative":
+        metric_name = f"truenegative-{average_precip_threshold:.2f}"
+        rename_dict = {"truenegative" : "metric"}
+    elif which_metric == "false_positive":
+        metric_name = f"falsepositive-{average_precip_threshold:.2f}"
+        rename_dict = {"falsepositive" : "metric"}
     else:
-        raise ValueError(f"Invalid metric: {metric}")
+        raise ValueError(f"Invalid metric: {which_metric}")
     ds = metric(start_time, end_time, variable="precip", agg_days=days, grid=grid,
                       forecast=satellite, truth=truth, metric_name=metric_name,
                       spatial=True, time_grouping="daily") # don't aggregate by time, get a daily result
