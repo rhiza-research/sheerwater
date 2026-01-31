@@ -287,7 +287,7 @@ custom_subdivisions_definitions = {
 }
 
 
-@cache(cache_args=['level'])
+@cache(cache_args=['level'], memoize=True)
 def polygon_subdivision_geodataframe(level):
     """Get the boundary geodatarame for a given subdivision level defined by a set of polygons.
 
