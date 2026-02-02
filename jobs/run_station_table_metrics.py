@@ -8,7 +8,7 @@ from jobs import parse_args, run_in_parallel, prune_metrics
 from dashboard_data import ground_truth_metric_table
 
 (start_time, end_time, forecasts, truth, metrics,
- variables, grids, regions, agg_days,
+ variables, grids, space_groupings, agg_days,
  time_groupings, parallelism, recompute,
  backend, remote_name, remote, remote_config) = parse_args()
 
@@ -23,17 +23,17 @@ if backend is not None:
 if 'crps' in metrics:
     metrics.remove('crps')
 
-combos = itertools.product([None], truth,  variables, grids, [None], regions, time_groupings, metrics)
+combos = itertools.product([None], truth,  variables, grids, [None], space_groupingss, time_groupings, metrics)
 combos = prune_metrics(combos)
 
 
 def run_metrics_table(combo):
     """Run table metrics."""
-    _, truth, variable, grid, _, region, time_grouping, metric_name = combo
+    _, truth, variable, grid, _, space_grouping, time_grouping, metric_name = combo
 
     try:
         return ground_truth_metric_table(start_time, end_time, variable, truth, metric_name,
-                                         time_grouping=time_grouping, grid=grid, region=region,
+                                         time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
                                          cache_mode='overwrite', filepath_only=filepath_only,
                                          recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
@@ -43,7 +43,7 @@ def run_metrics_table(combo):
         return "Not Implemented"
     except:  # noqa: E722
         print(f"Failed to run metric {grid} {variable} {metric_name} \
-                {region} {time_grouping}: {traceback.format_exc()}")
+                {space_grouping} {time_grouping}: {traceback.format_exc()}")
         return None
 
 
