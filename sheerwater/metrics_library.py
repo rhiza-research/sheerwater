@@ -311,6 +311,7 @@ class Metric(ABC):
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+
                 # If we've passed a global region and clipped, drop any null groups
                 ds = ds.dropna(dim='space_grouping', how='all')
             else:

@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("--variable", type=str, nargs='*', help="Variables to evaluate.")
     parser.add_argument("--metric", type=str, nargs='*', help="Metrics to evaluate.")
     parser.add_argument("--grid", type=str, nargs='*', help="Grids to evaluate.")
-    parser.add_argument("--region", type=str, nargs='*', help="Regions to evaluate.")
+    parser.add_argument("--space-grouping", type=str, nargs='*', help="Space groupings to evaluate.")
     parser.add_argument("--agg_days", type=int, nargs='*', help="Aggregation days to evaluate.")
     parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
     parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
@@ -59,7 +59,7 @@ def parse_args():
         forecasts = args.forecast
 
     if args.station_evaluation:
-        truth = ["tahmo", "tahmo_avg", "ghcn", "ghcn_avg"]
+        truth = ["tahmo", "tahmo_avg", "ghcn", "ghcn_avg", "knust", "knust_avg"]
     else:
         truth = ["era5"]
 
@@ -67,8 +67,7 @@ def parse_args():
         truth = args.truth
 
     if args.station_evaluation:
-        metrics = ["mae", "rmse", "bias", "acc", "smape", "pod-1", "pod-5", "pod-10", "pearson",
-                   "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
+        metrics = ["mae", "rmse", "bias", "pearson"]
     else:
         metrics = ["mae", "crps", "acc", "rmse", "bias",  "smape", "seeps", "pod-1", "pod-5",
                    "pod-10", "far-1", "far-5", "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
@@ -81,11 +80,12 @@ def parse_args():
             metrics = ["acc", "pod-1", "pod-5", "pod-10", "far-1", "far-5",
                        "far-10", "ets-1", "ets-5", "ets-10", "heidke-1-5-10-20"]
         elif args.metric == ['wet-dry']:
-            metrics = ["pod-3.6", "pod-7.6", "pod-6.6", "far-3.6", "far-7.6", "far-6.6",
-                       "ets-3.6", "ets-7.6", "ets-6.6", "csi-3.6", "csi-7.6", "csi-6.6",
+            metrics = ["pod-3.6", "pod-7.6", "pod-6.6",
+                       "far-3.6", "far-7.6", "far-6.6",
+                       "ets-3.6", "ets-7.6", "ets-6.6",
+                       "csi-3.6", "csi-7.6", "csi-6.6",
                        "frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6",
-                       "far-1.5",
-                       "heidke-1.5-7.6"]
+                       "far-1.5", "heidke-1.5-7.6", "ets-1.5", "pod-1.5", "csi-1.5"]
         elif args.metric == ['wet-dry-pod']:
             metrics = ["pod-3.6", "pod-7.6", "pod-6.6"]
         elif args.metric == ['wet-dry-far']:
@@ -97,7 +97,7 @@ def parse_args():
         elif args.metric == ['wet-dry-freq']:
             metrics = ["frequencybias-3.6", "frequencybias-7.6", "frequencybias-6.6"]
         elif args.metric == ['wet-dry-rest']:
-            metrics = ["far-1.5", "heidke-1.5-7.6"]
+            metrics = ["far-1.5", "heidke-1.5-7.6", "ets-1.5", "pod-1.5", "csi-1.5"]
         else:
             metrics = args.metric
 
@@ -106,15 +106,15 @@ def parse_args():
         variables = args.variable
 
     if args.station_evaluation:
-        grids = ["global1_5", "imerg", "global0_1", "global0_25"]
+        grids = ["global1_5", "global0_25"]
     else:
         grids = ["global0_25", "global1_5"]
     if args.grid:
         grids = args.grid
 
-    regions = ["continent", "subregion", "global", "country"]
-    if args.region:
-        regions = args.region
+    space_groupings = ["continent", "subregion", "global", "country"]
+    if args.space_grouping:
+        space_groupings = args.space_grouping
 
     if args.station_evaluation:
         agg_days = [1, 5, 7, 10, 14, 30]
@@ -136,7 +136,7 @@ def parse_args():
         remote_config = args.remote_config
 
     return (args.start_time, args.end_time, forecasts, truth, metrics, variables, grids,
-            regions, agg_days, time_groupings, args.parallelism,
+            space_groupings, agg_days, time_groupings, args.parallelism,
             args.recompute, args.backend, args.remote_name, args.remote, remote_config)
 
 
@@ -147,11 +147,11 @@ def prune_metrics(combos, global_run=False):  # noqa: ARG001
     """
     pruned_combos = []
     for combo in combos:
-        forecast, truth, variable, grid, agg_days, region, time_grouping, metric_name = combo
+        forecast, truth, variable, grid, agg_days, space_grouping, time_grouping, metric_name = combo
 
         metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
                                     agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
-                                    spatial=False, grid=grid, mask=None, region=region)
+                                    spatial=False, grid=grid, mask=None, space_grouping=space_grouping)
 
         if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
             continue

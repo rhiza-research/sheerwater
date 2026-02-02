@@ -11,7 +11,7 @@ from sheerwater.metrics import metric
 def _metric_table(start_time, end_time, variable,
                   truth, metric_name, agg_days, forecasts,
                   time_grouping=None,
-                  grid='global1_5', region='global'):
+                  grid='global1_5', space_grouping=None):
     """Internal function to compute summary metrics table for flexible leads and forecasts."""
     # For the time grouping we are going to store it in an xarray with dimensions
     # forecast and time, which we instantiate
@@ -25,14 +25,14 @@ def _metric_table(start_time, end_time, variable,
         for _, agg in enumerate(agg_days):
             print(
                 f"Running for {forecast} and {agg} with variable {variable}, "
-                f"metric {metric_name}, grid {grid}, region {region}, "
+                f"metric {metric_name}, grid {grid}, space_grouping {space_grouping}, "
                 f"time grouping {time_grouping}")
             # First get the value without the baseline
             try:
                 ds = metric(start_time, end_time, variable,
                             agg_days=agg, forecast=forecast, truth=truth,
                             metric_name=metric_name, time_grouping=time_grouping, spatial=False,
-                            grid=grid, region=region, recompute=False, retry_null_cache=True)
+                            grid=grid, space_grouping=space_grouping, recompute=False, retry_null_cache=True)
             except NotImplementedError:
                 ds = None
 
@@ -67,7 +67,7 @@ def _metric_table(start_time, end_time, variable,
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
-    order = ['forecast', 'time_grouping', 'region'] + agg_days
+    order = ['forecast', 'time_grouping', 'space_grouping'] + agg_days
 
     # Reorder the columns if necessary
     if 'time' in df.columns:
@@ -87,8 +87,8 @@ def _metric_table(start_time, end_time, variable,
     else:
         df['time_grouping'] = None
 
-    if 'region' not in df.columns:
-        df['region'] = None
+    if 'space_grouping' not in df.columns:
+        df['space_grouping'] = None
 
     df = df[order]
 
@@ -96,44 +96,44 @@ def _metric_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def weekly_metric_table(start_time, end_time, variable,
                         truth, metric_name, time_grouping=None,
-                        grid='global1_5', region='global'):
+                        grid='global1_5', space_grouping=None):
     """Runs metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['fuxi', 'salient', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
                  'climatology_trend_2015', 'climatology_rolling', 'gencast', 'graphcast']
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days=7, forecasts=forecasts,
-                       time_grouping=time_grouping, grid=grid, region=region)
+                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
 
     print(df)
     return df
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def monthly_metric_table(start_time, end_time, variable,
                          truth, metric_name, time_grouping=None,
-                         grid='global1_5', region='global'):
+                         grid='global1_5', space_grouping=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['salient', 'climatology_2015']
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days=30, forecasts=forecasts,
-                       time_grouping=time_grouping, grid=grid, region=region)
+                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
 
     print(df)
     return df
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
-                              grid='global1_5', region='global'):
+                              grid='global1_5', space_grouping=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['era5', 'chirps_v3', 'chirp_v3', 'imerg_final', 'imerg_late']
 
@@ -153,24 +153,24 @@ def ground_truth_metric_table(start_time, end_time, variable,
         agg_days = [1, 5, 7, 10]
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days, forecasts,
-                       time_grouping=time_grouping, grid=grid, region=region)
+                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
 
     print(df)
     return df
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'region'],
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def biweekly_metric_table(start_time, end_time, variable,
                           truth, metric_name, time_grouping=None,
-                          grid='global1_5', region='global'):
+                          grid='global1_5', space_grouping=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
     forecasts = ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
                  'climatology_trend_2015', 'climatology_rolling']
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days=14, forecasts=forecasts,
-                       time_grouping=time_grouping, grid=grid, region=region)
+                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
 
     print(df)
     return df
