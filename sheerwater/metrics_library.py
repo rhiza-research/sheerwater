@@ -156,10 +156,13 @@ class Metric(ABC):
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
+        fcst, obs = xr.align(fcst, obs, join='inner', copy=False)
+
         no_null = obs.notnull() & fcst.notnull()
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
+
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
@@ -278,6 +281,7 @@ class Metric(ABC):
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
         # Add the region coordinate to the statistic
+        ds, space_grouping_ds = xr.align(ds, space_grouping_ds, join='inner', copy=False)
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
 
         ############################################################
