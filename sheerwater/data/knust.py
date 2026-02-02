@@ -61,7 +61,6 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
 
-
     dacciwa = knust_dacciwa()
     furiflood = knust_furiflood()
 
