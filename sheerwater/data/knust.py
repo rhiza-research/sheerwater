@@ -18,6 +18,7 @@ def knust_ashanti():
                               engine='h5netcdf')
     ashanti = ashanti.swap_dims({'ncells': 'station_id'})
     ashanti = ashanti.dropna(dim='time')
+    ashanti = ashanti.assign_coords(lon = ("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
     return ashanti
@@ -59,6 +60,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     # Extra reset coords necessary for an unkown reason. Zarr wasn't updating coords vs vars appropriately
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
+
 
     dacciwa = knust_dacciwa()
     furiflood = knust_furiflood()
@@ -118,7 +120,6 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
-
     ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
