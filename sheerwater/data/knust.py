@@ -18,6 +18,7 @@ def knust_ashanti():
                               engine='h5netcdf')
     ashanti = ashanti.swap_dims({'ncells':'station_id'})
     ashanti = ashanti.dropna(dim='time')
+    ashanti = ashanti.assign_coords(lon = ("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
     return ashanti
@@ -60,6 +61,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
 
+
     dacciwa = knust_dacciwa()
     furiflood = knust_furiflood()
 
@@ -96,10 +98,6 @@ def _knust_unified(start_time, end_time, variable, agg_days,
 
     ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
     ds = ds.rename({'precipitation_amount': 'precip'})
-
-    # Apply grid to fill out lat/lon
-    grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
