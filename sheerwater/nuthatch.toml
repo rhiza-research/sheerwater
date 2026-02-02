@@ -5,7 +5,11 @@ port = 5432
 database = "postgres"
 username = "sheerwater_write"
 driver = "postgresql"
-raster_store = "gs://terracotta-files"
+
+[tool.nuthatch.terracotta]
+filesystem = "gs://sheerwater-datalake/rasters"
+override_path = "/mnt/sheerwater-datalake"
+database = "terracotta"
 
 [tool.nuthatch.filesystem_options]
 cache_timeout = 0
