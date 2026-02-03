@@ -116,6 +116,24 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 
 @dask_remote
 @timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+})
+def knust_reindexed(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+    # We must reindex and cache the reindexed data for downstream operations to be efficient.
+    # Can't go in function above because graph is too large
+
+    ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
+
+    # Reindex to the full grid
+    grid_ds = get_grid_ds(grid)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
+    return ds
+
+
+@dask_remote
+@timeseries()
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
