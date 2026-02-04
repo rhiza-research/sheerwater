@@ -122,6 +122,7 @@ resource "grafana_organization_preferences" "preferences" {
 resource "grafana_data_source" "postgres" {
   type = "grafana-postgresql-datasource"
   name = "postgres"
+  is_default = true
   url = local.postgres_url
   username = "sheerwater_read"
   uid = "bdz3m3xs99p1cf"
