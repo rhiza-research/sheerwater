@@ -231,6 +231,7 @@ def pad_with_leapdays(ds, time_dim="time"):
     missing_dates = [dateparser.parse(f"{x}-02-28") for x in missing_leaps]
 
     # Get the value on the 28th for these years
+    import pdb; pdb.set_trace()
     missing_ds = ds.sel({time_dim: missing_dates})
 
     # Set the day of year to the 29th for these years

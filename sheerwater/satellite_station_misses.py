@@ -100,6 +100,18 @@ def precip_events_table(start_time, end_time, days, precip_threshold,
     temp = temp.rename(columns={"tmp2m": "era5_tmp2m"})
     events = events.merge(temp, on=["time", "lat", "lon"], how="left")
 
+    """Add humidity values"""
+    rh = era5(start_time, end_time, variable="rh2m", grid=grid, region=region, agg_days=days)
+    rh = get_data_pts(rh, event_locs)
+    rh = rh.rename(columns={"rh2m": "era5_rh2m"})
+    events = events.merge(rh, on=["time", "lat", "lon"], how="left")
+
+    """Add total water vapor values"""
+    tcwv = era5(start_time, end_time, variable="tcwv", grid=grid, region=region, agg_days=days)
+    tcwv = get_data_pts(tcwv, event_locs)
+    tcwv = tcwv.rename(columns={"tcwv": "era5_tcwv"})
+    events = events.merge(tcwv, on=["time", "lat", "lon"], how="left")
+
     """Add precipitation average values"""
     for precip_source in ["imerg", "chirps", "tahmo_avg"]:
         data = eval(precip_source)(start_time, end_time, grid=grid, region=region, agg_days=days)

@@ -328,11 +328,12 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
 
         # Apply the Magnus formula to derive the relative humidity
         # Using this formula: https://bmcnoldy.earth.miami.edu/Humidity.html
-        saturation_water_vapor_pressure = np.exp(17.625 * ds['d2m'] / (243.04 + ds['d2m']))  # in hPa
-        water_vapor_pressure = np.exp(17.625 * ds['tmp2m'] / (243.04 + ds['tmp2m']))  # in hPa
+        water_vapor_pressure = np.exp(17.625 * ds['d2m'] / (243.04 + ds['d2m']))  # in hPa
+        saturation_water_vapor_pressure = np.exp(17.625 * ds['tmp2m'] / (243.04 + ds['tmp2m']))  # in hPa
         ds['rh2m'] = 100.0 * water_vapor_pressure / saturation_water_vapor_pressure
         ds.attrs.update(units='%')
         ds = ds.drop_vars(['d2m', 'tmp2m'])
+        ds = ds.resample(time='D').mean(dim='time')
     else:
         raise ValueError(f"Variable {variable} not implemented.")
     return ds
@@ -422,4 +423,6 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
     if size < 0.25:
         raise NotImplementedError("Unable to regrid ERA5 smaller than 0.25x0.25")
     ds = era5_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    if variable == 'rh2m':
+        ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
     return ds

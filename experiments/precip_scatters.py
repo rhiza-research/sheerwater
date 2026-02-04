@@ -27,7 +27,6 @@ def pairwise_precip(start_time, end_time, x_source, y_source, agg_days, grid='gl
     agzones = space_grouping_labels(grid=grid, space_grouping=['agroecological_zone', 'admin_1'])
     # clip agzones to the region
     agzones = clip_region(agzones, grid=grid, region=region)
-    import pdb; pdb.set_trace()
     ds = xr.merge([x_ds, y_ds, tmp_ds, agzones])
 
     # filter to time points in the month, if a month is provided
@@ -43,13 +42,14 @@ def pairwise_precip(start_time, end_time, x_source, y_source, agg_days, grid='gl
 
 if __name__ == "__main__":
     start_remote(remote_name="precip_scatters")
+    start_remote()
     start_time = "2000-01-01"
     end_time = "2025-12-31"
-    month = 4 # april
+    # month = 4 # april
 
     grid = 'global0_25'
     mask = 'lsm'
-    region = 'ghana'
+    # region = 'ghana'
     x_source = "imerg"
     y_source = "tahmo_avg"
     ds = pairwise_precip(start_time, end_time, x_source, y_source, agg_days=10, grid=grid, mask=mask, region=region)

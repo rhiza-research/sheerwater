@@ -17,18 +17,23 @@ if __name__ == "__main__":
     grid = 'global0_25'
     region = "ghana"
 
-    precip_threshold = 38
-    days = 5
+    precip_threshold = 1.5*10
+    # days = 11
+    days = 10
     satellite = "imerg"
 
     events_fn = precip_events_table(start_time, end_time, days, precip_threshold, satellite, truth,
-                                    'false_negative', grid, region, backend='parquet')
+                                    'false_negative', grid, region, backend='parquet',
+                                    recompute=False, cache_mode='overwrite')
     events_tn = precip_events_table(start_time, end_time, days, precip_threshold, satellite, truth,
-                                    'true_negative', grid, region, backend='parquet')
+                                    'true_negative', grid, region, backend='parquet',
+                                    recompute=False, cache_mode='overwrite')
     events_tp = precip_events_table(start_time, end_time, days, precip_threshold, satellite, truth,
-                                    'true_positive', grid, region, backend='parquet')
+                                    'true_positive', grid, region, backend='parquet',
+                                    recompute=False, cache_mode='overwrite')
     events_fp = precip_events_table(start_time, end_time, days, precip_threshold, satellite, truth,
-                                    'false_positive', grid, region, backend='parquet')
+                                    'false_positive', grid, region, backend='parquet',
+                                    recompute=False, cache_mode='overwrite')
 
     try:
         events_fn = events_fn.compute()
@@ -58,15 +63,46 @@ if __name__ == "__main__":
     # Drop nan temperatures for clean binning
     events_april = events_april.dropna(subset=['era5_tmp2m'])
 
-    # Bin edges: from min to max in 5 deg C steps, rounded
-    temp_min = np.floor(events_april['era5_tmp2m'].min() / 5) * 5
-    temp_max = np.ceil(events_april['era5_tmp2m'].max() / 5) * 5
-    bins = np.arange(temp_min, temp_max + 5, 5)
+    # Binning variable options: temperature, relative humidity, or total column water vapor
+    # Set bin_var to one of: 'era5_tmp2m', 'era5_rh2m', 'era5_tcwv'
+    bin_var = 'era5_rh2m'  # Options: 'era5_tmp2m', 'era5_rh2m', 'era5_tcwv'
+
+    bin_defs = {
+        'era5_tmp2m': {
+            'label': 'Temperature (°C)',
+            'bin_size': 5,
+            'round_fn_min': np.floor,
+            'round_fn_max': np.ceil,
+            'unit': '°C',
+        },
+        'era5_rh2m': {
+            'label': 'Relative Humidity (%)',
+            'bin_size': 10,
+            'round_fn_min': np.floor,
+            'round_fn_max': np.ceil,
+            'unit': '%',
+        },
+        'era5_tcwv': {
+            'label': 'Total Column Water Vapor (kg/m²)',
+            'bin_size': 5,
+            'round_fn_min': np.floor,
+            'round_fn_max': np.ceil,
+            'unit': 'kg/m²',
+        }
+    }
+
+    bmeta = bin_defs[bin_var]
+    col = bin_var
+
+    # Compute bin edges
+    min_val = bmeta['round_fn_min'](events_april[col].min() / bmeta['bin_size']) * bmeta['bin_size']
+    max_val = bmeta['round_fn_max'](events_april[col].max() / bmeta['bin_size']) * bmeta['bin_size']
+    bins = np.arange(min_val, max_val + bmeta['bin_size'], bmeta['bin_size'])
     labels = [f"{int(bins[i])}-{int(bins[i+1])}" for i in range(len(bins)-1)]
-    events_april['temp_bin'] = pd.cut(events_april['era5_tmp2m'], bins=bins, labels=labels, include_lowest=True)
+    events_april['bin'] = pd.cut(events_april[col], bins=bins, labels=labels, include_lowest=True)
 
     # Group by temperature bin and metric
-    counts = events_april.groupby(['temp_bin', 'metric']).size().unstack(fill_value=0)
+    counts = events_april.groupby(['bin', 'metric']).size().unstack(fill_value=0)
 
     # Add total count annotations to the top of the stacked bars later after plotting, so prep the totals here
     import pdb
@@ -92,14 +128,14 @@ if __name__ == "__main__":
     # First subplot: stacked bar chart with proportions (same as 'ax' before)
     counts_ratio.plot(kind='bar', stacked=True, color=[metric_colors[m] for m in counts_ratio.columns], ax=axs[0])
     axs[0].set_ylabel('Proportion of Events')
-    axs[0].set_title('April Event Metric Proportion by Temperature Bin')
+    axs[0].set_title(f'April Event Metric Proportion by {bin_defs[bin_var]["label"]} Bin')
     axs[0].legend(title='Metric')
 
     # Second subplot: absolute counts for each metric and bin
     counts.plot(kind='bar', stacked=True, color=[metric_colors.get(m, 'grey') for m in counts.columns], ax=axs[1])
     axs[1].set_ylabel('Count of Events')
-    axs[1].set_xlabel('Temperature Bin (°C)')
-    axs[1].set_title('April Event Counts by Temperature Bin')
+    axs[1].set_xlabel(f'{bin_defs[bin_var]["label"]} Bin')
+    axs[1].set_title(f'April Event Counts by {bin_defs[bin_var]["label"]} Bin')
     axs[1].legend(title='Metric')
 
     plt.tight_layout()
@@ -111,11 +147,11 @@ if __name__ == "__main__":
     if plot_april_histogram:    # Select time points in April
         # Histogram of temperature, one for each metric, with slightly transparent bins
         plt.hist(events_april[events_april['metric'] == 'false_negative']
-                 ['era5_tmp2m'], label='false_negative', alpha=0.6)
+                 [col], label='false_negative', alpha=0.6)
         plt.hist(events_april[events_april['metric'] == 'true_positive']
-                 ['era5_tmp2m'], label='true_positive', alpha=0.6)
+                 [col], label='true_positive', alpha=0.6)
         plt.hist(events_april[events_april['metric'] == 'true_negative']
-                 ['era5_tmp2m'], label='true_negative', alpha=0.6)
+                 [col], label='true_negative', alpha=0.6)
         plt.legend()
         plt.show()
 
@@ -123,6 +159,8 @@ if __name__ == "__main__":
     april_totals = events_april.groupby(['lat', 'lon', 'metric']).agg(
         count=('metric', 'count'),
         avg_era5_tmp2m=('era5_tmp2m', 'mean'),
+        avg_era5_rh2m=('era5_rh2m', 'mean'),
+        avg_era5_tcwv=('era5_tcwv', 'mean'),
         avg_tahmo_precip=('tahmo_avg_precip', 'mean'),
         avg_imerg_precip=('imerg_precip', 'mean'),
         avg_counts=('counts', 'mean'),
