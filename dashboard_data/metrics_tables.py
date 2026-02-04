@@ -2,9 +2,25 @@
 import xarray as xr
 import numpy as np
 
-from nuthatch import cache
+from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote
 from sheerwater.metrics import metric
+
+from google.cloud import secretmanager
+
+@config_parameter('password', location='root', backend='sql', secret=True)
+def postgres_write_password():
+    """Get a postgres write password."""
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(
+        request={"name": "projects/750045969992/secrets/postgres-write-password/versions/latest"})
+    key = response.payload.data.decode("UTF-8")
+
+    return key
+
+
+
 
 
 @dask_remote
@@ -63,11 +79,15 @@ def _metric_table(start_time, end_time, variable,
         results_ds = results_ds.reset_coords('time', drop=True)
 
     results_ds = results_ds.drop_vars([var for var in results_ds.coords if var not in results_ds.dims], errors='ignore')
+
+    if 'space_grouping' in results_ds.dims:
+        results_ds = results_ds.rename({'space_grouping': 'region'})
+
     df = results_ds.to_dataframe()
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
-    order = ['forecast', 'time_grouping', 'space_grouping'] + agg_days
+    order = ['forecast', 'time_grouping', 'region'] + agg_days
 
     # Reorder the columns if necessary
     if 'time' in df.columns:
@@ -87,8 +107,8 @@ def _metric_table(start_time, end_time, variable,
     else:
         df['time_grouping'] = None
 
-    if 'space_grouping' not in df.columns:
-        df['space_grouping'] = None
+    if 'region' not in df.columns:
+        df['region'] = None
 
     df = df[order]
 
