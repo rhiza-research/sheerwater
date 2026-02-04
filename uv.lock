@@ -1253,7 +1253,7 @@ wheels = [
 
 [[package]]
 name = "earthaccess"
-version = "0.16.0"
+version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fsspec" },
@@ -1263,13 +1263,12 @@ dependencies = [
     { name = "python-cmr" },
     { name = "requests" },
     { name = "s3fs" },
-    { name = "tenacity" },
     { name = "tinynetrc" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/2b/c8f47a23fecdcd873209d18c30b3bd11509e1b4dba29af8a52325b256f64/earthaccess-0.16.0.tar.gz", hash = "sha256:e19337682c205b807c52edd691b9ca43bfbd6250acb044c30af1e925fa469a1a", size = 7288951, upload-time = "2026-01-30T20:04:59.909Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/09/bb/a66d2fa81b06a7dce99b074a9d826bcaebd1aef5f1b7b6d58e3707190a8f/earthaccess-0.14.0.tar.gz", hash = "sha256:8cc0a07ac86077728396f417ae4a137293f78c6b5e30f9d2b97d362151f093a3", size = 6277790, upload-time = "2025-02-11T23:52:25.532Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/13/5193c501614cae2cb241f3efd82b711e562ba562435a4930ea8213db86d4/earthaccess-0.16.0-py3-none-any.whl", hash = "sha256:a8fd36fc0516898dbf87ac6fffaff5a9a5a2357aae24508d1622c35e130b9e52", size = 71249, upload-time = "2026-01-30T20:04:57.225Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/e3/8597130029c34c62d3de30462d64f8870bc0dee439bdf9bbdf3aba9d4c7e/earthaccess-0.14.0-py3-none-any.whl", hash = "sha256:6553cede23042645d8abe5b0cd7584b73e364128d5a35dcd67da30fd57618602", size = 64945, upload-time = "2025-02-11T23:52:23.698Z" },
 ]
 
 [[package]]
@@ -5267,15 +5266,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f4/8a/14c15ae154895cc131174f858c707790d416c444fc69f93918adfd8c4c0b/tblib-3.2.2.tar.gz", hash = "sha256:e9a652692d91bf4f743d4a15bc174c0b76afc750fe8c7b6d195cc1c1d6d2ccec", size = 35046, upload-time = "2025-11-12T12:21:16.572Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/02/be/5d2d47b1fb58943194fb59dcf222f7c4e35122ec0ffe8c36e18b5d728f0b/tblib-3.2.2-py3-none-any.whl", hash = "sha256:26bdccf339bcce6a88b2b5432c988b266ebbe63a4e593f6b578b1d2e723d2b76", size = 12893, upload-time = "2025-11-12T12:21:14.407Z" },
-]
-
-[[package]]
-name = "tenacity"
-version = "9.1.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0a/d4/2b0cd0fe285e14b36db076e78c93766ff1d529d70408bd1d2a5a84f1d929/tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb", size = 48036, upload-time = "2025-04-02T08:25:09.966Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/30/643397144bfbfec6f6ef821f36f33e57d35946c44a2352d3c9f0ae847619/tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138", size = 28248, upload-time = "2025-04-02T08:25:07.678Z" },
 ]
 
 [[package]]

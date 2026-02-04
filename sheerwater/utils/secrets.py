@@ -7,7 +7,7 @@ from google.cloud import secretmanager
 # import salientsdk as sk
 from nuthatch import config_parameter
 
-def earthaccess_password()
+def earthaccess_password():
     """Get a postgres write password."""
     client = secretmanager.SecretManagerServiceClient()
 

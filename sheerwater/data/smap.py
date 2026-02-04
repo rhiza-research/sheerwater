@@ -15,8 +15,8 @@ import earthaccess
 
 
 @dask_remote
-@cache(cache_args=['earthaccess_result'])
-def smap_single_file(earthaccess_result):
+@cache(cache_args=['filename'])
+def smap_single_file(filename, earthaccess_result):
 
     KeyboardInterrupt
     os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
@@ -24,22 +24,29 @@ def smap_single_file(earthaccess_result):
     earthaccess.login(strategy="environment", persist=True)
 
     # Takes a single earthaccess result, fetches the file, opens it in xarray, the returns it to be cached
-    uuid = earthaccess_result.uuid
-    earthaccess.download([earthaccess_result], local_path="./" + uuid)
+    earthaccess.download([earthaccess_result], local_path="./smap")
 
-    ds = xr.open_datatree('./' + uuid + "/*.h5", engine='h5netcdf', phony_dims='access')
+    ds = xr.open_datatree('./smap/' + filename, engine='h5netcdf', phony_dims='access')
     ds = ds['/'].to_dataset().merge(ds['/Geophysical_Data'])
-    ds = ds[['cell_lat', 'cell_lon', 'sm_rootzone', 'sm_surface']]
+    ds = ds[['cell_lat', 'cell_lon', 'sm_rootzone', 'sm_surface', 'time']]
     ds = ds.rename({'cell_lat': 'lat', 'cell_lon': 'lon'})
     ds = ds.set_coords("lat")
     ds = ds.set_coords("lon")
+    ds = ds.swap_dims({"phony_dim_0": "time"})
+    ds = ds.drop_attrs()
+
+    ds = ds.compute()
+    print(ds)
+
+    # Necessary to not fill up on-cluster disk
+    os.remove('./smap/' + filename)
 
     return ds
 
 
 @dask_remote
-@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap_gridded(start_time, end_time, grid='smap', delayed=False):
+@cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
+def smap_raw(start_time, end_time, delayed=False):
     """Fetch all the individual files and """
     os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
     os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
@@ -49,18 +56,30 @@ def smap_gridded(start_time, end_time, grid='smap', delayed=False):
 
     files = []
     for result in results:
+        fname = result.data_links()[0].split('/')[-1]
         if delayed:
-            files.append(smap_single_file(result, filepath_only=True))
+            files.append(dask.delayed(smap_single_file)(fname, result, filepath_only=True))
         else:
-            files.append(dask.delayed(smap_single_file)(result, filepath_only=True))
+            files.append(smap_single_file(fname, result, filepath_only=True))
 
     if delayed:
-        files = files.compute()
+        files = dask.compute(*files)
 
     ds = xr.open_mfdataset(files,
                            engine='zarr',
                            parallel=True,
-                           chunks={'lat': 300, 'lon': 300, 'time': 365})
+                           chunks={'y': 300, 'x': 300, 'time': 365})
+
+    return ds
+
+@dask_remote
+@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
+       cache_disable_if={
+           'grid': 'smap'
+       })
+def smap_gridded(start_time, end_time, grid='smap'):
+
+    ds = smap_raw(start_time, end_time)
 
     def regrid(ds):
         import xesmf as xe
@@ -69,6 +88,7 @@ def smap_gridded(start_time, end_time, grid='smap', delayed=False):
         ds = regridder(ds)
         return ds
 
+    # This must be run in delayed with 'package_sync_conda_extras' set to 'esmpy'
     if grid != 'smap':
         ds = dask.delayed(regrid)(ds)
         ds = ds.compute()
@@ -79,22 +99,24 @@ def smap_gridded(start_time, end_time, grid='smap', delayed=False):
 @dask_remote
 @timeseries()
 @spatial()
-@cache(cache_args=['grid', 'agg_days', 'version'],
-       cache_disable_if={'agg_days': 1},
+@cache(cache_args=['grid', 'agg_days'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap_rolled(start_time, end_time, agg_days, grid, version, mask=None, region='global'):
+def smap_rolled(start_time, end_time, agg_days=None, grid, mask=None, region='global'):
     """smap rolled and aggregated."""
-    ds = smap_gridded(start_time, end_time, grid, version, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    ds = smap_gridded(start_time, end_time, grid, mask=mask, region=region)
+
+    if agg_days:
+        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+
     return ds
 
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap(start_time=None, end_time=None, variable='precip', agg_days=1,
+def smap(start_time=None, end_time=None, variable='precip', agg_days=None,
           grid='global0_25', mask='lsm', region='global'):
     """Alias for smap final."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by smap.")
-    return smap_rolled(start_time, end_time, agg_days=agg_days, grid=grid, version='final', mask=mask, region=region)
+    return smap_rolled(start_time, end_time, agg_days=agg_days, grid=grid, mask=mask, region=region)
