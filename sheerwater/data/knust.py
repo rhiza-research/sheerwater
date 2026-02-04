@@ -34,6 +34,10 @@ def knust_dacciwa():
     dacciwa['station_id'] = dacciwa['station_id'].astype(str)
     dacciwa['lat'] = dacciwa.lat.isel(time=0)
     dacciwa['lon'] = dacciwa.lon.isel(time=0)
+
+    # Some -99999 values are coming through - mask them to NaNs
+    dacciwa['precipitation_amount'] = dacciwa['precipitation_amount'].where(dacciwa['precipitation_amount'] >= 0)
+
     return dacciwa
 
 
@@ -44,6 +48,7 @@ def knust_furiflood():
                                 engine='h5netcdf')
     furiflood = furiflood.rename({'latitude': 'lat', 'longitude': 'lon'})
     furiflood['station_id'] = furiflood['station_id'].astype(str)
+
     return furiflood
 
 
