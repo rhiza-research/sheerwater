@@ -10,7 +10,6 @@ from sheerwater.metrics_library import metric_factory
 skip = 0
 station_eval = False
 
-
 def parse_args():
     """Parses arguments for jobs."""
     parser = argparse.ArgumentParser()
@@ -22,7 +21,7 @@ def parse_args():
     parser.add_argument("--metric", type=str, nargs='*', help="Metrics to evaluate.")
     parser.add_argument("--grid", type=str, nargs='*', help="Grids to evaluate.")
     parser.add_argument("--space-grouping", type=str, nargs='*', help="Space groupings to evaluate.")
-    parser.add_argument("--agg_days", type=int, nargs='*', help="Aggregation days to evaluate.")
+    parser.add_argument("--agg-days", type=int, nargs='*', help="Aggregation days to evaluate.")
     parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
     parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
     parser.add_argument("--parallelism", type=int, default=1, help="Number of runs to run in parallel.")

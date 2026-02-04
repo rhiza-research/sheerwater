@@ -23,7 +23,8 @@ if backend is not None:
 if 'crps' in metrics:
     metrics.remove('crps')
 
-combos = itertools.product([None], truth,  variables, grids, [None], space_groupingss, time_groupings, metrics)
+
+combos = itertools.product([None], truth,  variables, grids, [None], space_groupings, time_groupings, metrics)
 combos = prune_metrics(combos)
 
 
