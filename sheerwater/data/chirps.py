@@ -171,6 +171,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
 def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2, mask=None, region='global'):
     """CHIRPS rolled and aggregated."""
     ds = chirps_gridded(start_time, end_time, grid, stations=stations, version=version, mask=mask, region=region)
+    import pdb; pdb.set_trace()
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
