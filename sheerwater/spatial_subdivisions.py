@@ -487,8 +487,9 @@ def agroecological_subdivision_labels(grid='global1_5'):
     da = da.sortby('lat', ascending=True)
     da = da.sortby('lon', ascending=True)
 
-    da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={
-                'values': np.unique(da.values), 'fill_value': 33})
+    if grid != 'native':
+        da = regrid(da, grid, base='base180', method='most_common', regridder_kwargs={
+                    'values': np.unique(da.values), 'fill_value': 33})
     ds = da.to_dataset(name='region')
 
     # Convert back to integer
@@ -524,8 +525,8 @@ def agroecological_subdivision_labels(grid='global1_5'):
 ##############################################################################
 
 
-@cache(memoize=True, cache_args=['grid'])
-def spatial_subdivision_regions(grid='global0_25'):
+@cache(memoize=True)
+def spatial_subdivision_regions():
     """A dictionary containing all the regions for each spatial subdivision for quick look up.
 
     # TODO: could divide by level and perhaps quieried in order of size to make as fast as possible?
@@ -538,7 +539,7 @@ def spatial_subdivision_regions(grid='global0_25'):
             vals[subdivision] = np.unique(gdf['region_name'].values)
         else:
             # If the subdivision is a gridded region, get the regions from the grid
-            df = spatial_subdivisions[subdivision][0](grid=grid)
+            df = spatial_subdivisions[subdivision][0](grid='native')
             vals[subdivision] = np.unique(df['region'].values)
     return vals
 
