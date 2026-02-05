@@ -65,10 +65,16 @@ def smap_raw(start_time, end_time, delayed=False):
     if delayed:
         files = dask.compute(*files)
 
+    def preprocess(ds):
+        ds = ds.reset_coords(['lat', 'lon'])
+        ds = ds.drop_vars(['lat', 'lon'])
+        return ds
+
     ds = xr.open_mfdataset(files,
                            engine='zarr',
                            parallel=True,
-                           chunks={'y': 300, 'x': 300, 'time': 365})
+                           preprocess=preprocess,
+                           chunks={})
 
     return ds
 
@@ -81,17 +87,23 @@ def smap_gridded(start_time, end_time, grid='smap'):
 
     ds = smap_raw(start_time, end_time)
 
-    def regrid(ds):
+    # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
+    if grid != 'smap':
+        # Need to mix in lat and lon coords from an original dataset
+        os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
+        os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
+        earthaccess.login(strategy="environment", persist=True)
+
+        results = earthaccess.search_data(short_name="SPL4SMGP", cloud_hosted=True, temporal=("2016-01-01", "2016-01-01"))
+        single_ds = smap_single_file(results[0].data_links()[0].split('/')[-1])
+
+        ds = ds.assign_coords({'lat': single_ds.lat, 'lon': single_ds.lon})
+
+        # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
         import xesmf as xe
         ds_out = get_grid_ds(grid)
-        regridder = xe.Regridder(ds, ds_out, "bilinear")
+        regridder = xe.Regridder(ds, ds_out, "conservative")
         ds = regridder(ds)
-        return ds
-
-    # This must be run in delayed with 'package_sync_conda_extras' set to 'esmpy'
-    if grid != 'smap':
-        ds = dask.delayed(regrid)(ds)
-        ds = ds.compute()
 
     return ds
 
@@ -101,7 +113,7 @@ def smap_gridded(start_time, end_time, grid='smap'):
 @spatial()
 @cache(cache_args=['grid', 'agg_days'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap_rolled(start_time, end_time, agg_days=None, grid, mask=None, region='global'):
+def smap_rolled(start_time, end_time, agg_days, grid, mask=None, region='global'):
     """smap rolled and aggregated."""
     ds = smap_gridded(start_time, end_time, grid, mask=mask, region=region)
 
@@ -114,7 +126,7 @@ def smap_rolled(start_time, end_time, agg_days=None, grid, mask=None, region='gl
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap(start_time=None, end_time=None, variable='precip', agg_days=None,
+def smap(start_time=None, end_time=None, variable='precip', agg_days=1,
           grid='global0_25', mask='lsm', region='global'):
     """Alias for smap final."""
     if variable not in ['precip']:
