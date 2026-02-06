@@ -16,7 +16,7 @@ import earthaccess
 
 @dask_remote
 @cache(cache_args=['filename'])
-def smap_single_file(filename, earthaccess_result):
+def smap_single_file(filename, earthaccess_result, preprocessor=None)
 
     KeyboardInterrupt
     os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
@@ -27,6 +27,9 @@ def smap_single_file(filename, earthaccess_result):
     earthaccess.download([earthaccess_result], local_path="./smap")
 
     ds = xr.open_datatree('./smap/' + filename, engine='h5netcdf', phony_dims='access')
+
+    if preprocessor:
+        ds = preprocessor
     ds = ds['/'].to_dataset().merge(ds['/Geophysical_Data'])
     ds = ds[['cell_lat', 'cell_lon', 'sm_rootzone', 'sm_surface', 'time']]
     ds = ds.rename({'cell_lat': 'lat', 'cell_lon': 'lon'})
@@ -43,40 +46,42 @@ def smap_single_file(filename, earthaccess_result):
 
     return ds
 
+@dask_remote
+@cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
+def smap_raw(start_time, end_time, delayed=False)
+
+    def l4_preprocessor(dt):
+        ds = ds['/'].to_dataset().merge(ds['/Geophysical_Data'])
+        ds = ds[['sm_rootzone', 'sm_surface', 'time']]
+        ds = ds.swap_dims({"phony_dim_0": "time"})
+        ds = ds.drop_attrs()
+        return ds
+
+    ds = earthaccess_dataset(start_time, endtime, "SPL4SMGP", preprocessor=l4_preprocessor,  delayed=delayed)
+
+    # TODO: Blend in lat/lon
+    #results = earthaccess.search_data(short_name=shortname, cloud_hosted=True, temporal=("2016-01-01", "2016-01-01"))
+    #single_ds = smap_single_file(results[0].data_links()[0].split('/')[-1])
+    #ds = ds.assign_coords({'lat': single_ds.lat, 'lon': single_ds.lon})
+
+    return ds
+
 
 @dask_remote
 @cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
-def smap_raw(start_time, end_time, delayed=False):
-    """Fetch all the individual files and """
-    os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
-    os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
-    earthaccess.login(strategy="environment", persist=True)
+def smap_l3_raw(start_time, end_time, delayed=False):
 
-    results = earthaccess.search_data(short_name="SPL4SMGP", cloud_hosted=True, temporal=(start_time, end_time))
-
-    files = []
-    for result in results:
-        fname = result.data_links()[0].split('/')[-1]
-        if delayed:
-            files.append(dask.delayed(smap_single_file)(fname, result, filepath_only=True))
-        else:
-            files.append(smap_single_file(fname, result, filepath_only=True))
-
-    if delayed:
-        files = dask.compute(*files)
-
-    def preprocess(ds):
-        ds = ds.reset_coords(['lat', 'lon'])
-        ds = ds.drop_vars(['lat', 'lon'])
+    def l3_preprocessor(dt):
+        ds = ds['/Geophysical_Data'])
+        ds = ds[['sm_rootzone', 'sm_surface', 'time']]
+        ds = ds.swap_dims({"phony_dim_0": "time"})
+        ds = ds.drop_attrs()
         return ds
 
-    ds = xr.open_mfdataset(files,
-                           engine='zarr',
-                           parallel=True,
-                           preprocess=preprocess,
-                           chunks={})
+    ds = earthaccess_dataset(start_time, endtime, "SPL3SMP_E", preprocessor=l3_preprocessor, delayed=delayed)
 
     return ds
+
 
 @dask_remote
 @cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
@@ -89,21 +94,14 @@ def smap_gridded(start_time, end_time, grid='smap'):
 
     # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
     if grid != 'smap':
-        # Need to mix in lat and lon coords from an original dataset
-        os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
-        os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
-        earthaccess.login(strategy="environment", persist=True)
-
-        results = earthaccess.search_data(short_name="SPL4SMGP", cloud_hosted=True, temporal=("2016-01-01", "2016-01-01"))
-        single_ds = smap_single_file(results[0].data_links()[0].split('/')[-1])
-
-        ds = ds.assign_coords({'lat': single_ds.lat, 'lon': single_ds.lon})
-
         # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
         import xesmf as xe
         ds_out = get_grid_ds(grid)
+        ds_out = ds_out.rename({'lat': 'latitude', 'lon': 'longitude'})
+        ds = ds.rename({'lat': 'latitude', 'lon': 'longitude'})
         regridder = xe.Regridder(ds, ds_out, "conservative")
         ds = regridder(ds)
+        ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
 
     return ds
 
