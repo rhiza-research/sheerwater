@@ -80,15 +80,17 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
         weights = weights.where(ds[variable_names[0]].notnull(), np.nan, drop=False)
 
         # Mulitply by weights
-        weights = weights * mask_ds.mask
+        weights = weights
     else:
-        weights = mask_ds.mask
+        weights = xr.ones_like(ds[variable_names[0]]) * mask_ds.mask
 
+    # set weights outside mask to nan
+    weights = weights.where(mask_ds.mask * region_ds.mask, np.nan, drop=False)
     ds['weights'] = weights
     for var in variable_names:
         ds[var] = ds[var] * ds['weights']
 
-    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
+    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
     if agg_fn == 'mean':
         for var in variable_names:

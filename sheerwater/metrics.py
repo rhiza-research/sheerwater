@@ -47,33 +47,31 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
 
     # indicate time/space points that are not null (ie adequate coverage)
     # an agg_day - grid cell will be covered if at least one station covers 90% of days
-    data['non_null'] = data[variable].notnull()
+    data['non_null_count'] = data[variable].notnull()
     data['indicator'] = xr.ones_like(data[variable])
 
     # count of agg_days periods covered in a time grouping at each cell.
     data = groupby_time(data, time_grouping=time_grouping, agg_fn='sum')
 
     # get spatial mask for data
-    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping).compute()
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
     if region != 'global':
-        clip_region(space_grouping_ds, grid=grid, region=region)
-        mask_ds = clip_region(mask_ds, region=region)
+        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid)
+        mask_ds = clip_region(mask_ds, region, grid=grid)
 
-    import pdb; pdb.set_trace()
-    # if space grouping is specified, group by it
-    if space_grouping is not None:
-        # want three metrics for each group: mean of indicator (avg station-periods), count of grid cells in group, count of grid cells with indicator > thresh
-        data['cell_indicator'] = xr.ones_like(data[variable])
-        data['cell_covered_indicator'] = data['non_null'] > 0.9*data['indicator']
-        data = groupby_region(data, space_grouping_ds, mask_ds, agg_fn='sum')
-        data['average_station_periods'] = data['non_null'] / data['cell_indicator']
-    else:
-        data = data.where(mask_ds.mask, np.nan, drop=False)
-
-    data['coverage'] = data['non_null'] / data['indicator']
-
-    data = data.drop_vars(variable)
+    # three metrics for each spatial group: 
+    # 1. count of grid cells
+    # 2. count of grid cells with sufficient temporal coverage (>= 90% of periods)
+    # 3. average of non-empty period counts across grid cells 
+    data['cells_count'] = xr.ones_like(data[variable])
+    data['cells_covered'] = data['non_null_count'] > 0.9*data['indicator']
+    data = groupby_region(data, space_grouping_ds, mask_ds, agg_fn='sum')
+    data['average_cell_periods'] = data['non_null_count'] / data['cells_count']
+    # drop regions with all nan values (these are masked regions)
+    data = data.dropna(dim='region', how='all')
+    data = data.drop_vars([variable, 'indicator', "non_null_count"])
+ 
     return data
 
 __all__ = ['metric']
