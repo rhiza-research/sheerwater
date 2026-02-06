@@ -303,6 +303,8 @@ class Metric(ABC):
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+                # If we've passed a global region and clipped, drop any null groups
+                ds = ds.dropna(dim='space_grouping', how='all')
             else:
                 # If we don't have any valid space groups after clipping, the dataframe is empty
                 # we can just continue
@@ -311,8 +313,6 @@ class Metric(ABC):
             for stat in self.statistics:
                 ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
-            # If we've passed a global region and clipped, drop any null groups
-            ds = ds.dropna(dim='space_grouping', how='all')
         else:
             # If returning a spatial metric, mask and drop
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
