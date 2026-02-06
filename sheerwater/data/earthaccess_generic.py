@@ -15,7 +15,7 @@ import earthaccess
 
 @dask_remote
 @cache(cache_args=['filename'])
-def earthaccess_single_file(filename, earthaccess_result, preprocessor=None)
+def earthaccess_single_file(filename, earthaccess_result, preprocessor=None):
 
     KeyboardInterrupt
     os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
@@ -38,8 +38,8 @@ def earthaccess_single_file(filename, earthaccess_result, preprocessor=None)
 
 
 @dask_remote
-def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open_mfdataset_kwargs={}, delayed=False)
-"""A generic interface to an earthaccess dataset.
+def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open_mfdataset_kwargs={}, delayed=False):
+    """A generic interface to an earthaccess dataset.
 
     Opens data by shortname, and processes each file with the preprocessor before opening with mfdataset.
 
@@ -68,7 +68,7 @@ def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open
     ds = xr.open_mfdataset(files,
                            engine='zarr',
                            parallel=True,
-                           chunks={}
-                           **open_mfdataset_kwargs))
+                           chunks={},
+                           **open_mfdataset_kwargs)
 
     return ds

@@ -11,55 +11,29 @@ from sheerwater.utils.secrets import earthaccess_password
 from sheerwater.interfaces import data as sheerwater_data, spatial
 import dask
 import os
-import earthaccess
+from .earthaccess_generic import earthaccess_dataset
 
-
-@dask_remote
-@cache(cache_args=['filename'])
-def smap_single_file(filename, earthaccess_result, preprocessor=None)
-
-    KeyboardInterrupt
-    os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
-    os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
-    earthaccess.login(strategy="environment", persist=True)
-
-    # Takes a single earthaccess result, fetches the file, opens it in xarray, the returns it to be cached
-    earthaccess.download([earthaccess_result], local_path="./smap")
-
-    ds = xr.open_datatree('./smap/' + filename, engine='h5netcdf', phony_dims='access')
-
-    if preprocessor:
-        ds = preprocessor
-    ds = ds['/'].to_dataset().merge(ds['/Geophysical_Data'])
-    ds = ds[['cell_lat', 'cell_lon', 'sm_rootzone', 'sm_surface', 'time']]
-    ds = ds.rename({'cell_lat': 'lat', 'cell_lon': 'lon'})
-    ds = ds.set_coords("lat")
-    ds = ds.set_coords("lon")
-    ds = ds.swap_dims({"phony_dim_0": "time"})
-    ds = ds.drop_attrs()
-
-    ds = ds.compute()
-    print(ds)
-
-    # Necessary to not fill up on-cluster disk
-    os.remove('./smap/' + filename)
-
-    return ds
 
 @dask_remote
 @cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
-def smap_raw(start_time, end_time, delayed=False)
+def smap_l4_raw(start_time, end_time, delayed=False):
 
     def l4_preprocessor(dt):
-        ds = ds['/'].to_dataset().merge(ds['/Geophysical_Data'])
+        ds = dt['/'].to_dataset().merge(dt['/Geophysical_Data'])
         ds = ds[['sm_rootzone', 'sm_surface', 'time']]
         ds = ds.swap_dims({"phony_dim_0": "time"})
         ds = ds.drop_attrs()
         return ds
 
-    ds = earthaccess_dataset(start_time, endtime, "SPL4SMGP", preprocessor=l4_preprocessor,  delayed=delayed)
+    ds = earthaccess_dataset(start_time, end_time, "SPL4SMGP", preprocessor=l4_preprocessor, delayed=delayed)
 
-    # TODO: Blend in lat/lon
+    def latlon_preprocessor(dt):
+        ds = dt['/'].to_dataset()
+        ds = ds.drop_attrs()
+        return ds
+
+    ds = earthaccess_dataset("2016-01-01 00:00:00", "2016-01-01 02:00:00", "SPL4SMGP", preprocessor=latlon_preprocessor, delayed=delayed)
+
     #results = earthaccess.search_data(short_name=shortname, cloud_hosted=True, temporal=("2016-01-01", "2016-01-01"))
     #single_ds = smap_single_file(results[0].data_links()[0].split('/')[-1])
     #ds = ds.assign_coords({'lat': single_ds.lat, 'lon': single_ds.lon})
@@ -72,7 +46,7 @@ def smap_raw(start_time, end_time, delayed=False)
 def smap_l3_raw(start_time, end_time, delayed=False):
 
     def l3_preprocessor(dt):
-        ds = ds['/Geophysical_Data'])
+        ds = ds['/Geophysical_Data']
         ds = ds[['sm_rootzone', 'sm_surface', 'time']]
         ds = ds.swap_dims({"phony_dim_0": "time"})
         ds = ds.drop_attrs()
