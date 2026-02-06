@@ -24,6 +24,8 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         agg_fn (str): Aggregation function. One of mean or sum.
         agg_thresh(int): number of data required to agg.
     """
+    if agg == 1:
+        return ds
     if agg_thresh is None:
         # If no agg_thresh is provided, use the full aggregation period by default
         agg_thresh = agg
