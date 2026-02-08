@@ -39,17 +39,17 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         ds = ds.assign_coords(group=("time", coords))
 
         if agg_fn == 'mean':
-            ds = ds.groupby("group").mean(dim="time", skipna=True)
+            ds = ds.groupby("group").mean(dim="time", skipna=True, min_count=1)
         else:
-            ds = ds.groupby("group").sum(dim="time", skipna=True)
+            ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
         ds = ds.rename({"group": "time"})
         ds = ds.assign_coords(time=ds['time'].astype('<U10'))
     else:
         # Average in time
         if agg_fn == 'mean':
-            ds = ds.mean(dim="time")
+            ds = ds.mean(dim="time", skipna=True, min_count=1)
         elif agg_fn == 'sum':
-            ds = ds.sum(dim="time")
+            ds = ds.sum(dim="time", skipna=True, min_count=1)
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
     return ds
@@ -82,11 +82,13 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
         # Mulitply by weights
         weights = weights
     else:
-        weights = xr.ones_like(ds[variable_names[0]]) * mask_ds.mask
-
-    # set weights outside mask to nan
-    weights = weights.where(mask_ds.mask * region_ds.mask, np.nan, drop=False)
+        weights = xr.ones_like(ds[variable_names[0]])
+    # set weights to nan outside the mask
+    weights = weights.where(mask_ds.mask)
+    if 'number' in weights.coords:
+        weights = weights.reset_coords('number', drop=True)
     ds['weights'] = weights
+
     for var in variable_names:
         ds[var] = ds[var] * ds['weights']
 

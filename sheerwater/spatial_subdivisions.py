@@ -638,7 +638,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 ##############################################################################
 
 
-def clip_region(ds, region, grid, region_dim=None, drop=True):
+def clip_region(ds, region, grid, region_dim=None, drop=True, clip_coords=False):
     """Clip a dataset to a region.
 
     Args:
@@ -647,9 +647,19 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
         grid(str): The grid to clip to.
         region_dim(str): The name of the region dimension. If None, region data is fetched from the region registry.
         drop(bool): Whether to drop the original coordinates that are NaN'd by clipping.
+        clip_coords(bool): Whether to clip the coordinates to the region. Coordinates outside set to NaN.
     """
+
     if region == 'global' or region is None or 'global' in region:
         return ds
+
+    # get coordinates which contain 'region' in the name
+    region_coords = [coord for coord in ds.coords if 'region' in coord]
+
+    if isinstance(region, str) and region != 'global':
+        # rename values of region coordinates from 'global' to the region name
+        for coord in region_coords:
+            ds[coord] = ds[coord].astype(str).str.replace('global', region)
 
     if ds.lat.size == 0 and ds.lon.size == 0:
         # If the dataset is empty / dimensionless, return it untouched
@@ -678,6 +688,9 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     promoted_levels = [promoted_levels[i] for i in sort_idx]
     region = [region[i] for i in sort_idx]
 
+    if clip_coords:
+        ds = ds.reset_coords(region_coords, drop=False)
+
     #########################################################
     # Clip to geometry regions
     #########################################################
@@ -703,6 +716,10 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
         region_ds = region_ds.rename({'region': '_clip_region'})
         ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
+
+    if clip_coords:
+        ds = ds.set_coords(region_coords)
+
     return ds
 
 

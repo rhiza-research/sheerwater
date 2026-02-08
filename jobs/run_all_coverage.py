@@ -2,7 +2,7 @@
 """Runs metrics and updates the caches."""
 import itertools
 
-from sheerwater.data.coverage_tables import coverage_table_stations_aggdays
+from sheerwater.data.coverage_tables import coverage_table
 from sheerwater.utils import start_remote
 from jobs import parse_args, run_in_parallel
 
@@ -13,8 +13,8 @@ from jobs import parse_args, run_in_parallel
 def run_coverage(combo):
     """Run coverage."""
     grid, time_grouping, space_grouping = combo
-    return coverage_table_stations_aggdays(start_time, end_time, variable='precip',
-                                           time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, region="global")
+    return coverage_table(start_time, end_time, variable='precip',
+                          time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, region="global")
 
 if __name__ == "__main__":
     if remote:
