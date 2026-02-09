@@ -39,7 +39,8 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
              time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm',
              region='global', missing_thresh=0.9):  # noqa: ARG001
     """Compute coverage of a dataset."""
-    # this function does not 
+    # this function does not work for "type" time groupings, because it is hard to evaluate sufficient coverage
+    # across all januaries or all Q1s, for example.
     if time_grouping in ["month_of_year", "quarter_of_year"]:
         time_grouping = None
 

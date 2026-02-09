@@ -16,6 +16,9 @@ def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
        # The results will be stored in an x-array with time, region for time and space groupings
        results_ds = xr.Dataset(coords={'time': None, 'region': None})
 
+       if time_grouping in ["month_of_year", "quarter_of_year"]:
+              raise NotImplementedError("Coverage table does not support 'type' time groupings")
+
        # Make sure agg_days is a list
        if not isinstance(agg_days, list):
               agg_days = [agg_days]
