@@ -640,15 +640,15 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
     "list": [
       {
         "current": {
-          "text": "ghcn_avg",
-          "value": "ghcn_avg"
+          "text": "tahmo_avg",
+          "value": "tahmo_avg"
         },
         "includeAll": false,
         "label": "Station Type",
         "name": "truth",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "TAHMO Average",
             "value": "tahmo_avg"
           },
@@ -658,7 +658,7 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
             "value": "tahmo"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "GHCN Average",
             "value": "ghcn_avg"
           },
@@ -819,8 +819,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "Kenya",
-          "value": "kenya"
+          "text": "Uganda",
+          "value": "uganda"
         },
         "definition": "SELECT\n    initcap(replace(region, '_', ' ')) AS __text,\n    region AS __value\nFROM \"$precip_tab_name\"",
         "label": "First Region",
@@ -833,8 +833,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "Uganda",
-          "value": "uganda"
+          "text": "Ghana",
+          "value": "ghana"
         },
         "definition": "SELECT\n    initcap(replace(region, '_', ' ')) AS __text,\n    region AS __value\nFROM \"$precip_tab_name\"",
         "label": "Second Region",
@@ -863,9 +863,14 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
             "selected": false,
             "text": "Month of Year",
             "value": "month_of_year"
+          },
+          {
+            "selected": false,
+            "text": "Year: year",
+            "value": "Year: year"
           }
         ],
-        "query": "None : None, Month of Year : month_of_year",
+        "query": "None : None, Month of Year : month_of_year, Year: year",
         "type": "custom"
       },
       {
@@ -884,20 +889,20 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "global1_5",
-          "value": "global1_5"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "includeAll": false,
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           }
@@ -921,8 +926,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "67db409d75d6b3dec9fe9f40477126db",
-          "value": "67db409d75d6b3dec9fe9f40477126db"
+          "text": "bac02dfe41ad5043458ccfe76e877492",
+          "value": "bac02dfe41ad5043458ccfe76e877492"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -941,8 +946,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       {
         "allowCustomValue": false,
         "current": {
-          "text": "2431cf4fd9e9e5f5a5ae26e054d8e145",
-          "value": "2431cf4fd9e9e5f5a5ae26e054d8e145"
+          "text": "0151bd7c464bb64c3be1b7066bd05e28",
+          "value": "0151bd7c464bb64c3be1b7066bd05e28"
         },
         "definition": "select * from md5('coverage_table/${grid}_global_${region}_${truth}_${time_grouping}_precip')",
         "hide": 2,

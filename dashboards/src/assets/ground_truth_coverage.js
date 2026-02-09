@@ -88,8 +88,8 @@ const avgCellPeriodsRaw =
 const useYears = periodsCount.some(p => p > 365);
 
 const avgLabel = useYears
-    ? "Average Cell Years"
-    : "Average Cell Months";
+    ? "avg years / cell"
+    : "avg months / cell";
 
 const avgValues = avgCellPeriodsRaw.map(v => {
     if (v == null) return null;
@@ -110,7 +110,7 @@ const header = [
 // Rows
 // --------------------
 const rowLabels = [
-    "Cells Covered",
+    "covered / total cells",
     avgLabel
 ];
 
