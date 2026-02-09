@@ -236,7 +236,10 @@ def test_nonuniform_clip():
     lats = lats[lats <= 90.0]
 
     # create a dataset with random precip values
-    ds = xr.Dataset(coords={'lon': lons, 'lat': lats}, data_vars={'precip': (('lat', 'lon'), np.random.rand(len(lats), len(lons)))})
+    ds = xr.Dataset(
+        coords={'lon': lons, 'lat': lats},
+        data_vars={'precip': (('lat', 'lon'), np.random.rand(len(lats), len(lons)))}
+    )
     # check that grid is nonuniform
     assert nonuniform_grid(ds)
     # clip to africa
