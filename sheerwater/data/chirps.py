@@ -3,6 +3,7 @@ import datetime
 
 import fsspec
 import pandas as pd
+import numpy as np
 import xarray as xr
 from dateutil import parser
 from nuthatch import cache
@@ -53,9 +54,9 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
             urls, engine='rasterio', preprocess=preprocess,
             chunks={'y': 1200, 'x': 1200, 'time': 365},
             concat_dim=["time"], compat="override", coords="minimal", combine="nested")
-        # remove nodata values
+        # remove nodata values and negatives, replacing with nan
         nodata = -9999
-        ds = ds.where(ds != nodata)
+        ds = ds.where((ds != nodata) & (ds >= 0), np.nan)
         ds = ds.rename({'y': 'lat', 'x': 'lon', 'band_data': 'precip'})
     elif stations and version == 2:
         if year == datetime.datetime.now().year:
@@ -157,8 +158,9 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     if "spatial_ref" in ds:
         ds = ds.drop_vars(["spatial_ref"])
 
-    # Need to regrid even if on the chirps grid, because the native grid is not
-    # a regular 0.05x0.05 grid.
+    # Need to regrid even if on the chirps grid, because the native grid is irregular - 
+    # while documentation says it is a regular 0.05x0.05 grid
+    # in practice, lat/lon values are not evenly spaced.
     if grid != "chirps":
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
