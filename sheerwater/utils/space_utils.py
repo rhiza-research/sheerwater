@@ -2,7 +2,6 @@
 import numpy as np
 import xarray as xr
 import logging
-import shapely
 
 logger = logging.getLogger(__name__)
 
@@ -81,34 +80,6 @@ def lon_base_change(ds, to_base="base180", lon_dim='lon'):
     # in the resultant base.
     if not wrapped:
         ds = ds.sortby('lon')
-    return ds
-
-
-def clip_with_mask(ds, region_df, drop=True):
-    """Clip a dataset to a region using a mask.
-
-    Args:
-        ds (xr.Dataset): Dataset to clip to a region.
-        region_df (geopandas.GeoDataFrame): The region data to clip to.
-        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
-    """
-    # create a mask on the ds grid corresponding to the region
-    lon2d, lat2d = xr.broadcast(ds.lon, ds.lat)
-    lon2d, lat2d = lon2d.values, lat2d.values
-    mask = np.zeros(lon2d.shape, dtype=bool)
-
-    polygon = region_df.geometry.union_all()
-    # the mask can be large; two step filtering will be faster
-    # first filter to the bounding box of the region
-    lon_min, lat_min, lon_max, lat_max = polygon.bounds
-    bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
-    # then filter to the precise polygon
-    mask[bmask] = shapely.intersects_xy(polygon, lon2d[bmask], lat2d[bmask])
-    # convert to xarray
-    mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
-    ds = ds.where(mask, drop=False)
-    if drop:
-        ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
     return ds
 
 
