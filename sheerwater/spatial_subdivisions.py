@@ -816,7 +816,7 @@ def clip_with_mask(ds, region_df, drop=True):
     # convert to xarray
     mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
     # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads
-    # to visually strange results. By cropping to the bounding box, we have a better result. 
+    # to visually strange results. By cropping to the bounding box, we have a better result.
     ds = ds.where(mask, drop=False)
     if drop:
         ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))

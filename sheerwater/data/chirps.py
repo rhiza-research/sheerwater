@@ -158,7 +158,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     if "spatial_ref" in ds:
         ds = ds.drop_vars(["spatial_ref"])
 
-    # Need to regrid even if on the chirps grid, because the native grid is irregular - 
+    # Need to regrid even if on the chirps grid, because the native grid is irregular -
     # while documentation says it is a regular 0.05x0.05 grid
     # in practice, lat/lon values are not evenly spaced.
     if grid != "chirps":
