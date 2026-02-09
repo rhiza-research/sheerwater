@@ -21,7 +21,7 @@ if __name__ == "__main__":
     grids = ["global1_5", "global0_25"]
 
     mask = "lsm"
-    region = "africa"
+    region = "global"
 
     combos = itertools.product(stations, time_groupings, space_groupings, grids)
     ncombos = len(stations) * len(time_groupings) * len(space_groupings) * len(grids)
