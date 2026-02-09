@@ -8,6 +8,7 @@ import unicodedata
 import logging
 import numpy as np
 import xarray as xr
+import shapely
 from shapely.geometry import box
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
@@ -538,8 +539,12 @@ def spatial_subdivision_regions(grid='global0_25'):
             vals[subdivision] = np.unique(gdf['region_name'].values)
         else:
             # If the subdivision is a gridded region, get the regions from the grid
-            df = spatial_subdivisions[subdivision][0](grid=grid)
-            vals[subdivision] = np.unique(df['region'].values)
+            try:
+                df = spatial_subdivisions[subdivision][0](grid=grid)
+                vals[subdivision] = np.unique(df['region'].values)
+            except NotImplementedError:
+                vals[subdivision] = []
+                warnings.warn(f"No regions found for {subdivision} on grid {grid}")
     return vals
 
 
@@ -575,8 +580,6 @@ def get_spatial_subdivision_level(name, grid='global0_25'):
         if name in regions:
             return subdivision, 1
 
-    import pdb
-    pdb.set_trace()
     raise ValueError(f"Invalid spatial subdivision: {name}")
 
 
@@ -724,17 +727,20 @@ def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True)
         # If the dataset is empty / dimensionless, return it untouched
         return ds
 
-    # Set up dataframe for clipping
-    ds = ds.rio.write_crs("EPSG:4326")
-    ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
-    # swap region coordinate to a data variables
-    # Clip the grid to the passed geometry
-    # check if the dataset has variables
-
+    # check if the dataset has data variables
     if len(ds.data_vars) == 0:
         # Must have a data variable to clip
         ds['mask'] = xr.ones_like(ds.lat * ds.lon, dtype=np.int32)
-    ds = ds.rio.clip(geometry, geometry.crs, drop=drop)
+
+    if nonuniform_grid(ds):
+        ds = clip_with_mask(ds, geometry, drop=drop)
+    else:
+        # Set up dataframe for clipping
+        ds = ds.rio.write_crs("EPSG:4326")
+        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
+        # swap region coordinate to a data variables
+        # Clip the grid to the passed geometry
+        ds = ds.rio.clip(geometry, geometry.crs, drop=drop)
     return ds
 
 
@@ -787,6 +793,41 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         ds = ds.where(masking_ds, drop=False)
     return ds
 
+
+def clip_with_mask(ds, region_df, drop=True):
+    """Clip a dataset to a region using a mask.
+
+    Args:
+        ds (xr.Dataset): Dataset to clip to a region.
+        region_df (geopandas.GeoDataFrame): The region data to clip to.
+        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
+    """
+    # create a mask on the ds grid corresponding to the region
+    lon2d, lat2d = xr.broadcast(ds.lon, ds.lat)
+    mask = xr.zeros_like(lon2d, dtype=bool)
+
+    polygon = region_df.geometry.union_all()
+    # the mask can be large; two step filtering will be faster
+    # first filter to the bounding box of the region
+    lon_min, lat_min, lon_max, lat_max = polygon.bounds
+    bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
+    # then filter to the precise polygon
+    mask[bmask] = shapely.intersects_xy(polygon, lon2d[bmask], lat2d[bmask])
+    # convert to xarray
+    mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
+    # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads
+    # to visually strange results. By cropping to the bounding box, we have a better result. 
+    ds = ds.where(mask, drop=False)
+    if drop:
+        ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
+    return ds
+
+
+def nonuniform_grid(ds, error_thresh=1e-4):
+    """Check if a dataset has a nonuniform grid."""
+    lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
+    lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
+    return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
 
 ##################################################################
 # Spatial subdivision definitions, including custom regions

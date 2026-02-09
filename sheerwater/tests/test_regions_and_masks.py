@@ -1,6 +1,8 @@
 """Test the regions and masking functions."""
 import pytest
 import geopandas as gpd
+import numpy as np
+import xarray as xr
 
 from sheerwater.masks import land_sea_mask
 from sheerwater.metrics import metric
@@ -11,6 +13,8 @@ from sheerwater.spatial_subdivisions import (
     polygon_subdivision_geodataframe,
     polygon_subdivision_labels,
     space_grouping_labels,
+    nonuniform_grid,
+    clip_region,
 )
 from sheerwater.utils import get_grid
 
@@ -217,6 +221,29 @@ def test_land_sea_mask():
         lsm = land_sea_mask(grid=grid)
         assert len(lsm.lat.values) > 0
 
+
+def test_nonuniform_clip():
+    """Test the nonuniform clip function."""
+    # create a grid with randomized lat / lon steps
+    lat_start = -90.0
+    lon_start = -180.0
+    lat_steps = np.random.uniform(1, 5, 1000)
+    lon_steps = np.random.uniform(1, 5, 1000)
+    lons = lon_start + np.cumsum(lon_steps)
+    lats = lat_start + np.cumsum(lat_steps)
+    # drop points above lat / lon limits (90 and 180 respectively)
+    lons = lons[lons <= 180.0]
+    lats = lats[lats <= 90.0]
+
+    # create a dataset with random precip values
+    ds = xr.Dataset(coords={'lon': lons, 'lat': lats}, data_vars={'precip': (('lat', 'lon'), np.random.rand(len(lats), len(lons)))})
+    # check that grid is nonuniform
+    assert nonuniform_grid(ds)
+    # clip to africa
+    ds_africa = clip_region(ds, "africa", grid="nonuniform")
+    # check that values outside africa bounding box are nan
+    mask_outside = ((ds_africa.lat < -40) | (ds_africa.lat > 40) | (ds_africa.lon < -20) | (ds_africa.lon > 55))
+    assert ds_africa['precip'].where(mask_outside).isnull().all()
 
 def test_get_grid():
     """Test the get_grid function."""
