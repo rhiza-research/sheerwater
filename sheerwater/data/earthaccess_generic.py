@@ -25,7 +25,8 @@ def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, pre
     if preprocessor:
         ds = preprocessor(ds)
 
-    ds = ds.compute()
+    if ds:
+        ds = ds.compute()
 
     os.remove('./smap/' + filename)
 
@@ -67,6 +68,8 @@ def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open
 
     if delayed:
         files = dask.compute(*files)
+
+    files = [f for f in files if f is not None]
 
     ds = xr.open_mfdataset(files,
                            engine='zarr',

@@ -101,9 +101,9 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
 })
 def knust_reindexed(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+    """Reindexed KNUST."""
     # We must reindex and cache the reindexed data for downstream operations to be efficient.
     # Can't go in function above because graph is too large
-
     ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
 
     # Reindex to the full grid

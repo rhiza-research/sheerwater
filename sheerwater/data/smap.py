@@ -3,15 +3,13 @@ from nuthatch import cache
 import pandas as pd
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, roll_and_agg, get_grid_ds
+from sheerwater.utils import dask_remote, roll_and_agg
 
-from sheerwater.interfaces import data as sheerwater_data, spatial
 from .earthaccess_generic import earthaccess_dataset
 
 
 @dask_remote
-@spatial()
-@timeseries
+@timeseries()
 @cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
 def smap_l4_raw(start_time, end_time, delayed=False):
     """Lr raw concatenated."""
@@ -38,8 +36,7 @@ def smap_l4_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
-@spatial()
-@timeseries
+@timeseries()
 @cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
 def smap_l3_raw(start_time, end_time, delayed=False):
     """L3 raw concatenated."""
@@ -48,7 +45,12 @@ def smap_l3_raw(start_time, end_time, delayed=False):
         ds_am = dt['/Soil_Moisture_Retrieval_Data_AM'].to_dataset()
         ds_am = ds_am[['soil_moisture', 'tb_time_seconds']]
         ds_am = ds_am.rename_dims({'phony_dim_0': 'y', 'phony_dim_1': 'x'})
-        time = pd.Timestamp(pd.to_datetime("2000-01-01") + ds_am['tb_time_seconds'].mean().values).round(freq='1d')
+
+        try:
+            time = pd.Timestamp(pd.to_datetime("2000-01-01") + ds_am['tb_time_seconds'].mean().values).round(freq='1d')
+        except: #noqa: E722
+            return None
+
         ds_am = ds_am.drop_vars("tb_time_seconds")
 
         ds_pm = dt['/Soil_Moisture_Retrieval_Data_PM'].to_dataset()
@@ -79,6 +81,7 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
+@timeseries()
 @cache(cache_args=['grid', 'version'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
        cache_disable_if={
            'grid': 'smap'
@@ -95,28 +98,47 @@ def smap_gridded(start_time, end_time, grid='smap', version='L3'):
     # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
     if grid != 'smap':
         # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
-        import xesmf as xe
-        ds_out = get_grid_ds(grid)
-        ds_out = ds_out.rename({'lat': 'latitude', 'lon': 'longitude'})
-        ds = ds.rename({'lat': 'latitude', 'lon': 'longitude'})
-        regridder = xe.Regridder(ds, ds_out, "conservative")
-        ds = regridder(ds)
-        ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
+        raise ValueError("Currently SMAP only supports the SMAP grid")
+        #import xesmf as xe
+        #ds_out = get_grid_ds(grid)
+        #ds_out = ds_out.rename({'lat': 'latitude', 'lon': 'longitude'})
+        #ds = ds.rename({'lat': 'latitude', 'lon': 'longitude'})
+        #regridder = xe.Regridder(ds, ds_out, "conservative")
+        #ds = regridder(ds)
+        #ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
 
     return ds
 
 
 @dask_remote
-@sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+@timeseries()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='smap', mask='lsm', region='global'): # noqa: ARG001
+def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
+          grid='smap'): # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
 
-    ds = smap_gridded(start_time, end_time, grid=grid)
+    ds = smap_gridded(start_time, end_time, grid=grid, version="L3")
+
+    if agg_days:
+        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+
+    return ds
+
+
+@dask_remote
+@timeseries()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
+          grid='smap'): # noqa: ARG001
+    """Alias for smap final."""
+    if variable not in ['soil_moisture']:
+        raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
+
+    ds = smap_gridded(start_time, end_time, grid=grid, version="L4")
 
     if agg_days:
         ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
