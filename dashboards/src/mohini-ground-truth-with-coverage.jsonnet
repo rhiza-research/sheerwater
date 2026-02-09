@@ -491,7 +491,7 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT *\nFROM ${coverage_tab_name}\nWHERE region = '${region_option}'\n  AND station = '${truth}';",
+          "rawSql": "SELECT *\nFROM \"${coverage_tab_name}\"\nWHERE region = '${region_option}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -606,7 +606,7 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT *\nFROM ${coverage_tab_name}\nWHERE region = '${region_option2}'\n  AND station = '${truth}';",
+          "rawSql": "SELECT *\nFROM \"${coverage_tab_name}\"\nWHERE region = '${region_option2}'",
           "refId": "A",
           "sql": {
             "columns": [
@@ -819,8 +819,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "United States Of America",
-          "value": "united_states_of_america"
+          "text": "Kenya",
+          "value": "kenya"
         },
         "definition": "SELECT\n    initcap(replace(region, '_', ' ')) AS __text,\n    region AS __value\nFROM \"$precip_tab_name\"",
         "label": "First Region",
@@ -833,8 +833,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "Armenia",
-          "value": "armenia"
+          "text": "Uganda",
+          "value": "uganda"
         },
         "definition": "SELECT\n    initcap(replace(region, '_', ' ')) AS __text,\n    region AS __value\nFROM \"$precip_tab_name\"",
         "label": "Second Region",
@@ -884,20 +884,20 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "global0_25",
-          "value": "global0_25"
+          "text": "global1_5",
+          "value": "global1_5"
         },
         "includeAll": false,
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.25",
             "value": "global0_25"
           }
@@ -921,8 +921,8 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       },
       {
         "current": {
-          "text": "be23adcdb196be48dc5fb9961ffc117d",
-          "value": "be23adcdb196be48dc5fb9961ffc117d"
+          "text": "67db409d75d6b3dec9fe9f40477126db",
+          "value": "67db409d75d6b3dec9fe9f40477126db"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -941,14 +941,14 @@ local ground_truth_coverage_params_js = importstr './assets/ground_truth_coverag
       {
         "allowCustomValue": false,
         "current": {
-          "text": "c506f5b58218231095358deb82b176b2",
-          "value": "c506f5b58218231095358deb82b176b2"
+          "text": "2431cf4fd9e9e5f5a5ae26e054d8e145",
+          "value": "2431cf4fd9e9e5f5a5ae26e054d8e145"
         },
-        "definition": "select * from md5('coverage_table_stations_aggdays/2025-12-31_${grid}_global_${region}_1998-01-01_${time_grouping}_precip')",
+        "definition": "select * from md5('coverage_table/${grid}_global_${region}_${truth}_${time_grouping}_precip')",
         "hide": 2,
         "name": "coverage_tab_name",
         "options": [],
-        "query": "select * from md5('coverage_table_stations_aggdays/2025-12-31_${grid}_global_${region}_1998-01-01_${time_grouping}_precip')",
+        "query": "select * from md5('coverage_table/${grid}_global_${region}_${truth}_${time_grouping}_precip')",
         "refresh": 1,
         "regex": "",
         "type": "query"

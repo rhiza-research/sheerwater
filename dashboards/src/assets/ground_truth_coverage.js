@@ -1,6 +1,8 @@
 // EXTERNAL:ground_truth_coverage.js
 
-// Utility function to convert hex color to an RGB object
+// --------------------
+// Color utilities
+// --------------------
 function hexToRgb(hex) {
     const bigint = parseInt(hex.slice(1), 16);
     return {
@@ -10,184 +12,190 @@ function hexToRgb(hex) {
     };
 }
 
-// Function to get interpolated color by passing a value from 0 to 1
-function getColor(value, cmin, cmax, colorMap) {
-    let colors;
-
-    // Define color scales based on the selected colormap
-    if (colorMap === 'BrBG') {
-        colors = [
-            "#543005",
-            "#8C510A", "#BF812D", "#DFC27D", "#F6E8C3",
-            "#F5F5F5", "#C7EAE5", "#80CDC1", "#35978F", "#01665E",
-            "#003C30"
-        ];
-    } else if (colorMap === 'balance') {
-        colors = [
-            "#2a0a0a",
-            "#751b1b", "#b73c3c", "#e88484", "#f3c3c3", // Negative side
-            "#ffffff",                                            // Neutral middle
-            "#c3e4f3", "#84c2e8", "#3c9fb7", "#1b5e75",  // Positive side
-            "#0a2a2a"
-        ];
-        colors = colors.reverse()
-    } else if (colorMap === 'RdBu') {
-        colors = ['#ff0000', '#ffffff', '#0000ff'];
-    } else {
-        throw new Error("Invalid colorMap. Choose 'BrBG', 'balance', or 'RdBu'.");
-    }
+function getColor(value, cmin, cmax) {
+    const colors = [
+        "#f0f0f0", // very low (light grey)
+        "#c7e9c0",
+        "#74c476",
+        "#31a354",
+        "#006d2c"  // high (dark green)
+    ];
 
     let x = (value - cmin) / (cmax - cmin);
-
-    // Clamp value between 0 and 1
     x = Math.min(1, Math.max(0, x));
+
     if (isNaN(x)) {
-        return `rgba(255, 255, 255, 0.5)`;
+        return 'rgba(255,255,255,0.5)';
     }
 
-    // Compute exact position in color array
-    const scaledValue = x * (colors.length - 1);
-    const lowerIndex = Math.floor(scaledValue);
-    const upperIndex = Math.ceil(scaledValue);
+    const scaled = x * (colors.length - 1);
+    const i0 = Math.floor(scaled);
+    const i1 = Math.ceil(scaled);
 
-    // Edge case: if at the end of the array, return the last color
-    if (lowerIndex === upperIndex) {
-        const color = hexToRgb(colors[lowerIndex]);
-        return `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;
+    if (i0 === i1) {
+        const c = hexToRgb(colors[i0]);
+        return `rgba(${c.r},${c.g},${c.b},0.6)`;
     }
 
-    // Interpolate between the two colors
-    const lowerColor = hexToRgb(colors[lowerIndex]);
-    const upperColor = hexToRgb(colors[upperIndex]);
-    const t = scaledValue - lowerIndex;
+    const c0 = hexToRgb(colors[i0]);
+    const c1 = hexToRgb(colors[i1]);
+    const t = scaled - i0;
 
-    // Interpolate RGB channels
-    const r = Math.round(lowerColor.r + t * (upperColor.r - lowerColor.r));
-    const g = Math.round(lowerColor.g + t * (upperColor.g - lowerColor.g));
-    const b = Math.round(lowerColor.b + t * (upperColor.b - lowerColor.b));
+    const r = Math.round(c0.r + t * (c1.r - c0.r));
+    const g = Math.round(c0.g + t * (c1.g - c0.g));
+    const b = Math.round(c0.b + t * (c1.b - c0.b));
 
-    // Return the interpolated color as an rgb(r, g, b) string
-    return `rgba(${r}, ${g}, ${b}, 0.5)`;
+    return `rgba(${r},${g},${b},0.6)`;
 }
 
+// --------------------
+// agg_days renaming
+// --------------------
 const specialNames = {
-  1: "Day",
-  5: "Pentad",
-  7: "Week",
-  10: "Dekad"
+    1: "Day",
+    5: "Pentad",
+    7: "Week",
+    10: "Dekad"
 };
 
-function renameField(fieldName) {
-  // Try to interpret as integer
-  const num = parseInt(fieldName, 10);
-
-  // If not numeric → keep the original name
-  if (isNaN(num)) return fieldName;
-
-  // If numeric and special → use special name
-  if (specialNames[num]) return specialNames[num];
-
-  // Otherwise → "<num> Days"
-  return `${num} Days`;
+function renameField(field) {
+    const num = parseInt(field, 10);
+    if (isNaN(num)) return field;
+    if (specialNames[num]) return specialNames[num];
+    return `${num} Days`;
 }
 
-if (series.length == 0) {
-    return {
-        data: []
-    }
+// --------------------
+// Guard
+// --------------------
+if (series.length === 0) {
+    return { data: [] };
 }
 
+// --------------------
+// Extract columns
+// --------------------
+const aggDays = series.fields.find(f => f.name === 'agg_days').values.toArray();
+const cellsCount = series.fields.find(f => f.name === 'cells_count').values.toArray();
+const periodsCount = series.fields.find(f => f.name === 'periods_count').values.toArray();
+const cellsCovered = series.fields.find(f => f.name === 'cells_covered').values.toArray();
+const avgCellPeriodsRaw =
+    series.fields.find(f => f.name === 'average_cell_periods').values.toArray();
 
-// Returned data has format station, time_grouping, region, [agg_days]
-// Build header, data source first, then rename days
-let header = [
-  "Data Source",
-  ...series.fields.slice(3).map(f => renameField(f.name))
+// --------------------
+// Average cell scaling
+// --------------------
+const useYears = periodsCount.some(p => p > 365);
+
+const avgLabel = useYears
+    ? "Average Cell Years"
+    : "Average Cell Months";
+
+const avgValues = avgCellPeriodsRaw.map(v => {
+    if (v == null) return null;
+    return useYears ? v / 365.0 : v / 30.0;
+});
+
+const avgColorMax = useYears ? 10 : (20.0 / 30.0);
+
+// --------------------
+// Header
+// --------------------
+const header = [
+    "",
+    ...aggDays.map(d => renameField(d))
 ];
 
-// get coverage values 
-values = series.fields.slice(3).map(f => f.values)
-// get data source
-data_source = series.fields[0].values
+// --------------------
+// Rows
+// --------------------
+const rowLabels = [
+    "Cells Covered",
+    avgLabel
+];
 
-// round values to two decimal places
-values = values.map((period) => period.map((x) => { if (x) { return x.toFixed(2) } else { return '-' } }))
+// Cells covered display: "covered / total"
+const coveredDisplay = cellsCovered.map((v, i) => {
+    if (v == null) return "-";
+    return `${Math.round(v)} / ${Math.round(cellsCount[i])}`;
+});
 
+// Transpose helper
+function transpose(m) {
+    return m[0].map((_, i) => m.map(r => r[i]));
+}
 
-// Rename dictionary
-const renameDict = {
-    "ghcn_avg": "GHCN Average",
-    "tahmo_avg": "TAHMO Average",
-    "ghcn": "GHCN Random",
-    "tahmo": "TAHMO Random"
-};
+const rows = [
+    coveredDisplay,
+    avgValues.map(v => v != null ? v.toFixed(2) : "-")
+];
 
-// Apply custom renaming to the first column of cellValues
-data_source = data_source.toArray().map(value => renameDict[value] || value);
+const cellValues = [
+    rowLabels,
+    ...transpose(rows)
+];
 
-// get station selection & format
-var station = variables['truth'].current.value
+// --------------------
+// Coloring
+// --------------------
+const fillColors = [];
 
+// First column (row labels)
+fillColors.push(rowLabels.map(_ => 'rgba(0,0,0,0)'));
+
+// Data columns
+for (let i = 0; i < aggDays.length; i++) {
+    const coverageFrac =
+        cellsCount[i] > 0 ? cellsCovered[i] / cellsCount[i] : null;
+
+    fillColors.push([
+        getColor(coverageFrac, 0, 1),
+        getColor(avgValues[i], 0, avgColorMax)
+    ]);
+}
+
+// --------------------
+// Station / region formatting
+// --------------------
 function cap(str) {
-  var i, frags = str.split('_');
-  for (i=0; i<frags.length; i++) {
-    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);
-  }
-  return frags.join(' ');
+    return str.split('_')
+        .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(' ');
 }
 
-// convert tahmo_avg to TAHMO Average, ghcn_avg to GHCN Average, etc.
 function rename_station(station) {
-    if (station == 'tahmo_avg') {
-        return 'TAHMO Average';
-    } else if (station == 'ghcn_avg') {
-        return 'GHCN Average';
-    } else if (station == 'tahmo') {
-        return 'TAHMO Random';
-    } else if (station == 'ghcn') {
-        return 'GHCN Random';
-    } else {
-        return station;
-    }
+    if (station === 'tahmo_avg') return 'TAHMO Average';
+    if (station === 'ghcn_avg') return 'GHCN Average';
+    if (station === 'tahmo') return 'TAHMO Random';
+    if (station === 'ghcn') return 'GHCN Random';
+    return station;
 }
 
-region = cap(region)
-station = rename_station(station)
+let station = variables['truth'].current.value;
+station = rename_station(station);
+region = cap(region);
 
-// First column black
-const firstColColor = data_source.map(_ => 'rgba(0,0,0,0)');
-
-// Other columns colored
-const otherColsColors = values.map(col =>
-    col.map(v => v != null ? getColor(v, 0, 0.5, "RdBu") : 'rgba(255,255,255,0.5)')
-);
-
-// Combine colors into a single array
-const allColors = [firstColColor, ...otherColsColors];
-
+// --------------------
+// Final Plotly table
+// --------------------
 return {
     data: [{
         type: 'table',
         header: {
             values: header,
-            align: ['left', 'right', 'right', 'right', 'right'],
-            line: { width: 0, color: '#DBDDDE' },
+            align: 'center',
             font: { family: "Inter, sans-serif", size: 14, weight: "bold" },
-            fill: {
-                color: ['rgba(0,0,0,0)']
-            }
+            fill: { color: 'rgba(0,0,0,0)' },
+            line: { color: '#DBDDDE', width: 1 }
         },
         cells: {
-            values: [data_source, ...values],
-            align: ['left', 'right',  'right', 'right', 'right'],
-            line: { width: 1, color: "#DBDDDE" },
-            font: { family: "Inter, sans-serif", size: 14, color: ["black"] },
-            fill: {
-                color: allColors
-            },
-            height: 35
-        },
-        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin
+            values: cellValues,
+            align: ['left', 'right'],
+            font: { family: "Inter, sans-serif", size: 14 },
+            fill: { color: fillColors },
+            height: 35,
+            line: { color: '#DBDDDE', width: 1 }
+        }
     }],
     layout: {
         title: {
@@ -196,4 +204,4 @@ return {
             x: 0
         }
     }
-}
+};
