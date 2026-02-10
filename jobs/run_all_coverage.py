@@ -12,7 +12,7 @@ from jobs import parse_args, run_in_parallel
 
 def run_coverage(combo):
     """Run coverage."""
-    grid, time_grouping, space_grouping = combo
+    grid, time_grouping, space_grouping, truth = combo
     return coverage_table(start_time, end_time, variable='precip',
                           time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, region="global")
 
@@ -20,6 +20,6 @@ if __name__ == "__main__":
     if remote:
         start_remote(remote_config=remote_config, remote_name=remote_name)
 
-    combos = itertools.product(grids, time_groupings, space_groupings)
+    combos = itertools.product(grids, time_groupings, space_groupings, truth)
 
     run_in_parallel(run_coverage, combos, parallelism)
