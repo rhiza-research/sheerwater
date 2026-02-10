@@ -137,7 +137,7 @@ database = "postgres"
 username = "sheerwater_write"
 driver = "postgresql"
 raster_store = "gs://terracotta-files"
-remote_cache_size = 256000000000
+remote_cache_size = "256GB"
 dynamic_config_path = "sheerwater.utils.secrets"
 
 [tool.nuthatch.filesystem_options]
