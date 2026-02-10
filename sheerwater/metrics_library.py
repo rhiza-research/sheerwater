@@ -284,9 +284,12 @@ class Metric(ABC):
         # 3. Aggregate in space and apply spatial weighting
         ############################################################
         if not self.spatial:
+            import pdb
+            pdb.set_trace()
             # Group by region and average in space, while applying weighting for mask
-            weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
+            weights = latitude_weights(ds.lat)
             # Expand weights to have a time dimension that matches ds
+            weights = weights.expand_dims(lon=ds.lon)
             if 'time' in ds.dims:  # Enable a time specific null pattern per time
                 weights = weights.expand_dims(time=ds.time)
             weights = weights.chunk({dim: -1 for dim in weights.dims})

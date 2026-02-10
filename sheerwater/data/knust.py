@@ -80,29 +80,31 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
     if cell_aggregation == 'mean':
         ds_grouped = ds.groupby(['lat', 'lon']).mean()
+        # Add the station count of non-null values
+        ds_grouped['precip_count'] = ds.precip.groupby(['lat', 'lon']).count()
     elif cell_aggregation == 'first':
         ds_grouped = ds.groupby(['lat', 'lon']).first()
+        # Add the station count of non-null values
+        ds_grouped['precip_count'] = ds_grouped['precip'].notnull().astype(int)
     else:
         raise ValueError("Cell aggregation must be 'first' or 'mean'")
-    # Add the station count of non-null values
-    ds_grouped['precip_count'] = ds.groupby(['lat', 'lon']).count()
-
-    # Apply grid to fill out lat/lon
-    grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     # Return the xarray
-    ds = ds.chunk({'time': 365, 'lat': 300, 'lon': 300})
-    return ds
+    ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
+    return ds_grouped
 
 
 @dask_remote
 @timeseries()
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
 
-    ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
+    ds = knust_raw(start_time, end_time, grid, cell_aggregation)
+
+    # TODO: delete once we have re-run the caches
+    if 'precip' not in ds.variables:
+        ds = ds.rename({'precipitation_amount': 'precip'})
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
@@ -110,7 +112,7 @@ def _knust_unified(start_time, end_time, variable, agg_days,
     if variable != 'precip':
         raise ValueError("knust only supports precip")
 
-    ds = ds[[variable]]
+    ds = ds[[variable, f'{variable}_count']]
 
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
