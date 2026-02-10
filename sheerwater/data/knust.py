@@ -18,6 +18,9 @@ def knust_ashanti():
                               engine='h5netcdf')
     ashanti = ashanti.swap_dims({'ncells': 'station_id'})
     ashanti = ashanti.dropna(dim='time')
+
+    # We need to convert from base 360 to base 180 but we can't
+    # use the standard function because lat and lon must be dims not just coords
     ashanti = ashanti.assign_coords(lon = ("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
@@ -118,23 +121,6 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     ds['precip_count'] = ds['precip_count'].fillna(0)
     return ds
 
-
-@dask_remote
-@timeseries()
-@cache(cache_args=['grid', 'cell_aggregation'],
-       backend_kwargs={
-           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-})
-def knust_reindexed(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
-    # We must reindex and cache the reindexed data for downstream operations to be efficient.
-    # Can't go in function above because graph is too large
-
-    ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
-
-    # Reindex to the full grid
-    grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
-    return ds
 
 
 @dask_remote
