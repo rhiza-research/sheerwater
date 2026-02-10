@@ -67,24 +67,34 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
     ds = xr.merge([ashanti, dacciwa, furiflood])
 
     # Snap the lat/lon values to our requested grid
-    _, _, grid_size, offset = get_grid(grid)
+    if grid != 'knust':
+        _, _, grid_size, offset = get_grid(grid)
 
-    partial_func = partial(snap_point_to_grid, grid_size=grid_size, offset=offset)
-    ds['lat'] = xr.apply_ufunc(partial_func, ds['lat'].compute(), vectorize=True)
-    ds['lon'] = xr.apply_ufunc(partial_func, ds['lon'].compute(), vectorize=True)
-    ds = ds.set_coords("lat")
-    ds = ds.set_coords("lon")
+        partial_func = partial(snap_point_to_grid, grid_size=grid_size, offset=offset)
+        ds['lat'] = xr.apply_ufunc(partial_func, ds['lat'].compute(), vectorize=True)
+        ds['lon'] = xr.apply_ufunc(partial_func, ds['lon'].compute(), vectorize=True)
+        ds = ds.set_coords("lat")
+        ds = ds.set_coords("lon")
 
 
-    if cell_aggregation == 'mean':
-        ds = ds.groupby(['lat','lon']).mean()
-    elif cell_aggregation == 'first':
-        ds = ds.groupby(['lat','lon']).first()
+        if cell_aggregation == 'mean':
+            ds = ds.groupby(['lat','lon']).mean()
+        elif cell_aggregation == 'first':
+            ds = ds.groupby(['lat','lon']).first()
+        else:
+            raise ValueError("Cell aggregation must be 'first' or 'mean'")
+
+        # Return the xarray
+        ds = ds.chunk({'time':365, 'lat': 300, 'lon': 300})
+
+        # Apply grid to fill out lat/lon
+        grid_ds = get_grid_ds(grid)
+        ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
     else:
-        raise ValueError("Cell aggregation must be 'first' or 'mean'")
+        ds = ds.chunk({'time':365, 'station_id': 50})
+        ds = ds.set_coords("lat")
+        ds = ds.set_coords("lon")
 
-    # Return the xarray
-    ds = ds.chunk({'time':365, 'lat': 300, 'lon': 300})
     return ds
 
 
@@ -96,10 +106,6 @@ def _knust_unified(start_time, end_time, variable, agg_days,
 
     ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
     ds = ds.rename({'precipitation_amount': 'precip'})
-
-    # Apply grid to fill out lat/lon
-    grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
@@ -120,7 +126,7 @@ def _knust_unified(start_time, end_time, variable, agg_days,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
-          grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
+          grid='global0_25', mask=None, region='global',  # noqa: ARG001
           missing_thresh=0.9):
     """Standard interface for knust data."""
     return _knust_unified(start_time, end_time, variable, agg_days,
@@ -134,7 +140,7 @@ def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
-              grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
+              grid='global0_25', mask=None, region='global',  # noqa: ARG001
               missing_thresh=0.9):
     """Standard interface for knust data."""
     return _knust_unified(start_time, end_time, variable, agg_days,
