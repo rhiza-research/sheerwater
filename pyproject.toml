@@ -28,9 +28,7 @@ dependencies = [
     "zarr==2.18.3",
     "h5py",
     "netcdf4",
-    "psycopg2",
     "h5netcdf",
-    "psycopg2",
     "scipy",
     "requests",
     "ecmwf-api-client",
@@ -51,7 +49,7 @@ dependencies = [
     "numcodecs<0.16.0",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch==0.3.8",
+    "nuthatch",
 ]
 
 [dependency-groups]
