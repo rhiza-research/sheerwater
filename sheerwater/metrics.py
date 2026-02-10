@@ -1,7 +1,6 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
 from nuthatch import cache
-import numpy as np
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
@@ -65,10 +64,10 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
         space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, clip_coords=True)
         mask_ds = clip_region(mask_ds, region, grid=grid, clip_coords=True)
 
-    # three metrics for each spatial group: 
+    # three metrics for each spatial group:
     # 1. count of grid cells in the group
     # 2. count of grid cells with sufficient temporal coverage in the group
-    # 3. average of non-empty period counts across grid cells 
+    # 3. average of non-empty period counts across grid cells
     data['cells_count'] = xr.ones_like(data[variable])
     data['cells_covered'] = data['non_null_count'] > temporal_coverage_threshold(time_grouping, agg_days)
 
@@ -87,7 +86,7 @@ def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, stat
 def temporal_coverage_threshold(time_grouping, agg_days):
     if time_grouping is None:
         sufficient_days = 365
-    elif time_grouping == "month": 
+    elif time_grouping == "month":
         sufficient_days = 20
     elif time_grouping == "year":
         sufficient_days = 120

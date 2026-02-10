@@ -649,7 +649,6 @@ def clip_region(ds, region, grid, region_dim=None, drop=True, clip_coords=False)
         drop(bool): Whether to drop the original coordinates that are NaN'd by clipping.
         clip_coords(bool): Whether to clip the coordinates to the region. Coordinates outside set to NaN.
     """
-
     if region == 'global' or region is None or 'global' in region:
         return ds
 

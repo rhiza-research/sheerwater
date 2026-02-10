@@ -131,7 +131,7 @@ def parse_args():
     if args.time_grouping:
         time_groupings = args.time_grouping
         time_groupings = [x if x != 'None' else None for x in time_groupings]
-    
+
     space_groupings = [None, "subregion", "country"]
     if args.space_grouping:
         space_groupings = args.space_grouping

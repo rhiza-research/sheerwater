@@ -1,6 +1,5 @@
-import pandas as pd
+"""Coverage tables for station data."""
 import xarray as xr
-import itertools
 
 from sheerwater.utils import dask_remote
 from nuthatch import cache
@@ -10,7 +9,7 @@ from sheerwater.metrics import coverage
 @cache(cache_args=['variable', 'time_grouping', 'space_grouping', 'grid', 'region', 'stations'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
-                    time_grouping=None, space_grouping=None, 
+                    time_grouping=None, space_grouping=None,
                     grid="global1_5", mask='lsm', region='global'):
        """Internal function to compute coverage table across multiple aggregation days."""
        # The results will be stored in an x-array with time, region for time and space groupings
@@ -28,18 +27,26 @@ def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
               f"time grouping {time_grouping}, space grouping {space_grouping}, "
               f"grid {grid}, mask {mask}, region {region}")
               try:
-                     ds = coverage(start_time=start_time, end_time=end_time, variable=variable, agg_days=agg, 
-                                   station_data=stations, time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask=mask, region=region)
+                     ds = coverage(
+                         start_time=start_time, end_time=end_time, variable=variable, agg_days=agg,
+                         station_data=stations, time_grouping=time_grouping, space_grouping=space_grouping,
+                         grid=grid, mask=mask, region=region
+                     )
               except NotImplementedError:
                      ds = None
               if ds:
                      ds = ds.expand_dims(agg_days=[agg])
                      results_ds = results_ds.merge(ds)
-       
-       results_ds = results_ds.drop_vars([var for var in results_ds.coords if var not in results_ds.dims], errors='ignore')
+
+       results_ds = results_ds.drop_vars(
+           [var for var in results_ds.coords if var not in results_ds.dims], errors='ignore'
+       )
        df = results_ds.to_dataframe().reset_index()
-       
-       order = ['time_grouping', 'region', 'agg_days', 'cells_count', 'periods_count', 'cells_covered', 'average_cell_periods']
+
+       order = [
+           'time_grouping', 'region', 'agg_days', 'cells_count', 'periods_count',
+           'cells_covered', 'average_cell_periods'
+       ]
 
        if 'time' in df.columns:
               df = df.rename(columns={'time': 'time_grouping'})
