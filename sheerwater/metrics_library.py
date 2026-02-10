@@ -311,7 +311,10 @@ class Metric(ABC):
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
 
                 # If we've passed a global region and clipped, drop any null groups
-                #ds = ds.dropna(dim='space_grouping', how='all')
+                # Currently commenting out because it was hurting performance
+                # hopefully a future change can drop nan regions more efficiently
+                # until then it's fine to return NaN
+                # ds = ds.dropna(dim='space_grouping', how='all')
             else:
                 # If we don't have any valid space groups after clipping, the dataframe is empty
                 # we can just continue
