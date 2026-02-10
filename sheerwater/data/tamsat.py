@@ -6,6 +6,7 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import dask_remote, regrid, roll_and_agg, get_grid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
+
 @dask_remote
 @cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
@@ -21,8 +22,8 @@ def tamsat_raw():
 @spatial()
 @cache(cache_args=['grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tamsat_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa: ARG001
-    """Regridded version of whole roa dataset."""
+def tamsat_gridded(start_time, end_time, grid, mask=None, region='global'):  # noqa: ARG001
+    """Regridded version of whole TAMSAT dataset."""
     ds = tamsat_raw()
 
     # Rename variable and select precip
@@ -47,7 +48,7 @@ def tamsat_gridded(start_time, end_time, grid, mask=None, region='global'): # no
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tamsat(start_time=None, end_time=None, variable='precip', agg_days=1,
-                grid='global0_25', mask='lsm', region='global'):
+           grid='global0_25', mask='lsm', region='global'):
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by TAMSAT.")
 
