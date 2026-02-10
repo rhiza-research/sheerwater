@@ -4,7 +4,7 @@ from .ghcn import ghcn, ghcn_avg
 from .imerg import imerg, imerg_final, imerg_late
 from .tahmo import tahmo, tahmo_avg
 from .knust import knust, knust_avg
-from .all_stations import all_stations, all_stations_avg
+from .stations import stations, stations_avg
 
 # Use __all__ to define what is part of the public API.
 __all__ = [
@@ -22,6 +22,6 @@ __all__ = [
     "tahmo_avg",
     "knust",
     "knust_avg",
-    "all_stations",
-    "all_stations_avg",
+    "stations",
+    "stations_avg",
 ]
