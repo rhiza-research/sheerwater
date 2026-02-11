@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: rhiza-research/sheerwater-mcp
+  IMAGE_NAME: rhiza-research/sheerwater/mcp
 
 jobs:
   build:
