@@ -144,6 +144,15 @@ def get_grid(grid, base="base180"):
     return lons, lats, grid_size, offset
 
 
+def is_station_grid(ds):
+    """Check if the grid is a station grid, indicated by dimension station_id.
+
+    Station grids are indexed by station_id and have lat/lon coordinates corresponding
+    to individual station locations.
+    """
+    return 'station_id' in ds.dims
+
+
 def base360_to_base180(lons):
     """Converts a list of longitudes from base 360 to base 180.
 

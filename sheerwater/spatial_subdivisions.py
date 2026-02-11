@@ -13,7 +13,7 @@ from shapely.geometry import box
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from nuthatch import cache
-from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object
+from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object, is_station_grid
 
 import warnings
 from rasterio.errors import ShapeSkipWarning
@@ -732,7 +732,9 @@ def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True)
         # Must have a data variable to clip
         ds['mask'] = xr.ones_like(ds.lat * ds.lon, dtype=np.int32)
 
-    if nonuniform_grid(ds):
+    if is_station_grid(ds):
+        ds = clip_station_grid(ds, geometry=geometry, drop=drop)
+    elif nonuniform_grid(ds):
         ds = clip_with_mask(ds, geometry, drop=drop)
     else:
         # Set up dataframe for clipping
@@ -822,6 +824,25 @@ def clip_with_mask(ds, region_df, drop=True):
         ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
     return ds
 
+
+def clip_station_grid(ds, geometry=None, drop=True):
+    """Clip a station grid to a geometry.
+
+    A station grid is indexed by station_id and has lat/lon coordinates corresponding to
+    individual station locations. Each lat/lon point needs to be checked against the geometry to
+    determine if it is within the geometry.
+    """
+    if geometry is None:
+        return ds
+
+    def station_within(station_lons, station_lats):
+        buffer = 1e-1
+        return shapely.contains_xy(geometry.iloc[0].buffer(buffer), station_lons, station_lats)
+    
+    mask = xr.apply_ufunc(station_within, ds["lon"], ds["lat"], dask="parallelized", output_dtypes=[bool])
+    ds = ds.where(mask.compute(), drop=drop)
+
+    return ds
 
 def nonuniform_grid(ds, error_thresh=1e-4):
     """Check if a dataset has a nonuniform grid."""
