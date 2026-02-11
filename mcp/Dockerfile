@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # Install git and build tools (git for setuptools-scm, build-essential for C extensions like numcodecs)
-RUN apt-get update && apt-get install -y git build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git build-essential gdal-bin libgdal-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
