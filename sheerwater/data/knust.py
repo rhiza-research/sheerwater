@@ -1,7 +1,7 @@
 """Get knust data."""
 import math
 from functools import partial
-
+import numpy as np
 import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
@@ -89,9 +89,12 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     else:
         raise ValueError("Cell aggregation must be 'first' or 'mean'")
 
-    # Return the xarray
-    ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
-    return ds_grouped
+    # Apply grid to fill out lat/lon
+    grid_ds = get_grid_ds(grid)
+    ret = ds_grouped.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+    ret['precip_count'] = ret['precip_count'].fillna(0)
+    ret = ret.chunk({'time': 365, 'lat': 300, 'lon': 300})
+    return ret
 
 
 @dask_remote
