@@ -19,7 +19,7 @@ def earth_data_hub_token():
     return key
 
 
-@config_parameter('password', location='root', backend='sql', secret=True)
+@config_parameter('password', location='root', secret=True)
 def postgres_write_password():
     """Get a postgres write password."""
     client = secretmanager.SecretManagerServiceClient()
