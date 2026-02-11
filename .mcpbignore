@@ -1,0 +1,53 @@
+# Virtual environment - uv will handle dependencies at runtime
+.venv/
+
+# Cache directories
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+
+# Test files
+sheerwater/tests/
+
+# Git
+.git/
+.github/
+.gitignore
+
+# Editor/IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+*.mcpb
+
+# Lock file not needed - uv will resolve from pyproject.toml
+uv.lock
+
+# Claude
+.claude/
+CLAUDE.md
+
+# Deployment files (Docker, Helm, CI) — not part of the mcpb bundle
+/mcp/
+
+# Non-MCP sheerwater directories
+dashboard_data/
+dashboards/
+examples/
+infrastructure/
+# Root-level directories that aren't part of the MCP server
+/jobs/
+/sandbox/
+/scripts/
+/tools/
+
+# Other repo files not needed in the bundle
+grafana-weaver-bootstrap.sh
+.python-version
+TODO.md

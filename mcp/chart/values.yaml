@@ -1,0 +1,29 @@
+# Default values for sheerwater-mcp.
+
+# Container image configuration
+image:
+  repository: ghcr.io/rhiza-research/sheerwater-mcp
+  tag: ""  # Defaults to chart appVersion
+  pullPolicy: IfNotPresent
+
+# Image pull secrets (not needed for public GHCR repos)
+imagePullSecrets: []
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+
+# ServiceAccount configuration
+serviceAccount:
+  # Name of the service account (must match Terraform IAM bindings)
+  name: sheerwater-mcp
+
+# Resource configuration
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
