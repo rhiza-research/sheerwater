@@ -2,9 +2,9 @@ name: Build MCPB Bundle
 
 on:
   push:
-    branches: [main]
+    branches: [main, tescalada/mcp]
   pull_request:
-    branches: [main]
+    branches: [main, tescalada/mcp]
 
 jobs:
   pack:
