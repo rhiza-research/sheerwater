@@ -3,8 +3,7 @@ import xarray as xr
 
 from sheerwater.utils import dask_remote
 from nuthatch import cache
-from sheerwater.metrics import coverage
-
+from sheerwater.metrics import station_coverage
 @dask_remote
 @cache(cache_args=['variable', 'time_grouping', 'space_grouping', 'grid', 'region', 'stations'],
        backend='sql', backend_kwargs={'hash_table_name': True})
@@ -30,7 +29,7 @@ def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
               f"time grouping {time_grouping}, space grouping {space_grouping}, "
               f"grid {grid}, mask {mask}, region {region}")
               try:
-                     ds = coverage(
+                     ds = station_coverage(
                          start_time=start_time, end_time=end_time, variable=variable, agg_days=agg,
                          station_data=stations, time_grouping=time_grouping, space_grouping=space_grouping,
                          grid=grid, mask=mask, region=region

@@ -638,7 +638,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 ##############################################################################
 
 
-def clip_region(ds, region, grid, region_dim=None, drop=True, clip_coords=False):
+def clip_region(ds, region, grid, region_coords_to_clip=None, drop=True, clip_coords=False):
     """Clip a dataset to a region.
 
     Args:
