@@ -2,7 +2,7 @@
 
 # Container image configuration
 image:
-  repository: ghcr.io/rhiza-research/sheerwater-mcp
+  repository: ghcr.io/rhiza-research/sheerwater/mcp
   tag: ""  # Defaults to chart appVersion
   pullPolicy: IfNotPresent
 
