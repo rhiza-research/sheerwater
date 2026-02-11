@@ -58,7 +58,7 @@ def tahmo_raw_daily():
 @timeseries()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
-           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+           'chunking': {'time': 1000, 'lat': 50, 'lon': 50}
 })
 def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
@@ -95,7 +95,7 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     # Convert to xarray - for this to succeed obs must be a pandas dataframe
     obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
 
-    obs = obs.chunk({'time': 365, 'lat': 300, 'lon': 300})
+    obs = obs.chunk({'time': 1000, 'lat': 10, 'lon': 10})
     # Return the xarray
     return obs
 

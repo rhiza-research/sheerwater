@@ -50,7 +50,7 @@ def knust_furiflood():
 @timeseries()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
-           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+           'chunking': {'time': 1000, 'lat': 1, 'lon': 1}
 })
 def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get knust data from the QC controlled stations."""
@@ -90,11 +90,12 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         raise ValueError("Cell aggregation must be 'first' or 'mean'")
 
     # Apply grid to fill out lat/lon
-    grid_ds = get_grid_ds(grid)
-    ret = ds_grouped.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
-    ret['precip_count'] = ret['precip_count'].fillna(0)
-    ret = ret.chunk({'time': 365, 'lat': 300, 'lon': 300})
-    return ret
+    # grid_ds = get_grid_ds(grid)
+    # ret = ds_grouped.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+    # ret['precip_count'] = ret['precip_count'].fillna(0)
+    # ret = ret.chunk({'time': 1000, 'lat': 1, 'lon': 1})
+    ds_grouped = ds_grouped.chunk({'time': 1000, 'lat': 1, 'lon': 1})
+    return ds_grouped
 
 
 @dask_remote
