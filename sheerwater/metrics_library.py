@@ -115,7 +115,7 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs, memoize=True)
+            obs = truth_fn(**self.cache_kwargs, memoize=False)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.cache_kwargs)

@@ -155,7 +155,7 @@ def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
                               grid='global1_5', space_grouping=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['era5', 'chirps_v3', 'chirp_v3', 'imerg_final', 'imerg_late']
+    forecasts = ['era5', 'chirps_v3', 'chirp_v3', 'imerg_final', 'imerg_late', "rain_over_africa", "tamsat"]
 
     if '-' in metric_name:
         thresh = float(metric_name.split('-')[1])

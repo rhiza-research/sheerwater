@@ -10,7 +10,7 @@ authors = [
 ]
 license = {text = "MIT"}
 dependencies = [
-    "dask",
+    "dask==2026.1.2",
     "dask[complete]",
     "click",
     "numpy",
