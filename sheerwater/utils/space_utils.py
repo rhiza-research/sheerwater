@@ -2,6 +2,7 @@
 import numpy as np
 import xarray as xr
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -113,7 +114,7 @@ def get_grid(grid, base="base180"):
     if grid == "global1_5":
         grid_size = 1.5
         offset = 0.0
-    elif grid == "chirps":
+    elif grid == "global0_05":
         grid_size = 0.05
         offset = 0.025
     elif grid == "imerg":
@@ -140,7 +141,6 @@ def get_grid(grid, base="base180"):
         lons = base180_to_base360(lons)
         lons = np.sort(lons)
 
-    # Round the longitudes and latitudes to the nearest 1e-5 to avoid floating point precision issues
     return lons, lats, grid_size, offset
 
 
