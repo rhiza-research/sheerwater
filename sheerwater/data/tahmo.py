@@ -1,6 +1,6 @@
 """Get Tahmo data."""
 import math
-
+import numpy as np
 import dask
 import dask.dataframe as dd
 import xarray as xr
@@ -58,7 +58,7 @@ def tahmo_raw_daily():
 @timeseries()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
-           'chunking': {'time': 1000, 'lat': 50, 'lon': 50}
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
 })
 def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
@@ -94,10 +94,28 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
     # Convert to xarray - for this to succeed obs must be a pandas dataframe
     obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
-
-    obs = obs.chunk({'time': 1000, 'lat': 10, 'lon': 10})
+    obs = obs.chunk({'time': 365, 'lat': 300, 'lon': 300})
     # Return the xarray
     return obs
+
+
+@dask_remote
+@timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+})
+def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
+    """Reindex the TAHMO data to the requested grid.
+
+    NOTE: This must be done as a separate step from the raw data. If merging and reindexing in one step,
+    the task graph will explode.
+    """
+    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
+    grid_ds = get_grid_ds(grid)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+    ds['precip_count'] = ds['precip_count'].fillna(0)
+    return ds
 
 
 @dask_remote

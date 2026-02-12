@@ -50,7 +50,7 @@ def knust_furiflood():
 @timeseries()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
-           'chunking': {'time': 1000, 'lat': 1, 'lon': 1}
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
 })
 def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get knust data from the QC controlled stations."""
@@ -64,7 +64,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     furiflood = knust_furiflood()
 
     # combine
-    ds = xr.merge([ashanti, dacciwa, furiflood])
+    ds = xr.merge([ashanti, dacciwa, furiflood], join='outer', compat='no_conflicts', fill_value=np.nan)
 
     # Snap the lat/lon values to our requested grid
     _, _, grid_size, offset = get_grid(grid)
@@ -89,13 +89,28 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     else:
         raise ValueError("Cell aggregation must be 'first' or 'mean'")
 
-    # Apply grid to fill out lat/lon
-    # grid_ds = get_grid_ds(grid)
-    # ret = ds_grouped.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
-    # ret['precip_count'] = ret['precip_count'].fillna(0)
-    # ret = ret.chunk({'time': 1000, 'lat': 1, 'lon': 1})
-    ds_grouped = ds_grouped.chunk({'time': 1000, 'lat': 1, 'lon': 1})
+    # Return the xarray
+    ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
     return ds_grouped
+
+
+@dask_remote
+@timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+})
+def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
+    """Reindex the KNUST data to the requested grid.
+
+    NOTE: This must be done as a separate step from the raw data. If merging and reindexing in one step,
+    the task graph will explode.
+    """
+    ds = knust_raw(start_time, end_time, grid, cell_aggregation)
+    grid_ds = get_grid_ds(grid)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+    ds['precip_count'] = ds['precip_count'].fillna(0)
+    return ds
 
 
 @dask_remote
@@ -104,7 +119,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 def _knust_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
 
-    ds = knust_raw(start_time, end_time, grid, cell_aggregation)
+    ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
     # TODO: delete once we have re-run the caches
     if 'precip' not in ds.variables:

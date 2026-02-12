@@ -1,5 +1,6 @@
 """One station datasource to rule them all."""
 import math
+import numpy as np
 import xarray as xr
 from sheerwater.utils.data_utils import get_grid_ds
 from nuthatch import cache
@@ -21,20 +22,30 @@ def stations_aggregated(start_time, end_time, variable,
     """Aggregate station data from all station sources into a single dataset."""
     suffix = '_avg' if cell_aggregation == 'mean' else ''
     sources = ['knust', 'tahmo', 'ghcn']
+    ghcn_ds = get_data('ghcn_avg')(start_time, end_time, variable=variable, grid=grid, agg_days=1,
+                                   missing_thresh=missing_thresh,
+                                   mask=mask, region=region)
+
+    grid_ds = get_grid_ds(grid)
+    time_index = get_dates(start_time, end_time, stride="day", return_string=False)
 
     # Get all the datasets
     fns = [(source, get_data(source + suffix)) for source in sources]
     datasets = [fn(start_time, end_time, variable=variable, grid=grid, agg_days=1,
                    missing_thresh=missing_thresh,
                    mask=mask, region=region)
-                # .reindex_like(grid_ds, method='nearest', tolerance=0.005)
+                #   .reindex_like(grid_ds, method=None)
+                .reindex_like(grid_ds, method='nearest', tolerance=0.005)
                 #   .reindex(time=time_index)
                 .expand_dims(dim={"source": [source]})
                 # .rename({variable: f'{source}_{variable}', f'{variable}_count': f'{source}_{variable}_count'})
                 for source, fn in fns]
     import pdb
     pdb.set_trace()
-    ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal")
+    # ds = xr.merge(datasets, compat='override', combine_attrs='drop_conflicts')
+    ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal", compat="override", join='outer', fill_value=np.nan)
+#     ds = xr.merge(datasets)
+    # ds = xr.concat(datasets, dim='source', data_vars='minimal', coords='minimal', compat='override', combine_attrs='drop_conflicts', fill_value=np.nan, join='outer')
 
     if cell_aggregation != 'mean':
         raise ValueError(f"Cell aggregation {cell_aggregation} not supported")
