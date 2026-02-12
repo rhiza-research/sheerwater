@@ -41,11 +41,16 @@ def stations_aggregated(start_time, end_time, variable,
 
 
 @dask_remote
-def _stations_unified(start_time, end_time, variable, agg_days,
-                      grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
+@sheerwater_data()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+def stations(start_time=None, end_time=None, variable='precip', agg_days=1,
+              grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
+              missing_thresh=0.9):
     """Standard interface for all station data."""
     ds = stations_aggregated(start_time, end_time, variable, grid=grid,
-                             missing_thresh=missing_thresh, cell_aggregation=cell_aggregation,
+                             missing_thresh=missing_thresh, cell_aggregation='mean',
                              mask=mask, region=region)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
@@ -53,29 +58,3 @@ def _stations_unified(start_time, end_time, variable, agg_days,
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
     return ds
-
-
-@dask_remote
-@sheerwater_data()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def stations(start_time=None, end_time=None, variable='precip', agg_days=1,
-          grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-          missing_thresh=0.9):
-    """Standard interface for all data."""
-    return _stations_unified(start_time, end_time, variable, agg_days, grid=grid,
-                             missing_thresh=missing_thresh, cell_aggregation='first', mask=mask, region=region)
-
-
-@dask_remote
-@sheerwater_data()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def stations_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
-              grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-              missing_thresh=0.9):
-    """Standard interface for all station data."""
-    return _stations_unified(start_time, end_time, variable, agg_days, grid=grid,
-                             missing_thresh=missing_thresh, cell_aggregation='mean', mask=mask, region=region)
