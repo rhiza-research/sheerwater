@@ -14,10 +14,35 @@ npx @anthropic-ai/mcpb pack .
 
 Run from the repo root. This uses `manifest.json` and `.mcpbignore` (both at the repo root) to package the server.
 
-## Running locally
+## Installation
+
+Core library only:
+
+```bash
+uv sync
+```
+
+With MCP server dependencies (fastmcp, anthropic):
 
 ```bash
 uv sync --extra mcp
+```
+
+With dev tools (pytest, ruff, jupyter, etc.):
+
+```bash
+uv sync --group dev
+```
+
+Everything:
+
+```bash
+uv sync --extra mcp --group dev
+```
+
+## Running locally
+
+```bash
 uv run sheerwater-mcp --help
 ```
 

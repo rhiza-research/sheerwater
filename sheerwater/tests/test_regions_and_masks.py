@@ -304,21 +304,21 @@ def test_get_grid():
 def test_region_labels():
     """Test the region labels function."""
     # Get region data for a single country
-    data = region_data("indonesia")
+    data = _region_gdf("indonesia")
     assert data.iloc[0]['region_name'] == "indonesia"
 
-    data = region_data("country")
+    data = _region_gdf("country")
     assert len(data) == 242
 
     # Get for all continents
-    data = region_data("continent")
+    data = _region_gdf("continent")
     assert len(data) == 8
 
-    data = region_data("eastern_africa")
+    data = _region_gdf("eastern_africa")
     assert len(data) == 1
 
-    data = region_data("meteorological_zone")
+    data = _region_gdf("meteorological_zone")
     assert len(data) == 3
 
-    data = region_data("sheerwater_region")
+    data = _region_gdf("sheerwater_region")
     assert len(data) == 3

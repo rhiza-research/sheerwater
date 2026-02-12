@@ -5722,7 +5722,6 @@ dependencies = [
 mcp = [
     { name = "anthropic" },
     { name = "fastmcp" },
-    { name = "redis" },
 ]
 
 [package.dev-dependencies]
@@ -5776,7 +5775,6 @@ requires-dist = [
     { name = "properscoring" },
     { name = "py7zr" },
     { name = "pyzstd", specifier = "==0.16.2" },
-    { name = "redis", marker = "extra == 'mcp'", specifier = ">=7.0.0" },
     { name = "requests" },
     { name = "rioxarray" },
     { name = "s3fs" },

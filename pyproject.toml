@@ -110,9 +110,6 @@ markers = [
 [tool.autopep8]
 max_line_length = 120
 
-[tool.pytest.ini_options]
-testpaths = ["sheerwater/tests"]
-
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
