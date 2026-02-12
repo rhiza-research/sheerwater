@@ -53,8 +53,8 @@ def test_metric_stations_vs_tahmo():
     from sheerwater.metrics import metric
 
     result = metric(
-        start_time="2016-01-01",
-        end_time="2016-01-31",
+        start_time="2020-01-01",
+        end_time="2020-12-31",
         variable="precip",
         agg_days=7,
         forecast="imerg",
@@ -66,11 +66,24 @@ def test_metric_stations_vs_tahmo():
     assert result["mae"].size >= 1
 
     result = metric(
-        start_time="2016-01-01",
-        end_time="2016-01-31",
+        start_time="2020-01-01",
+        end_time="2020-12-31",
         variable="precip",
         agg_days=7,
         forecast="tahmo_avg",
+        truth="stations",
+        metric_name="mae",
+        grid="global1_5",
+    )
+    assert "mae" in result
+    assert result["mae"].size >= 1
+
+    result = metric(
+        start_time="2020-01-01",
+        end_time="2020-12-31",
+        variable="precip",
+        agg_days=1,
+        forecast="knust",
         truth="stations",
         metric_name="mae",
         grid="global1_5",
