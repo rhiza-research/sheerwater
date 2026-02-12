@@ -125,6 +125,11 @@ class Metric(ABC):
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
+        # Select the variable of interest
+        obs = obs[[self.variable]]
+        fcst = fcst[[self.variable]]
+
+
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
@@ -284,8 +289,6 @@ class Metric(ABC):
         # 3. Aggregate in space and apply spatial weighting
         ############################################################
         if not self.spatial:
-            import pdb
-            pdb.set_trace()
             # Group by region and average in space, while applying weighting for mask
             weights = latitude_weights(ds.lat)
             # Expand weights to have a time dimension that matches ds
