@@ -12,7 +12,8 @@ def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
                     grid="global1_5", mask='lsm', region='global'):
        """Internal function to compute coverage table across multiple aggregation days.
 
-       Results have format: time_group, space_group, agg_days, cells_count, periods_count, cells_covered, average_cell_periods
+       Results have format: time_group, space_group, agg_days, cells_count,
+       periods_count, cells_covered, average_cell_periods
        """
        # The results will be stored in an x-array with time, region for time and space groupings
        results_ds = xr.Dataset(coords={'time': None, 'region': None})

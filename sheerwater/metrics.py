@@ -40,7 +40,7 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
              region='global', missing_thresh=0.9):  # noqa: ARG001
     """Compute coverage of a dataset.
 
-    Returns a dataset with the following variables: 
+    Returns a dataset with the following variables:
     - total_cells: count of grid cells in each space_group
     - total_periods: count of agg_days periods per time_group
     - cells_covered: the number of cells within the space_grouping which meet a temporal coverage threshold
@@ -51,7 +51,7 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     if time_grouping in ["month_of_year", "quarter_of_year"]:
         warnings.warn(f"Time grouping {time_grouping} is not supported for coverage calculation.")
         time_grouping = None
-    
+
     # helper function which defines temporal coverage sufficiency thresholds
     def temporal_coverage_threshold(time_grouping, agg_days):
         if time_grouping is None:
