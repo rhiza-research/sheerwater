@@ -296,7 +296,7 @@ def plot_comparison(forecast="ecmwf_ifs_er_debiased", metric="mae", variable="pr
 
 if __name__ == "__main__":
     # Start remote cluster
-    # start_remote(remote_config='xlarge_cluster')
+    start_remote(remote_config='xlarge_cluster')
 
     print("Starting simple metrics comparison test...")
     # Run multiple test combinations
