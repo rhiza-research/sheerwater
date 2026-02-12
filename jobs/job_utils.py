@@ -100,7 +100,11 @@ def parse_args():
         else:
             metrics = args.metric
 
-    variables = ["precip", "tmp2m"]
+    if args.station_evaluation:
+        variables = ["precip"]
+    else:
+        variables = ["precip", "tmp2m"]
+
     if args.variable:
         variables = args.variable
 
