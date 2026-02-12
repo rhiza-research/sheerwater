@@ -58,7 +58,7 @@ def parse_args():
         forecasts = args.forecast
 
     if args.station_evaluation:
-        truth = ["tahmo", "tahmo_avg", "ghcn", "ghcn_avg", "knust", "knust_avg"]
+        truth = ["tahmo", "tahmo_avg", "ghcn", "ghcn_avg", "knust", "knust_avg", "stations"]
     else:
         truth = ["era5"]
 
