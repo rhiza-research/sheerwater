@@ -46,8 +46,9 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     - cells_covered: the number of cells within the space_grouping which meet a temporal coverage threshold
     - average_periods_covered: the average number of time periods of coverage of cells that are sufficiently covered.
     """
-    # this function does not work for "type" time groupings, because it is hard to evaluate sufficient coverage
-    # across all januaries or all Q1s, for example.
+    # this function does not apply "type" time groupings, because it is hard to evaluate sufficient coverage
+    # across all januaries or all Q1s, for example. Instead, it is better to look at coverage over the entire period.
+    # This is what the function falls back to if time_grouping is a type.
     if time_grouping in ["month_of_year", "quarter_of_year"]:
         warnings.warn(f"Time grouping {time_grouping} is not supported for coverage calculation.")
         time_grouping = None
