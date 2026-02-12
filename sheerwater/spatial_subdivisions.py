@@ -645,9 +645,8 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         ds(xr.Dataset): The dataset to clip to a specific region.
         region(str, list): The region to clip to. A str or list of strs.
         grid(str): The grid to clip to.
-        region_dim(str): The name of the region dimension. If None, region data is fetched from the region registry.
+        coords_to_clip(list): The coordinates to clip to the region. Coordinates outside set to 'nan'.
         drop(bool): Whether to drop the original coordinates that are NaN'd by clipping.
-        clip_coords(bool): Whether to clip the coordinates to the region. Coordinates outside set to NaN.
     """
     if region == 'global' or region is None or 'global' in region:
         return ds
@@ -659,7 +658,7 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
     if not isinstance(region, list):
         region = [region]
 
-    # if region_dims is not None or a list, convert to a list.
+    # if coords_to_clip is not None or a list, convert to a list.
     if coords_to_clip is not None and not isinstance(coords_to_clip, list):
         coords_to_clip = [coords_to_clip]
         for coord in coords_to_clip:
