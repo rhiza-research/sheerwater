@@ -638,7 +638,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 ##############################################################################
 
 
-def clip_region(ds, region, grid, dims_to_clip=None, drop=True, clip_coords=False):
+def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
     """Clip a dataset to a region.
 
     Args:
@@ -660,8 +660,11 @@ def clip_region(ds, region, grid, dims_to_clip=None, drop=True, clip_coords=Fals
         region = [region]
 
     # if region_dims is not None or a list, convert to a list.
-    if dims_to_clip is not None and not isinstance(dims_to_clip, list):
-        dims_to_clip = [dims_to_clip]
+    if coords_to_clip is not None and not isinstance(coords_to_clip, list):
+        coords_to_clip = [coords_to_clip]
+        for coord in coords_to_clip:
+            if ["lat", "lon"] not in ds[coord].dims:
+                raise ValueError(f"Coordinates to clip must be indexed by lat and lon: {coord}")
 
     # Clean the region names
     region = [clean_spatial_subdivision_name(x) for x in region]
@@ -681,8 +684,8 @@ def clip_region(ds, region, grid, dims_to_clip=None, drop=True, clip_coords=Fals
 
     # setting coordinates to variables allows them to be clipped to the region.
     # these are then reset to coordinates so those outside the region are 'nan'.
-    if dims_to_clip is not None:
-        ds = ds.reset_coords(dims_to_clip, drop=False)
+    if coords_to_clip is not None:
+        ds = ds.reset_coords(coords_to_clip, drop=False)
 
     #########################################################
     # Clip to geometry regions
@@ -711,8 +714,8 @@ def clip_region(ds, region, grid, dims_to_clip=None, drop=True, clip_coords=Fals
         ds = ds.drop_vars('_clip_region')
 
     # restore coordinate variables to coordinates.
-    if dims_to_clip is not None:
-        ds = ds.set_coords(dims_to_clip)
+    if coords_to_clip is not None:
+        ds = ds.set_coords(coords_to_clip)
 
     return ds
 

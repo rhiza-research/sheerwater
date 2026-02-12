@@ -83,7 +83,7 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
 
     if region != 'global':
         coords_to_clip = [coord for coord in space_grouping_ds.coords if 'region' in coord]
-        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, dims_to_clip=coords_to_clip)
+        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, coords_to_clip=coords_to_clip)
         mask_ds = clip_region(mask_ds, region, grid=grid)
 
     # three metrics for each spatial group:
@@ -102,6 +102,12 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     # drop regions named nan (these are outside the mask)
     data = data.sel(region=data.region != 'nan')
     data = data.drop_vars([variable, "non_null_count"])
+
+    # rename the coordinates
+    if isinstance(region, str) and region != 'global':
+        # rename values of region coordinates from 'global' to the region name
+        for coord in [coord for coord in data.coords if 'region' in coord]:
+            data[coord] = data[coord].astype(str).str.replace('global', region)
 
     return data
 
