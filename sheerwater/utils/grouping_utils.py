@@ -70,7 +70,7 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
     # Aggregate in space
     if weighted:
         # Group by region and average in space, while applying weighting for mask
-        weights = latitude_weights(ds.lat)
+        weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
         # Expand weights to have a time dimension that matches ds
         if 'time' in ds.dims:  # Enable a time specific null pattern
             weights = weights.expand_dims(time=ds.time)
@@ -98,16 +98,45 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
     return ds
 
 
-def latitude_weights(lats):
-    """Return cosine latitude weights for any arbitrary collection of latitude values.
+def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
+    """Return latitude weights as an xarray DataArray.
 
-    Args:
-        lats (array-like): Latitude values in degrees.
-
-    Returns:
-        xr.DataArray: Normalized weights proportional to cos(lat).
+    This function weights each latitude band by the actual cell area,
+    which accounts for the fact that grid cells near the poles are smaller
+    in area than those near the equator.
     """
-    lats = xr.DataArray(lats, dims='lat') if not isinstance(lats, xr.DataArray) else lats
-    weights = np.cos(np.deg2rad(lats))
-    weights /= weights.mean()
+    if ds[lat_dim].size == 0:
+        # Handle empty / dimensionless dataset
+        return xr.DataArray(np.array([]), coords=[ds[lat_dim]], dims=[lat_dim]).expand_dims({lon_dim: ds[lon_dim]})
+    # Calculate latitude cell bounds
+    lat_rad = np.deg2rad(ds[lat_dim].values)
+    pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
+
+    if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
+        # Dealing with the full globe
+        lower_bound = -pi_over_2
+        upper_bound = pi_over_2
+    else:
+        # Compute the difference in between cells
+        diff = np.diff(lat_rad)
+        if diff.std() > 0.5:
+            raise ValueError(
+                "Nonuniform grid! Need to think about spatial averaging more carefully.")
+        diff = diff.mean()
+        lower_bound = np.array([lat_rad[0] - diff / 2.0], dtype=lat_rad.dtype)
+        upper_bound = np.array([lat_rad[-1] + diff / 2.0], dtype=lat_rad.dtype)
+
+    bounds = np.concatenate([lower_bound, (lat_rad[:-1] + lat_rad[1:]) / 2, upper_bound])
+
+    # Calculate cell areas from latitude bounds
+    upper = bounds[1:]
+    lower = bounds[:-1]
+    # normalized cell area: integral from lower to upper of cos(latitude)
+    weights = np.sin(upper) - np.sin(lower)
+
+    # Normalize weights
+    weights /= np.mean(weights)
+    # Return an xarray DataArray with dimensions lat
+    weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
+    weights = weights.expand_dims({lon_dim: ds[lon_dim]})
     return weights
