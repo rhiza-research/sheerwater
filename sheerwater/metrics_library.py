@@ -127,7 +127,6 @@ class Metric(ABC):
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
-        import pdb; pdb.set_trace()
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse

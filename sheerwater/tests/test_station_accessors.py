@@ -19,13 +19,12 @@ STATION_ACCESSORS = [
 @pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
 def test_station_accessors_roll_with_agg_days(name, fn):
     """Larger agg_days should not increase the number of time steps, and 7‑day value matches 1‑day sum."""
-    start = "2020-08-01"
+    start = "2020-01-01"
     end = "2020-09-30"
 
     # 1‑day and 7‑day aggregations
     ds_1 = fn(start, end, agg_days=1)
     ds_7 = fn(start, end, agg_days=7)
-    import pdb; pdb.set_trace()
 
     assert "time" in ds_1.dims
     assert "time" in ds_7.dims
