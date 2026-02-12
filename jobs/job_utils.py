@@ -46,7 +46,7 @@ def parse_args():
         station_eval = True
 
     if args.station_evaluation:
-        forecasts = ["chirps_v3", "imerg_late", "imerg_final", "era5", "chirp_v3"]
+        forecasts = ["chirps_v3", "imerg_late", "imerg_final", "era5", "chirp_v3", "rain_over_africa", "tamsat"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
