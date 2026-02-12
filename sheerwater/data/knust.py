@@ -1,7 +1,7 @@
 """Get knust data."""
 import math
 from functools import partial
-
+import numpy as np
 import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
@@ -16,7 +16,7 @@ def knust_ashanti():
     # Open the netcdf datasets and standardize
     ashanti = xr.open_dataset('gs://sheerwater-datalake/knust_stations/ashanti.nc',
                               engine='h5netcdf')
-    ashanti = ashanti.swap_dims({'ncells':'station_id'})
+    ashanti = ashanti.swap_dims({'ncells': 'station_id'})
     ashanti = ashanti.dropna(dim='time')
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
@@ -52,7 +52,7 @@ def knust_furiflood():
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
 })
-def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get knust data from the QC controlled stations."""
     ashanti = knust_ashanti()
 
@@ -64,7 +64,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
     furiflood = knust_furiflood()
 
     # combine
-    ds = xr.merge([ashanti, dacciwa, furiflood])
+    ds = xr.merge([ashanti, dacciwa, furiflood], join='outer', compat='no_conflicts', fill_value=np.nan)
 
     # Snap the lat/lon values to our requested grid
     _, _, grid_size, offset = get_grid(grid)
@@ -75,16 +75,41 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
     ds = ds.set_coords("lat")
     ds = ds.set_coords("lon")
 
+    # Rename
+    ds = ds.rename({'precipitation_amount': 'precip'})
 
     if cell_aggregation == 'mean':
-        ds = ds.groupby(['lat','lon']).mean()
+        ds_grouped = ds.groupby(['lat', 'lon']).mean()
+        # Add the station count of non-null values
+        ds_grouped['precip_count'] = ds.precip.groupby(['lat', 'lon']).count()
     elif cell_aggregation == 'first':
-        ds = ds.groupby(['lat','lon']).first()
+        ds_grouped = ds.groupby(['lat', 'lon']).first()
+        # Add the station count of non-null values
+        ds_grouped['precip_count'] = ds_grouped['precip'].notnull().astype(int)
     else:
         raise ValueError("Cell aggregation must be 'first' or 'mean'")
 
     # Return the xarray
-    ds = ds.chunk({'time':365, 'lat': 300, 'lon': 300})
+    ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
+    return ds_grouped
+
+
+@dask_remote
+@timeseries()
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+})
+def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
+    """Reindex the KNUST data to the requested grid.
+
+    NOTE: This must be done as a separate step from the raw data. If merging and reindexing in one step,
+    the task graph will explode.
+    """
+    ds = knust_raw(start_time, end_time, grid, cell_aggregation)
+    grid_ds = get_grid_ds(grid)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+    ds['precip_count'] = ds['precip_count'].fillna(0)
     return ds
 
 
@@ -92,14 +117,9 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
 @timeseries()
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
 
-    ds = knust_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
-    ds = ds.rename({'precipitation_amount': 'precip'})
-
-    # Apply grid to fill out lat/lon
-    grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
+    ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
@@ -107,7 +127,7 @@ def _knust_unified(start_time, end_time, variable, agg_days,
     if variable != 'precip':
         raise ValueError("knust only supports precip")
 
-    ds = ds[[variable]]
+    ds = ds[[variable, f'{variable}_count']]
 
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
