@@ -82,8 +82,9 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
 
     if region != 'global':
-        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, clip_coords=True)
-        mask_ds = clip_region(mask_ds, region, grid=grid, clip_coords=True)
+        coords_to_clip = [coord for coord in space_grouping_ds.coords if 'region' in coord]
+        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, dims_to_clip=coords_to_clip)
+        mask_ds = clip_region(mask_ds, region, grid=grid)
 
     # three metrics for each spatial group:
     # 1. count of grid cells in the group

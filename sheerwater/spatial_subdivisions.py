@@ -638,7 +638,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 ##############################################################################
 
 
-def clip_region(ds, region, grid, region_coords_to_clip=None, drop=True, clip_coords=False):
+def clip_region(ds, region, grid, dims_to_clip=None, drop=True, clip_coords=False):
     """Clip a dataset to a region.
 
     Args:
@@ -652,14 +652,6 @@ def clip_region(ds, region, grid, region_coords_to_clip=None, drop=True, clip_co
     if region == 'global' or region is None or 'global' in region:
         return ds
 
-    # get coordinates which contain 'region' in the name
-    region_coords = [coord for coord in ds.coords if 'region' in coord]
-
-    if isinstance(region, str) and region != 'global':
-        # rename values of region coordinates from 'global' to the region name
-        for coord in region_coords:
-            ds[coord] = ds[coord].astype(str).str.replace('global', region)
-
     if ds.lat.size == 0 and ds.lon.size == 0:
         # If the dataset is empty / dimensionless, return it untouched
         return ds
@@ -667,9 +659,9 @@ def clip_region(ds, region, grid, region_coords_to_clip=None, drop=True, clip_co
     if not isinstance(region, list):
         region = [region]
 
-    if region_dim is not None:
-        # If we already have a region dimension, just select the region
-        return ds.where(ds[region_dim] == '-'.join(region), drop=drop)
+    # if region_dims is not None or a list, convert to a list.
+    if dims_to_clip is not None and not isinstance(dims_to_clip, list):
+        dims_to_clip = [dims_to_clip]
 
     # Clean the region names
     region = [clean_spatial_subdivision_name(x) for x in region]
@@ -687,8 +679,10 @@ def clip_region(ds, region, grid, region_coords_to_clip=None, drop=True, clip_co
     promoted_levels = [promoted_levels[i] for i in sort_idx]
     region = [region[i] for i in sort_idx]
 
-    if clip_coords:
-        ds = ds.reset_coords(region_coords, drop=False)
+    # setting coordinates to variables allows them to be clipped to the region.
+    # these are then reset to coordinates so those outside the region are 'nan'.
+    if dims_to_clip is not None:
+        ds = ds.reset_coords(dims_to_clip, drop=False)
 
     #########################################################
     # Clip to geometry regions
@@ -716,8 +710,9 @@ def clip_region(ds, region, grid, region_coords_to_clip=None, drop=True, clip_co
         ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
 
-    if clip_coords:
-        ds = ds.set_coords(region_coords)
+    # restore coordinate variables to coordinates.
+    if dims_to_clip is not None:
+        ds = ds.set_coords(dims_to_clip)
 
     return ds
 
