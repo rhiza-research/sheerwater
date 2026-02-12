@@ -80,9 +80,6 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
         # Ensure the weights null pattern matches the ds null pattern
         # Get all variable names in the dataset (excluding coords)
         weights = weights.where(ds[variable_names[0]].notnull(), np.nan, drop=False)
-
-        # Mulitply by weights
-        weights = weights
     else:
         weights = xr.ones_like(ds[variable_names[0]])
     # set weights to nan outside the mask - this is robust to boolean masks
