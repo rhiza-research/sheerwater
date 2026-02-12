@@ -129,6 +129,9 @@ def get_grid(grid, base="base180"):
     elif grid == "salient0_25":
         grid_size = 0.25
         offset = 0.125
+    elif grid == "chirps":
+        grid_size = 0.05
+        offset = 0.025
     else:
         raise NotImplementedError(
             f"Grid {grid} has not been implemented.")
