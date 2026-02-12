@@ -18,10 +18,12 @@ def stations_aggregated(start_time, end_time, variable,
                         grid='global0_25', missing_thresh=0.9,
                         cell_aggregation='mean', mask=None, region='global'):
     """Aggregate station data from all station sources into a single dataset."""
-    suffix = '_avg' if cell_aggregation == 'mean' else ''
-    sources = ['knust', 'tahmo', 'ghcn']
+    if cell_aggregation != 'mean':
+        raise ValueError(f"Cell aggregation {cell_aggregation} not supported")
+
+    sources = ['knust_avg', 'tahmo_avg', 'ghcn_avg']
     # Get all the datasets
-    fns = [(source, get_data(source + suffix)) for source in sources]
+    fns = [(source, get_data(source)) for source in sources]
     datasets = [fn(start_time, end_time, variable=variable, grid=grid, agg_days=1,
                    missing_thresh=missing_thresh,
                    mask=mask, region=region)
@@ -29,9 +31,6 @@ def stations_aggregated(start_time, end_time, variable,
                 for source, fn in fns]
     ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal",
                    compat="override", join='outer', fill_value=np.nan)
-
-    if cell_aggregation != 'mean':
-        raise ValueError(f"Cell aggregation {cell_aggregation} not supported")
 
     weight_sum = ds[f'{variable}_count'].sum(dim='source')
     ds['relative_weight'] = ds[f'{variable}_count'] / weight_sum
