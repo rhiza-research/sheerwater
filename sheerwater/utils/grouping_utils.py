@@ -41,15 +41,17 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         if agg_fn == 'mean':
             ds = ds.groupby("group").mean(dim="time", skipna=True)
         else:
-            ds = ds.groupby("group").sum(dim="time", skipna=True)
+            # min_count ensures that all nan groups return nan
+            ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
         ds = ds.rename({"group": "time"})
         ds = ds.assign_coords(time=ds['time'].astype('<U10'))
     else:
         # Average in time
         if agg_fn == 'mean':
-            ds = ds.mean(dim="time")
+            ds = ds.mean(dim="time", skipna=True)
         elif agg_fn == 'sum':
-            ds = ds.sum(dim="time")
+            # min_count ensures that all nan groups return nan
+            ds = ds.sum(dim="time", skipna=True, min_count=1)
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
     return ds
@@ -78,17 +80,18 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
         # Ensure the weights null pattern matches the ds null pattern
         # Get all variable names in the dataset (excluding coords)
         weights = weights.where(ds[variable_names[0]].notnull(), np.nan, drop=False)
-
-        # Mulitply by weights
-        weights = weights * mask_ds.mask
     else:
-        weights = mask_ds.mask
-
+        weights = xr.ones_like(ds[variable_names[0]])
+    # set weights to nan outside the mask - this is robust to boolean masks
+    weights = weights.where(mask_ds.mask)
+    if 'number' in weights.coords:
+        weights = weights.reset_coords('number', drop=True)
     ds['weights'] = weights
+
     for var in variable_names:
         ds[var] = ds[var] * ds['weights']
 
-    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
+    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
     if agg_fn == 'mean':
         for var in variable_names:

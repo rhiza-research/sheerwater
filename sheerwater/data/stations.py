@@ -32,10 +32,10 @@ def stations_aggregated(start_time, end_time, variable,
     ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal",
                    compat="override", join='outer', fill_value=np.nan)
 
-    weight_sum = ds[f'{variable}_count'].sum(dim='source')
+    weight_sum = ds[f'{variable}_count'].sum(dim='source', min_count=1)
     ds['relative_weight'] = ds[f'{variable}_count'] / weight_sum
     ds[variable] = ds[variable] * ds['relative_weight']
-    ds = ds.sum(dim='source')
+    ds = ds.sum(dim='source', skipna=True, min_count=1)
     ds = ds.drop_vars(['relative_weight'])
     return ds
 

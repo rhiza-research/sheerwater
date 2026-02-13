@@ -108,6 +108,12 @@ resource "postgresql_grant" "write_public" {
   ]
 }
 
+resource "postgresql_grant_role" "write_subgrant" {
+  role              = postgresql_role.write.name
+  grant_role        = "write"
+  with_admin_option = false
+}
+
 ################################################
 # Terracotta: Read role grants
 ################################################
