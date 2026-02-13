@@ -32,17 +32,10 @@ def stations_aggregated(start_time, end_time, variable,
     ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal",
                    compat="override", join='outer', fill_value=np.nan)
 
-<<<<<<< HEAD
     weight_sum = ds[f'{variable}_count'].sum(dim='source', min_count=1)
     ds['relative_weight'] = ds[f'{variable}_count'] / weight_sum
     ds[variable] = ds[variable] * ds['relative_weight']
     ds = ds.sum(dim='source', skipna=True, min_count=1)
-=======
-    weight_sum = ds[f'{variable}_count'].sum(dim='source')
-    ds['relative_weight'] = ds[f'{variable}_count'] / weight_sum
-    ds[variable] = ds[variable] * ds['relative_weight']
-    ds = ds.sum(dim='source')
->>>>>>> mohini/coverage
     ds = ds.drop_vars(['relative_weight'])
     return ds
 
