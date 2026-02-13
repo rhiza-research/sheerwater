@@ -80,10 +80,10 @@ allow-direct-references = true
 
 [tool.hatch.build]
 # Necessary to include nuthatch.toml
-include = ["sheerwater/", "jobs/", "dashboard_data/"]
+include = ["sheerwater/", "jobs/", "dashboard_data/", "nuthatch.toml"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["./sheerwater", "./jobs", "./dashboard_data"]
+packages = ["./sheerwater", "./jobs", "./dashboard_data", "nuthatch.toml"]
 
 [tool.uv]
 managed = true
