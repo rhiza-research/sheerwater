@@ -12,6 +12,7 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 
 from sheerwater.utils import (
     dask_remote,
+    shift_by_days,
     get_grid,
     get_grid_ds,
     get_variable,
@@ -286,6 +287,12 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
     if grid != 'global0_25':
         raise ValueError("Only ERA5 native 0.25 degree grid is implemented.")
 
+<<<<<<< HEAD
+=======
+    # Read and combine all the data into an array
+    ds = era5_raw(start_time, end_time, variable, grid='global0_25')
+
+>>>>>>> remotes/origin/geflaspo/era5_fix
     K_const = 273.15
     if variable == 'tmp2m':
         ds = era5_raw(start_time, end_time, variable, grid='global0_25')
@@ -369,42 +376,8 @@ def era5_daily_regrid(start_time, end_time, variable, grid="global0_25", mask=No
 
 
 @dask_remote
-@spatial()
-@timeseries()
-@cache(cache_args=['variable', 'agg_days', 'grid'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 1000},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
-               }
-           }
-})
-def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", mask=None, region='global'):
-    """Aggregates the hourly ERA5 data into daily data and rolls.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days.
-        grid (str): The grid resolution to fetch the data at. One of:
-            - global1_5: 1.5 degree global grid
-            - global0_25: 0.25 degree global grid
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
-    # Read and combine all the data into an array
-    ds = era5_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    if agg_days == 1:
-        return ds
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
@@ -419,10 +392,19 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
         mask (str): The mask to apply to the data.
         region (str): The region to clip the data to.
     """
+    # Read and combine all the data into an array
     _, _, size, _ = get_grid(grid)
     if size < 0.25:
         raise NotImplementedError("Unable to regrid ERA5 smaller than 0.25x0.25")
+<<<<<<< HEAD
     ds = era5_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
     if variable == 'rh2m':
         ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
+=======
+    # Adjust start and end to account for what will be cut off due to the a
+    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
+    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
+    ds = era5_daily_regrid(new_start, new_end, variable, grid=grid, mask=mask, region=region)
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
+>>>>>>> remotes/origin/geflaspo/era5_fix
     return ds
