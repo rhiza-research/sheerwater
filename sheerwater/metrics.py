@@ -1,6 +1,7 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
 from nuthatch import cache
+import warnings
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
@@ -33,32 +34,82 @@ def metric(start_time, end_time, variable, agg_days, forecast, truth,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'station_data',
-                   'time_grouping', 'grid', 'mask', 'region', 'missing_thresh'])
-def coverage(start_time=None, end_time=None, variable='precip', agg_days=7, station_data='ghcn_avg',
+                   'time_grouping', 'space_grouping', 'grid', 'mask', 'region', 'missing_thresh'])
+def station_coverage(start_time=None, end_time=None, variable='precip', agg_days=7, station_data='ghcn_avg',
              time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm',
              region='global', missing_thresh=0.9):  # noqa: ARG001
-    """Compute coverage of a dataset."""
-    # Use the metric registry to get the metric class
+    """Compute coverage of a dataset.
+
+    Returns a dataset with the following variables:
+    - total_cells: count of grid cells in each space_group
+    - total_periods: count of agg_days periods per time_group
+    - cells_covered: the number of cells within the space_grouping which meet a temporal coverage threshold
+    - average_periods_covered: the average number of time periods of coverage of cells that are sufficiently covered.
+    """
+    # this function does not apply "type" time groupings, because it is hard to evaluate sufficient coverage
+    # across all januaries or all Q1s, for example. Instead, it is better to look at coverage over the entire period.
+    # This is what the function falls back to if time_grouping is a type.
+    if time_grouping in ["month_of_year", "quarter_of_year"]:
+        warnings.warn(f"Time grouping {time_grouping} is not supported for coverage calculation.")
+        time_grouping = None
+
+    # helper function which defines temporal coverage sufficiency thresholds
+    def temporal_coverage_threshold(time_grouping, agg_days):
+        if time_grouping is None:
+            sufficient_days = 365
+        elif time_grouping == "month":
+            sufficient_days = 20
+        elif time_grouping == "year":
+            sufficient_days = 120
+        else:
+            raise ValueError(f"Invalid time grouping: {time_grouping}")
+        return int(sufficient_days / agg_days)
+
+    # Get the station data over the desired period
+    # data will have dimensions time (# of agg_days periods) x space (# grid cells)
     station_data_fn = get_data(station_data)
     data = station_data_fn(start_time, end_time, variable, agg_days=agg_days,
-                           grid=grid, mask=None, region=region)
+                           grid=grid, mask=None, region=region, missing_thresh=missing_thresh)
 
-    data['non_null'] = data[variable].notnull()
-    data['indicator'] = xr.ones_like(data[variable])
-    data = groupby_time(data, time_grouping=time_grouping, agg_fn='mean')
+    # indicate time/space points that are not null (ie adequate coverage)
+    # an agg_day - grid cell will be covered if at least one station covers 90% of days
+    data['non_null_count'] = data[variable].notnull()
+    data['total_periods'] = xr.ones_like(data[variable])
+    # count of agg_days periods covered in a time grouping at each cell.
+    data = groupby_time(data, time_grouping=time_grouping, agg_fn='sum')
 
-    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+    # get spatial mask for data
+    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping).compute()
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
+
     if region != 'global':
-        space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
-        mask_ds = clip_region(mask_ds, grid=grid, region=region)
+        coords_to_clip = [coord for coord in space_grouping_ds.coords if 'region' in coord]
+        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, coords_to_clip=coords_to_clip)
+        mask_ds = clip_region(mask_ds, region, grid=grid)
 
+    # three metrics for each spatial group:
+    # 1. count of grid cells in the group
+    # 2. count of grid cells with sufficient temporal coverage in the group
+    # 3. average of non-empty period counts across grid cells
+    data['total_cells'] = xr.ones_like(data[variable])
+    data['cells_covered'] = data['non_null_count'] > temporal_coverage_threshold(time_grouping, agg_days)
+
+    # cells that are not sufficiently covered should not contribute to average coverage
+    data['non_null_count'] = data['non_null_count'] * data['cells_covered']
     data = groupby_region(data, space_grouping_ds, mask_ds, agg_fn='sum')
+    data['average_periods_covered'] = data['non_null_count'] / data['cells_covered']
+    data['total_periods'] = data['total_periods'] / data['total_cells']
 
-    data['coverage'] = data['non_null'] / data['indicator']
+    # drop regions named nan (these are outside the mask)
+    data = data.sel(region=data.region != 'nan')
+    data = data.drop_vars([variable, "non_null_count"])
 
-    data = data.drop_vars(variable)
+    # rename the coordinates
+    if isinstance(region, str) and region != 'global':
+        # rename values of region coordinates from 'global' to the region name
+        for coord in [coord for coord in data.coords if 'region' in coord]:
+            data[coord] = data[coord].astype(str).str.replace('global', region)
+
     return data
-
 
 __all__ = ['metric']
