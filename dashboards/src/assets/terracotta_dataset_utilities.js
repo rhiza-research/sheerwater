@@ -64,21 +64,68 @@ function extractPercentileBounds(metadata) {
 }
 
 function buildStretchFromBounds(colorMin, colorMax, metric, product) {
+    const m = String(metric || "").toLowerCase();
     let colormap = "reds";
-    if (metric === "bias") {
-        if (Math.abs(colorMin) > colorMax) {
-            colorMax = Math.abs(colorMin);
-        } else {
-            colorMin = colorMax * -1;
-        }
+
+    // ── Bias: diverging around 0 ──
+    if (m === "bias") {
+        // Symmetrise around zero
+        const absMax = Math.max(Math.abs(colorMin), Math.abs(colorMax));
+        colorMin = -absMax;
+        colorMax = absMax;
         colormap = product === "era5_tmp2m" ? "rdbu_r" : "brbg";
-    } else if (metric === "acc") {
+
+        // ── ACC / Pearson: correlation [-1, 1], higher is better ──
+    } else if (m === "acc" || m === "pearson") {
         colorMin = -1;
         colorMax = 1;
-        colormap = "rdbu";
-    } else if (metric === "seeps") {
+        colormap = "rdylgn";
+
+        // ── SEEPS: fixed [0, 2], lower is better ──
+    } else if (m === "seeps") {
         colorMin = 0;
         colorMax = 2.0;
+        colormap = "reds";
+
+        // ── SMAPE: fixed [0, 1], lower is better ──
+    } else if (m === "smape") {
+        colorMin = 0;
+        colorMax = 1;
+        colormap = "reds";
+
+        // ── Heidke: higher is better, open lower bound up to 1 ──
+    } else if (m.startsWith("heidke-")) {
+        // Keep data-driven min, cap max at 1
+        colorMax = 1;
+        colormap = "rdylgn";
+
+        // ── POD: [0, 1], higher is better ──
+    } else if (m.startsWith("pod-")) {
+        colorMin = 0;
+        colorMax = 1;
+        colormap = "rdylgn";
+
+        // ── CSI: [0, 1], higher is better ──
+    } else if (m.startsWith("csi-")) {
+        colorMin = 0;
+        colorMax = 1;
+        colormap = "rdylgn";
+
+        // ── FAR: [0, 1], lower is better ──
+    } else if (m.startsWith("far-")) {
+        colorMin = 0;
+        colorMax = 1;
+        colormap = "reds";
+
+        // ── ETS: [-1/3, 1], higher is better ──
+    } else if (m.startsWith("ets-")) {
+        colorMin = -1 / 3;
+        colorMax = 1;
+        colormap = "rdylgn";
+
+        // ── MAE, RMSE, CRPS, and anything else: lower is better ──
+    } else {
+        // m === "mae" || m === "rmse" || m === "crps" || fallback
         colormap = "reds";
     }
 
