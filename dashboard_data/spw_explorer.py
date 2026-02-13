@@ -4,7 +4,7 @@ import numpy as np
 from functools import partial
 from nuthatch import cache
 from sheerwater.utils import dask_remote, start_remote
-from sheerwater.reanalysis import era5_rolled
+from sheerwater.reanalysis import era5
 from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_spw
 from sheerwater.forecasts.fuxi import fuxi_spw
 from sheerwater.climatology import climatology_spw, climatology_rolled
@@ -25,7 +25,7 @@ def rain_windowed_spw(start_time, end_time,
     """Store the rolling windows of precipitation relevant to SPW in the database."""
     # Get the ground truth data
     if truth == 'era5':
-        fn = partial(era5_rolled, start_time, end_time, variable='precip', grid=grid)
+        fn = partial(era5, start_time, end_time, variable='precip', grid=grid)
     elif truth == 'imerg':
         fn = partial(imerg_rolled, start_time, end_time, grid=grid)
     elif truth == 'chirps':
