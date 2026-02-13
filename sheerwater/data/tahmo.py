@@ -11,6 +11,7 @@ from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, s
 from sheerwater.interfaces import data as sheerwater_data
 
 
+
 @cache(cache_args=[])
 def tahmo_deployment():
     """Stub function to get deployment cache."""
@@ -19,6 +20,28 @@ def tahmo_deployment():
 
 @cache(cache_args=['station_id'], fail_if_no_cache=True)
 def tahmo_station_cleaned(station_id):  # noqa: ARG001
+    """Stub function to get data cache."""
+    pass
+
+
+@timeseries()
+@cache(backend="parquet", cache_args=["station_id"], fail_if_no_cache=True)
+def tahmo_station_enriched(start_time=None, end_time=None, station_id="TA00025"):  # noqa: ARG001
+    """Stub function to get data cache."""
+    pass
+
+
+@timeseries()
+@cache(backend='parquet',
+       cache_args=["station_id", "tahmo_dataset"],
+       backend_kwargs={'hash_table_name': False}, fail_if_no_cache=True)
+def tahmo_station(start_time=None, end_time=None, station_id="TA00025", tahmo_dataset="controlled"):
+    """Get tahmo station data."""
+    pass
+
+
+@cache(cache_args=["station_id"], fail_if_no_cache=True)
+def rainfall_final(station_id):
     """Stub function to get data cache."""
     pass
 
