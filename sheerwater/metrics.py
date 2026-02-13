@@ -118,7 +118,8 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
 
 
 @dask_remote
-def auc_roc(start_time, end_time, satellite, station, station_threshold='climatology_2020', agg_days=7, time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global'):
+def auc_roc(start_time, end_time, satellite, station, station_threshold='climatology_2020', agg_days=7, 
+            time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global', spatial=False):
     """Compute the AUC-ROC curve for a satellite and station."""
     satellite_data = get_data(satellite)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
     station_data = get_data(station)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
@@ -130,20 +131,20 @@ def auc_roc(start_time, end_time, satellite, station, station_threshold='climato
     # if the threshold is a number, subtract it from the station data
     elif isinstance(station_threshold, (float, int)):
         station_data = station_data - station_threshold
-    
-    low_daily_mm = 0
-    high_daily_mm = 10
 
-    threshold_count = 100
+    # get maximum rainfall in satellite data
+    nan_mask = satellite_data.precip.isnull() | station_data.precip.isnull()
+    max_rainfall = satellite_data.where(~nan_mask).precip.max().values
+
     # threshold descending -> false positive rate increasing, as expected by auc integration
-    thresholds = np.linspace(low_daily_mm*agg_days, high_daily_mm*agg_days, threshold_count)[::-1]
+    step = max(0.01, max_rainfall / 300)
+    thresholds = np.arange(0, max_rainfall + step, step)[::-1]
     thresholds = xr.DataArray(
         thresholds,
         dims="threshold",
         coords={"threshold": thresholds}
     )
 
-    nan_mask = satellite_data.precip.isnull() | station_data.precip.isnull()
     satellite_event = (satellite_data.precip >= thresholds)
     station_event = (station_data.precip >= 0)
 
@@ -164,13 +165,17 @@ def auc_roc(start_time, end_time, satellite, station, station_threshold='climato
     # group over time
     counts = groupby_time(counts, time_grouping=time_grouping, agg_fn='sum')
     # group over space
-    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
     if region != 'global':
-        space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
         mask_ds = clip_region(mask_ds, grid=grid, region=region)
+    if not spatial:
+        space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+        if region != 'global':
+            space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
 
-    counts = groupby_region(counts, space_grouping_ds, mask_ds, agg_fn='sum')
+        counts = groupby_region(counts, space_grouping_ds, mask_ds, agg_fn='sum')
+    else:
+        counts = counts.where(mask_ds.mask, drop=False)
 
     # get rates
     tpr = counts['true_pos'] / (counts['true_pos'] + counts['false_neg'])
