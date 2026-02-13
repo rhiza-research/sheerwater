@@ -2,6 +2,7 @@
 import gcsfs
 import xarray as xr
 import pandas as pd
+import numpy as np
 import dask
 from nuthatch import cache
 from nuthatch.processors import timeseries
@@ -92,4 +93,8 @@ def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days
 
     ds = roa_gridded(start_time, end_time, grid, mask=mask, region=region)
     ds = ds[[variable]]
+
+    # Before rolling, filter out all values great than 350 mm/day. There seem to be bad values that made it in?
+    ds = ds.where(ds.max(dim=["lat", "lon"]) <= 350, np.nan)
+
     return roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
