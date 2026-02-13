@@ -1,14 +1,15 @@
 """Get Tahmo data."""
 import math
-
+import numpy as np
 import dask
 import dask.dataframe as dd
 import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
-from sheerwater.interfaces import data as sheerwater_data, spatial
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid, shift_by_days
+from sheerwater.interfaces import data as sheerwater_data
+
 
 
 @cache(cache_args=[])
@@ -78,12 +79,11 @@ def tahmo_raw_daily():
 
 @dask_remote
 @timeseries()
-@spatial()
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
 })
-def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Get tahmo data from the QC controlled stations."""
     # Get the station list
     stations = tahmo_deployment().compute()
@@ -109,46 +109,53 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first',
         obs = obs.drop(['station_id'], axis=1)
         obs = obs.reset_index()
         obs = obs.drop(['index'], axis=1)
+        obs['precip_count'] = obs['precip'].notnull().astype(int)
     elif cell_aggregation == 'mean':
-        obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'))
+        obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'),
+                                                         precip_count=('precip', 'count'))
         obs = obs.reset_index()
 
     # Convert to xarray - for this to succeed obs must be a pandas dataframe
     obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
-
+    obs = obs.chunk({'time': 365, 'lat': 300, 'lon': 300})
     # Return the xarray
     return obs
 
 
 @dask_remote
 @timeseries()
-@spatial()
-@cache(cache_args=['agg_days', 'grid', 'missing_thresh', 'cell_aggregation'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tahmo_rolled(start_time, end_time, agg_days,
-                 grid='global0_25',
-                 missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
-    """Tahmo rolled and aggregated."""
-    # Get the data
-    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
+@cache(cache_args=['grid', 'cell_aggregation'],
+       backend_kwargs={
+           'chunking': {'time': 365, 'lat': 300, 'lon': 300}
+})
+def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
+    """Reindex the TAHMO data to the requested grid.
 
+    NOTE: This must be done as a separate step from the raw data. If merging and reindexing in one step,
+    the task graph will explode.
+    """
+    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
     grid_ds = get_grid_ds(grid)
-    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
-
-    # Roll and agg
-    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
+    ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+    ds['precip_count'] = ds['precip_count'].fillna(0)
     return ds
 
 
 @dask_remote
 def _tahmo_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     if variable != 'precip':
         raise ValueError("TAHMO only supports precip")
 
-    ds = tahmo_rolled(start_time, end_time, agg_days, grid, missing_thresh, cell_aggregation, mask=mask, region=region)
-    ds = ds[[variable]]
+    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
+    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
+    ds = tahmo_reindex(new_start, new_end, grid, cell_aggregation)
+
+    # Roll and agg
+    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
+
+    ds = ds[[variable, f'{variable}_count']]
 
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
@@ -157,6 +164,7 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
 
 @dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})

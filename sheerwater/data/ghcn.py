@@ -10,7 +10,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid, shift_by_days
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
@@ -161,28 +161,16 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['grid', 'agg_days', 'missing_thresh', 'cell_aggregation'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def ghcnd_rolled(start_time, end_time, agg_days,
-                 grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
-    """GHCND rolled and aggregated."""
-    # Get the data
-    ds = ghcnd(start_time, end_time, grid, cell_aggregation, mask=mask, region=region)
-
+def _ghcn_unified(start_time, end_time, variable, agg_days,
+                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+    """Standard interface for ghcn data."""
     # Roll and agg
+    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
+    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
+    ds = ghcnd(new_start, new_end, grid=grid, cell_aggregation=cell_aggregation)
+
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
-    return ds
-
-
-@dask_remote
-def _ghcn_unified(start_time, end_time, variable, agg_days,
-                  grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):
-    """Standard interface for ghcn data."""
-    ds = ghcnd_rolled(start_time, end_time, agg_days=agg_days, grid=grid,
-                      missing_thresh=missing_thresh, cell_aggregation=cell_aggregation, mask=mask, region=region)
 
     # Get the variable
     variable_ghcn = get_variable(variable, 'ghcn')
@@ -190,6 +178,10 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
     ds = ds[variable_ghcn].to_dataset()
     # Rename
     ds = ds.rename({variable_ghcn: variable_sheerwater})
+
+    # Assign a default count of 1 to all non-null values
+    # TODO: correct with a pipe through of the number of stations in each cell
+    ds[f'{variable_sheerwater}_count'] = ds[variable_ghcn].notnull().astype(int)
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
     return ds
@@ -209,6 +201,7 @@ def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
 
 @dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn_avg(start_time=None, end_time=None, variable='precip', agg_days=1,

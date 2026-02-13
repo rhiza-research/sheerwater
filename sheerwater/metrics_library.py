@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
-from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
+from sheerwater.climatology import climatology_era5_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
@@ -123,6 +123,10 @@ class Metric(ABC):
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
+
+        # Select the variable of interest
+        obs = obs[[self.variable]]
+        fcst = fcst[[self.variable]]
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
@@ -303,6 +307,7 @@ class Metric(ABC):
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+                # If we've passed a global region and clipped, drop any null groups
                 ds = ds.dropna(dim='space_grouping', how='all')
             else:
                 # If we don't have any valid space groups after clipping, the dataframe is empty
@@ -464,7 +469,7 @@ class ACC(Metric):
         super().prepare_data()
 
         # Get the appropriate climatology dataframe for metric calculation
-        clim_ds = climatology_2020(**self.cache_kwargs, prob_type='deterministic')
+        clim_ds = climatology_era5_2020(**self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
