@@ -96,6 +96,14 @@ function buildCellParams(vars, cellDef) {
     };
 }
 
+function setProductRowVisibility(productKey, visible) {
+    const row = document.getElementById(`bt-multimap-row-${productKey}`);
+    if (!row) {
+        return;
+    }
+    row.style.display = visible ? "" : "none";
+}
+
 async function refreshAllCells(runtime, vars) {
     if (stretchRequestController) {
         stretchRequestController.abort();
@@ -105,25 +113,22 @@ async function refreshAllCells(runtime, vars) {
     const token = (runtime.refreshToken || 0) + 1;
     runtime.refreshToken = token;
 
-    const results = await Promise.all(
+    const metadataResults = await Promise.all(
         runtime.cells.map(async (cellRuntime) => {
             const nextParams = buildCellParams(vars, cellRuntime.def);
-            let nextStretch = "";
+            let metadata = null;
             try {
-                nextStretch = await fetchStretch(nextParams, signal);
+                metadata = await fetchMetadata(nextParams, signal);
             } catch (error) {
-                if (error?.name !== "AbortError") {
-                    console.error("Failed to fetch stretch", error);
+                if (error?.name !== "AbortError" && error?.status !== 404) {
+                    console.error("Failed to fetch metadata", error);
                 }
             }
-            const next = buildTileUrl(nextParams, nextStretch);
             return {
                 key: cellRuntime.def.key,
                 productKey: cellRuntime.def.productKey,
                 params: nextParams,
-                stretch: nextStretch,
-                datasetId: next.datasetId,
-                tileUrl: next.tileUrl,
+                metadata,
             };
         })
     );
@@ -133,17 +138,63 @@ async function refreshAllCells(runtime, vars) {
     }
 
     const scaleByProduct = {};
-    results.forEach((result) => {
-        if (!(result.productKey in scaleByProduct)) {
-            scaleByProduct[result.productKey] = result.stretch;
-        }
+    MULTIMAP_PRODUCTS.forEach((product) => {
+        const leadMetadata = metadataResults
+            .filter(
+                (result) =>
+                    result.productKey === product.key && result.metadata !== null
+            )
+            .map((result) => result.metadata);
+        scaleByProduct[product.key] = computeSharedStretchFromMetadata(
+            leadMetadata,
+            vars.metric,
+            product.product
+        );
     });
 
     MULTIMAP_PRODUCTS.forEach((product) => {
-        const scaleEl = document.getElementById(`bt-multimap-scale-${product.key}`);
-        if (scaleEl) {
-            scaleEl.innerHTML = renderColorScaleHtml(scaleByProduct[product.key] || "");
+        const hasStretch = Boolean(scaleByProduct[product.key]);
+        setProductRowVisibility(product.key, hasStretch);
+        const scaleMarkup = renderColorScaleHtml(scaleByProduct[product.key] || "");
+        const rowScaleEl = document.getElementById(
+            `bt-multimap-row-scale-${product.key}`
+        );
+        if (rowScaleEl) {
+            rowScaleEl.innerHTML = scaleMarkup;
         }
+        const scaleEls = document.querySelectorAll(
+            `.bt-multimap-map-scale[data-product-key="${product.key}"]`
+        );
+        scaleEls.forEach((scaleEl) => {
+            scaleEl.innerHTML = scaleMarkup;
+        });
+    });
+
+    const results = metadataResults.map((result) => {
+        const sharedStretch = scaleByProduct[result.productKey] || "";
+        if (!sharedStretch) {
+            return {
+                ...result,
+                stretch: "",
+                datasetId: buildDatasetId(result.params),
+                tileUrl: "",
+            };
+        }
+        if (result.metadata === null) {
+            return {
+                ...result,
+                stretch: sharedStretch,
+                datasetId: buildDatasetId(result.params),
+                tileUrl: "",
+            };
+        }
+        const next = buildTileUrl(result.params, sharedStretch);
+        return {
+            ...result,
+            stretch: sharedStretch,
+            datasetId: next.datasetId,
+            tileUrl: next.tileUrl,
+        };
     });
 
     for (const result of results) {

@@ -57,14 +57,14 @@ function renderColorScaleHtml(stretch) {
     if (rangeMatch) {
         const parts = rangeMatch[1].split(",").map((value) => Number(value.trim()));
         if (parts.length >= 2) {
-            min = parts[0].toFixed(3);
-            max = parts[1].toFixed(3);
+            min = parts[0].toFixed(1);
+            max = parts[1].toFixed(1);
         }
     }
     const stops = getColorStops(colormap);
     const gradient = `linear-gradient(90deg, ${stops.join(", ")})`;
     return `
-      <div style="display:flex; align-items:center; gap:6px; font-variant-numeric:tabular-nums;">
+      <div style="display:flex; align-items:center; height:100%; gap:6px; font-variant-numeric:tabular-nums;">
         <span>${min}</span>
         <div style="width:72px; height:8px; border-radius:999px; background:${gradient};"></div>
         <span>${max}</span>

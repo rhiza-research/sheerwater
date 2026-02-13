@@ -447,23 +447,23 @@ function injectContainerAndStyles() {
     }
     #map-colorscale {
     position:absolute;
-    right:14px;
+    left:14px;
     bottom:14px;
     z-index:4;
-    display:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     pointer-events:none;
     background:rgba(245, 243, 239, 0.96);
     color:var(--ink);
-    padding:10px 12px;
+    padding:4px 8px;
     border-radius:10px;
     border:1px solid rgba(12, 31, 46, 0.18);
-    font-size:12px;
-    min-width:220px;
+    font-size:11px;
+    line-height:1.2;
+    min-height:22px;
+    white-space:nowrap;
     box-shadow:0 12px 24px rgba(8, 16, 28, 0.15);
-    }
-    .map-shell:fullscreen #map-colorscale,
-    .map-shell:-webkit-full-screen #map-colorscale {
-    display:block;
     }
 `;
     document.head.appendChild(style);

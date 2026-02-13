@@ -1,11 +1,11 @@
 local bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js = importstr './assets/bfd145p7u3jlse-multimap-forecast-evaluation-call-function.js';
 local bfd145p7u3jlse_multimap_forecast_evaluation_params_js = importstr './assets/bfd145p7u3jlse-multimap-forecast-evaluation-params.js';
 local color_utilities_js = importstr './assets/color_utilities.js';
-local dataset_utilities_js = importstr './assets/dataset_utilities.js';
 local maplibre_map_builder_js = importstr './assets/maplibre-map-builder.js';
 local maplibre_multimap_layout_js = importstr './assets/maplibre-multimap-layout.js';
 local maplibre_multimap_orchestration_js = importstr './assets/maplibre-multimap-orchestration.js';
 local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlemap-orchestration.js';
+local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_utilities.js';
 
 {
   "annotations": {
@@ -60,7 +60,7 @@ local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlem
       },
       "id": 9,
       "options": {
-        "afterRender": bfd145p7u3jlse_multimap_forecast_evaluation_params_js + maplibre_map_builder_js + color_utilities_js + dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js,
+        "afterRender": bfd145p7u3jlse_multimap_forecast_evaluation_params_js + maplibre_map_builder_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js,
         "content": "<div id=\"map-container\" style=\"height:900px\" />",
         "contentPartials": [],
         "defaultContent": "",
@@ -640,20 +640,20 @@ local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlem
       },
       {
         "current": {
-          "text": "global1_5",
-          "value": "global1_5"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "includeAll": false,
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           }
@@ -773,8 +773,8 @@ local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlem
       },
       {
         "current": {
-          "text": "7928d9fd350a9cd889fa8bbedf885539",
-          "value": "7928d9fd350a9cd889fa8bbedf885539"
+          "text": "cadb29ce01f5c97c2662cde36e74d4c9",
+          "value": "cadb29ce01f5c97c2662cde36e74d4c9"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
