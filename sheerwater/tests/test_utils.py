@@ -15,8 +15,10 @@ def test_get_grid():
         lons, lats, size, _ = get_grid(grid)
         diffs_lon = np.diff(lons)
         diffs_lat = np.diff(lats)
-        assert (diffs_lon == size).all()
-        assert (diffs_lat == size).all()
+        # Use allclose (default tol 1e-8) instead of exact equality because
+        # np.arange accumulates floating point error over many steps (e.g. 7200 for global0_05)
+        assert np.allclose(diffs_lon, size)
+        assert np.allclose(diffs_lat, size)
 
 
 def test_no_chirps_grid():
