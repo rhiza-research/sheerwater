@@ -129,8 +129,6 @@ def climatology_agg_raw(variable, data='era5', first_year=1985, last_year=2014,
     except KeyError:
         raise ValueError(f"Underlying data source {data} does not have full coverage "
                          f"of the climatology period {first_year}-{last_year}.")
-
-    import pdb; pdb.set_trace()
     # Take average over the period to produce climatology
     if prob_type == 'deterministic':
         return ds.groupby('dayofyear').mean(dim='time', skipna=True)
