@@ -2,30 +2,32 @@
 function buildDatasetId(params) {
     const datasetFamily = params?.datasetFamily || "grouped_metric";
     const { startDate, endDate } = resolveDatasetDates(datasetFamily);
+    const timeSuffix =
+        params.timeFilter && params.timeFilter !== "None" ? `_${params.timeFilter}` : "";
 
     if (datasetFamily === "metric") {
         const aggDays = String(params?.aggDays || "7");
         const { truth, category } = splitProduct(params?.product);
-        return [
-            "metric",
-            aggDays,
-            endDate,
-            params.forecast,
-            params.grid,
-            "lsm",
-            params.metric,
-            "global",
-            "None",
-            "True",
-            startDate,
-            params.timeGrouping,
-            truth,
-            category,
-        ].join("_");
+        return (
+            [
+                "metric",
+                aggDays,
+                endDate,
+                params.forecast,
+                params.grid,
+                "lsm",
+                params.metric,
+                "global",
+                "None",
+                "True",
+                startDate,
+                params.timeGrouping,
+                truth,
+                category,
+            ].join("_") + timeSuffix
+        );
     }
 
-    const timeSuffix =
-        params.timeFilter && params.timeFilter !== "None" ? `_${params.timeFilter}` : "";
     return (
         `grouped_metric_${endDate}_` +
         `${params.forecast}_${params.grid}_${params.lead}_lsm_${params.metric}_` +

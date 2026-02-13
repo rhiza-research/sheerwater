@@ -274,54 +274,10 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "selected": false,
             "text": "Month of Year",
             "value": "month_of_year"
-          },
-          {
-            "selected": false,
-            "text": "Year",
-            "value": "year"
           }
         ],
-        "query": "None : None, Month of Year : month_of_year, Year : year",
+        "query": "None : None, Month of Year : month_of_year",
         "type": "custom"
-      },
-      {
-        "current": {
-          "text": "select v.* from (values ('None')) v(t)",
-          "value": "select v.* from (values ('None')) v(t)"
-        },
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "bdz3m3xs99p1cf"
-        },
-        "definition": "select \nCASE\n    WHEN v.g = 'None' THEN 'select v.* from (values (''None'')) v(t)'\n    ELSE 'select distinct time from \"${precip_tab_name}\"'\nEND\nfrom (values ('$time_grouping')) v(g)",
-        "hide": 2,
-        "includeAll": false,
-        "name": "time_filter_filter_query",
-        "options": [],
-        "query": "select \nCASE\n    WHEN v.g = 'None' THEN 'select v.* from (values (''None'')) v(t)'\n    ELSE 'select distinct time from \"${precip_tab_name}\"'\nEND\nfrom (values ('$time_grouping')) v(g)",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": "None",
-          "value": "None"
-        },
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "bdz3m3xs99p1cf"
-        },
-        "definition": "${time_filter_filter_query:raw}",
-        "includeAll": false,
-        "label": "Time Filter",
-        "name": "time_filter",
-        "options": [],
-        "query": "${time_filter_filter_query:raw}",
-        "refresh": 1,
-        "regex": "",
-        "sort": 3,
-        "type": "query"
       },
       {
         "current": {
@@ -332,14 +288,15 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select \nCASE\n    WHEN v.g = 'None' THEN ''\n    ELSE 'where time = ' || v.t\nEND\nfrom (values ('$time_filter', '$time_grouping')) v(t, g)",
-        "hide": 2,
+        "definition": "SELECT t.value\nFROM unnest(\n  CASE\n    WHEN '$time_grouping' = 'month_of_year' THEN\n      ARRAY(\n        SELECT 'M' || lpad(gs::text, 2, '0')\n        FROM generate_series(1, 12) AS gs\n      )::text[]\n\n    WHEN '$time_grouping' = 'year' THEN\n      ARRAY(\n        SELECT gs::text\n        FROM generate_series(1998, 2024) AS gs\n      )::text[]\n\n    ELSE\n      ARRAY[]::text[]\n  END\n) AS t(value)\nORDER BY t.value;\n",
         "includeAll": false,
-        "name": "time_filter_query",
+        "label": "Time Filter",
+        "name": "time_filter",
         "options": [],
-        "query": "select \nCASE\n    WHEN v.g = 'None' THEN ''\n    ELSE 'where time = ' || v.t\nEND\nfrom (values ('$time_filter', '$time_grouping')) v(t, g)",
+        "query": "SELECT t.value\nFROM unnest(\n  CASE\n    WHEN '$time_grouping' = 'month_of_year' THEN\n      ARRAY(\n        SELECT 'M' || lpad(gs::text, 2, '0')\n        FROM generate_series(1, 12) AS gs\n      )::text[]\n\n    WHEN '$time_grouping' = 'year' THEN\n      ARRAY(\n        SELECT gs::text\n        FROM generate_series(1998, 2024) AS gs\n      )::text[]\n\n    ELSE\n      ARRAY[]::text[]\n  END\n) AS t(value)\nORDER BY t.value;\n",
         "refresh": 1,
         "regex": "",
+        "sort": 3,
         "type": "query"
       },
       {

@@ -687,15 +687,15 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "None",
-          "value": "None"
+          "text": "year",
+          "value": "year"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "None",
             "value": "None"
           },
@@ -705,7 +705,7 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "value": "month_of_year"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Year",
             "value": "year"
           }
@@ -715,8 +715,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "select v.* from (values ('None')) v(t)",
-          "value": "select v.* from (values ('None')) v(t)"
+          "text": "select distinct time from \"6c89d88636ee3ea0507d7c5566df7dd9\"",
+          "value": "select distinct time from \"6c89d88636ee3ea0507d7c5566df7dd9\""
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -734,8 +734,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "None",
-          "value": "None"
+          "text": "2016",
+          "value": "2016"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -754,8 +754,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "",
-          "value": ""
+          "text": "where time = 2016",
+          "value": "where time = 2016"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -773,8 +773,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "cadb29ce01f5c97c2662cde36e74d4c9",
-          "value": "cadb29ce01f5c97c2662cde36e74d4c9"
+          "text": "6c89d88636ee3ea0507d7c5566df7dd9",
+          "value": "6c89d88636ee3ea0507d7c5566df7dd9"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
