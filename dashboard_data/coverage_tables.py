@@ -5,7 +5,7 @@ from sheerwater.utils import dask_remote
 from nuthatch import cache
 from sheerwater.metrics import station_coverage
 @dask_remote
-@cache(cache_args=['variable', 'time_grouping', 'space_grouping', 'grid', 'region', 'stations'],
+@cache(cache_args=['start_time', 'end_time', 'variable', 'stations', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
                     time_grouping=None, space_grouping=None,
@@ -46,9 +46,10 @@ def coverage_table(start_time, end_time, stations, agg_days, variable="precip",
        )
        df = results_ds.to_dataframe().reset_index()
 
+       print(df)
        order = [
-           'time_grouping', 'region', 'agg_days', 'cells_count', 'periods_count',
-           'cells_covered', 'average_cell_periods'
+           'time_grouping', 'region', 'agg_days', 'total_cells', 'total_periods',
+           'cells_covered', 'average_periods_covered'
        ]
 
        if 'time' in df.columns:

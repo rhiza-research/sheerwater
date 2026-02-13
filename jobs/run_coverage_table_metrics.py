@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+"""Runs metrics and updates the caches."""
+import itertools
+import traceback
+
+from sheerwater.utils import start_remote
+from jobs import parse_args, run_in_parallel, prune_metrics
+from dashboard_data import coverage_table
+
+(start_time, end_time, forecasts, truth, metrics,
+ variables, grids, space_groupings, agg_days,
+ time_groupings, parallelism, recompute,
+ backend, remote_name, remote, remote_config) = parse_args()
+
+if remote:
+    start_remote(remote_config=remote_config, remote_name=remote_name)
+
+
+filepath_only = True
+if backend is not None:
+    filepath_only = False
+
+if 'crps' in metrics:
+    metrics.remove('crps')
+
+
+combos = itertools.product([None], truth,  variables, grids, [None], space_groupings, time_groupings, [None])
+combos = prune_metrics(combos)
+
+
+def run_metrics_table(combo):
+    """Run table metrics."""
+    _, truth, variable, grid, _, space_grouping, time_grouping, _ = combo
+
+    try:
+        return coverage_table(start_time, end_time, truth, agg_days, variable,
+                                         time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
+                                         cache_mode='overwrite', filepath_only=filepath_only,
+                                         recompute=recompute, storage_backend=backend)
+    except KeyboardInterrupt as e:
+        raise (e)
+    except NotImplementedError:
+        print(f"Metric {grid} {variable} not implemented: {traceback.format_exc()}")
+        return "Not Implemented"
+    except:  # noqa: E722
+        print(f"Failed to run coverage for {truth} {grid} {variable} \
+                {space_grouping} {time_grouping}: {traceback.format_exc()}")
+        return None
+
+
+if __name__ == "__main__":
+    run_in_parallel(run_metrics_table, combos, parallelism)

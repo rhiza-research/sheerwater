@@ -152,35 +152,39 @@ def prune_metrics(combos, global_run=False):  # noqa: ARG001
     for combo in combos:
         forecast, truth, variable, grid, agg_days, space_grouping, time_grouping, metric_name = combo
 
-        metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
-                                    agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
-                                    spatial=False, grid=grid, mask=None, space_grouping=space_grouping)
+        if metric_name:
 
-        if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
-            continue
+            metric_obj = metric_factory(metric_name, start_time=None, end_time=None, variable=variable,
+                                        agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
+                                        spatial=False, grid=grid, mask=None, space_grouping=space_grouping)
 
-        if metric_name == 'seeps' and grid == 'global0_25':
-            continue
+            if metric_obj.valid_variables and variable not in metric_obj.valid_variables:
+                continue
 
-        global station_eval
-        if '-' in metric_name and station_eval and agg_days:
-            thresh = float(metric_name.split('-')[1])
+            if metric_name == 'seeps' and grid == 'global0_25':
+                continue
 
-            # FAR dry spell
-            if thresh == 1.5:
-                if agg_days not in [7, 10]:
-                    continue
-            elif thresh == 6.6:
-                if agg_days != 3:
-                    continue
-            elif thresh == 7.6:
-                if agg_days != 5:
-                    continue
-            elif thresh == 3.6:
-                if agg_days != 11:
-                    continue
+            global station_eval
+            if '-' in metric_name and station_eval and agg_days:
+                thresh = float(metric_name.split('-')[1])
 
-        pruned_combos.append(combo)
+                # FAR dry spell
+                if thresh == 1.5:
+                    if agg_days not in [7, 10]:
+                        continue
+                elif thresh == 6.6:
+                    if agg_days != 3:
+                        continue
+                elif thresh == 7.6:
+                    if agg_days != 5:
+                        continue
+                elif thresh == 3.6:
+                    if agg_days != 11:
+                        continue
+
+            pruned_combos.append(combo)
+        else:
+            pruned_combos.append(combo)
 
     return pruned_combos
 
