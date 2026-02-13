@@ -1,11 +1,8 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
 from nuthatch import cache
-<<<<<<< HEAD
 import warnings
-=======
 import numpy as np
->>>>>>> 1d1e2b3 (working auc - still needs tweaks)
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
