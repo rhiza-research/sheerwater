@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
-from sheerwater.climatology import climatology_2020, seeps_dry_fraction, seeps_wet_threshold
+from sheerwater.climatology import climatology_era5_2020, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
@@ -469,7 +469,7 @@ class ACC(Metric):
         super().prepare_data()
 
         # Get the appropriate climatology dataframe for metric calculation
-        clim_ds = climatology_2020(**self.cache_kwargs, prob_type='deterministic')
+        clim_ds = climatology_era5_2020(**self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
@@ -557,6 +557,42 @@ class POD(Metric):
         tp = self.grouped_statistics['true_positives']
         fn = self.grouped_statistics['false_negatives']
         return tp / (tp + fn)
+
+
+class FalseNegative(Metric):
+    """False Negative metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    categorical = True
+    statistics = ['false_negatives']
+
+
+class FalsePositive(Metric):
+    """False Positive metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    categorical = True
+    statistics = ['false_positives']
+
+
+class TruePositive(Metric):
+    """True Positive metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    categorical = True
+    statistics = ['true_positives']
+
+
+class TrueNegative(Metric):
+    """True Negative metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    categorical = True
+    statistics = ['true_negatives']
 
 
 class FAR(Metric):
