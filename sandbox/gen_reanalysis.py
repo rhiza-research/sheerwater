@@ -1,7 +1,7 @@
 """Generate land-sea masks for all grids and bases."""
 from itertools import product
 from sheerwater.reanalysis import era5_agg
-from sheerwater.reanalysis.era5 import era5_rolled, era5_daily, era5_daily_regrid
+from sheerwater.reanalysis.era5 import era5_daily, era5_daily_regrid
 from sheerwater.utils import start_remote
 
 
@@ -38,13 +38,6 @@ for var, grid in product(vars, grids):
                                recompute=True, remote=True, cache_mode='overwrite')
 
     for agg, anom in product(aggs, anoms):
-        if UPDATE_ROLLED:
-            # Update the rolled data for global grids
-            ds = era5_rolled(start_time, end_time, variable=var,
-                             agg_days=agg, grid=grid,
-                             recompute=True, remote=True, cache_mode='overwrite',
-                             remote_name='genevieve', remote_config='xlarge_cluster')
-
         for mask, region in product(masks, regions):
             if UPDATE_AGG:
                 ds = era5_agg(start_time, end_time, variable=var,
