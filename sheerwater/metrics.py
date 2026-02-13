@@ -127,7 +127,7 @@ def auc(start_time, end_time, satellite, station, station_threshold='climatology
 
     if isinstance(station_threshold, str):
         station_threshold = get_forecast(station_threshold)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
-        station_data = station_data - station_threshold.isel(prediction_timedelta=0).rename({'precip': f'{station_threshold}_precip'})
+        station_data = station_data - station_threshold.isel(prediction_timedelta=0)
         station_data = station_data.drop_vars('prediction_timedelta')
     # if the threshold is a number, subtract it from the station data
     elif isinstance(station_threshold, (float, int)):
