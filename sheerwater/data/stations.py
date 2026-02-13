@@ -56,8 +56,6 @@ def stations(start_time=None, end_time=None, variable='precip', agg_days=1,
                              missing_thresh=missing_thresh, cell_aggregation='mean',
                              mask=mask, region=region)
 
-    import pdb
-    pdb.set_trace()
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
     # Note that this is sparse
