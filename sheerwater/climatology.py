@@ -438,6 +438,19 @@ def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, p
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def climatology_tahmo_avg_2015_2025(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                                   grid='global0_25', mask='lsm', region='global'):
+    """Standard format forecast data for climatology forecast."""
+    return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='tahmo_avg',
+                                first_year=2015, last_year=2024,
+                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+
+
+@dask_remote
+@sheerwater_forecast()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def climatology_era5_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                           grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""

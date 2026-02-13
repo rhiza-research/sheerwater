@@ -4,7 +4,7 @@ from sheerwater.utils import start_remote
 from sheerwater.interfaces import list_data
 
 if __name__ == "__main__":
-    start_remote(remote_name="get-auc", remote_config="xlarge_cluster")
+    start_remote(remote_name="get-auc-2", remote_config=["xlarge_cluster", "large_node"])
 
     # time stuff
     start_time = "1990-01-01"

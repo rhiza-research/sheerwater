@@ -6,13 +6,15 @@ from sheerwater.reanalysis.era5 import era5
 from sheerwater.spatial_subdivisions import clip_region
 from sheerwater.utils import get_grid, snap_point_to_grid
 from sheerwater.data.tahmo import tahmo_deployment
+from sheerwater.spatial_subdivisions import space_grouping_labels
 import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
+
 import os
 from sheerwater.utils import dask_remote
 from nuthatch import cache
-from sheerwater.interfaces import get_data
+from sheerwater.interfaces import get_data, get_forecast
 
 def get_tahmo_counts(start_time, end_time, grid='global0_25', region="africa"):
     # Round the coordinates to the nearest grid
@@ -133,20 +135,41 @@ def precip_events_table(start_time, end_time, days, precip_threshold,
     events["station_ids"] = events["station_ids"].apply(lambda x: x.tolist())
     return events
 
-@cache(cache_args=['agg_days', 'grid', 'x_source', 'y_source', 'region'], backend='sql')
-def pairwise_precip(start_time, end_time, x_source, y_source, agg_days, grid='global0_25', mask='lsm', region='global'):
+# @cache(cache_args=['agg_days', 'grid', 'x_source', 'y_source', 'region'], backend='sql')
+def pairwise_precip(start_time, end_time, x_source, y_source, agg_days, climatology=None, grid='global0_25', mask='lsm', region='global'):
     
     x_ds = get_data(x_source)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
     y_ds = get_data(y_source)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
 
+    if climatology is not None:
+        clim_ds = get_forecast(climatology)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+        clim_ds = clim_ds.isel(prediction_timedelta=0).rename({'precip': f'{climatology}_precip'})
+    else:
+        clim_ds = None
+
     x_ds = x_ds.rename({'precip': f'{x_source}_precip'})
     y_ds = y_ds.rename({'precip': f'{y_source}_precip'})
 
-    ds = xr.merge([x_ds, y_ds])
+    # add space grouping labels to support filtering
+    region_labels = space_grouping_labels(grid=grid, space_grouping=['country', 'agroecological_zone'])
+    region_labels = clip_region(region_labels, grid=grid, region=region)
+
+    ds = xr.merge([x_ds, y_ds, clim_ds, region_labels])
 
     # stack into a table
     ds = ds.stack(points=("time", "lat", "lon"))
     ds = ds.dropna("points")
+
+    # drop variables precip_count and mask if they exist
+    drop_vars = ['precip_count', 'mask']
+    for var in drop_vars:
+        if var in ds.variables:
+            ds = ds.drop_vars(var)
+    # drop coordinates spatial_ref and prediction timedelta if they exist
+    drop_coords = ['spatial_ref', 'prediction_timedelta']
+    for coord in drop_coords:
+        if coord in ds.coords:
+            ds = ds.drop_coords(coord)
     import pdb; pdb.set_trace()
 
     return ds

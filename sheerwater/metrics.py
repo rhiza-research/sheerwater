@@ -5,11 +5,10 @@ import warnings
 import numpy as np
 
 from sheerwater.metrics_library import metric_factory
-from sheerwater.interfaces import get_data
+from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from sheerwater.masks import spatial_mask
 from sheerwater.utils import dask_remote, groupby_region, groupby_time
-from sheerwater.climatology import climatology_2020
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'forecast', 'truth',
@@ -115,20 +114,13 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
 
 
 @dask_remote
-def auc_roc(start_time, end_time, satellite, station, station_threshold='climatology_2020', agg_days=7, 
-            time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global', spatial=False):
+#@cache(cache_args=['satellite', 'station', 'station_threshold', 'agg_days', 'grid', 'region'],
+#       backend='sql', backend_kwargs={'hash_table_name': True})
+def auc(start_time, end_time, satellite, station, station_threshold='climatology_tahmo_avg_2015_2025', agg_days=7, 
+        time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global', spatial=False):
     """Compute the AUC-ROC curve for a satellite and station."""
     satellite_data = get_data(satellite)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
     station_data = get_data(station)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
-
-    if station_threshold == 'climatology_2020':
-        station_threshold = climatology_2020(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
-        station_data = station_data - station_threshold.isel(prediction_timedelta=0)
-        station_data = station_data.drop_vars('prediction_timedelta')
-    # if the threshold is a number, subtract it from the station data
-    elif isinstance(station_threshold, (float, int)):
-        station_data = station_data - station_threshold
-
     # get maximum rainfall in satellite data
     nan_mask = satellite_data.precip.isnull() | station_data.precip.isnull()
     max_rainfall = satellite_data.where(~nan_mask).precip.max().values
