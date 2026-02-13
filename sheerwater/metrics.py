@@ -1,14 +1,18 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
 from nuthatch import cache
+<<<<<<< HEAD
 import warnings
+=======
+import numpy as np
+>>>>>>> 1d1e2b3 (working auc - still needs tweaks)
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from sheerwater.masks import spatial_mask
 from sheerwater.utils import dask_remote, groupby_region, groupby_time
-
+from sheerwater.climatology import climatology_2020
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days', 'forecast', 'truth',
@@ -111,5 +115,73 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
             data[coord] = data[coord].astype(str).str.replace('global', region)
 
     return data
+
+
+@dask_remote
+def auc_roc(start_time, end_time, satellite, station, station_threshold='climatology_2020', agg_days=7, time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global'):
+    """Compute the AUC-ROC curve for a satellite and station."""
+    satellite_data = get_data(satellite)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+    station_data = get_data(station)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+
+    if station_threshold == 'climatology_2020':
+        station_threshold = climatology_2020(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+        station_data = station_data - station_threshold.isel(prediction_timedelta=0)
+        station_data = station_data.drop_vars('prediction_timedelta')
+    # if the threshold is a number, subtract it from the station data
+    elif isinstance(station_threshold, (float, int)):
+        station_data = station_data - station_threshold
+    
+    low_daily_mm = 0
+    high_daily_mm = 10
+
+    threshold_count = 100
+    # threshold descending -> false positive rate increasing, as expected by auc integration
+    thresholds = np.linspace(low_daily_mm*agg_days, high_daily_mm*agg_days, threshold_count)[::-1]
+    thresholds = xr.DataArray(
+        thresholds,
+        dims="threshold",
+        coords={"threshold": thresholds}
+    )
+
+    nan_mask = satellite_data.precip.isnull() | station_data.precip.isnull()
+    satellite_event = (satellite_data.precip >= thresholds)
+    station_event = (station_data.precip >= 0)
+
+    true_pos = (satellite_event & station_event) & ~nan_mask
+    false_pos = (satellite_event & ~station_event) & ~nan_mask
+    false_neg = (~satellite_event & station_event) & ~nan_mask
+    true_neg = (~satellite_event & ~station_event) & ~nan_mask
+
+    counts = xr.Dataset(
+        data_vars={
+            'true_pos': true_pos,
+            'false_pos': false_pos,
+            'false_neg': false_neg,
+            'true_neg': true_neg
+        }
+    )
+
+    # group over time
+    counts = groupby_time(counts, time_grouping=time_grouping, agg_fn='sum')
+    # group over space
+    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+    mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
+    if region != 'global':
+        space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
+        mask_ds = clip_region(mask_ds, grid=grid, region=region)
+
+    counts = groupby_region(counts, space_grouping_ds, mask_ds, agg_fn='sum')
+
+    # get rates
+    tpr = counts['true_pos'] / (counts['true_pos'] + counts['false_neg'])
+    fpr = counts['false_pos'] / (counts['false_pos'] + counts['true_neg'])
+
+    auc = xr.apply_ufunc(np.trapezoid, tpr, fpr,
+                         input_core_dims=[['threshold'], ['threshold']],
+                         vectorize=True, dask='parallelized', output_dtypes=[float])
+    import pdb; pdb.set_trace()
+
+    return auc
+
 
 __all__ = ['metric']
