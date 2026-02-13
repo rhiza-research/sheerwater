@@ -488,8 +488,6 @@ class ACC(Metric):
             # Remove prediction_timedelta because the forecast doesn't have it
             clim_ds = clim_ds.squeeze('prediction_timedelta', drop=True)
 
-        print(clim_ds)
-
         # Subset the climatology to the valid times and non-null times of the forecaster
         clim_ds = clim_ds.sel(time=self.metric_data['data']['valid_times'])
         clim_ds = clim_ds.where(self.metric_data['data']['no_null'], np.nan, drop=False)
