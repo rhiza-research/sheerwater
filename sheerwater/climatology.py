@@ -118,7 +118,6 @@ def climatology_agg_raw(variable, data='era5', first_year=1985, last_year=2014,
     start_time = f"{first_year}-01-01"
     end_time = f"{last_year}-12-31"
     ds = data_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
-    import pdb; pdb.set_trace()
     # Select only the variable of interest
     ds = ds[[variable]]
 
