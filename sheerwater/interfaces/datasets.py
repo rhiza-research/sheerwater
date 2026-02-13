@@ -65,7 +65,7 @@ class SheerwaterDataset(NuthatchProcessor):
             # Clip to specified region
             if not check_spatial_attr(ds, region=self.region):
                 # Only clip region if the dataframe hasn't already been clipped
-                ds = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
+                ds = clip_region(ds, grid=self.grid, region=self.region)
             if not check_spatial_attr(ds, mask=self.mask):
                 # Only apply mask if this dataframe has not already been masked
                 ds = apply_mask(ds, self.mask, grid=self.grid)
@@ -84,7 +84,7 @@ class SheerwaterDataset(NuthatchProcessor):
     def validate(self, ds):
         """Validate the cached data to ensure it has data within the region."""
         # Check to see if the dataset extends roughly the full time series set
-        test = clip_region(ds, grid=self.grid, region=self.region, region_dim=self.region_dim)
+        test = clip_region(ds, grid=self.grid, region=self.region)
         test = apply_mask(test, self.mask, grid=self.grid)
         if test.notnull().count().compute() == 0:
             logger.warning(f"""The cached array does not have data within
