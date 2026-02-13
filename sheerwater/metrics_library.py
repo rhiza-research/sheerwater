@@ -484,6 +484,11 @@ class ACC(Metric):
             clim_ds = clim_ds.squeeze('prediction_timedelta')
             # Add in a matching prediction_timedelta coordinate
             clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
+        else:
+            # Remove prediction_timedelta because the forecast doesn't have it
+            clim_ds = clim_ds.squeeze('prediction_timedelta', drop=True)
+
+        print(clim_ds)
 
         # Subset the climatology to the valid times and non-null times of the forecaster
         clim_ds = clim_ds.sel(time=self.metric_data['data']['valid_times'])
