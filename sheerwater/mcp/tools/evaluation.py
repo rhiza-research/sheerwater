@@ -151,7 +151,7 @@ async def run_metric(
 
     except Exception as e:
         error_msg = str(e)
-        logger.error(f"Error running metric: {error_msg}")
+        logger.exception(f"Error running metric: {error_msg}")
 
         # Check for common errors and provide helpful messages
         if "Unknown metric" in error_msg:
@@ -237,7 +237,7 @@ async def compare_models(
             logger.warning(f"Metric {metric} for {forecast} timed out after {METRIC_TIMEOUT}s")
             errors.append({"forecast": forecast, "error": f"Timed out after {METRIC_TIMEOUT}s"})
         except Exception as e:
-            logger.error(f"Error computing {metric} for {forecast}: {e}")
+            logger.exception(f"Error computing {metric} for {forecast}: {e}")
             errors.append({"forecast": forecast, "error": str(e)})
 
     if not scores:
