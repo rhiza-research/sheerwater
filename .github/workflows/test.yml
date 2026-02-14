@@ -34,7 +34,7 @@ jobs:
     - name: Cache nuthatch data
       uses: actions/cache@v4
       with:
-        path: ~/.cache/nuthatch
+        path: ~/.nuthatch/caches
         key: nuthatch-${{ runner.os }}
         restore-keys: |
           nuthatch-
