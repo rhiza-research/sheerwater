@@ -1,7 +1,14 @@
 FROM python:3.12-slim
 
 # Install git and build tools (git for setuptools-scm, build-essential for C extensions like numcodecs)
-RUN apt-get update && apt-get install -y git build-essential gdal-bin libgdal-dev && rm -rf /var/lib/apt/lists/*
+# Chromium is required for kaleido PNG rendering (the fallback for non-interactive clients)
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    gdal-bin \
+    libgdal-dev \
+    chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

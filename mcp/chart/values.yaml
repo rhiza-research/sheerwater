@@ -18,6 +18,8 @@ service:
 serviceAccount:
   # Name of the service account (must match Terraform IAM bindings)
   name: sheerwater-mcp
+  # GCP service account for workload identity (enables signed URL generation)
+  gcpServiceAccount: sheerwater-mcp@rhiza-shared.iam.gserviceaccount.com
 
 # Resource configuration
 resources:

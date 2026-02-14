@@ -14,6 +14,7 @@ from .evaluation import (
 from .visualization import (
     generate_comparison_chart,
     get_dashboard_link,
+    render_plotly,
 )
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "compare_models",
     "estimate_query_time",
     # Visualization
+    "render_plotly",
     "get_dashboard_link",
     "generate_comparison_chart",
 ]

@@ -54,8 +54,9 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = [
-    "fastmcp>=2.14.0",
-    "anthropic>=0.40.0",
+    "fastmcp",
+    "anthropic",
+    "kaleido",
 ]
 
 [project.scripts]
@@ -65,12 +66,12 @@ sheerwater-mcp = "sheerwater.mcp.server:main"
 dev = [
     "pooch",
     "gcsfs",
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
     "polars",
-    "ruff>=0.1.0",
+    "ruff",
     "jupyterlab",
     "notebook",
     "jupytext",
@@ -102,6 +103,7 @@ managed = true
 [tool.pytest.ini_options]
 testpaths = ["sheerwater/tests"]
 asyncio_mode = "auto"
+addopts = "-m 'not integration'"
 markers = [
     "integration: tests that spawn real Claude Code sessions",
     "remote: mark test as requiring remote Dask cluster",

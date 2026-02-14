@@ -6,6 +6,7 @@ import pytest
 from fastmcp import Client
 
 from sheerwater.mcp.server import mcp
+from sheerwater.mcp.tools.chart_storage import ChartUrls
 
 
 @pytest.fixture
@@ -67,6 +68,7 @@ class TestToolRegistration:
             "tool_estimate_query_time",
             "tool_get_dashboard_link",
             "tool_generate_comparison_chart",
+            "tool_render_plotly",
         }
 
         missing = expected_tools - tool_names
@@ -76,7 +78,7 @@ class TestToolRegistration:
     async def test_tool_count(self, mcp_client: Client):
         """Test correct number of tools are registered."""
         tools = await mcp_client.list_tools()
-        assert len(tools) == 9
+        assert len(tools) == 10
 
 
 class TestDiscoveryTools:
@@ -169,25 +171,37 @@ class TestVisualizationTools:
         assert "truth" in properties
         assert "variable" in properties
 
-    async def test_generate_comparison_chart_unsupported_type(self, mcp_client: Client):
-        """Test generate_comparison_chart returns error for unsupported chart types."""
+    async def test_generate_comparison_chart_unsupported_type(self, mcp_client: Client, mocker):
+        """Test generate_comparison_chart falls through to bar chart for unknown types."""
+        mocker.patch(
+            "sheerwater.mcp.tools.visualization.upload_chart",
+            return_value=ChartUrls(
+                png_url="https://storage.example.com/charts/test.png",
+                html_url="https://storage.example.com/charts/test.html",
+            ),
+        )
         result = await mcp_client.call_tool(
             "tool_generate_comparison_chart",
             {
                 "forecasts": ["ecmwf_ifs_er", "fuxi"],
                 "metric": "mae",
                 "region": "Kenya",
-                "chart_type": "line",  # Line chart not yet supported
+                "chart_type": "line",
             },
         )
-        data = parse_tool_result(result)
+        # Unknown chart types fall through to default bar chart — no error
+        assert len(result.content) == 2
+        assert not result.is_error
 
-        # Should return error since line chart not implemented
-        assert "error" in data
-        assert "not yet implemented" in data["error"].lower() or "suggestion" in data
-
-    async def test_generate_comparison_chart_bar(self, mcp_client: Client):
+    async def test_generate_comparison_chart_bar(self, mcp_client: Client, mocker):
         """Test generate_comparison_chart creates a bar chart with cached data."""
+        mock_upload = mocker.patch(
+            "sheerwater.mcp.tools.visualization.upload_chart",
+            return_value=ChartUrls(
+                png_url="https://storage.example.com/charts/test.png",
+                html_url="https://storage.example.com/charts/test.html",
+            ),
+        )
         result = await mcp_client.call_tool(
             "tool_generate_comparison_chart",
             {
@@ -200,22 +214,20 @@ class TestVisualizationTools:
             },
         )
 
-        # Should return multiple content blocks: ImageContent + TextContent
+        # Should return two text content blocks: chart URLs + summary
         assert len(result.content) == 2
 
-        # First content should be an image
-        image_content = result.content[0]
-        assert image_content.type == "image"
-        assert image_content.mimeType == "image/png"
-        assert len(image_content.data) > 0  # Has base64 image data
+        # First content is JSON with chart URLs
+        urls_data = json.loads(result.content[0].text)
+        assert "png_url" in urls_data
+        assert "html_url" in urls_data
 
-        # Second content should be metadata as JSON text
-        data = parse_tool_result(result)
-        assert "caption" in data
-        assert "data" in data
-        # Check we got scores for both models
-        assert "ecmwf_ifs_er" in data["data"]
-        assert "fuxi" in data["data"]
+        # Second content is the text summary
+        summary = result.content[1].text
+        assert "ecmwf_ifs_er" in summary or "fuxi" in summary
+
+        # Verify upload_chart was called
+        mock_upload.assert_called_once()
 
 
 class TestToolDescriptions:

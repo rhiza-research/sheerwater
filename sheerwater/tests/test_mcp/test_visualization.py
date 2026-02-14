@@ -1,5 +1,6 @@
 """Tests for visualization tools."""
 
+from sheerwater.mcp.tools.chart_storage import ChartUrls
 from sheerwater.mcp.tools.visualization import (
     DASHBOARDS,
     GRAFANA_BASE_URL,
@@ -94,42 +95,63 @@ class TestGetDashboardLink:
         assert "filtered by" in result["description"]
 
 
+FAKE_COMPARISON_RESULT = {
+    "status": "complete",
+    "result": {
+        "ranking": [
+            {"model": "ecmwf_ifs_er", "score": 2.3},
+            {"model": "fuxi", "score": 3.1},
+        ],
+    },
+}
+
+
 class TestGenerateComparisonChart:
     """Tests for generate_comparison_chart function."""
 
-    async def test_unsupported_chart_type_returns_error(self):
-        """Test that unknown chart type returns error."""
+    async def test_unknown_chart_type_falls_through_to_bar(self, mocker):
+        """Test that unknown chart types fall through to default bar chart."""
+        mocker.patch(
+            "sheerwater.mcp.tools.evaluation.compare_models",
+            return_value=FAKE_COMPARISON_RESULT,
+        )
+        mocker.patch(
+            "sheerwater.mcp.tools.visualization.upload_chart",
+            return_value=ChartUrls(
+                png_url="https://storage.example.com/charts/test.png",
+                html_url="https://storage.example.com/charts/test.html",
+            ),
+        )
+        from fastmcp.tools.tool import ToolResult
+
         result = await generate_comparison_chart(
             forecasts=["ecmwf_ifs_er", "fuxi"],
             metric="mae",
-            chart_type="scatter",  # Not supported
+            chart_type="scatter",
         )
 
-        assert isinstance(result, dict)
-        assert "error" in result
-        assert "unknown chart type" in result["error"].lower()
-        assert "supported_types" in result
+        # Falls through to bar chart, not an error
+        assert isinstance(result, ToolResult)
 
-    async def test_line_chart_not_implemented(self):
-        """Test that line chart returns helpful error."""
+    async def test_horizontal_bar_chart(self, mocker):
+        """Test that horizontal_bar chart type works."""
+        mocker.patch(
+            "sheerwater.mcp.tools.evaluation.compare_models",
+            return_value=FAKE_COMPARISON_RESULT,
+        )
+        mocker.patch(
+            "sheerwater.mcp.tools.visualization.upload_chart",
+            return_value=ChartUrls(
+                png_url="https://storage.example.com/charts/test.png",
+                html_url="https://storage.example.com/charts/test.html",
+            ),
+        )
+        from fastmcp.tools.tool import ToolResult
+
         result = await generate_comparison_chart(
             forecasts=["ecmwf_ifs_er", "fuxi"],
             metric="mae",
-            chart_type="line",
+            chart_type="horizontal_bar",
         )
 
-        assert isinstance(result, dict)
-        assert "error" in result
-        assert "not yet implemented" in result["error"].lower()
-        assert "suggestion" in result
-
-    async def test_supported_types_includes_bar(self):
-        """Test that bar is in supported types."""
-        result = await generate_comparison_chart(
-            forecasts=["ecmwf_ifs_er"],
-            metric="mae",
-            chart_type="heatmap",  # Not supported
-        )
-
-        assert "supported_types" in result
-        assert "bar" in result["supported_types"]
+        assert isinstance(result, ToolResult)

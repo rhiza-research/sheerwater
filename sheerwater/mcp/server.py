@@ -48,6 +48,7 @@ from sheerwater.mcp.tools.evaluation import (  # noqa: E402
 from sheerwater.mcp.tools.visualization import (  # noqa: E402
     generate_comparison_chart,
     get_dashboard_link,
+    render_plotly,
 )
 
 # Create the MCP server
@@ -61,7 +62,23 @@ mcp = FastMCP(
 
     1. **Discovery**: List available forecasts, metrics, and ground truth datasets
     2. **Evaluation**: Run metrics to compare forecasts against ground truth
-    3. **Visualization**: Generate charts or link to Grafana dashboards
+    3. **Visualization**: Generate any chart, map, or plot using full Plotly flexibility
+
+    ## Visualization
+
+    You have FULL PLOTLY FLEXIBILITY via `render_plotly`. You can create:
+    - Bar charts, line charts, scatter plots
+    - Geographic maps (scattergeo, choropleth)
+    - Heatmaps, 3D plots, animations
+    - Any valid Plotly figure specification
+
+    Use `render_plotly` for custom visualizations. Use `generate_comparison_chart`
+    as a convenience wrapper for model comparisons.
+
+    Example render_plotly figures:
+    - Bar: {"data": [{"type": "bar", "x": ["A", "B"], "y": [1, 2]}]}
+    - Map: {"data": [{"type": "scattergeo", "lon": [38], "lat": [1], "mode": "markers"}]}
+    - Line: {"data": [{"type": "scatter", "x": [1,2,3], "y": [1,2,1], "mode": "lines"}]}
 
     ## Workflow Guidance
 
@@ -241,6 +258,34 @@ async def tool_estimate_query_time(
 
 # Register visualization tools
 @mcp.tool()
+async def tool_render_plotly(
+    figure: dict,
+    title: str | None = None,
+) -> dict:
+    """Render any Plotly figure specification to an interactive chart.
+
+    This gives full flexibility to create any visualization Plotly supports.
+    Pass a complete figure specification with 'data' (required) and 'layout' (optional).
+
+    Args:
+        figure: Plotly figure spec. Must have 'data' key with list of traces.
+                Each trace needs 'type' (e.g., 'bar', 'scatter', 'choropleth').
+                See https://plotly.com/python/reference/ for options.
+        title: Optional title (merged into layout)
+
+    Returns:
+        Chart URL for the rendered interactive visualization.
+
+    Example figures:
+        Bar: {"data": [{"type": "bar", "x": ["A", "B"], "y": [1, 2]}]}
+        Line: {"data": [{"type": "scatter", "x": [1,2,3], "y": [1,2,1], "mode": "lines"}]}
+        Map: {"data": [{"type": "scattergeo", "lon": [0], "lat": [0], "mode": "markers"}]}
+        Choropleth: {"data": [{"type": "choropleth", "locations": ["USA"], "z": [1], "locationmode": "country names"}]}
+    """
+    return await render_plotly(figure=figure, title=title)
+
+
+@mcp.tool()
 async def tool_get_dashboard_link(
     forecast: str | None = None,
     metric: str | None = None,
@@ -275,18 +320,21 @@ async def tool_generate_comparison_chart(
     truth: str = "chirps_v3",
     variable: str = "precip",
 ) -> dict:
-    """Generate a chart comparing models.
+    """Generate a chart comparing forecast models on a metric.
+
+    Convenience wrapper that fetches data and renders a comparison chart.
+    For full flexibility, use compare_models() + render_plotly() separately.
 
     Args:
-        forecasts: List of forecast models to include
-        metric: Metric to visualize
+        forecasts: List of forecast models to compare
+        metric: Metric to visualize (e.g., 'mae', 'rmse', 'acc')
         region: Geographic region
-        chart_type: Type of chart ('bar')
+        chart_type: Type of chart ('bar' or 'horizontal_bar')
         truth: Ground truth dataset (default: chirps_v3)
         variable: Variable to evaluate (default: precip)
 
     Returns:
-        Base64-encoded image and caption.
+        Interactive chart URL and summary.
     """
     return await generate_comparison_chart(
         forecasts=forecasts,
