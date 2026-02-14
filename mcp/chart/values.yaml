@@ -4,7 +4,7 @@
 image:
   repository: ghcr.io/rhiza-research/sheerwater/mcp
   tag: "latest"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # Image pull secrets (not needed for public GHCR repos)
 imagePullSecrets: []
