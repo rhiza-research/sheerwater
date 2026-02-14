@@ -23,6 +23,9 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SIGNING_SERVICE_ACCOUNT
+              value: {{ .Values.serviceAccount.gcpServiceAccount }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
