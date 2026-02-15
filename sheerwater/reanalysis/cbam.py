@@ -81,7 +81,12 @@ def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="CBAM - Convection-permitting bias-corrected Africa model",
+    variables=["precip", "tmp2m"],
+    coverage="Africa",
+    data_type="reanalysis",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001

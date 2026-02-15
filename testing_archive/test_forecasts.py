@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Test script for all forecasts functionality."""
+import pytest
 
-from sheerwater.utils import get_datasource_fn, start_remote
+from sheerwater.interfaces import get_forecast
+from sheerwater.utils import start_remote
 
 
 def run_forecasting_function(function_name, test_params):
@@ -9,8 +11,8 @@ def run_forecasting_function(function_name, test_params):
     print(f"\n--- Testing {function_name} ---")
 
     try:
-        # Get the function using get_datasource_fn
-        fn = get_datasource_fn(function_name)
+        # Get the function using get_forecast
+        fn = get_forecast(function_name)
 
         # Test 1: Basic function call
         print("   Testing basic call...")
@@ -44,7 +46,8 @@ def run_forecasting_function(function_name, test_params):
         raise ValueError(f"   ✗ {function_name} failed: {e}")
 
 
-def test_all_forecasts():
+@pytest.mark.remote
+def test_all_forecasts(dask_cluster):  # noqa: ARG001
     """Test all available forecast functions."""
     print("\n=== Testing All Forecast Functions ===")
 
@@ -77,15 +80,16 @@ def test_all_forecasts():
     return results
 
 
-def test_regions():
+@pytest.mark.remote
+def test_regions(dask_cluster):  # noqa: ARG001
     """Test a few key regions with a simple forecast."""
     print("\n=== Testing Different Regions ===")
 
     regions_to_test = ['kenya', 'africa', 'conus',  'nimbus_east_africa']
 
     try:
-        # Use get_datasource_fn for ecmwf_ifs_er_debiased
-        ecmwf_fn = get_datasource_fn('ecmwf_ifs_er_debiased')
+        # Use get_forecast for ecmwf_ifs_er_debiased
+        ecmwf_fn = get_forecast('ecmwf_ifs_er_debiased')
 
         for region in regions_to_test:
             try:
@@ -113,15 +117,16 @@ def test_regions():
         print(f"   ✗ Failed to test regions: {e}")
 
 
-def test_lead_times():
+@pytest.mark.remote
+def test_lead_times(dask_cluster):  # noqa: ARG001
     """Test different lead times with a simple forecast."""
     print("\n=== Testing Different Lead Times ===")
 
     leads_to_test = [7, 30]
 
     try:
-        # Use get_datasource_fn for ecmwf_ifs_er_debiased
-        ecmwf_fn = get_datasource_fn('ecmwf_ifs_er_debiased')
+        # Use get_forecast for ecmwf_ifs_er_debiased
+        ecmwf_fn = get_forecast('ecmwf_ifs_er_debiased')
 
         for agg_days in leads_to_test:
             try:

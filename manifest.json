@@ -1,0 +1,84 @@
+{
+  "manifest_version": "0.4",
+  "name": "sheerwater-mcp",
+  "display_name": "Sheerwater Weather Benchmarking",
+  "version": "0.7.0",
+  "description": "Weather forecast benchmarking and comparison tools - evaluate and compare forecast models against ground truth datasets",
+  "long_description": "Sheerwater MCP provides access to weather forecast benchmarking capabilities for LLMs. Compare forecast models (ECMWF, GFS, AI models like FuXi, Pangu) against ground truth datasets using metrics like MAE, RMSE, bias, and anomaly correlation. Generate comparison charts and link to interactive Grafana dashboards.",
+  "author": {
+    "name": "Rhiza Research",
+    "url": "https://rhizaresearch.org/"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rhiza-research/sheerwater"
+  },
+  "keywords": ["weather", "forecasting", "benchmarking", "climate", "meteorology", "evaluation"],
+  "compatibility": {
+    "platforms": ["darwin", "linux"],
+    "runtimes": {
+      "python": ">=3.12"
+    }
+  },
+  "server": {
+    "type": "uv",
+    "entry_point": "sheerwater/mcp/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--extra", "mcp", "sheerwater-mcp"],
+      "env": {
+        "GRAFANA_BASE_URL": "${user_config.grafana_url}",
+        "NUTHATCH_CACHE_MODE": "local"
+      }
+    }
+  },
+  "user_config": {
+    "grafana_url": {
+      "type": "string",
+      "title": "Grafana URL",
+      "description": "Base URL for Grafana dashboards (optional)",
+      "default": "https://dashboards.rhizaresearch.org",
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "tool_list_forecasts",
+      "description": "List available forecast models for benchmarking"
+    },
+    {
+      "name": "tool_list_metrics",
+      "description": "List available evaluation metrics"
+    },
+    {
+      "name": "tool_list_truth_datasets",
+      "description": "List available ground truth datasets"
+    },
+    {
+      "name": "tool_get_metric_info",
+      "description": "Get detailed explanation of a specific metric"
+    },
+    {
+      "name": "tool_run_metric",
+      "description": "Run a single evaluation metric comparing forecast to truth"
+    },
+    {
+      "name": "tool_compare_models",
+      "description": "Compare multiple forecast models on a metric"
+    },
+    {
+      "name": "tool_estimate_query_time",
+      "description": "Estimate how long a query will take"
+    },
+    {
+      "name": "tool_get_dashboard_link",
+      "description": "Get a Grafana dashboard URL for detailed exploration"
+    },
+    {
+      "name": "tool_generate_comparison_chart",
+      "description": "Generate a chart comparing models"
+    }
+  ],
+  "icon": "icon.png"
+}

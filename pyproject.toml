@@ -53,14 +53,26 @@ dependencies = [
     "nuthatch",
 ]
 
+[project.optional-dependencies]
+mcp = [
+    "fastmcp",
+    "anthropic",
+    "kaleido",
+]
+
+[project.scripts]
+sheerwater-mcp = "sheerwater.mcp.server:main"
+
 [dependency-groups]
 dev = [
     "pooch",
     "gcsfs",
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "ruff>=0.1.0",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-mock",
+    "polars",
+    "ruff",
     "jupyterlab",
     "notebook",
     "jupytext",
@@ -74,6 +86,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
+fallback-version = "0.0.1"
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -87,6 +100,15 @@ packages = ["./sheerwater", "./jobs", "./dashboard_data"]
 
 [tool.uv]
 managed = true
+
+[tool.pytest.ini_options]
+testpaths = ["sheerwater/tests"]
+asyncio_mode = "auto"
+addopts = "-m 'not integration'"
+markers = [
+    "integration: tests that spawn real Claude Code sessions",
+    "remote: mark test as requiring remote Dask cluster",
+]
 
 [tool.autopep8]
 max_line_length = 120

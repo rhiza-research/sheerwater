@@ -1,11 +1,11 @@
 """Test the metrics library functions."""
+import pytest
+
 from sheerwater.metrics_library import metric_factory
-from sheerwater.utils import start_remote
-
-start_remote(remote_config='large_cluster')
 
 
-def test_metric_factory():
+@pytest.mark.remote
+def test_metric_factory(dask_cluster):
     """Test the metric factory function."""
     cache_kwargs = {
         'start_time': '2016-01-01',
@@ -27,5 +27,6 @@ def test_metric_factory():
 
 
 if __name__ == "__main__":
+    from sheerwater.utils import start_remote
     start_remote(remote_config='large_cluster', remote_name='test_metrics')
-    test_metric_factory()
+    test_metric_factory(None)

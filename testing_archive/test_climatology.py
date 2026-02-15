@@ -2,10 +2,13 @@
 # coding: utf-8
 
 """Test file for climatology data validation."""
+import pytest
+
 from sheerwater.climatology import climatology_raw
 
 
-def test_climatology():
+@pytest.mark.remote
+def test_climatology(dask_cluster):  # noqa: ARG001
     """Test the climatology data for validity."""
     # Configurations of climatology
     first_year = 1991

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sheerwater-mcp
+description: MCP server exposing Sheerwater weather forecast benchmarking capabilities to LLMs
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

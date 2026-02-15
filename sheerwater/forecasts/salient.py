@@ -51,7 +51,11 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal",  # n
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="Salient - Commercial ML subseasonal forecasts",
+    forecast_type="probabilistic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
@@ -151,7 +155,11 @@ def salient_gem_rolled(start_time, end_time, variable, agg_days=7, grid='global0
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="Salient GEM - Generative ensemble model for East Africa",
+    forecast_type="ensemble",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})

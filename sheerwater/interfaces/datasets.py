@@ -24,17 +24,29 @@ class SheerwaterDataset(NuthatchProcessor):
     It supports xarray datasets.
     """
 
-    def __init__(self, region_dim=None, **kwargs):
+    def __init__(self, region_dim=None, description=None, variables=None, **kwargs):
         """Initialize the spatial processor.
 
         Args:
             region_dim (str): The name of the region dimension. If None, the returned dataset will not be
                 assumed to have a region dimesion and region data will be fetched from the region registry
                 before clipping.
+            description: Human-readable description of the dataset.
+            variables: List of variables provided by this dataset.
             kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
         super().__init__(**kwargs)
         self.region_dim = region_dim
+        self.metadata = {
+            'description': description,
+            'variables': variables,
+        }
+
+    def _attach_metadata(self, func, wrapped):
+        """Attach metadata to the wrapped function, using docstring as fallback."""
+        wrapped._metadata = {k: v for k, v in self.metadata.items() if v is not None}
+        if 'description' not in wrapped._metadata and func.__doc__:
+            wrapped._metadata['description'] = func.__doc__.strip().split('\n')[0]
 
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the datasets decorator."""
@@ -97,11 +109,24 @@ class SheerwaterDataset(NuthatchProcessor):
 
 
 class data(SheerwaterDataset):
-    """Processor for a Sheerwater data. It supports xarray datasets."""
+    """Processor for a Sheerwater data. It supports xarray datasets.
+
+    Args:
+        coverage: Geographic coverage description.
+        data_type: Type of data (e.g., 'gridded', 'station', 'reanalysis').
+        **kwargs: Additional keyword arguments passed to SheerwaterDataset (includes description, variables).
+    """
+    def __init__(self, coverage=None, data_type=None, **kwargs):
+        super().__init__(**kwargs)
+        # Add data-specific metadata fields
+        self.metadata['coverage'] = coverage
+        self.metadata['type'] = data_type
+
 
     def __call__(self, func):
         """Call the parent class and register the data in the global data registry."""
         wrapped = super().__call__(func)
+        self._attach_metadata(func, wrapped)
         DATA_REGISTRY[func.__name__] = wrapped
         return wrapped
 
@@ -116,11 +141,22 @@ class data(SheerwaterDataset):
 
 
 class forecast(SheerwaterDataset):
-    """Processor for a Sheerwater forecast. It supports xarray datasets."""
+    """Processor for a Sheerwater forecast. It supports xarray datasets.
+
+    Args:
+        forecast_type: Type of forecast (e.g., 'deterministic', 'ensemble', 'probabilistic').
+        **kwargs: Additional keyword arguments passed to SheerwaterDataset (includes description, variables).
+    """
+    def __init__(self, forecast_type=None, **kwargs):
+        super().__init__(**kwargs)
+        # Add forecast-specific metadata fields
+        self.metadata['type'] = forecast_type
+
 
     def __call__(self, func):
         """Call the forecast decorator and register it in the global forecast registry."""
         wrapped = super().__call__(func)
+        self._attach_metadata(func, wrapped)
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
@@ -149,11 +185,18 @@ def get_forecast(forecast_name):
 
 
 def list_forecasts():
-    """List all forecasts in the global forecast registry."""
+    """List all forecasts in the global forecast registry.
+
+    Returns:
+        List of dicts with forecast name and metadata (description, type, variables).
+    """
     # The imports below ensure that all forecast modules are registered when this is called.
     import sheerwater.forecasts  # noqa: F401
     import sheerwater.climatology  # noqa: F401
-    return list(FORECAST_REGISTRY.keys())
+    return [
+        {'name': name, **getattr(func, '_metadata', {})}
+        for name, func in FORECAST_REGISTRY.items()
+    ]
 
 
 def get_data(data_name):
@@ -166,9 +209,16 @@ def get_data(data_name):
 
 
 def list_data():
-    """List all data sources in the global data registry."""
+    """List all data sources in the global data registry.
+
+    Returns:
+        List of dicts with data source name and metadata (description, variables, coverage, type).
+    """
     # The imports below ensure that all forecast modules are registered when this is called.
     import sheerwater.data  # noqa: F401
     import sheerwater.climatology  # noqa: F401
     import sheerwater.reanalysis  # noqa: F401
-    return list(DATA_REGISTRY.keys())
+    return [
+        {'name': name, **getattr(func, '_metadata', {})}
+        for name, func in DATA_REGISTRY.items()
+    ]
