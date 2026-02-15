@@ -66,6 +66,7 @@ class TestToolRegistration:
             "tool_run_metric",
             "tool_compare_models",
             "tool_estimate_query_time",
+            "tool_extract_truth_data",
             "tool_get_dashboard_link",
             "tool_generate_comparison_chart",
             "tool_render_plotly",
@@ -78,7 +79,7 @@ class TestToolRegistration:
     async def test_tool_count(self, mcp_client: Client):
         """Test correct number of tools are registered."""
         tools = await mcp_client.list_tools()
-        assert len(tools) == 10
+        assert len(tools) == 11
 
 
 class TestDiscoveryTools:
@@ -138,6 +139,20 @@ class TestEvaluationTools:
 
         assert "estimated_time" in data
         assert "cached" in data or "cache_status" in data
+
+    async def test_extract_truth_data_tool_has_parameters(self, mcp_client: Client):
+        """Test extract_truth_data tool has expected parameters."""
+        tools = await mcp_client.list_tools()
+        tool = next((t for t in tools if t.name == "tool_extract_truth_data"), None)
+
+        assert tool is not None
+        properties = tool.inputSchema["properties"]
+        assert "truth" in properties
+        assert "variable" in properties
+        assert "region" in properties
+        assert "space_grouping" in properties
+        assert "time_grouping" in properties
+        assert "agg_fn" in properties
 
 
 class TestVisualizationTools:

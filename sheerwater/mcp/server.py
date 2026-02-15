@@ -43,6 +43,7 @@ from sheerwater.mcp.tools.discovery import (  # noqa: E402
 from sheerwater.mcp.tools.evaluation import (  # noqa: E402
     compare_models,
     estimate_query_time,
+    extract_truth_data,
     run_metric,
 )
 from sheerwater.mcp.tools.visualization import (  # noqa: E402
@@ -63,7 +64,20 @@ mcp = FastMCP(
 
     1. **Discovery**: List available forecasts, metrics, and ground truth datasets
     2. **Evaluation**: Run metrics to compare forecasts against ground truth
-    3. **Visualization**: Create ANY chart, map, or plot — you have full Plotly flexibility
+    3. **Data extraction**: Get raw observed values from truth datasets (precipitation, temperature)
+    4. **Visualization**: Create ANY chart, map, or plot — you have full Plotly flexibility
+
+    ## Data Extraction
+
+    Use `extract_truth_data` to get real observed values from ground truth datasets
+    (CHIRPS, ERA5, IMERG, etc.), aggregated by country/region and optionally by time.
+    This returns actual data — use it whenever the user wants to see or visualize
+    observed weather/climate data.
+
+    Example: to get mean precipitation by country in Africa for 2023:
+      extract_truth_data(truth="chirps_v3", variable="precip", region="Africa",
+                         start_time="2023-01-01", end_time="2023-12-31",
+                         space_grouping="country", time_grouping=None, agg_fn="mean")
 
     ## Visualization — ALWAYS ATTEMPT
 
@@ -78,8 +92,8 @@ mcp = FastMCP(
     - Heatmaps, 3D plots, animations
     - Any valid Plotly figure specification
 
-    If the user asks for a visualization that requires data you don't have, use the
-    evaluation tools to fetch data first, then visualize it with `render_plotly`.
+    To visualize observed data: first call `extract_truth_data` to get the values,
+    then pass them to `render_plotly`. Do NOT make up data — always fetch it first.
 
     Use `generate_comparison_chart` as a convenience wrapper for simple model comparisons.
 
@@ -262,6 +276,53 @@ async def tool_estimate_query_time(
         variable=variable,
         start_time=start_time,
         end_time=end_time,
+    )
+
+
+@mcp.tool()
+async def tool_extract_truth_data(
+    truth: str,
+    variable: str = "precip",
+    region: str = "global",
+    start_time: str | None = None,
+    end_time: str | None = None,
+    agg_days: int = 7,
+    space_grouping: str = "country",
+    time_grouping: str | None = None,
+    agg_fn: str = "mean",
+) -> dict:
+    """Extract raw values from a ground truth dataset, aggregated by region.
+
+    Use this to get actual observed data (e.g., precipitation, temperature) from
+    truth datasets like CHIRPS, ERA5, IMERG, etc. Returns values grouped by
+    spatial region (country, continent, etc.) and optionally by time period.
+
+    The returned data can be passed directly to render_plotly for visualization.
+
+    Args:
+        truth: Ground truth dataset name (e.g., 'chirps_v3', 'era5', 'imerg_final')
+        variable: Variable to extract ('precip' or 'tmp2m')
+        region: Geographic region ('global', 'Africa', 'East Africa', 'Kenya', etc.)
+        start_time: Start date (YYYY-MM-DD format)
+        end_time: End date (YYYY-MM-DD format)
+        agg_days: Temporal aggregation period in days (default: 7)
+        space_grouping: How to group spatially ('country', 'continent', 'subregion')
+        time_grouping: How to group in time ('year', 'month_of_year', 'month', or null for period mean)
+        agg_fn: Aggregation function ('mean' for averages, 'sum' for totals)
+
+    Returns:
+        Data values by region (and time if time_grouping specified), with units.
+    """
+    return await extract_truth_data(
+        truth=truth,
+        variable=variable,
+        region=region,
+        start_time=start_time,
+        end_time=end_time,
+        agg_days=agg_days,
+        space_grouping=space_grouping,
+        time_grouping=time_grouping,
+        agg_fn=agg_fn,
     )
 
 

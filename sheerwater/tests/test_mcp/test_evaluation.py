@@ -9,6 +9,7 @@ import pytest
 from sheerwater.mcp.tools.evaluation import (
     compare_models,
     estimate_query_time,
+    extract_truth_data,
     run_metric,
 )
 
@@ -149,3 +150,83 @@ async def test_estimate_query_time_large_region():
     assert "estimated_time" in result
     # Global region should have a longer estimate
     assert "hour" in result["estimated_time"].lower() or "minute" in result["estimated_time"].lower()
+
+
+@pytest.mark.asyncio
+async def test_extract_truth_data_returns_countries():
+    """extract_truth_data should return data grouped by country."""
+    result = await extract_truth_data(
+        truth="chirps_v3",
+        variable="precip",
+        region=TEST_REGION,
+        start_time=TEST_START,
+        end_time=TEST_END,
+        space_grouping="country",
+    )
+
+    assert result["status"] == "complete"
+    assert "result" in result
+    assert "data" in result["result"]
+    data = result["result"]["data"]
+    assert len(data) > 0
+    # Values should be numeric
+    for value in data.values():
+        assert isinstance(value, (int, float))
+
+
+@pytest.mark.asyncio
+async def test_extract_truth_data_with_time_grouping():
+    """extract_truth_data with time_grouping should return nested data."""
+    result = await extract_truth_data(
+        truth="chirps_v3",
+        variable="precip",
+        region=TEST_REGION,
+        start_time=TEST_START,
+        end_time=TEST_END,
+        space_grouping="country",
+        time_grouping="month_of_year",
+    )
+
+    assert result["status"] == "complete"
+    data = result["result"]["data"]
+    assert len(data) > 0
+    # With time grouping, values should be dicts of {time_label: value}
+    for region_data in data.values():
+        assert isinstance(region_data, dict)
+        for value in region_data.values():
+            assert isinstance(value, (int, float))
+
+
+@pytest.mark.asyncio
+async def test_extract_truth_data_includes_metadata():
+    """extract_truth_data should include metadata in result."""
+    result = await extract_truth_data(
+        truth="chirps_v3",
+        variable="precip",
+        region=TEST_REGION,
+        start_time=TEST_START,
+        end_time=TEST_END,
+    )
+
+    assert result["status"] == "complete"
+    r = result["result"]
+    assert r["truth"] == "chirps_v3"
+    assert r["variable"] == "precip"
+    assert r["region"] == TEST_REGION
+    assert r["units"] == "mm/day"
+    assert "time_range" in r
+
+
+@pytest.mark.asyncio
+async def test_extract_truth_data_invalid_dataset():
+    """extract_truth_data should handle invalid dataset names."""
+    result = await extract_truth_data(
+        truth="not_a_real_dataset",
+        variable="precip",
+        region=TEST_REGION,
+        start_time=TEST_START,
+        end_time=TEST_END,
+    )
+
+    assert result["status"] == "error"
+    assert "error" in result

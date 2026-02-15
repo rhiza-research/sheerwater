@@ -5,7 +5,12 @@ import logging
 import os
 from typing import Any
 
+import numpy as np
+from sheerwater.interfaces import get_data
+from sheerwater.masks import spatial_mask
 from sheerwater.metrics import metric as sw_metric
+from sheerwater.spatial_subdivisions import clip_region, space_grouping_labels
+from sheerwater.utils.grouping_utils import groupby_region, groupby_time
 
 logger = logging.getLogger(__name__)
 
@@ -401,3 +406,165 @@ def _interpret_metric(metric: str, value: float) -> str:
         return f"SEEPS of {value:.2f} - {quality} for precipitation"
     else:
         return f"{metric} = {value:.2f}"
+
+
+async def _fetch_truth_data(
+    truth: str,
+    variable: str,
+    start_time: str,
+    end_time: str,
+    agg_days: int,
+    grid: str,
+    region: str,
+    space_grouping: str,
+    time_grouping: str | None,
+    agg_fn: str,
+    timeout: int = METRIC_TIMEOUT,
+) -> Any:
+    """Fetch and aggregate truth data in a thread pool with timeout."""
+
+    def _do_fetch():
+        truth_fn = get_data(truth)
+        cache_kwargs = {
+            "start_time": start_time,
+            "end_time": end_time,
+            "variable": variable,
+            "agg_days": agg_days,
+            "grid": grid,
+            "mask": "lsm",
+            "region": region,
+        }
+        try:
+            ds = truth_fn(**cache_kwargs, memoize=True)
+        except TypeError:
+            ds = truth_fn(**cache_kwargs)
+
+        # Temporal aggregation
+        ds = groupby_time(ds, time_grouping, agg_fn=agg_fn)
+
+        # Spatial aggregation by region
+        space_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping)
+        mask_ds = spatial_mask("lsm", grid, memoize=True)
+        space_ds = clip_region(space_ds, grid=grid, region=region)
+        mask_ds = clip_region(mask_ds, grid=grid, region=region)
+        ds = groupby_region(ds, space_ds, mask_ds, agg_fn=agg_fn, weighted=(agg_fn == "mean"))
+
+        return ds.compute()
+
+    return await asyncio.wait_for(
+        asyncio.to_thread(_do_fetch),
+        timeout=timeout,
+    )
+
+
+def _convert_truth_to_dict(ds, variable: str, time_grouping: str | None) -> dict[str, Any]:
+    """Convert aggregated truth xarray Dataset to a JSON-friendly dict."""
+    var_name = variable
+    if var_name not in ds.data_vars:
+        var_name = list(ds.data_vars)[0]
+
+    data = ds[var_name]
+
+    if time_grouping and "time" in data.dims:
+        # Return {region: {time_label: value}}
+        result = {}
+        for region in data.space_grouping.values:
+            region_str = str(region)
+            vals = data.sel(space_grouping=region)
+            result[region_str] = {}
+            for t in vals.time.values:
+                val = float(vals.sel(time=t).values)
+                if not np.isnan(val):
+                    result[region_str][str(t)] = round(val, 2)
+            if not result[region_str]:
+                del result[region_str]
+        return result
+    else:
+        # Return {region: value}
+        result = {}
+        for region in data.space_grouping.values:
+            val = float(data.sel(space_grouping=region).values)
+            if not np.isnan(val):
+                result[str(region)] = round(val, 2)
+        return result
+
+
+async def extract_truth_data(
+    truth: str,
+    variable: str = "precip",
+    region: str = "global",
+    start_time: str | None = None,
+    end_time: str | None = None,
+    agg_days: int = 7,
+    space_grouping: str = "country",
+    time_grouping: str | None = None,
+    agg_fn: str = "mean",
+) -> dict[str, Any]:
+    """Extract raw values from a ground truth dataset, aggregated by region.
+
+    Args:
+        truth: Ground truth dataset name (e.g., 'chirps_v3', 'era5')
+        variable: Variable to extract (e.g., 'precip', 'tmp2m')
+        region: Geographic region to clip to (e.g., 'Africa', 'Kenya', 'global')
+        start_time: Start date (YYYY-MM-DD)
+        end_time: End date (YYYY-MM-DD)
+        agg_days: Temporal aggregation period in days
+        space_grouping: Spatial grouping ('country', 'continent', 'subregion', etc.)
+        time_grouping: Temporal grouping ('year', 'month_of_year', 'month', None for mean)
+        agg_fn: Aggregation function ('mean' or 'sum')
+
+    Returns:
+        Data values aggregated by region (and optionally time).
+    """
+    start = start_time or DEFAULT_START_TIME
+    end = end_time or DEFAULT_END_TIME
+
+    try:
+        logger.info(f"Extracting {variable} from {truth} for {region} ({space_grouping})")
+        ds = await _fetch_truth_data(
+            truth=truth,
+            variable=variable,
+            start_time=start,
+            end_time=end,
+            agg_days=agg_days,
+            grid="global1_5",
+            region=region,
+            space_grouping=space_grouping,
+            time_grouping=time_grouping,
+            agg_fn=agg_fn,
+        )
+
+        data = _convert_truth_to_dict(ds, variable, time_grouping)
+
+        units = "mm/day" if variable == "precip" else "C" if variable == "tmp2m" else None
+
+        return {
+            "status": "complete",
+            "result": {
+                "truth": truth,
+                "variable": variable,
+                "region": region,
+                "space_grouping": space_grouping,
+                "time_grouping": time_grouping,
+                "agg_fn": agg_fn,
+                "time_range": {"start": start, "end": end},
+                "units": units,
+                "data": data,
+            },
+        }
+
+    except TimeoutError:
+        logger.warning(f"Truth data extraction timed out after {METRIC_TIMEOUT}s")
+        return {
+            "status": "error",
+            "error": f"Computation timed out after {METRIC_TIMEOUT} seconds",
+            "suggestion": "Try a smaller region or shorter time range.",
+        }
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.exception(f"Error extracting truth data: {error_msg}")
+        return {
+            "status": "error",
+            "error": error_msg,
+        }
