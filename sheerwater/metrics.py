@@ -1,4 +1,5 @@
 """Verification metrics for forecasters and reanalyses."""
+from sqlalchemy.sql.operators import gt
 import xarray as xr
 from nuthatch import cache
 import warnings
@@ -114,8 +115,46 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
 
 
 @dask_remote
-#@cache(cache_args=['satellite', 'station', 'station_threshold', 'agg_days', 'grid', 'region'],
-#       backend='sql', backend_kwargs={'hash_table_name': True})
+@cache(cache_args=['satellite', 'station', 'agg_days', 'grid', 'region'])
+def auc_metric(start_time, end_time, satellite, station, agg_days=7, 
+        time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global', spatial=False):
+
+    max_rainfall = 120
+    step = 1
+    # threshold descending -> false positive rate increasing, as expected by auc integration
+    thresholds = np.arange(0, max_rainfall + step, step)[::-1]
+    
+    pod_list = []
+    fpr_list = []
+    for t in thresholds: 
+        pod_name = f"pod-{t}"
+        fpr_name = f"fpr-{t}"
+        pod = metric(start_time, end_time, "precip", metric_name=pod_name,
+                agg_days=agg_days, forecast=satellite, truth=station,
+                time_grouping=time_grouping, space_grouping=space_grouping, spatial=spatial,
+                grid=grid, region=region, mask=mask)
+        fpr = metric(start_time, end_time, "precip", metric_name=fpr_name,
+                agg_days=agg_days, forecast=satellite, truth=station,
+                time_grouping=time_grouping, space_grouping=space_grouping, spatial=spatial,
+                grid=grid, region=region)
+        # add threshold coordinate
+        pod = pod.expand_dims(threshold=[t])
+        fpr = fpr.expand_dims(threshold=[t])
+        pod_list.append(pod)
+        fpr_list.append(fpr)
+    # concatenate over threshold
+    pod_all = xr.concat(pod_list, dim="threshold")
+    fpr_all = xr.concat(fpr_list, dim="threshold")
+        
+    auc = xr.apply_ufunc(np.trapezoid, pod_all, fpr_all,
+                    input_core_dims=[['threshold'], ['threshold']],
+                    vectorize=True, dask='parallelized', output_dtypes=[float])
+    
+    return auc
+
+@dask_remote
+@cache(cache_args=['satellite', 'station', 'station_threshold', 'agg_days', 'grid', 'region'],
+       backend='sql', backend_kwargs={'hash_table_name': True})
 def auc(start_time, end_time, satellite, station, station_threshold='climatology_tahmo_avg_2015_2025', agg_days=7, 
         time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global', spatial=False):
     """Compute the AUC-ROC curve for a satellite and station."""
@@ -181,7 +220,89 @@ def auc(start_time, end_time, satellite, station, station_threshold='climatology
     auc = xr.apply_ufunc(np.trapezoid, tpr, fpr,
                          input_core_dims=[['threshold'], ['threshold']],
                          vectorize=True, dask='parallelized', output_dtypes=[float])
-    import pdb; pdb.set_trace()
+
+    return auc.to_dataframe(name="auc")
+
+@dask_remote
+@cache(cache_args=['satellite', 'station', 'station_threshold', 'agg_days', 'grid', 'region', 'time_grouping', 'space_grouping', 'spatial'])
+def auc_hist(start_time, end_time, satellite, station, station_threshold='climatology_tahmo_avg_2015_2025', agg_days=7, 
+        time_grouping=None, space_grouping=None, grid='global1_5', mask='lsm', region='global', spatial=False):
+    """Compute the AUC-ROC curve for a satellite and station."""
+
+    satellite_data = get_data(satellite)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+    station_data = get_data(station)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+    
+    # align station and satellite data
+    satellite_data, station_data = xr.align(
+        satellite_data, station_data, join="inner"
+    )
+
+    # determine where either data is null
+    nan_mask = xr.ufuncs.logical_or(
+        satellite_data.precip.isnull(), station_data.precip.isnull()
+    )
+
+    if isinstance(station_threshold, str):
+        station_threshold = get_forecast(station_threshold)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
+        station_data = station_data - station_threshold.isel(prediction_timedelta=0)
+        station_data = station_data.drop_vars('prediction_timedelta')
+    # if the threshold is a number, subtract it from the station data
+    elif isinstance(station_threshold, (float, int)):
+        station_data = station_data - station_threshold
+
+    # threshold descending -> false positive rate increasing, as expected by auc integration
+    max_rainfall = 100 #satellite_data.precip.max().values
+    step = max(0.1, max_rainfall / 1000)
+    thresholds = np.arange(0, max_rainfall + step, step)
+
+    station_event = (station_data.precip >= 0) & ~nan_mask
+    station_noevent = (station_data.precip < 0) & ~nan_mask
+
+    # count satellite data points in bins defined by thresholds
+    gttrue_hist = groupby_time(satellite_data.where(station_event), time_grouping=time_grouping, agg_fn='hist', bins=thresholds)
+    gtfalse_hist = groupby_time(satellite_data.where(station_noevent), time_grouping=time_grouping, agg_fn='hist', bins=thresholds)
+
+    # group over space
+    mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
+    if region != 'global':
+        mask_ds = clip_region(mask_ds, grid=grid, region=region)
+    if not spatial:
+        space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+        if region != 'global':
+            space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
+
+        gttrue_hist = groupby_region(gttrue_hist, space_grouping_ds, mask_ds, agg_fn='sum')
+        gtfalse_hist = groupby_region(gtfalse_hist, space_grouping_ds, mask_ds, agg_fn='sum')
+    else:
+        gttrue_hist = gttrue_hist.where(mask_ds.mask, drop=False)
+        gtfalse_hist = gtfalse_hist.where(mask_ds.mask, drop=False)
+    
+    # take cumulative sum from high bins to lows bins
+    tp = gttrue_hist.isel(bin=slice(None, None, -1)).cumsum(dim="bin")
+    fp = gtfalse_hist.isel(bin=slice(None, None, -1)).cumsum(dim="bin")
+
+    total_pos = tp.isel(bin=-1)
+    total_neg = fp.isel(bin=-1)
+
+    tpr = tp / total_pos
+    fpr = fp / total_neg
+
+    auc = xr.apply_ufunc(
+        np.trapezoid,
+        tpr,
+        fpr,
+        input_core_dims=[["bin"], ["bin"]],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float],
+    )
+
+    drop_coors = ["number", "spatial_ref"]
+    for coord in drop_coors:
+        if coord in auc.coords:
+            auc = auc.drop_vars(coord)
+    # rename precip variable to auc
+    auc = auc.rename({'precip': 'auc'})
 
     return auc
 
