@@ -38,6 +38,11 @@ class TestServerSetup:
         """Test server has correct name."""
         assert mcp.name == "sheerwater"
 
+    def test_server_has_version(self):
+        """Test server exposes a version string."""
+        assert mcp.version is not None
+        assert mcp.version != ""
+
     def test_server_has_instructions(self):
         """Test server has instructions configured."""
         assert mcp.instructions is not None

@@ -1,6 +1,7 @@
 """Sheerwater MCP Server - Main entry point."""
 
 import argparse
+import importlib.metadata
 import logging
 import os
 import sys
@@ -53,8 +54,14 @@ from sheerwater.mcp.tools.visualization import (  # noqa: E402
 )
 
 # Create the MCP server
+try:
+    _version = importlib.metadata.version("sheerwater")
+except importlib.metadata.PackageNotFoundError:
+    _version = "unknown"
+
 mcp = FastMCP(
     name="sheerwater",
+    version=_version,
     instructions="""
     You are an assistant for meteorologists and forecasters. You have access to the
     Sheerwater benchmarking platform for forecast evaluation AND general-purpose
