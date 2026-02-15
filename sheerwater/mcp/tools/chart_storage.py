@@ -74,8 +74,21 @@ def upload_chart(fig) -> ChartUrls:
     png_blob = bucket.blob(f"charts/{chart_id}.png")
     png_blob.upload_from_string(png_bytes, content_type="image/png")
 
-    # Generate and upload HTML (enhancement for interactive clients like sheerwater-chat)
-    html_content = fig.to_html(full_html=True, include_plotlyjs="cdn")
+    # Generate responsive HTML (enhancement for interactive clients like sheerwater-chat)
+    # Strip fixed dimensions so the chart fills its container (iframe)
+    responsive_fig = fig.update_layout(width=None, height=None, autosize=True)
+    html_content = responsive_fig.to_html(
+        full_html=True,
+        include_plotlyjs="cdn",
+        config={"responsive": True},
+        default_width="100%",
+        default_height="100%",
+    )
+    # Ensure the chart fills the full viewport when rendered in an iframe
+    html_content = html_content.replace(
+        "<head>",
+        "<head><style>html, body { margin: 0; height: 100%; }</style>",
+    )
     html_blob = bucket.blob(f"charts/{chart_id}.html")
     html_blob.upload_from_string(html_content, content_type="text/html")
 
