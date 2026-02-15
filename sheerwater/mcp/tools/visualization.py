@@ -61,6 +61,10 @@ async def render_plotly(
     This is the low-level primitive that gives full Plotly flexibility.
     Pass a complete Plotly figure specification as a dict.
 
+    IMPORTANT: This server runs Plotly v6. Use the Plotly v6 API only.
+    Key v6 changes: colorbar.titleside is removed (use colorbar.title.side),
+    colorbar.titlefont is removed (use colorbar.title.font).
+
     Args:
         figure: A Plotly figure specification dict with 'data' and optionally 'layout'.
                 Example: {"data": [{"type": "bar", "x": ["A", "B"], "y": [1, 2]}]}
@@ -117,7 +121,9 @@ async def render_plotly(
 
     try:
         # Create figure from specification
-        fig = go.Figure(figure)
+        # skip_invalid=True handles deprecated properties (e.g. colorbar.titleside)
+        # that LLMs may generate from older training data
+        fig = go.Figure(figure, skip_invalid=True)
 
         # Merge title into layout if provided
         if title:

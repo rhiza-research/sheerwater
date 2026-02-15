@@ -468,9 +468,9 @@ def _convert_truth_to_dict(ds, variable: str, time_grouping: str | None) -> dict
     if time_grouping and "time" in data.dims:
         # Return {region: {time_label: value}}
         result = {}
-        for region in data.space_grouping.values:
+        for region in data.region.values:
             region_str = str(region)
-            vals = data.sel(space_grouping=region)
+            vals = data.sel(region=region)
             result[region_str] = {}
             for t in vals.time.values:
                 val = float(vals.sel(time=t).values)
@@ -482,8 +482,8 @@ def _convert_truth_to_dict(ds, variable: str, time_grouping: str | None) -> dict
     else:
         # Return {region: value}
         result = {}
-        for region in data.space_grouping.values:
-            val = float(data.sel(space_grouping=region).values)
+        for region in data.region.values:
+            val = float(data.sel(region=region).values)
             if not np.isnan(val):
                 result[str(region)] = round(val, 2)
         return result
