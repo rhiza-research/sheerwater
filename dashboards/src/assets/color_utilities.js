@@ -105,10 +105,3 @@ function refreshColorScale(stretch, product, metric) {
     }
     scale.innerHTML = renderColorScaleHtml(stretch, product, metric);
 }
-
-// ─── Refresh metric description panel ────────────────────────────────────────
-function refreshMetricDescription(metric) {
-    const panel = document.getElementById("metric-description-panel");
-    if (!panel) return;
-    panel.innerHTML = renderMetricDescriptionHtml(metric);
-}

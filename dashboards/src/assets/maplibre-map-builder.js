@@ -410,33 +410,62 @@ function loadMaplibre() {
 }
 
 // ─── "No Data" overlay helpers ───────────────────────────────────────────────
+function resolveNoDataOverlayHost(containerEl) {
+    if (!containerEl) {
+        return null;
+    }
+
+    if (typeof containerEl.closest === "function") {
+        const multimapFrame = containerEl.closest(".bt-multimap-map");
+        if (multimapFrame) {
+            return multimapFrame;
+        }
+
+        const mapShell = containerEl.closest(".map-shell");
+        if (mapShell) {
+            return mapShell;
+        }
+    }
+
+    return containerEl.parentElement || containerEl;
+}
+
+function createNoDataOverlayElement(extraClassName) {
+    const overlay = document.createElement("div");
+    overlay.className = ["no-data-overlay", extraClassName]
+        .filter(Boolean)
+        .join(" ");
+    overlay.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.88);">No data available</span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.5);">This forecast/metric combination has no results</span>
+      </div>
+    `;
+    return overlay;
+}
+
 function showNoDataOverlay(containerEl) {
-    if (!containerEl) return;
-    let overlay = containerEl.parentElement?.querySelector(".no-data-overlay");
+    const host = resolveNoDataOverlayHost(containerEl);
+    if (!host) return;
+
+    let overlay = host.querySelector(".no-data-overlay");
     if (!overlay) {
-        overlay = document.createElement("div");
-        overlay.className = "no-data-overlay";
-        overlay.innerHTML = `
-          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.88);">No data available</span>
-            <span style="font-size:12px;color:rgba(255,255,255,0.5);">This forecast/metric combination has no results</span>
-          </div>
-        `;
-        // Insert as sibling inside the map shell
-        const shell = containerEl.parentElement;
-        if (shell) shell.appendChild(overlay);
+        overlay = createNoDataOverlayElement();
+        host.appendChild(overlay);
     }
     overlay.style.display = "flex";
 }
 
 function hideNoDataOverlay(containerEl) {
-    if (!containerEl) return;
-    const overlay = containerEl.parentElement?.querySelector(".no-data-overlay");
+    const host = resolveNoDataOverlayHost(containerEl);
+    if (!host) return;
+
+    const overlay = host.querySelector(".no-data-overlay");
     if (overlay) overlay.style.display = "none";
 }
 
@@ -529,9 +558,9 @@ function injectContainerAndStyles() {
       font-size:14px !important;
       padding:6px 12px !important;
     }
-    /* ── Metric description panel at bottom ── */
+    /* ── Metric description panel ── */
     #metric-description-panel {
-      margin-top:10px;
+      margin-bottom:10px;
     }
 `;
     document.head.appendChild(style);
@@ -539,11 +568,11 @@ function injectContainerAndStyles() {
     const hostContainer = getOrCreateHostContainer();
 
     hostContainer.innerHTML = `
+      <div id="metric-description-panel"></div>
       <div class="map-shell" id="map-shell-main">
         <div id="${mapMountId}" class="map-mount"></div>
         <div id="map-colorscale"></div>
       </div>
-      <div id="metric-description-panel"></div>
     `;
 
     const cssHref = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css";

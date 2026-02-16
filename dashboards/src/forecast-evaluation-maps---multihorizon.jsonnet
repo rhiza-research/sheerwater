@@ -5,6 +5,7 @@ local maplibre_map_builder_js = importstr './assets/maplibre-map-builder.js';
 local maplibre_multimap_layout_js = importstr './assets/maplibre-multimap-layout.js';
 local maplibre_multimap_orchestration_js = importstr './assets/maplibre-multimap-orchestration.js';
 local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlemap-orchestration.js';
+local metrics_utilities_js = importstr './assets/metrics_utilities.js';
 local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_utilities.js';
 
 {
@@ -60,7 +61,7 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       "id": 9,
       "options": {
-        "afterRender": bfd145p7u3jlse_multimap_forecast_evaluation_params_js + maplibre_map_builder_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js,
+        "afterRender": bfd145p7u3jlse_multimap_forecast_evaluation_params_js + maplibre_map_builder_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js,
         "content": "<div id=\"map-container\" style=\"height:900px\" />",
         "contentPartials": [],
         "defaultContent": "",
@@ -422,8 +423,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "ecmwf_ifs_er",
-          "value": "ecmwf_ifs_er"
+          "text": "ecmwf_ifs_er_debiased",
+          "value": "ecmwf_ifs_er_debiased"
         },
         "includeAll": false,
         "label": "Forecast",
@@ -435,12 +436,12 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "value": "salient"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER Debiased",
             "value": "ecmwf_ifs_er_debiased"
           },
@@ -480,15 +481,15 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "mae",
-          "value": "mae"
+          "text": "acc",
+          "value": "acc"
         },
         "includeAll": false,
         "label": "Metric",
         "name": "metric",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "MAE",
             "value": "mae"
           },
@@ -503,7 +504,7 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "value": "rmse"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ACC",
             "value": "acc"
           },
@@ -640,20 +641,20 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "global0_25",
-          "value": "global0_25"
+          "text": "global1_5",
+          "value": "global1_5"
         },
         "includeAll": false,
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.25",
             "value": "global0_25"
           }
@@ -687,15 +688,15 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "year",
-          "value": "year"
+          "text": "None",
+          "value": "None"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "None",
             "value": "None"
           },
@@ -705,7 +706,7 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "value": "month_of_year"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Year",
             "value": "year"
           }
@@ -715,8 +716,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "select distinct time from \"6c89d88636ee3ea0507d7c5566df7dd9\"",
-          "value": "select distinct time from \"6c89d88636ee3ea0507d7c5566df7dd9\""
+          "text": "select v.* from (values ('None')) v(t)",
+          "value": "select v.* from (values ('None')) v(t)"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -734,8 +735,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "2016",
-          "value": "2016"
+          "text": "None",
+          "value": "None"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -754,8 +755,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "where time = 2016",
-          "value": "where time = 2016"
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -773,8 +774,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "6c89d88636ee3ea0507d7c5566df7dd9",
-          "value": "6c89d88636ee3ea0507d7c5566df7dd9"
+          "text": "ded8af931c81e7f097229a75c4e4d0f0",
+          "value": "ded8af931c81e7f097229a75c4e4d0f0"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",

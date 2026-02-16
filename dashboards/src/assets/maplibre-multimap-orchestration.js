@@ -104,6 +104,61 @@ function setProductRowVisibility(productKey, visible) {
     row.style.display = visible ? "" : "none";
 }
 
+function getOrCreateProductNoDataBanner(rowEl, productKey) {
+    if (!rowEl) {
+        return null;
+    }
+
+    let banner = rowEl.querySelector(".bt-multimap-row-no-data");
+    if (!banner) {
+        banner = createNoDataOverlayElement("bt-multimap-row-no-data");
+        banner.dataset.productKey = productKey;
+        rowEl.appendChild(banner);
+    }
+    return banner;
+}
+
+function setProductRowNoDataState(productKey, hasData) {
+    const row = document.getElementById(`bt-multimap-row-${productKey}`);
+    if (!row) {
+        return;
+    }
+
+    const grid = row.querySelector(".bt-multimap-grid");
+    const banner = getOrCreateProductNoDataBanner(row, productKey);
+
+    if (grid) {
+        grid.style.display = hasData ? "" : "none";
+    }
+    if (banner) {
+        banner.style.display = hasData ? "none" : "flex";
+    }
+}
+
+function getCellOverlayContainer(cellRuntime) {
+    // Use canvas container so the shared helper appends overlay into the
+    // visible map frame (.bt-multimap-map), not the outer cell wrapper.
+    if (cellRuntime?.map?.getCanvasContainer) {
+        const canvasContainer = cellRuntime.map.getCanvasContainer();
+        if (canvasContainer) {
+            return canvasContainer;
+        }
+    }
+
+    if (cellRuntime?.map?.getContainer) {
+        const mapRoot = cellRuntime.map.getContainer();
+        if (mapRoot) {
+            return mapRoot;
+        }
+    }
+
+    if (cellRuntime?.def?.containerId) {
+        return document.getElementById(cellRuntime.def.containerId);
+    }
+
+    return null;
+}
+
 async function refreshAllCells(runtime, vars) {
     if (stretchRequestController) {
         stretchRequestController.abort();
@@ -154,7 +209,8 @@ async function refreshAllCells(runtime, vars) {
 
     MULTIMAP_PRODUCTS.forEach((product) => {
         const hasStretch = Boolean(scaleByProduct[product.key]);
-        setProductRowVisibility(product.key, hasStretch);
+        setProductRowVisibility(product.key, true);
+        setProductRowNoDataState(product.key, hasStretch);
         // Pass product and metric so units can be resolved correctly
         const scaleMarkup = renderColorScaleHtml(scaleByProduct[product.key] || "", product.product, vars.metric);
         const rowScaleEl = document.getElementById(
@@ -213,10 +269,7 @@ async function refreshAllCells(runtime, vars) {
         cellRuntime.datasetId = result.datasetId;
         cellRuntime.tileUrl = result.tileUrl;
 
-        // Determine the map container element for no-data overlay
-        const cellContainer = cellRuntime.def?.containerId
-            ? document.getElementById(cellRuntime.def.containerId)
-            : null;
+        const overlayContainer = getCellOverlayContainer(cellRuntime);
 
         if (!cellRuntime.ready) {
             continue;
@@ -225,11 +278,11 @@ async function refreshAllCells(runtime, vars) {
         if (!result.tileUrl) {
             removeRasterSlot(cellRuntime.map, 0);
             removeRasterSlot(cellRuntime.map, 1);
-            showNoDataOverlay(cellContainer);
+            showNoDataOverlay(overlayContainer);
             continue;
         }
 
-        hideNoDataOverlay(cellContainer);
+        hideNoDataOverlay(overlayContainer);
 
         if (!previousTileUrl) {
             setRasterLayer(cellRuntime.map, result.tileUrl, 0, TERRACOTTA_OPACITY);
@@ -308,12 +361,13 @@ async function initCurrentMultimapPage() {
             map.on("load", () => {
                 cellRuntime.ready = true;
                 applyBoundaryContrastOverrides(map);
+                const overlayContainer = getCellOverlayContainer(cellRuntime);
                 if (cellRuntime.tileUrl) {
-                    hideNoDataOverlay(container);
+                    hideNoDataOverlay(overlayContainer);
                     setRasterLayer(map, cellRuntime.tileUrl, 0, TERRACOTTA_OPACITY);
                     removeRasterSlot(map, 1);
                 } else {
-                    showNoDataOverlay(container);
+                    showNoDataOverlay(overlayContainer);
                 }
             });
             return cellRuntime;
