@@ -642,20 +642,20 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "global0_25",
-          "value": "global0_25"
+          "text": "global1_5",
+          "value": "global1_5"
         },
         "includeAll": false,
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.25",
             "value": "global0_25"
           }
@@ -775,8 +775,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "6c235561d1756eec47cdfb4f614c11d9",
-          "value": "6c235561d1756eec47cdfb4f614c11d9"
+          "text": "ded8af931c81e7f097229a75c4e4d0f0",
+          "value": "ded8af931c81e7f097229a75c4e4d0f0"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",

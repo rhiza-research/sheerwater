@@ -195,8 +195,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       {
         "allowCustomValue": false,
         "current": {
-          "text": "1",
-          "value": "1"
+          "text": "11",
+          "value": "11"
         },
         "definition": "SELECT column_name FROM information_schema.columns WHERE table_name = '$precip_tab_name' AND column_name NOT IN ('forecast', 'time_grouping', 'region');",
         "label": "Agg Days",
@@ -209,8 +209,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "acc",
-          "value": "acc"
+          "text": "ets-3.6",
+          "value": "ets-3.6"
         },
         "description": "",
         "label": "Metric",
@@ -227,7 +227,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "bias"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "ACC",
             "value": "acc"
           },
@@ -247,7 +247,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "far-3.6"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ETS 40mm/11 days",
             "value": "ets-3.6"
           },
@@ -378,8 +378,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       {
         "allowCustomValue": false,
         "current": {
-          "text": "January",
-          "value": "January"
+          "text": "March",
+          "value": "March"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -397,8 +397,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "5359a2e418b8e1ebfb1094b70d2c96c6",
-          "value": "5359a2e418b8e1ebfb1094b70d2c96c6"
+          "text": "6e8992f61722408de71cdea1feef87af",
+          "value": "6e8992f61722408de71cdea1feef87af"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -454,19 +454,19 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "",
-          "value": ""
+          "text": "-0.3",
+          "value": "-0.3"
         },
         "label": "vmin",
         "name": "vmin",
         "options": [
           {
             "selected": true,
-            "text": "",
-            "value": ""
+            "text": "-0.3",
+            "value": "-0.3"
           }
         ],
-        "query": "",
+        "query": "-0.3",
         "type": "textbox"
       },
       {

@@ -117,7 +117,7 @@ function buildStretchFromBounds(colorMin, colorMax, metric, product) {
     } else if (m.startsWith("csi-")) {
         colorMin = 0;
         colorMax = 1;
-        colormap = "rdbu";
+        colormap = "rdylgn";
 
         // ── FAR: [0, 1], lower is better ──
     } else if (m.startsWith("far-")) {
@@ -129,7 +129,7 @@ function buildStretchFromBounds(colorMin, colorMax, metric, product) {
     } else if (m.startsWith("ets-")) {
         colorMin = -1 / 3;
         colorMax = 1;
-        colormap = "rdbu";
+        colormap = "rdylgn";
 
         // ── MAE, RMSE, CRPS, and anything else: lower is better ──
     } else {
