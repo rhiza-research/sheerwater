@@ -43,7 +43,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 0
@@ -51,7 +51,7 @@
       "id": 7,
       "options": {
         "afterRender": "// window.onload = function () {\n//     renderMathInElement(document.body, {\n//         delimiters: [\n//             { left: \"$$\", right: \"$$\", display: true },\n//             { left: \"\\\\(\", right: \"\\\\)\", display: false }\n//         ]\n//     });\n// };\n",
-        "content": "### Selected Stations: {{#if (eq truth \"tahmo\")}} TAHMO Random in Cell{{/if}} {{#if (eq truth \"tahmo_avg\")}}TAHMO Averaged in Cell{{/if}} {{#if (eq truth \"ghcn\")}}GHCN Random in Cell{{/if}} {{#if (eq truth \"ghcn_avg\")}}GHCN Averaged in Cell{{/if}} \nStation data will be used to evaluate rainfall ground truth datasets. Please select a grid, region and time period of interest for evaulation.\n\n### Selected Metric: {{#if (eq metric \"mae\")}}MAE {{/if}} {{#if (eq metric \"rmse\")}}RMSE{{/if}} {{#if (eq metric \"pearson\")}}Pearson Correlation{{/if}} {{#if (eq metric \"crps\")}}CRPS{{/if}} {{#if (eq metric \"bias\")}}Bias{{/if}} {{#if (eq metric \"smape\")}}SMAPE{{/if}} {{#if (eq metric \"seeps\")}}SEEPS{{/if}} {{#if (eq metric \"acc\")}}ACC{{/if}}  {{#if (eq metric \"heidke-1-5-10-20\")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric \"far-1\")}}FAR 1mm{{/if}} {{#if (eq metric \"far-5\")}}FAR 5mm{{/if}} {{#if (eq metric \"far-10\")}}FAR 10mm{{/if}} {{#if (eq metric \"pod-1\")}}POD 1mm{{/if}} {{#if (eq metric \"pod-5\")}}POD 5mm{{/if}} {{#if (eq metric \"pod-10\")}}POD 10mm{{/if}} {{#if (eq metric \"ets-1\")}}ETS 1mm{{/if}} {{#if (eq metric \"ets-5\")}}ETS 5mm{{/if}} {{#if (eq metric \"ets-10\")}}ETS 10mm{{/if}}\n\n{{#if (eq metric \"mae\")}}\nMean absolute error (MAE) measures the average magnitude of the errors in a set of predictions, without considering\ntheir direction.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower MAE means better predictions.</span> \n\n{{else if (eq metric \"crps\")}}\nContinuous ranked probability score (CRPS) assesses the accuracy of probabilistic forecasts by comparing the cumulative\ndistribution function of forecasts to the observed values.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower CRPS indicates better probabilistic forecasting skill.</span>\n\n{{else if (eq metric \"rmse\")}}\nRoot mean squared error (RMSE) gives higher weight to large errors, making it more sensitive to outliers.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower RMSE means better predictions.</span>\n\n{{else if (eq metric \"acc\")}}\nAnomaly correlation coefficient (ACC) ACC is a measure of how well the forecast anomalies have represented the observed anomalies\nrelative to climatology. We used 1991-2020 climatology (years inclusive) for our ACC calculation.\\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher ACC means better predictions. Range [-1, 1].</span>\n\n{{else if (eq metric \"pearson\")}}\nPearson correlation measures the linear correlation between two datasets. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher pearson means better correlation. Range [-1, 1].</span>\n\n{{else if (eq metric \"bias\")}}\nBias measures the signed magnitude of errors in a set of predictions. \\\n<span style=\"color: gray; font-weight: bold;\">⚪ Ideal value = 0.0 — Bias should be close to 0.0 for an unbiased forecast.</span>\n\n{{else if (eq metric \"smape\")}}\nSymmetric mean absolute percentage error (SMAPE) is a normalized version of Mean Absolute Percentage Error (MAPE) and calculate sthe error as a percentage of the total value. We only calculate SMAPE for precipitation.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower SMAPE indicates better forecasting accuracy. Range [0, 1].</span>\n\n{{else if (eq metric \"seeps\")}}\nStable equitable error in probability space (SEEPS) is a score designed for evaluating rainfall forecasts while taking into account climactic difference in rainfall. Areas that are too dry or wet are exclued. \nWe include all cells with a 3-93% non-dry day frequency to ensure inclusion of relevant parts of Africa. We only calculate SEEPS for precipitation.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower SEEPS indicates better forecasting accuracy. Good SEEPS for short term forecasts on cells that have 10-85% non-dry days are considered between 0-1.</span>\n\n{{else if (contains metric \"heidke\")}}\nHeidke skill score (HSS) compares the accuracy of a forecast to random chance for a set of predetermined rainfall threshholds specified in average mm/day over an aggregration period. We only calculate Heidke for precipitation.\\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — a higher HSS indicates better skill. Range [-&infin;, 1]</span>\n\n{{else if (contains metric \"pod\")}}\nProbability of detection (POD) measures the fraction of observed rainfall events that were correctly predicted—in this case, an aggregate rainfall event over a specific mm threshhold. We only calculate POD for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher probability of detection is better. Range [0, 1]. </span>\n\n{{else if (contains metric \"far\")}}\nFalse alarm rate (FAR) quantifies the fraction of predicted rainfall events that were not observed—in this case, an aggregate rainfall event over a specific mm threshhold. We only calculate FAR for precipitation.\\ \n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower false alarm rate is better. Range [0, 1].</span>\n\n{{else if (contains metric \"ets\")}}\nEquitable threat score (ETS) measures a combination of POD and FAR while accounting for random chance on a specific event, an aggregate rainfall event over a specific mm threshhold. We only calculate ETS for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher ETS indicates better skill. Range [-1/3, 1].</span>\n\n{{else if (contains metric \"frequencybias\")}}\nFrequency Bias (FB) measures the ratio of how often an event happens between the ground truth and the estimate.  \\\n<span style=\"color: gray; font-weight: bold;\">⚪ Ideal value = 1.0 — Frequency Bias should be close to 1.0. Range [0, &infin;]</span>\n\n{{else if (contains metric \"csi\")}}\nCritical Success Index (CSI) measures the fraction of correctly predicted rainfall events, without adjusting for random chance. It combines information from hits, misses, and false alarms for an aggregate rainfall event over a specific threshold. We only calculate CSI for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher CSI indicates better event prediction skill. Range [0, 1].</span>\n{{else}}\n_no description available for this metric._\n{{/if}}\n\n#### In Africa most grid cells do not have GHCN coverage. TAHMO data only has coverage in Africa.\n**0.25 grid**: Global: 3.7% (14551/395603)&emsp;CONUS: 55.6% (7284/13090)&emsp;Africa: 0.1% (42/40903)\\\n**1.5 grid**:&emsp;Global: 10.9% (2418/22116)&emsp;&emsp;CONUS: 50% (360/720)&emsp;&emsp;&nbsp;&nbsp;&emsp;Africa: 1.5% (33/2248)\\\n*Coverage defined as >90% of days with valid precip data*",
+        "content": "### Selected Stations: {{#if (eq truth \"tahmo\")}} TAHMO Random in Cell{{/if}} {{#if (eq truth \"tahmo_avg\")}}TAHMO Averaged in Cell{{/if}} {{#if (eq truth \"ghcn\")}}GHCN Random in Cell{{/if}} {{#if (eq truth \"ghcn_avg\")}}GHCN Averaged in Cell{{/if}} \nStation data will be used to evaluate rainfall ground truth datasets. Please select a grid, region and time period of interest for evaulation.\n\n### Selected Metric: {{#if (eq metric \"mae\")}}MAE {{/if}} {{#if (eq metric \"rmse\")}}RMSE{{/if}} {{#if (eq metric \"pearson\")}}Pearson Correlation{{/if}} {{#if (eq metric \"crps\")}}CRPS{{/if}} {{#if (eq metric \"bias\")}}Bias{{/if}} {{#if (eq metric \"smape\")}}SMAPE{{/if}} {{#if (eq metric \"seeps\")}}SEEPS{{/if}} {{#if (eq metric \"acc\")}}ACC{{/if}}  {{#if (eq metric \"heidke-1-5-10-20\")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric \"far-1\")}}FAR 1mm{{/if}} {{#if (eq metric \"far-5\")}}FAR 5mm{{/if}} {{#if (eq metric \"far-10\")}}FAR 10mm{{/if}} {{#if (eq metric \"pod-1\")}}POD 1mm{{/if}} {{#if (eq metric \"pod-5\")}}POD 5mm{{/if}} {{#if (eq metric \"pod-10\")}}POD 10mm{{/if}} {{#if (eq metric \"ets-1\")}}ETS 1mm{{/if}} {{#if (eq metric \"ets-5\")}}ETS 5mm{{/if}} {{#if (eq metric \"ets-10\")}}ETS 10mm{{/if}}\n\n{{#if (eq metric \"mae\")}}\nMean absolute error (MAE) measures the average magnitude of the errors in a set of predictions, without considering\ntheir direction.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower MAE means better predictions.</span> \n\n{{else if (eq metric \"crps\")}}\nContinuous ranked probability score (CRPS) assesses the accuracy of probabilistic forecasts by comparing the cumulative\ndistribution function of forecasts to the observed values.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower CRPS indicates better probabilistic forecasting skill.</span>\n\n{{else if (eq metric \"rmse\")}}\nRoot mean squared error (RMSE) gives higher weight to large errors, making it more sensitive to outliers.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower RMSE means better predictions.</span>\n\n{{else if (eq metric \"acc\")}}\nAnomaly correlation coefficient (ACC) ACC is a measure of how well the forecast anomalies have represented the observed anomalies\nrelative to climatology. We used 1991-2020 climatology (years inclusive) for our ACC calculation.\\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher ACC means better predictions. Range [-1, 1].</span>\n\n{{else if (eq metric \"pearson\")}}\nPearson correlation measures the linear correlation between two datasets. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher pearson means better correlation. Range [-1, 1].</span>\n\n{{else if (eq metric \"bias\")}}\nBias measures the signed magnitude of errors in a set of predictions. \\\n<span style=\"color: gray; font-weight: bold;\">⚪ Ideal value = 0.0 — Bias should be close to 0.0 for an unbiased forecast.</span>\n\n{{else if (eq metric \"smape\")}}\nSymmetric mean absolute percentage error (SMAPE) is a normalized version of Mean Absolute Percentage Error (MAPE) and calculate sthe error as a percentage of the total value. We only calculate SMAPE for precipitation.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower SMAPE indicates better forecasting accuracy. Range [0, 1].</span>\n\n{{else if (eq metric \"seeps\")}}\nStable equitable error in probability space (SEEPS) is a score designed for evaluating rainfall forecasts while taking into account climactic difference in rainfall. Areas that are too dry or wet are exclued. \nWe include all cells with a 3-93% non-dry day frequency to ensure inclusion of relevant parts of Africa. We only calculate SEEPS for precipitation.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower SEEPS indicates better forecasting accuracy. Good SEEPS for short term forecasts on cells that have 10-85% non-dry days are considered between 0-1.</span>\n\n{{else if (contains metric \"heidke\")}}\nHeidke skill score (HSS) compares the accuracy of a forecast to random chance for a set of predetermined rainfall threshholds specified in average mm/day over an aggregration period. We only calculate Heidke for precipitation.\\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — a higher HSS indicates better skill. Range [-&infin;, 1]</span>\n\n{{else if (contains metric \"pod\")}}\nProbability of detection (POD) measures the fraction of observed rainfall events that were correctly predicted—in this case, an aggregate rainfall event over a specific mm threshhold. We only calculate POD for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher probability of detection is better. Range [0, 1]. </span>\n\n{{else if (contains metric \"far\")}}\nFalse alarm rate (FAR) quantifies the fraction of predicted rainfall events that were not observed—in this case, an aggregate rainfall event over a specific mm threshhold. We only calculate FAR for precipitation.\\ \n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower false alarm rate is better. Range [0, 1].</span>\n\n{{else if (contains metric \"ets\")}}\nEquitable threat score (ETS) measures a combination of POD and FAR while accounting for random chance on a specific event, an aggregate rainfall event over a specific mm threshhold. We only calculate ETS for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher ETS indicates better skill. Range [-1/3, 1].</span>\n\n{{else if (contains metric \"frequencybias\")}}\nFrequency Bias (FB) measures the ratio of how often an event happens between the ground truth and the estimate.  \\\n<span style=\"color: gray; font-weight: bold;\">⚪ Ideal value = 1.0 — Frequency Bias should be close to 1.0. Range [0, &infin;]</span>\n\n{{else if (contains metric \"csi\")}}\nCritical Success Index (CSI) measures the fraction of correctly predicted rainfall events, without adjusting for random chance. It combines information from hits, misses, and false alarms for an aggregate rainfall event over a specific threshold. We only calculate CSI for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher CSI indicates better event prediction skill. Range [0, 1].</span>\n{{else}}\n_no description available for this metric._\n{{/if}}",
         "contentPartials": [],
         "defaultContent": "The query didn't return any results.",
         "editor": {
@@ -65,7 +65,7 @@
         "styles": "",
         "wrap": true
       },
-      "pluginVersion": "5.6.0",
+      "pluginVersion": "6.2.0",
       "targets": [
         {
           "editorMode": "code",
@@ -102,7 +102,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 5
       },
       "id": 9,
       "panels": [],
@@ -135,10 +135,242 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 6
+      },
+      "id": 15,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 0
+          },
+          "paper_bgcolor": "#F4F5F5",
+          "plog_bgcolor": "#F4F5F5",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            },
+            "pad": {
+              "b": 0
+            },
+            "x": 0,
+            "xanchor": "left"
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "",
+        "resScale": 0,
+        "script": "\n\nconst specialNames = {\n  1: \"Day\",\n  5: \"Pentad\",\n  7: \"Week\",\n  10: \"Dekad\"\n};\n\nfunction renameField(fieldName) {\n  // Try to interpret as integer\n  const num = parseInt(fieldName, 10);\n\n  // If not numeric → keep the original name\n  if (isNaN(num)) return fieldName;\n\n  // If numeric and special → use special name\n  if (specialNames[num]) return specialNames[num];\n\n  // Otherwise → \"<num> Days\"\n  return `${num} Days`;\n}\n\nlet series = data.series[0]\nif (series.length == 0) {\n    return {\n        data: []\n    }\n}\n\nvar region = variables['region_option'].current.value\nvar truth = variables['truth'].current.text\n\nfunction cap(str) {\n  var i, frags = str.split('_');\n  for (i=0; i<frags.length; i++) {\n    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);\n  }\n  return frags.join(' ');\n}\n\nregion = cap(region)\ntruth = cap(truth)\n\n// Build header: first \"Forecast\", then renamed numeric fields\nlet header = [\n  truth + \" coverage in \" + region,\n  ...series.fields[2].values.map(f => renameField(f))\n];\n\nvalues = []\ncell_values = []\nvalues.push([\"Grid cells\", \"Average time\"])\n\nfor (let i = 0; i < series.fields[3].values.length; i++) {\n    covered = series.fields[5].values[i]\n    total = series.fields[3].values[i]\n    days = series.fields[6].values[i]\n    years = (days/365).toFixed(1)\n    values.push([covered + \"/\" + total, years + \" years\"])\n}\n\nreturn {\n    data: [{\n        type: 'table',\n        header: {\n            values: header,\n            align: ['left', 'right', 'right', 'right', 'right'],\n            line: { width: 0, color: '#DBDDDE' },\n            font: { family: \"Inter, sans-serif\", size: 14, weight: \"bold\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            }\n        },\n        cells: {\n            values: values,\n            align: ['left', 'right',  'right', 'right', 'right'],\n            line: { width: 1, color: \"#DBDDDE\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            },\n            font: { family: \"Inter, sans-serif\", size: 14, color: [\"black\"] },\n            height: 35\n        },\n        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin\n    }],\n    layout: {\n    }\n}\n",
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT *\nFROM \"$coverage_tab_name\" where region = '$region_option' AND agg_days IN (\n  SELECT CAST(column_name as INT)\n  FROM INFORMATION_SCHEMA.COLUMNS\n  WHERE TABLE_NAME = '$precip_tab_name' AND column_name IN ('1', '3', '5', '7', '10', '11')\n)\n",
+          "refId": "C",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "id": 16,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 0
+          },
+          "paper_bgcolor": "#F4F5F5",
+          "plog_bgcolor": "#F4F5F5",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            },
+            "pad": {
+              "b": 0
+            },
+            "x": 0,
+            "xanchor": "left"
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "",
+        "resScale": 0,
+        "script": "\n\nconst specialNames = {\n  1: \"Day\",\n  5: \"Pentad\",\n  7: \"Week\",\n  10: \"Dekad\"\n};\n\nfunction renameField(fieldName) {\n  // Try to interpret as integer\n  const num = parseInt(fieldName, 10);\n\n  // If not numeric → keep the original name\n  if (isNaN(num)) return fieldName;\n\n  // If numeric and special → use special name\n  if (specialNames[num]) return specialNames[num];\n\n  // Otherwise → \"<num> Days\"\n  return `${num} Days`;\n}\n\nlet series = data.series[0]\nif (series.length == 0) {\n    return {\n        data: []\n    }\n}\n\nvar region = variables['region_option2'].current.value\nvar truth = variables['truth'].current.text\n\nfunction cap(str) {\n  var i, frags = str.split('_');\n  for (i=0; i<frags.length; i++) {\n    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);\n  }\n  return frags.join(' ');\n}\n\nregion = cap(region)\ntruth = cap(truth)\n\n// Build header: first \"Forecast\", then renamed numeric fields\nlet header = [\n  truth + \" coverage in \" + region,\n  ...series.fields[2].values.map(f => renameField(f))\n];\n\nvalues = []\ncell_values = []\nvalues.push([\"Grid cells\", \"Average time\"])\n\nfor (let i = 0; i < series.fields[3].values.length; i++) {\n    covered = series.fields[5].values[i]\n    total = series.fields[3].values[i]\n    days = series.fields[6].values[i]\n    years = (days/365).toFixed(1)\n    values.push([covered + \"/\" + total, years + \" years\"])\n}\n\nreturn {\n    data: [{\n        type: 'table',\n        header: {\n            values: header,\n            align: ['left', 'right', 'right', 'right', 'right'],\n            line: { width: 0, color: '#DBDDDE' },\n            font: { family: \"Inter, sans-serif\", size: 14, weight: \"bold\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            }\n        },\n        cells: {\n            values: values,\n            align: ['left', 'right',  'right', 'right', 'right'],\n            line: { width: 1, color: \"#DBDDDE\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            },\n            font: { family: \"Inter, sans-serif\", size: 14, color: [\"black\"] },\n            height: 35\n        },\n        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin\n    }],\n}\n",
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT *\nFROM \"$coverage_tab_name\" where region = '$region_option2' AND agg_days IN (\n  SELECT CAST(column_name as INT)\n  FROM INFORMATION_SCHEMA.COLUMNS\n  WHERE TABLE_NAME = '$precip_tab_name' AND column_name IN ('1', '3', '5', '7', '10', '11')\n)\n",
+          "refId": "C",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 11
       },
       "id": 12,
       "options": {
@@ -185,7 +417,7 @@
         },
         "onclick": "",
         "resScale": 0,
-        "script": "// Utility function to convert hex color to an RGB object\nfunction hexToRgb(hex) {\n    const bigint = parseInt(hex.slice(1), 16);\n    return {\n        r: (bigint >> 16) & 255,\n        g: (bigint >> 8) & 255,\n        b: bigint & 255\n    };\n}\n\n// Function to get interpolated color by passing a value from 0 to 1\nfunction getColor(value, cmin, cmax, colorMap) {\n    let colors;\n\n    // Define color scales based on the selected colormap\n    if (colorMap === 'BrBG') {\n        colors = [\n            \"#543005\",\n            \"#8C510A\", \"#BF812D\", \"#DFC27D\", \"#F6E8C3\",\n            \"#F5F5F5\", \"#C7EAE5\", \"#80CDC1\", \"#35978F\", \"#01665E\",\n            \"#003C30\"\n        ];\n    } else if (colorMap === 'balance') {\n        colors = [\n            \"#2a0a0a\",\n            \"#751b1b\", \"#b73c3c\", \"#e88484\", \"#f3c3c3\", // Negative side\n            \"#ffffff\",                                            // Neutral middle\n            \"#c3e4f3\", \"#84c2e8\", \"#3c9fb7\", \"#1b5e75\",  // Positive side\n            \"#0a2a2a\"\n        ];\n        colors = colors.reverse()\n    } else if (colorMap === 'RdBu') {\n        colors = ['#ff0000', '#ffffff', '#0000ff'];\n    } else {\n        throw new Error(\"Invalid colorMap. Choose 'BrBG', 'balance', or 'RdBu'.\");\n    }\n\n    let x;\n    if (value > 0) {\n        x = 0.5 + (value / cmax) * 0.5;  // Map positive values from 0.5 to 1.0\n    } else if (value < 0) {\n        x = 0.5 + (value / (-cmin)) * 0.5;  // Map negative values from 0.0 to 0.5\n    } else {\n        x = 0.5;  // Zero maps to middle\n    }    \n\n\n    // Clamp value between 0 and 1\n    x = Math.min(1, Math.max(0, x));\n    if (isNaN(x)) {\n        return `rgba(255, 255, 255, 0.5)`;\n    }\n\n    // Compute exact position in color array\n    const scaledValue = x * (colors.length - 1);\n    const lowerIndex = Math.floor(scaledValue);\n    const upperIndex = Math.ceil(scaledValue);\n\n    // Edge case: if at the end of the array, return the last color\n    if (lowerIndex === upperIndex) {\n        const color = hexToRgb(colors[lowerIndex]);\n        return `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;\n    }\n\n    // Interpolate between the two colors\n    const lowerColor = hexToRgb(colors[lowerIndex]);\n    const upperColor = hexToRgb(colors[upperIndex]);\n    const t = scaledValue - lowerIndex;\n\n    // Interpolate RGB channels\n    const r = Math.round(lowerColor.r + t * (upperColor.r - lowerColor.r));\n    const g = Math.round(lowerColor.g + t * (upperColor.g - lowerColor.g));\n    const b = Math.round(lowerColor.b + t * (upperColor.b - lowerColor.b));\n\n    // Return the interpolated color as an rgb(r, g, b) string\n    return `rgba(${r}, ${g}, ${b}, 0.5)`;\n}\n\nconst specialNames = {\n  1: \"Day\",\n  5: \"Pentad\",\n  7: \"Week\",\n  10: \"Dekad\"\n};\n\nfunction renameField(fieldName) {\n  // Try to interpret as integer\n  const num = parseInt(fieldName, 10);\n\n  // If not numeric → keep the original name\n  if (isNaN(num)) return fieldName;\n\n  // If numeric and special → use special name\n  if (specialNames[num]) return specialNames[num];\n\n  // Otherwise → \"<num> Days\"\n  return `${num} Days`;\n}\n\nlet series = data.series[0]\nif (series.length == 0) {\n    return {\n        data: []\n    }\n}\n\n\nforecasts = series.fields[0].values\nvalues = []\nskills = []\n\n\n// Build header: first \"Forecast\", then renamed numeric fields\nlet header = [\n  \"Data Source\",\n  ...series.fields.slice(3).map(f => renameField(f.name))\n];\n\n// console.log(header)\norig_header = [\"forecast\", \"1\", '5', '7', '10']\nlet max = -Infinity;\nlet min = Infinity;\nlet maximize;\nlet metric = variables['metric'].current.value;\nif (metric.startsWith('heidke') || metric.startsWith('pod') || metric.startsWith('ets')) {\n    maximize = true; // these metrics are maximized\n} else if (metric.startsWith('far-1.5')) {\n    maximize = true;\n} else {\n    maximize = false;\n}\n\nidx = 1\nskill_baseline_idx = null;\nfor (var i = 0; i < forecasts.length; i = i + 1) {\n    if (variables.baseline.current.value == forecasts[i]) {\n        skill_baseline_idx = i\n    }\n}\n\nbaseline_values = []\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        baseline_values.push(1.0 - series.fields[i].values[skill_baseline_idx])\n    } else {\n        baseline_values.push(series.fields[i].values[skill_baseline_idx])\n    }\n}\n\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    v = series.fields[i].values\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        v = v.map(x => 1.0 - x);\n    }\n\n    skill_values = []\n    for (var j = 0; j < v.length; j++) {\n        let val = parseFloat(v[j]);\n        if (val > max) {\n            max = val;\n        }\n        if (val < min) {\n            min = val;\n        }     \n\n        if (isNaN(val) || baseline_values[(i - 2 - idx)] == null || isNaN(baseline_values[(i - 2 - idx)])) {\n            skill_values.push(NaN)\n        }             \n        else if (maximize){\n            // Compute the skill of the distance from 1\n            skill_val = (1 - ((1-val) / (1-baseline_values[(i - 2 - idx)])));\n            skill_values.push(skill_val) \n        } else {\n            skill_val = (1 - (val / baseline_values[(i - 2 - idx)]));\n            skill_values.push(skill_val) \n        }\n    \n               \n    }\n    values.push(v)\n    skills.push(skill_values)\n}\n\n\n// round to two decimal places\nvalues = values.map((week) => week.map((x) => { if (x) { return x.toFixed(2) } else { return '-' } }))\nforecasts = forecasts.map((forecast) => forecast.replaceAll('_', ' ').split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' '))\nvalues.unshift(forecasts)\n\n// Rename dictionary\nconst renameDict = {\n    \"Chirp V3\": \"CHIRP V3\",\n    \"Chirps V3\": \"CHIRPS V3\",\n    \"Era5\": \"ERA5\",\n    \"Imerg Final\": \"IMERG Final\",\n    \"Imerg Late\": \"IMERG Late\",\n    \"Cbam\": \"CBAM\",\n};\n\n// Apply custom renaming to the first column of cellValues\nvalues[0] = values[0].map(value => renameDict[value] || value);\n\n// assign the forecast colors\nforecast_colors = []\nfor (var i = 0; i < forecasts.length; i++) {\n    forecast_colors.push('rgba(0,0,0,0)')\n}\n\nlet skill_colors = []\n// assign the skill colors\nlet colorMap, cmax, cmin;\n// if (variables['metric'].current.value == 'bias') {\n//     colormap = 'balance';\n//     cmax = max;\n//     cmin = min;\n// }\n// else {\n//     colormap = 'rdbu';\n//     cmax = 1;\n//     cmin = -1;\n// }\n// Determine color map and ranges based on metric\nswitch (variables['metric'].current.value) {\n    case 'bias':\n        colorMap = 'BrBG';\n        [cmin, cmax] = [min, max];\n        break;\n    case 'acc':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    case 'pearson':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;        \n    // Error metrics - smaller is better\n    case 'mae':\n    case 'crps':\n    case 'rmse':\n    case 'smape':\n    case 'seeps':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // Skill score metrics - larger is better\n    case 'heidke-1-5-10-20':\n    case 'pod-1':\n    case 'pod-5':\n    case 'pod-10':\n    case 'ets-1':\n    case 'ets-5':\n    case 'ets-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // FAR metrics - smaller is better\n    case 'far-1':\n    case 'far-5':\n    case 'far-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1]\n        break;\n    default:\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n}\n\n\nfor (var i = 0; i < skills.length; i++) {\n    let week_colors = [];\n    for (var j = 0; j < skills[i].length; j++) {\n        if (variables['metric'].current.value == 'acc' || variables['metric'].current.value == 'pearson' || variables['metric'].current.value == 'bias') {\n            val = parseFloat(values[i + 1][j]);\n        } else {\n            val = parseFloat(skills[i][j]);\n        }\n        week_colors.push(getColor(val, cmin, cmax, colorMap))\n    }\n    skill_colors.push(week_colors)\n}\n\nvar units = \"\"\nif (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {\n    units = \" (mm/day)\"\n}\n\nvar region = variables['region_option'].current.value\n\nfunction cap(str) {\n  var i, frags = str.split('_');\n  for (i=0; i<frags.length; i++) {\n    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);\n  }\n  return frags.join(' ');\n}\n\nregion = cap(region)\n\nreturn {\n    data: [{\n        type: 'table',\n        header: {\n            values: header,\n            align: ['left', 'right', 'right', 'right', 'right'],\n            line: { width: 0, color: '#DBDDDE' },\n            font: { family: \"Inter, sans-serif\", size: 14, weight: \"bold\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            }\n        },\n        cells: {\n            values: values,\n            align: ['left', 'right',  'right', 'right', 'right'],\n            line: { width: 1, color: \"#DBDDDE\" },\n            font: { family: \"Inter, sans-serif\", size: 14, color: [\"black\"] },\n            fill: {\n                color: [forecast_colors, ...skill_colors]\n            },\n            height: 35\n        },\n        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin\n    }],\n    layout: {\n        title: {\n            text: region + \" precipitation results\" + units,\n            xanchor: 'left',\n            x: 0\n        }\n    }\n}\n",
+        "script": "// Utility function to convert hex color to an RGB object\nfunction hexToRgb(hex) {\n    const bigint = parseInt(hex.slice(1), 16);\n    return {\n        r: (bigint >> 16) & 255,\n        g: (bigint >> 8) & 255,\n        b: bigint & 255\n    };\n}\n\n// Function to get interpolated color by passing a value from 0 to 1\nfunction getColor(value, cmin, cmax, colorMap) {\n    let colors;\n\n    // Define color scales based on the selected colormap\n    if (colorMap === 'BrBG') {\n        colors = [\n            \"#543005\",\n            \"#8C510A\", \"#BF812D\", \"#DFC27D\", \"#F6E8C3\",\n            \"#F5F5F5\", \"#C7EAE5\", \"#80CDC1\", \"#35978F\", \"#01665E\",\n            \"#003C30\"\n        ];\n    } else if (colorMap === 'balance') {\n        colors = [\n            \"#2a0a0a\",\n            \"#751b1b\", \"#b73c3c\", \"#e88484\", \"#f3c3c3\", // Negative side\n            \"#ffffff\",                                            // Neutral middle\n            \"#c3e4f3\", \"#84c2e8\", \"#3c9fb7\", \"#1b5e75\",  // Positive side\n            \"#0a2a2a\"\n        ];\n        colors = colors.reverse()\n    } else if (colorMap === 'RdBu') {\n        colors = ['#ff0000', '#ffffff', '#0000ff'];\n    } else {\n        throw new Error(\"Invalid colorMap. Choose 'BrBG', 'balance', or 'RdBu'.\");\n    }\n\n    let x;\n    if (value > 0) {\n        x = 0.5 + (value / cmax) * 0.5;  // Map positive values from 0.5 to 1.0\n    } else if (value < 0) {\n        x = 0.5 + (value / (-cmin)) * 0.5;  // Map negative values from 0.0 to 0.5\n    } else {\n        x = 0.5;  // Zero maps to middle\n    }    \n\n\n    // Clamp value between 0 and 1\n    x = Math.min(1, Math.max(0, x));\n    if (isNaN(x)) {\n        return `rgba(255, 255, 255, 0.5)`;\n    }\n\n    // Compute exact position in color array\n    const scaledValue = x * (colors.length - 1);\n    const lowerIndex = Math.floor(scaledValue);\n    const upperIndex = Math.ceil(scaledValue);\n\n    // Edge case: if at the end of the array, return the last color\n    if (lowerIndex === upperIndex) {\n        const color = hexToRgb(colors[lowerIndex]);\n        return `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;\n    }\n\n    // Interpolate between the two colors\n    const lowerColor = hexToRgb(colors[lowerIndex]);\n    const upperColor = hexToRgb(colors[upperIndex]);\n    const t = scaledValue - lowerIndex;\n\n    // Interpolate RGB channels\n    const r = Math.round(lowerColor.r + t * (upperColor.r - lowerColor.r));\n    const g = Math.round(lowerColor.g + t * (upperColor.g - lowerColor.g));\n    const b = Math.round(lowerColor.b + t * (upperColor.b - lowerColor.b));\n\n    // Return the interpolated color as an rgb(r, g, b) string\n    return `rgba(${r}, ${g}, ${b}, 0.5)`;\n}\n\nconst specialNames = {\n  1: \"Day\",\n  5: \"Pentad\",\n  7: \"Week\",\n  10: \"Dekad\"\n};\n\nfunction renameField(fieldName) {\n  // Try to interpret as integer\n  const num = parseInt(fieldName, 10);\n\n  // If not numeric → keep the original name\n  if (isNaN(num)) return fieldName;\n\n  // If numeric and special → use special name\n  if (specialNames[num]) return specialNames[num];\n\n  // Otherwise → \"<num> Days\"\n  return `${num} Days`;\n}\n\nlet series = data.series[0]\nif (series.length == 0) {\n    return {\n        data: []\n    }\n}\n\n\nforecasts = series.fields[0].values\nvalues = []\nskills = []\n\n\n// Build header: first \"Forecast\", then renamed numeric fields\nlet header = [\n  \"Data Source\",\n  ...series.fields.slice(3).map(f => renameField(f.name))\n];\n\n// console.log(header)\norig_header = [\"forecast\", \"1\", '5', '7', '10']\nlet max = -Infinity;\nlet min = Infinity;\nlet maximize;\nlet metric = variables['metric'].current.value;\nif (metric.startsWith('heidke') || metric.startsWith('pod') || metric.startsWith('ets') || metric.startsWith('csi')) {\n    maximize = true; // these metrics are maximized\n} else if (metric.startsWith('far-1.5')) {\n    maximize = true;\n} else {\n    maximize = false;\n}\n\nidx = 1\nskill_baseline_idx = null;\nfor (var i = 0; i < forecasts.length; i = i + 1) {\n    if (variables.baseline.current.value == forecasts[i]) {\n        skill_baseline_idx = i\n    }\n}\n\nbaseline_values = []\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        baseline_values.push(1.0 - series.fields[i].values[skill_baseline_idx])\n    } else {\n        baseline_values.push(series.fields[i].values[skill_baseline_idx])\n    }\n}\n\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    v = series.fields[i].values\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        v = v.map(x => 1.0 - x);\n    }\n\n    skill_values = []\n    for (var j = 0; j < v.length; j++) {\n        let val = parseFloat(v[j]);\n        if (val > max) {\n            max = val;\n        }\n        if (val < min) {\n            min = val;\n        }     \n\n        if (isNaN(val) || baseline_values[(i - 2 - idx)] == null || isNaN(baseline_values[(i - 2 - idx)])) {\n            skill_values.push(NaN)\n        }             \n        else if (maximize){\n            // Compute the skill of the distance from 1\n            skill_val = (1 - ((1-val) / (1-baseline_values[(i - 2 - idx)])));\n            skill_values.push(skill_val) \n        } else {\n            skill_val = (1 - (val / baseline_values[(i - 2 - idx)]));\n            skill_values.push(skill_val) \n        }\n    \n               \n    }\n    values.push(v)\n    skills.push(skill_values)\n}\n\n\n// round to two decimal places\nvalues = values.map((week) => week.map((x) => { if (x) { return x.toFixed(2) } else { return '-' } }))\nforecasts = forecasts.map((forecast) => forecast.replaceAll('_', ' ').split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' '))\nvalues.unshift(forecasts)\n\n// Rename dictionary\nconst renameDict = {\n    \"Chirp V3\": \"CHIRP V3\",\n    \"Chirps V3\": \"CHIRPS V3\",\n    \"Era5\": \"ERA5\",\n    \"Imerg Final\": \"IMERG Final\",\n    \"Imerg Late\": \"IMERG Late\",\n    \"Cbam\": \"CBAM\",\n};\n\n// Apply custom renaming to the first column of cellValues\nvalues[0] = values[0].map(value => renameDict[value] || value);\n\n// assign the forecast colors\nforecast_colors = []\nfor (var i = 0; i < forecasts.length; i++) {\n    forecast_colors.push('rgba(0,0,0,0)')\n}\n\nlet skill_colors = []\n// assign the skill colors\nlet colorMap, cmax, cmin;\n// if (variables['metric'].current.value == 'bias') {\n//     colormap = 'balance';\n//     cmax = max;\n//     cmin = min;\n// }\n// else {\n//     colormap = 'rdbu';\n//     cmax = 1;\n//     cmin = -1;\n// }\n// Determine color map and ranges based on metric\nswitch (variables['metric'].current.value) {\n    case 'bias':\n        colorMap = 'BrBG';\n        [cmin, cmax] = [min, max];\n        break;\n    case 'acc':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    case 'pearson':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;        \n    // Error metrics - smaller is better\n    case 'mae':\n    case 'crps':\n    case 'rmse':\n    case 'smape':\n    case 'seeps':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // Skill score metrics - larger is better\n    case 'heidke-1-5-10-20':\n    case 'pod-1':\n    case 'pod-5':\n    case 'pod-10':\n    case 'ets-1':\n    case 'ets-5':\n    case 'ets-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // FAR metrics - smaller is better\n    case 'far-1':\n    case 'far-5':\n    case 'far-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1]\n        break;\n    default:\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n}\n\n\nfor (var i = 0; i < skills.length; i++) {\n    let week_colors = [];\n    for (var j = 0; j < skills[i].length; j++) {\n        if (variables['metric'].current.value == 'acc' || variables['metric'].current.value == 'pearson' || variables['metric'].current.value == 'bias') {\n            val = parseFloat(values[i + 1][j]);\n        } else {\n            val = parseFloat(skills[i][j]);\n        }\n        week_colors.push(getColor(val, cmin, cmax, colorMap))\n    }\n    skill_colors.push(week_colors)\n}\n\nvar units = \"\"\nif (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {\n    units = \" (mm/day)\"\n}\n\nvar region = variables['region_option'].current.value\n\nfunction cap(str) {\n  var i, frags = str.split('_');\n  for (i=0; i<frags.length; i++) {\n    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);\n  }\n  return frags.join(' ');\n}\n\nregion = cap(region)\n\nreturn {\n    data: [{\n        type: 'table',\n        header: {\n            values: header,\n            align: ['left', 'right', 'right', 'right', 'right'],\n            line: { width: 0, color: '#DBDDDE' },\n            font: { family: \"Inter, sans-serif\", size: 14, weight: \"bold\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            }\n        },\n        cells: {\n            values: values,\n            align: ['left', 'right',  'right', 'right', 'right'],\n            line: { width: 1, color: \"#DBDDDE\" },\n            font: { family: \"Inter, sans-serif\", size: 14, color: [\"black\"] },\n            fill: {\n                color: [forecast_colors, ...skill_colors]\n            },\n            height: 35\n        },\n        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin\n    }],\n    layout: {\n        title: {\n            text: region + \" precipitation results\" + units,\n            xanchor: 'left',\n            x: 0\n        }\n    }\n}\n",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -279,10 +511,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 10,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 11
       },
       "id": 14,
       "options": {
@@ -329,7 +561,7 @@
         },
         "onclick": "",
         "resScale": 0,
-        "script": "// Utility function to convert hex color to an RGB object\nfunction hexToRgb(hex) {\n    const bigint = parseInt(hex.slice(1), 16);\n    return {\n        r: (bigint >> 16) & 255,\n        g: (bigint >> 8) & 255,\n        b: bigint & 255\n    };\n}\n\n// Function to get interpolated color by passing a value from 0 to 1\nfunction getColor(value, cmin, cmax, colorMap) {\n    let colors;\n\n    // Define color scales based on the selected colormap\n    if (colorMap === 'BrBG') {\n        colors = [\n            \"#543005\",\n            \"#8C510A\", \"#BF812D\", \"#DFC27D\", \"#F6E8C3\",\n            \"#F5F5F5\", \"#C7EAE5\", \"#80CDC1\", \"#35978F\", \"#01665E\",\n            \"#003C30\"\n        ];\n    } else if (colorMap === 'balance') {\n        colors = [\n            \"#2a0a0a\",\n            \"#751b1b\", \"#b73c3c\", \"#e88484\", \"#f3c3c3\", // Negative side\n            \"#ffffff\",                                            // Neutral middle\n            \"#c3e4f3\", \"#84c2e8\", \"#3c9fb7\", \"#1b5e75\",  // Positive side\n            \"#0a2a2a\"\n        ];\n        colors = colors.reverse()\n    } else if (colorMap === 'RdBu') {\n        colors = ['#ff0000', '#ffffff', '#0000ff'];\n    } else {\n        throw new Error(\"Invalid colorMap. Choose 'BrBG', 'balance', or 'RdBu'.\");\n    }\n\n    let x;\n    if (value > 0) {\n        x = 0.5 + (value / cmax) * 0.5;  // Map positive values from 0.5 to 1.0\n    } else if (value < 0) {\n        x = 0.5 + (value / (-cmin)) * 0.5;  // Map negative values from 0.0 to 0.5\n    } else {\n        x = 0.5;  // Zero maps to middle\n    }    \n\n\n    // Clamp value between 0 and 1\n    x = Math.min(1, Math.max(0, x));\n    if (isNaN(x)) {\n        return `rgba(255, 255, 255, 0.5)`;\n    }\n\n    // Compute exact position in color array\n    const scaledValue = x * (colors.length - 1);\n    const lowerIndex = Math.floor(scaledValue);\n    const upperIndex = Math.ceil(scaledValue);\n\n    // Edge case: if at the end of the array, return the last color\n    if (lowerIndex === upperIndex) {\n        const color = hexToRgb(colors[lowerIndex]);\n        return `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;\n    }\n\n    // Interpolate between the two colors\n    const lowerColor = hexToRgb(colors[lowerIndex]);\n    const upperColor = hexToRgb(colors[upperIndex]);\n    const t = scaledValue - lowerIndex;\n\n    // Interpolate RGB channels\n    const r = Math.round(lowerColor.r + t * (upperColor.r - lowerColor.r));\n    const g = Math.round(lowerColor.g + t * (upperColor.g - lowerColor.g));\n    const b = Math.round(lowerColor.b + t * (upperColor.b - lowerColor.b));\n\n    // Return the interpolated color as an rgb(r, g, b) string\n    return `rgba(${r}, ${g}, ${b}, 0.5)`;\n}\n\nconst specialNames = {\n  1: \"Day\",\n  5: \"Pentad\",\n  7: \"Week\",\n  10: \"Dekad\"\n};\n\nfunction renameField(fieldName) {\n  // Try to interpret as integer\n  const num = parseInt(fieldName, 10);\n\n  // If not numeric → keep the original name\n  if (isNaN(num)) return fieldName;\n\n  // If numeric and special → use special name\n  if (specialNames[num]) return specialNames[num];\n\n  // Otherwise → \"<num> Days\"\n  return `${num} Days`;\n}\n\nlet series = data.series[0]\nif (series.length == 0) {\n    return {\n        data: []\n    }\n}\n\n\nforecasts = series.fields[0].values\nvalues = []\nskills = []\n\n\n// Build header: first \"Forecast\", then renamed numeric fields\nlet header = [\n  \"Data Source\",\n  ...series.fields.slice(3).map(f => renameField(f.name))\n];\n\n// console.log(header)\norig_header = [\"forecast\", \"1\", '5', '7', '10']\nlet max = -Infinity;\nlet min = Infinity;\nlet maximize;\nlet metric = variables['metric'].current.value;\nif (metric.startsWith('heidke') || metric.startsWith('pod') || metric.startsWith('ets')) {\n    maximize = true; // these metrics are maximized\n} else if (metric.startsWith('far-1.5')) {\n    maximize = true;\n} else {\n    maximize = false;\n}\n\nidx = 1\nskill_baseline_idx = null;\nfor (var i = 0; i < forecasts.length; i = i + 1) {\n    if (variables.baseline.current.value == forecasts[i]) {\n        skill_baseline_idx = i\n    }\n}\n\nbaseline_values = []\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        baseline_values.push(1.0 - series.fields[i].values[skill_baseline_idx])\n    } else {\n        baseline_values.push(series.fields[i].values[skill_baseline_idx])\n    }\n}\n\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    v = series.fields[i].values\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        v = v.map(x => 1.0 - x);\n    }\n\n    skill_values = []\n    for (var j = 0; j < v.length; j++) {\n        let val = parseFloat(v[j]);\n        if (val > max) {\n            max = val;\n        }\n        if (val < min) {\n            min = val;\n        }     \n\n        if (isNaN(val) || baseline_values[(i - 2 - idx)] == null || isNaN(baseline_values[(i - 2 - idx)])) {\n            skill_values.push(NaN)\n        }             \n        else if (maximize){\n            // Compute the skill of the distance from 1\n            skill_val = (1 - ((1-val) / (1-baseline_values[(i - 2 - idx)])));\n            skill_values.push(skill_val) \n        } else {\n            skill_val = (1 - (val / baseline_values[(i - 2 - idx)]));\n            skill_values.push(skill_val) \n        }\n    \n               \n    }\n    values.push(v)\n    skills.push(skill_values)\n}\n\n\n// round to two decimal places\nvalues = values.map((week) => week.map((x) => { if (x) { return x.toFixed(2) } else { return '-' } }))\nforecasts = forecasts.map((forecast) => forecast.replaceAll('_', ' ').split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' '))\nvalues.unshift(forecasts)\n\n// Rename dictionary\nconst renameDict = {\n    \"Chirp V3\": \"CHIRP V3\",\n    \"Chirps V3\": \"CHIRPS V3\",\n    \"Era5\": \"ERA5\",\n    \"Imerg Final\": \"IMERG Final\",\n    \"Imerg Late\": \"IMERG Late\",\n    \"Cbam\": \"CBAM\",\n};\n\n// Apply custom renaming to the first column of cellValues\nvalues[0] = values[0].map(value => renameDict[value] || value);\n\n// assign the forecast colors\nforecast_colors = []\nfor (var i = 0; i < forecasts.length; i++) {\n    forecast_colors.push('rgba(0,0,0,0)')\n}\n\nlet skill_colors = []\n// assign the skill colors\nlet colorMap, cmax, cmin;\n// if (variables['metric'].current.value == 'bias') {\n//     colormap = 'balance';\n//     cmax = max;\n//     cmin = min;\n// }\n// else {\n//     colormap = 'rdbu';\n//     cmax = 1;\n//     cmin = -1;\n// }\n// Determine color map and ranges based on metric\nswitch (variables['metric'].current.value) {\n    case 'bias':\n        colorMap = 'BrBG';\n        [cmin, cmax] = [min, max];\n        break;\n    case 'acc':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    case 'pearson':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;        \n    // Error metrics - smaller is better\n    case 'mae':\n    case 'crps':\n    case 'rmse':\n    case 'smape':\n    case 'seeps':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // Skill score metrics - larger is better\n    case 'heidke-1-5-10-20':\n    case 'pod-1':\n    case 'pod-5':\n    case 'pod-10':\n    case 'ets-1':\n    case 'ets-5':\n    case 'ets-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // FAR metrics - smaller is better\n    case 'far-1':\n    case 'far-5':\n    case 'far-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1]\n        break;\n    default:\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n}\n\n\nfor (var i = 0; i < skills.length; i++) {\n    let week_colors = [];\n    for (var j = 0; j < skills[i].length; j++) {\n        if (variables['metric'].current.value == 'acc' || variables['metric'].current.value == 'pearson' || variables['metric'].current.value == 'bias') {\n            val = parseFloat(values[i + 1][j]);\n        } else {\n            val = parseFloat(skills[i][j]);\n        }\n        week_colors.push(getColor(val, cmin, cmax, colorMap))\n    }\n    skill_colors.push(week_colors)\n}\n\nvar units = \"\"\nif (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {\n    units = \" (mm/day)\"\n}\n\nvar region = variables['region_option2'].current.value\n\nfunction cap(str) {\n  var i, frags = str.split('_');\n  for (i=0; i<frags.length; i++) {\n    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);\n  }\n  return frags.join(' ');\n}\n\nregion = cap(region)\n\nreturn {\n    data: [{\n        type: 'table',\n        header: {\n            values: header,\n            align: ['left', 'right', 'right', 'right', 'right'],\n            line: { width: 0, color: '#DBDDDE' },\n            font: { family: \"Inter, sans-serif\", size: 14, weight: \"bold\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            }\n        },\n        cells: {\n            values: values,\n            align: ['left', 'right',  'right', 'right', 'right'],\n            line: { width: 1, color: \"#DBDDDE\" },\n            font: { family: \"Inter, sans-serif\", size: 14, color: [\"black\"] },\n            fill: {\n                color: [forecast_colors, ...skill_colors]\n            },\n            height: 35\n        },\n        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin\n    }],\n    layout: {\n        title: {\n            text: region + \" precipitation results\" + units,\n            xanchor: 'left',\n            x: 0\n        }\n    }\n}\n",
+        "script": "// Utility function to convert hex color to an RGB object\nfunction hexToRgb(hex) {\n    const bigint = parseInt(hex.slice(1), 16);\n    return {\n        r: (bigint >> 16) & 255,\n        g: (bigint >> 8) & 255,\n        b: bigint & 255\n    };\n}\n\n// Function to get interpolated color by passing a value from 0 to 1\nfunction getColor(value, cmin, cmax, colorMap) {\n    let colors;\n\n    // Define color scales based on the selected colormap\n    if (colorMap === 'BrBG') {\n        colors = [\n            \"#543005\",\n            \"#8C510A\", \"#BF812D\", \"#DFC27D\", \"#F6E8C3\",\n            \"#F5F5F5\", \"#C7EAE5\", \"#80CDC1\", \"#35978F\", \"#01665E\",\n            \"#003C30\"\n        ];\n    } else if (colorMap === 'balance') {\n        colors = [\n            \"#2a0a0a\",\n            \"#751b1b\", \"#b73c3c\", \"#e88484\", \"#f3c3c3\", // Negative side\n            \"#ffffff\",                                            // Neutral middle\n            \"#c3e4f3\", \"#84c2e8\", \"#3c9fb7\", \"#1b5e75\",  // Positive side\n            \"#0a2a2a\"\n        ];\n        colors = colors.reverse()\n    } else if (colorMap === 'RdBu') {\n        colors = ['#ff0000', '#ffffff', '#0000ff'];\n    } else {\n        throw new Error(\"Invalid colorMap. Choose 'BrBG', 'balance', or 'RdBu'.\");\n    }\n\n    let x;\n    if (value > 0) {\n        x = 0.5 + (value / cmax) * 0.5;  // Map positive values from 0.5 to 1.0\n    } else if (value < 0) {\n        x = 0.5 + (value / (-cmin)) * 0.5;  // Map negative values from 0.0 to 0.5\n    } else {\n        x = 0.5;  // Zero maps to middle\n    }    \n\n\n    // Clamp value between 0 and 1\n    x = Math.min(1, Math.max(0, x));\n    if (isNaN(x)) {\n        return `rgba(255, 255, 255, 0.5)`;\n    }\n\n    // Compute exact position in color array\n    const scaledValue = x * (colors.length - 1);\n    const lowerIndex = Math.floor(scaledValue);\n    const upperIndex = Math.ceil(scaledValue);\n\n    // Edge case: if at the end of the array, return the last color\n    if (lowerIndex === upperIndex) {\n        const color = hexToRgb(colors[lowerIndex]);\n        return `rgba(${color.r}, ${color.g}, ${color.b}, 0.5)`;\n    }\n\n    // Interpolate between the two colors\n    const lowerColor = hexToRgb(colors[lowerIndex]);\n    const upperColor = hexToRgb(colors[upperIndex]);\n    const t = scaledValue - lowerIndex;\n\n    // Interpolate RGB channels\n    const r = Math.round(lowerColor.r + t * (upperColor.r - lowerColor.r));\n    const g = Math.round(lowerColor.g + t * (upperColor.g - lowerColor.g));\n    const b = Math.round(lowerColor.b + t * (upperColor.b - lowerColor.b));\n\n    // Return the interpolated color as an rgb(r, g, b) string\n    return `rgba(${r}, ${g}, ${b}, 0.5)`;\n}\n\nconst specialNames = {\n  1: \"Day\",\n  5: \"Pentad\",\n  7: \"Week\",\n  10: \"Dekad\"\n};\n\nfunction renameField(fieldName) {\n  // Try to interpret as integer\n  const num = parseInt(fieldName, 10);\n\n  // If not numeric → keep the original name\n  if (isNaN(num)) return fieldName;\n\n  // If numeric and special → use special name\n  if (specialNames[num]) return specialNames[num];\n\n  // Otherwise → \"<num> Days\"\n  return `${num} Days`;\n}\n\nlet series = data.series[0]\nif (series.length == 0) {\n    return {\n        data: []\n    }\n}\n\n\nforecasts = series.fields[0].values\ncoverage = series.fields[2].values\nvalues = []\nskills = []\n\n\n// Build header: first \"Forecast\", then renamed numeric fields\nlet header = [\n  \"Data Source\",\n  ...series.fields.slice(3).map(f => renameField(f.name))\n];\n\n// console.log(header)\norig_header = [\"forecast\", \"1\", '5', '7', '10']\nlet max = -Infinity;\nlet min = Infinity;\nlet maximize;\nlet metric = variables['metric'].current.value;\nif (metric.startsWith('heidke') || metric.startsWith('pod') || metric.startsWith('ets') || metric.startsWith('csi')) {\n    maximize = true; // these metrics are maximized\n} else if (metric.startsWith('far-1.5')) {\n    maximize = true;\n} else {\n    maximize = false;\n}\n\nidx = 1\nskill_baseline_idx = null;\nfor (var i = 0; i < forecasts.length; i = i + 1) {\n    if (variables.baseline.current.value == forecasts[i]) {\n        skill_baseline_idx = i\n    }\n}\n\nbaseline_values = []\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        baseline_values.push(1.0 - series.fields[i].values[skill_baseline_idx])\n    } else {\n        baseline_values.push(series.fields[i].values[skill_baseline_idx])\n    }\n}\n\nfor (var i = 2 + idx; i < series.fields.length; i = i + 1) {\n    v = series.fields[i].values\n    if (metric.startsWith('far-1.5') || metric.startsWith('pod-1.5')){\n        v = v.map(x => 1.0 - x);\n    }\n\n    skill_values = []\n    for (var j = 0; j < v.length; j++) {\n        let val = parseFloat(v[j]);\n        if (val > max) {\n            max = val;\n        }\n        if (val < min) {\n            min = val;\n        }     \n\n        if (isNaN(val) || baseline_values[(i - 2 - idx)] == null || isNaN(baseline_values[(i - 2 - idx)])) {\n            skill_values.push(NaN)\n        }             \n        else if (maximize){\n            // Compute the skill of the distance from 1\n            skill_val = (1 - ((1-val) / (1-baseline_values[(i - 2 - idx)])));\n            skill_values.push(skill_val) \n        } else {\n            skill_val = (1 - (val / baseline_values[(i - 2 - idx)]));\n            skill_values.push(skill_val) \n        }\n    \n               \n    }\n    values.push(v)\n    skills.push(skill_values)\n}\n\n\n// round to two decimal places\nvalues = values.map((week) => week.map((x) => { if (x) { return x.toFixed(2) } else { return '-' } }))\nforecasts = forecasts.map((forecast) => forecast.replaceAll('_', ' ').split(' ').map((word) => word[0].toUpperCase() + word.substring(1)).join(' '))\nvalues.unshift(forecasts)\n\n// Rename dictionary\nconst renameDict = {\n    \"Chirp V3\": \"CHIRP V3\",\n    \"Chirps V3\": \"CHIRPS V3\",\n    \"Era5\": \"ERA5\",\n    \"Imerg Final\": \"IMERG Final\",\n    \"Imerg Late\": \"IMERG Late\",\n    \"Cbam\": \"CBAM\",\n};\n\n// Apply custom renaming to the first column of cellValues\nvalues[0] = values[0].map(value => renameDict[value] || value);\n\n// assign the forecast colors\nforecast_colors = []\nfor (var i = 0; i < forecasts.length; i++) {\n    forecast_colors.push('rgba(0,0,0,0)')\n}\n\nlet skill_colors = []\n// assign the skill colors\nlet colorMap, cmax, cmin;\n// if (variables['metric'].current.value == 'bias') {\n//     colormap = 'balance';\n//     cmax = max;\n//     cmin = min;\n// }\n// else {\n//     colormap = 'rdbu';\n//     cmax = 1;\n//     cmin = -1;\n// }\n// Determine color map and ranges based on metric\nswitch (variables['metric'].current.value) {\n    case 'bias':\n        colorMap = 'BrBG';\n        [cmin, cmax] = [min, max];\n        break;\n    case 'acc':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    case 'pearson':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;        \n    // Error metrics - smaller is better\n    case 'mae':\n    case 'crps':\n    case 'rmse':\n    case 'smape':\n    case 'seeps':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // Skill score metrics - larger is better\n    case 'heidke-1-5-10-20':\n    case 'pod-1':\n    case 'pod-5':\n    case 'pod-10':\n    case 'ets-1':\n    case 'ets-5':\n    case 'ets-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n        break;\n    // FAR metrics - smaller is better\n    case 'far-1':\n    case 'far-5':\n    case 'far-10':\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1]\n        break;\n    default:\n        colorMap = 'RdBu';\n        [cmin, cmax] = [-1, 1];\n}\n\n\nfor (var i = 0; i < skills.length; i++) {\n    let week_colors = [];\n    for (var j = 0; j < skills[i].length; j++) {\n        if (variables['metric'].current.value == 'acc' || variables['metric'].current.value == 'pearson' || variables['metric'].current.value == 'bias') {\n            val = parseFloat(values[i + 1][j]);\n        } else {\n            val = parseFloat(skills[i][j]);\n        }\n        week_colors.push(getColor(val, cmin, cmax, colorMap))\n    }\n    skill_colors.push(week_colors)\n}\n\nvar units = \"\"\nif (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {\n    units = \" (mm/day)\"\n}\n\nvar region = variables['region_option2'].current.value\n\nfunction cap(str) {\n  var i, frags = str.split('_');\n  for (i=0; i<frags.length; i++) {\n    frags[i] = frags[i].charAt(0).toUpperCase() + frags[i].slice(1);\n  }\n  return frags.join(' ');\n}\n\nregion = cap(region)\n\nreturn {\n    data: [{\n        type: 'table',\n        header: {\n            values: header,\n            align: ['left', 'right', 'right', 'right', 'right'],\n            line: { width: 0, color: '#DBDDDE' },\n            font: { family: \"Inter, sans-serif\", size: 14, weight: \"bold\" },\n            fill: {\n                color: ['rgba(0,0,0,0)']\n            }\n        },\n        cells: {\n            values: values,\n            align: ['left', 'right',  'right', 'right', 'right'],\n            line: { width: 1, color: \"#DBDDDE\" },\n            font: { family: \"Inter, sans-serif\", size: 14, color: [\"black\"] },\n            fill: {\n                color: [forecast_colors, ...skill_colors]\n            },\n            height: 35\n        },\n        columnwidth: [0.4, 0.5, 0.5, 0.5, 0.5, 0.5] // Make divider column very thin\n    }],\n    layout: {\n        title: {\n            text: region + \" precipitation results\" + units,\n            xanchor: 'left',\n            x: 0\n        }\n    }\n}\n",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -406,8 +638,8 @@
     "list": [
       {
         "current": {
-          "text": "tahmo_avg",
-          "value": "tahmo_avg"
+          "text": "stations",
+          "value": "stations"
         },
         "includeAll": false,
         "label": "Station Type",
@@ -415,6 +647,11 @@
         "options": [
           {
             "selected": true,
+            "text": "All Stations Average",
+            "value": "stations"
+          },
+          {
+            "selected": false,
             "text": "TAHMO Average",
             "value": "tahmo_avg"
           },
@@ -432,15 +669,25 @@
             "selected": false,
             "text": "GHCN Random",
             "value": "ghcn"
+          },
+          {
+            "selected": false,
+            "text": "KNUST Average",
+            "value": "knust_avg"
+          },
+          {
+            "selected": false,
+            "text": "KNUST Random",
+            "value": "knust"
           }
         ],
-        "query": "TAHMO Average : tahmo_avg, TAHMO Random : tahmo, GHCN Average : ghcn_avg, GHCN Random : ghcn",
+        "query": "All Stations Average : stations, TAHMO Average : tahmo_avg, TAHMO Random : tahmo, GHCN Average : ghcn_avg, GHCN Random : ghcn, KNUST Average : knust_avg, KNUST Random : knust",
         "type": "custom"
       },
       {
         "current": {
-          "text": "pod-1.5",
-          "value": "pod-1.5"
+          "text": "csi-3.6",
+          "value": "csi-3.6"
         },
         "includeAll": false,
         "label": "Metric",
@@ -463,6 +710,11 @@
           },
           {
             "selected": false,
+            "text": "ACC",
+            "value": "acc"
+          },
+          {
+            "selected": false,
             "text": "POD 40mm/11 days",
             "value": "pod-3.6"
           },
@@ -477,7 +729,7 @@
             "value": "ets-3.6"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "CSI 40mm/11 days",
             "value": "csi-3.6"
           },
@@ -547,7 +799,7 @@
             "value": "far-1.5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "FAR Dry Spell 1.5mm",
             "value": "pod-1.5"
           },
@@ -557,7 +809,30 @@
             "value": "ets-1.5"
           }
         ],
-        "query": "MAE : mae, Bias : bias, Pearson : pearson,  POD 40mm/11 days : pod-3.6,  FAR 40mm/11 days : far-3.6, ETS 40mm/11 days : ets-3.6, CSI 40mm/11 days : csi-3.6, Freq Bias 40mm/11 days : frequencybias-3.6, POD 20mm/3 days : pod-6.6,  FAR 20mm/3 days : far-6.6, ETS 20mm/3 days : ets-6.6, CSI 20mm/3 days : csi-6.6, Freq Bias 20mm/3 days : frequencybias-6.6, POD 38mm/5 days : pod-7.6,  FAR 38mm/5 days : far-7.6, ETS 38mm/5 days : ets-7.6, CSI 38mm/5 days : csi-7.6, Freq Bias 38mm/5 days : frequencybias-7.6, Heidke (Dry 1.5/Wet 7.6 mm) : heidke-1.5-7.6, POD Dry Spell 1.5mm : far-1.5, FAR Dry Spell 1.5mm : pod-1.5, ETS Dry Spell 1.5mm : ets-1.5",
+        "query": "MAE : mae, Bias : bias, Pearson : pearson, ACC : acc, POD 40mm/11 days : pod-3.6,  FAR 40mm/11 days : far-3.6, ETS 40mm/11 days : ets-3.6, CSI 40mm/11 days : csi-3.6, Freq Bias 40mm/11 days : frequencybias-3.6, POD 20mm/3 days : pod-6.6,  FAR 20mm/3 days : far-6.6, ETS 20mm/3 days : ets-6.6, CSI 20mm/3 days : csi-6.6, Freq Bias 20mm/3 days : frequencybias-6.6, POD 38mm/5 days : pod-7.6,  FAR 38mm/5 days : far-7.6, ETS 38mm/5 days : ets-7.6, CSI 38mm/5 days : csi-7.6, Freq Bias 38mm/5 days : frequencybias-7.6, Heidke (Dry 1.5/Wet 7.6 mm) : heidke-1.5-7.6, POD Dry Spell 1.5mm : far-1.5, FAR Dry Spell 1.5mm : pod-1.5, ETS Dry Spell 1.5mm : ets-1.5",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "global0_25",
+          "value": "global0_25"
+        },
+        "includeAll": false,
+        "label": "Grid",
+        "name": "grid",
+        "options": [
+          {
+            "selected": false,
+            "text": "1.5",
+            "value": "global1_5"
+          },
+          {
+            "selected": true,
+            "text": "0.25",
+            "value": "global0_25"
+          }
+        ],
+        "query": "1.5 : global1_5, 0.25 : global0_25",
         "type": "custom"
       },
       {
@@ -650,31 +925,8 @@
       },
       {
         "current": {
-          "text": "global1_5",
-          "value": "global1_5"
-        },
-        "includeAll": false,
-        "label": "Grid",
-        "name": "grid",
-        "options": [
-          {
-            "selected": true,
-            "text": "1.5",
-            "value": "global1_5"
-          },
-          {
-            "selected": false,
-            "text": "0.25",
-            "value": "global0_25"
-          }
-        ],
-        "query": "1.5 : global1_5, 0.25 : global0_25",
-        "type": "custom"
-      },
-      {
-        "current": {
-          "text": "CHIRP V3",
-          "value": "chirp_v3"
+          "text": "CHIRPS V3",
+          "value": "chirps_v3"
         },
         "definition": "select \nforecast as __value,\ncase\n when forecast = 'chirps' then 'CHIRPS' \n when forecast = 'chirp_v3' then 'CHIRP V3' \n when forecast = 'chirps_v3' then 'CHIRPS V3' \nwhen forecast = 'era5' then 'ERA5' \nwhen forecast = 'imerg_final' then 'IMERG Final' \nwhen forecast = 'imerg_late' then 'IMERG Late' \nwhen forecast = 'cbam' then 'CBAM' \n else forecast\nend as __text\nfrom \"${precip_tab_name}\"",
         "label": "Color Table By",
@@ -687,8 +939,8 @@
       },
       {
         "current": {
-          "text": "673004e2b5c2829d8a0ae2e1931102db",
-          "value": "673004e2b5c2829d8a0ae2e1931102db"
+          "text": "e609e2f84a0cb35d3debfc5fc7e5fd0f",
+          "value": "e609e2f84a0cb35d3debfc5fc7e5fd0f"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -700,6 +952,25 @@
         "name": "precip_tab_name",
         "options": [],
         "query": "select * from md5('ground_truth_metric_table/2024-12-31_${grid}_${metric}_${region}_1998-01-01_${time_grouping}_${truth}_precip')",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "fa6267d64d0354ab0cedf449bb04a318",
+          "value": "fa6267d64d0354ab0cedf449bb04a318"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bdz3m3xs99p1cf"
+        },
+        "definition": "select * from md5('coverage_table/2024-12-31_${grid}_${region}_1998-01-01_${truth}_None_precip')",
+        "hide": 2,
+        "includeAll": false,
+        "name": "coverage_tab_name",
+        "options": [],
+        "query": "select * from md5('coverage_table/2024-12-31_${grid}_${region}_1998-01-01_${truth}_None_precip')",
         "refresh": 2,
         "regex": "",
         "type": "query"
