@@ -59,6 +59,10 @@ async function initCurrentMapPage() {
         console.error("Failed to fetch stretch", stretchResult.reason);
         fetchFailed = true;
     }
+
+    // ── Apply vmin/vmax overrides ──
+    stretch = applyVminVmaxOverrides(stretch, VARS.vmin, VARS.vmax, params.metric, params.product);
+
     refreshColorScale(stretch, params.product, params.metric);
     refreshMetricDescription(params.metric);
 
@@ -167,6 +171,9 @@ async function initCurrentMapPage() {
         if (token !== refreshToken) {
             return;
         }
+
+        // ── Apply vmin/vmax overrides ──
+        nextStretch = applyVminVmaxOverrides(nextStretch, VARS.vmin, VARS.vmax, nextParams.metric, nextParams.product);
 
         // Handle no-data state
         if (nextFetchFailed || !nextStretch) {

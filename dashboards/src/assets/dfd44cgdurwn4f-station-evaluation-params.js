@@ -83,6 +83,8 @@ const readVars = () => {
         timeFilterOutputMode: STATIONEVAL_TIME_FILTER_OUTPUT_MODE,
         aggDays: readVar("agg_days", "7"),
         datasetFamily: "metric",
+        vmin: readVar("vmin", ""),
+        vmax: readVar("vmax", ""),
     };
 };
 

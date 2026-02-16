@@ -87,7 +87,7 @@ function buildStretchFromBounds(colorMin, colorMax, metric, product) {
     } else if (m === "acc" || m === "pearson") {
         colorMin = -1;
         colorMax = 1;
-        colormap = "rdylgn";
+        colormap = "rdbu";
 
         // ── SEEPS: fixed [0, 2], lower is better ──
     } else if (m === "seeps") {
@@ -105,19 +105,19 @@ function buildStretchFromBounds(colorMin, colorMax, metric, product) {
     } else if (m.startsWith("heidke-")) {
         // Keep data-driven min, cap max at 1
         colorMax = 1;
-        colormap = "rdylgn";
+        colormap = "rdbu";
 
         // ── POD: [0, 1], higher is better ──
     } else if (m.startsWith("pod-")) {
         colorMin = 0;
         colorMax = 1;
-        colormap = "rdylgn";
+        colormap = "rdbu";
 
         // ── CSI: [0, 1], higher is better ──
     } else if (m.startsWith("csi-")) {
         colorMin = 0;
         colorMax = 1;
-        colormap = "rdylgn";
+        colormap = "rdbu";
 
         // ── FAR: [0, 1], lower is better ──
     } else if (m.startsWith("far-")) {
@@ -129,7 +129,7 @@ function buildStretchFromBounds(colorMin, colorMax, metric, product) {
     } else if (m.startsWith("ets-")) {
         colorMin = -1 / 3;
         colorMax = 1;
-        colormap = "rdylgn";
+        colormap = "rdbu";
 
         // ── MAE, RMSE, CRPS, and anything else: lower is better ──
     } else {
@@ -138,6 +138,58 @@ function buildStretchFromBounds(colorMin, colorMax, metric, product) {
     }
 
     return `colormap=${colormap}&stretch_range=[${colorMin},${colorMax}]`;
+}
+
+/** Parse a vmin/vmax variable string into a finite number, or return null. */
+function parseVBound(raw) {
+    if (raw === undefined || raw === null || raw === "") return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Apply user-supplied vmin/vmax overrides to a stretch string.
+ * If a stretch string already exists, the colormap is preserved and only the
+ * stretch_range bounds that have a corresponding vmin/vmax are replaced.
+ * If no stretch string exists yet (e.g. data-driven bounds couldn't be
+ * computed), we fall back to buildStretchFromBounds with the overrides so the
+ * correct colormap is still chosen for the metric.
+ */
+function applyVminVmaxOverrides(stretch, vmin, vmax, metric, product) {
+    const parsedVmin = parseVBound(vmin);
+    const parsedVmax = parseVBound(vmax);
+
+    // Nothing to override
+    if (parsedVmin === null && parsedVmax === null) return stretch;
+
+    if (!stretch) {
+        // No data-driven stretch available; build one from overrides alone.
+        // Use 0 as a reasonable fallback for whichever bound isn't set.
+        const fallbackMin = parsedVmin !== null ? parsedVmin : 0;
+        const fallbackMax = parsedVmax !== null ? parsedVmax : 0;
+        return buildStretchFromBounds(fallbackMin, fallbackMax, metric, product);
+    }
+
+    // Parse the existing stretch to extract colormap and current range
+    const decoded = decodeURIComponent(stretch);
+    const colormapMatch = decoded.match(/colormap=([^&]+)/);
+    const rangeMatch = decoded.match(/stretch_range=\[([^\]]+)\]/);
+    const colormap = colormapMatch ? colormapMatch[1] : "reds";
+
+    let currentMin = 0;
+    let currentMax = 1;
+    if (rangeMatch) {
+        const parts = rangeMatch[1].split(",").map((v) => Number(v.trim()));
+        if (parts.length >= 2) {
+            currentMin = parts[0];
+            currentMax = parts[1];
+        }
+    }
+
+    const finalMin = parsedVmin !== null ? parsedVmin : currentMin;
+    const finalMax = parsedVmax !== null ? parsedVmax : currentMax;
+
+    return `colormap=${colormap}&stretch_range=[${finalMin},${finalMax}]`;
 }
 
 function computeStretch(metadata, metric, product) {

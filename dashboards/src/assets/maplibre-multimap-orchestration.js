@@ -201,11 +201,14 @@ async function refreshAllCells(runtime, vars) {
                     result.productKey === product.key && result.metadata !== null
             )
             .map((result) => result.metadata);
-        scaleByProduct[product.key] = computeSharedStretchFromMetadata(
+        let sharedStretch = computeSharedStretchFromMetadata(
             leadMetadata,
             vars.metric,
             product.product
         );
+        // ── Apply vmin/vmax overrides for multimap ──
+        sharedStretch = applyVminVmaxOverrides(sharedStretch, vars.vmin, vars.vmax, vars.metric, product.product);
+        scaleByProduct[product.key] = sharedStretch;
     });
 
     MULTIMAP_PRODUCTS.forEach((product) => {

@@ -195,8 +195,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       {
         "allowCustomValue": false,
         "current": {
-          "text": "10",
-          "value": "10"
+          "text": "1",
+          "value": "1"
         },
         "definition": "SELECT column_name FROM information_schema.columns WHERE table_name = '$precip_tab_name' AND column_name NOT IN ('forecast', 'time_grouping', 'region');",
         "label": "Agg Days",
@@ -209,8 +209,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "bias",
-          "value": "bias"
+          "text": "acc",
+          "value": "acc"
         },
         "description": "",
         "label": "Metric",
@@ -222,9 +222,14 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "mae"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Bias",
             "value": "bias"
+          },
+          {
+            "selected": true,
+            "text": "ACC",
+            "value": "acc"
           },
           {
             "selected": false,
@@ -327,7 +332,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "ets-1.5"
           }
         ],
-        "query": "MAE : mae, Bias : bias, Pearson : pearson,  POD 40mm/11 days : pod-3.6,  FAR 40mm/11 days : far-3.6, ETS 40mm/11 days : ets-3.6, CSI 40mm/11 days : csi-3.6, Freq Bias 40mm/11 days : frequencybias-3.6, POD 20mm/3 days : pod-6.6,  FAR 20mm/3 days : far-6.6, ETS 20mm/3 days : ets-6.6, CSI 20mm/3 days : csi-6.6, Freq Bias 20mm/3 days : frequencybias-6.6, POD 38mm/5 days : pod-7.6,  FAR 38mm/5 days : far-7.6, ETS 38mm/5 days : ets-7.6, CSI 38mm/5 days : csi-7.6, Freq Bias 38mm/5 days : frequencybias-7.6, Heidke (Dry 1.5/Wet 7.6 mm) : heidke-1.5-7.6, POD Dry Spell 1.5mm : pod-1.5, FAR Dry Spell 1.5mm : far-1.5, ETS Dry Spell 1.5mm : ets-1.5",
+        "query": "MAE : mae, Bias : bias, ACC : acc, Pearson : pearson,  POD 40mm/11 days : pod-3.6,  FAR 40mm/11 days : far-3.6, ETS 40mm/11 days : ets-3.6, CSI 40mm/11 days : csi-3.6, Freq Bias 40mm/11 days : frequencybias-3.6, POD 20mm/3 days : pod-6.6,  FAR 20mm/3 days : far-6.6, ETS 20mm/3 days : ets-6.6, CSI 20mm/3 days : csi-6.6, Freq Bias 20mm/3 days : frequencybias-6.6, POD 38mm/5 days : pod-7.6,  FAR 38mm/5 days : far-7.6, ETS 38mm/5 days : ets-7.6, CSI 38mm/5 days : csi-7.6, Freq Bias 38mm/5 days : frequencybias-7.6, Heidke (Dry 1.5/Wet 7.6 mm) : heidke-1.5-7.6, POD Dry Spell 1.5mm : pod-1.5, FAR Dry Spell 1.5mm : far-1.5, ETS Dry Spell 1.5mm : ets-1.5",
         "type": "custom"
       },
       {
@@ -349,20 +354,20 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "None",
-          "value": "None"
+          "text": "month_of_year",
+          "value": "month_of_year"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "None",
             "value": "None"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Month of Year",
             "value": "month_of_year"
           }
@@ -371,40 +376,40 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
         "type": "custom"
       },
       {
+        "allowCustomValue": false,
         "current": {
-          "text": "",
-          "value": ""
+          "text": "January",
+          "value": "January"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "SELECT\n  CASE\n    WHEN COALESCE(time_grouping, 'None') ~ '^M(0[1-9]|1[0-2])$'\n      THEN to_char(to_date(substr(COALESCE(time_grouping, 'None'), 2, 2), 'MM'), 'FMMonth')\n    ELSE initcap(replace(COALESCE(time_grouping, 'None'), '_', ' '))\n  END AS __text,\n  COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
+        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"43b9f8fd510b587766b75442e9bb46d6\";",
         "includeAll": false,
         "label": "Time Filter",
         "name": "time_filter",
         "options": [],
-        "query": "SELECT\n  CASE\n    WHEN COALESCE(time_grouping, 'None') ~ '^M(0[1-9]|1[0-2])$'\n      THEN to_char(to_date(substr(COALESCE(time_grouping, 'None'), 2, 2), 'MM'), 'FMMonth')\n    ELSE initcap(replace(COALESCE(time_grouping, 'None'), '_', ' '))\n  END AS __text,\n  COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
+        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"43b9f8fd510b587766b75442e9bb46d6\";",
         "refresh": 1,
         "regex": "",
-        "sort": 3,
         "type": "query"
       },
       {
         "current": {
-          "text": "610451bdfa20fb59e4444e9dc2fed781",
-          "value": "610451bdfa20fb59e4444e9dc2fed781"
+          "text": "5359a2e418b8e1ebfb1094b70d2c96c6",
+          "value": "5359a2e418b8e1ebfb1094b70d2c96c6"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select * from md5('ground_truth_metric_table/2024-12-31_${grid}_${metric}_country_1998-01-01_${time_grouping}_${truth}_precip')",
+        "definition": "select * from md5('ground_truth_metric_table/2024-12-31_${grid}_${metric}_subregion_1998-01-01_${time_grouping}_${truth}_precip')",
         "hide": 2,
         "includeAll": false,
         "name": "precip_tab_name",
         "options": [],
-        "query": "select * from md5('ground_truth_metric_table/2024-12-31_${grid}_${metric}_country_1998-01-01_${time_grouping}_${truth}_precip')",
+        "query": "select * from md5('ground_truth_metric_table/2024-12-31_${grid}_${metric}_subregion_1998-01-01_${time_grouping}_${truth}_precip')",
         "refresh": 2,
         "regex": "",
         "type": "query"
@@ -446,6 +451,40 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
         ],
         "query": "False : false",
         "type": "custom"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "label": "vmin",
+        "name": "vmin",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "label": "vmax",
+        "name": "vmax",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
       }
     ]
   },

@@ -719,7 +719,7 @@
             "value": "pod-3.6"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "FAR 40mm/11 days",
             "value": "far-3.6"
           },
@@ -888,20 +888,20 @@
       },
       {
         "current": {
-          "text": "month_of_year",
-          "value": "month_of_year"
+          "text": "None",
+          "value": "None"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "None",
             "value": "None"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Month of Year",
             "value": "month_of_year"
           }
@@ -911,14 +911,14 @@
       },
       {
         "current": {
-          "text": "January",
-          "value": "January"
+          "text": "None",
+          "value": "None"
         },
-        "definition": "SELECT\n  CASE\n    WHEN COALESCE(time_grouping, 'None') ~ '^M(0[1-9]|1[0-2])$'\n      THEN to_char(to_date(substr(COALESCE(time_grouping, 'None'), 2, 2), 'MM'), 'FMMonth')\n    ELSE initcap(replace(COALESCE(time_grouping, 'None'), '_', ' '))\n  END AS __text,\n  COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";\n",
+        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
         "label": "Time Period",
         "name": "time_option",
         "options": [],
-        "query": "SELECT\n  CASE\n    WHEN COALESCE(time_grouping, 'None') ~ '^M(0[1-9]|1[0-2])$'\n      THEN to_char(to_date(substr(COALESCE(time_grouping, 'None'), 2, 2), 'MM'), 'FMMonth')\n    ELSE initcap(replace(COALESCE(time_grouping, 'None'), '_', ' '))\n  END AS __text,\n  COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";\n",
+        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
         "refresh": 1,
         "regex": "",
         "type": "query"
