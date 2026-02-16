@@ -2,8 +2,16 @@
 function buildDatasetId(params) {
     const datasetFamily = params?.datasetFamily || "grouped_metric";
     const { startDate, endDate } = resolveDatasetDates(datasetFamily);
+    const rawTimeFilter = params?.timeFilter;
+    const timeFilter =
+        typeof normalizeTimeFilter === "function"
+            ? normalizeTimeFilter(
+                rawTimeFilter,
+                params?.timeFilterOutputMode || "MXX"
+            )
+            : rawTimeFilter;
     const timeSuffix =
-        params.timeFilter && params.timeFilter !== "None" ? `_${params.timeFilter}` : "";
+        timeFilter && timeFilter !== "None" ? `_${timeFilter}` : "";
 
     if (datasetFamily === "metric") {
         const aggDays = String(params?.aggDays || "7");

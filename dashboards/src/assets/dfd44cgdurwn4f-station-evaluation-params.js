@@ -42,34 +42,7 @@ const BOUNDARY_CONTRAST = {
 };
 const POLL_INTERVAL_MS = 300;
 const VAR_STABILIZE_MS = 700;
-
-// ─── Month name mapping (M01 → January, etc.) ───────────────────────────────
-const MONTH_CODE_TO_NAME = {
-    M01: "January",
-    M02: "February",
-    M03: "March",
-    M04: "April",
-    M05: "May",
-    M06: "June",
-    M07: "July",
-    M08: "August",
-    M09: "September",
-    M10: "October",
-    M11: "November",
-    M12: "December",
-};
-
-function humanizeTimeFilter(raw) {
-    if (!raw || raw === "None") return raw;
-    // Handle comma-separated lists like "M01,M02"
-    return raw
-        .split(",")
-        .map((part) => {
-            const trimmed = part.trim();
-            return MONTH_CODE_TO_NAME[trimmed] || trimmed;
-        })
-        .join(", ");
-}
+const STATIONEVAL_TIME_FILTER_OUTPUT_MODE = "MXX";
 
 const replaceVariables =
     typeof context !== "undefined" &&
@@ -107,6 +80,7 @@ const readVars = () => {
         lead: readVar("lead", "week1"),
         timeGrouping: readVar("time_grouping"),
         timeFilter: readVar("time_filter", "None"),
+        timeFilterOutputMode: STATIONEVAL_TIME_FILTER_OUTPUT_MODE,
         aggDays: readVar("agg_days", "7"),
         datasetFamily: "metric",
     };

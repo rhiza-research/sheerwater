@@ -6,6 +6,7 @@ local maplibre_multimap_orchestration_js = importstr './assets/maplibre-multimap
 local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlemap-orchestration.js';
 local metrics_utilities_js = importstr './assets/metrics_utilities.js';
 local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_utilities.js';
+local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.js';
 
 {
   "annotations": {
@@ -60,7 +61,7 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       "id": 9,
       "options": {
-        "afterRender": dfd44cgdurwn4f_station_evaluation_params_js + maplibre_map_builder_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + dfd44cgdurwn4f_singlemap_evaluation_call_function_js,
+        "afterRender": dfd44cgdurwn4f_station_evaluation_params_js + maplibre_map_builder_js + time_grouping_utilities_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + dfd44cgdurwn4f_singlemap_evaluation_call_function_js,
         "content": "<div id=\"map-container\" style=\"height:900px\" />",
         "contentPartials": [],
         "defaultContent": "",
@@ -110,12 +111,12 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
         "options": [
           {
             "selected": false,
-            "text": "CHIRPS v2",
-            "value": "chirps_v2"
+            "text": "CHIRP v3",
+            "value": "chirp_v3"
           },
           {
             "selected": true,
-            "text": "CHIRPS v3",
+            "text": "CHIRPS v3 (Gauge-Adjusted)",
             "value": "chirps_v3"
           },
           {
@@ -132,9 +133,19 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "selected": false,
             "text": "ERA5",
             "value": "era5"
+          },
+          {
+            "selected": false,
+            "text": "Rain over Africa",
+            "value": "rain_over_africa"
+          },
+          {
+            "selected": false,
+            "text": "TAMSAT",
+            "value": "tamsat"
           }
         ],
-        "query": "CHIRPS v2 : chirps_v2, CHIRPS v3 : chirps_v3, IMERG Late Run : imerg_late, IMERG Final Run (Gauge-Adjusted) : imerg_final, ERA5 : era5",
+        "query": "CHIRP v3 : chirp_v3, CHIRPS v3 (Gauge-Adjusted) : chirps_v3, IMERG Late Run : imerg_late, IMERG Final Run (Gauge-Adjusted) : imerg_final, ERA5 : era5, Rain over Africa : rain_over_africa, TAMSAT : tamsat",
         "type": "custom"
       },
       {
@@ -166,19 +177,19 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "global1_5",
-          "value": "global1_5"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           }
@@ -189,8 +200,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       {
         "allowCustomValue": false,
         "current": {
-          "text": "10",
-          "value": "10"
+          "text": "5",
+          "value": "5"
         },
         "definition": "SELECT column_name FROM information_schema.columns WHERE table_name = '$precip_tab_name' AND column_name NOT IN ('forecast', 'time_grouping', 'region');",
         "label": "Agg Days",
@@ -203,15 +214,15 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "mae",
-          "value": "mae"
+          "text": "pod-7.6",
+          "value": "pod-7.6"
         },
         "description": "",
         "label": "Metric",
         "name": "metric",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "MAE",
             "value": "mae"
           },
@@ -276,7 +287,7 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
             "value": "frequencybias-6.6"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "POD 38mm/5 days",
             "value": "pod-7.6"
           },
@@ -386,8 +397,8 @@ local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_u
       },
       {
         "current": {
-          "text": "8bec603cd687a9af7dc980b196f07dbb",
-          "value": "8bec603cd687a9af7dc980b196f07dbb"
+          "text": "cfe696eb5ffc3d11cb5c4a3d7cd8dda9",
+          "value": "cfe696eb5ffc3d11cb5c4a3d7cd8dda9"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",

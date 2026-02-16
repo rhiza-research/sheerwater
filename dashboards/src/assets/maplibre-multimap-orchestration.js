@@ -92,6 +92,7 @@ function buildCellParams(vars, cellDef) {
         lead: `week${cellDef.week}`,
         timeGrouping: vars.timeGrouping,
         timeFilter: vars.timeFilter,
+        timeFilterOutputMode: vars.timeFilterOutputMode,
         region: resolveRegion(vars.forecast),
     };
 }

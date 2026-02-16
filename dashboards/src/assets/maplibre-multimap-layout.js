@@ -1,11 +1,11 @@
 // EXTERNAL:maplibre-multimap-layout.js
 function ensureMultimapStyles() {
-  if (document.getElementById("bt-multimap-styles")) {
-    return;
-  }
-  const style = document.createElement("style");
-  style.id = "bt-multimap-styles";
-  style.textContent = `
+    if (document.getElementById("bt-multimap-styles")) {
+        return;
+    }
+    const style = document.createElement("style");
+    style.id = "bt-multimap-styles";
+    style.textContent = `
       .bt-multimap-root {
         display:grid;
         gap:18px;
@@ -128,109 +128,109 @@ function ensureMultimapStyles() {
         }
       }
     `;
-  document.head.appendChild(style);
+    document.head.appendChild(style);
 
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css";
-  document.head.appendChild(css);
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css";
+    document.head.appendChild(css);
 }
 
 function buildMultimapLayout(leadWeeks) {
-  ensureMultimapStyles();
-  const host = getOrCreateHostContainer();
-  let metricPanel = document.getElementById("metric-description-panel");
-  if (!metricPanel) {
-    metricPanel = document.createElement("div");
-    metricPanel.id = "metric-description-panel";
-    host.appendChild(metricPanel);
-  }
-
-  const rootId = "bt-multimap-root";
-  const existing = document.getElementById(rootId);
-  if (existing) {
-    if (metricPanel.nextElementSibling !== existing) {
-      host.insertBefore(metricPanel, existing);
+    ensureMultimapStyles();
+    const host = getOrCreateHostContainer();
+    let metricPanel = document.getElementById("metric-description-panel");
+    if (!metricPanel) {
+        metricPanel = document.createElement("div");
+        metricPanel.id = "metric-description-panel";
+        host.appendChild(metricPanel);
     }
-    return existing;
-  }
 
-  const root = document.createElement("div");
-  root.id = rootId;
-  root.className = "bt-multimap-root";
+    const rootId = "bt-multimap-root";
+    const existing = document.getElementById(rootId);
+    if (existing) {
+        if (metricPanel.nextElementSibling !== existing) {
+            host.insertBefore(metricPanel, existing);
+        }
+        return existing;
+    }
 
-  MULTIMAP_PRODUCTS.forEach((product) => {
-    const row = document.createElement("div");
-    row.className = "bt-multimap-row";
-    row.id = `bt-multimap-row-${product.key}`;
+    const root = document.createElement("div");
+    root.id = rootId;
+    root.className = "bt-multimap-root";
 
-    const header = document.createElement("div");
-    header.className = "bt-multimap-row-header";
+    MULTIMAP_PRODUCTS.forEach((product) => {
+        const row = document.createElement("div");
+        row.className = "bt-multimap-row";
+        row.id = `bt-multimap-row-${product.key}`;
 
-    const rowTitle = document.createElement("div");
-    rowTitle.className = "bt-multimap-row-title";
-    rowTitle.textContent = product.label;
-    header.appendChild(rowTitle);
+        const header = document.createElement("div");
+        header.className = "bt-multimap-row-header";
 
-    const rowScale = document.createElement("div");
-    rowScale.className = "bt-multimap-row-scale";
-    rowScale.id = `bt-multimap-row-scale-${product.key}`;
-    rowScale.innerHTML = "Loading...";
-    header.appendChild(rowScale);
+        const rowTitle = document.createElement("div");
+        rowTitle.className = "bt-multimap-row-title";
+        rowTitle.textContent = product.label;
+        header.appendChild(rowTitle);
 
-    row.appendChild(header);
+        const rowScale = document.createElement("div");
+        rowScale.className = "bt-multimap-row-scale";
+        rowScale.id = `bt-multimap-row-scale-${product.key}`;
+        rowScale.innerHTML = "Loading...";
+        header.appendChild(rowScale);
 
-    const grid = document.createElement("div");
-    grid.className = "bt-multimap-grid";
+        row.appendChild(header);
 
-    leadWeeks.forEach((week) => {
-      const cell = document.createElement("div");
-      cell.className = "bt-multimap-cell";
+        const grid = document.createElement("div");
+        grid.className = "bt-multimap-grid";
 
-      const title = document.createElement("div");
-      title.className = "bt-multimap-cell-title";
-      title.textContent = `Week ${week}`;
-      cell.appendChild(title);
+        leadWeeks.forEach((week) => {
+            const cell = document.createElement("div");
+            cell.className = "bt-multimap-cell";
 
-      const mapContainer = document.createElement("div");
-      mapContainer.className = "bt-multimap-map";
-      mapContainer.id = `bt-multimap-${product.key}-week${week}`;
+            const title = document.createElement("div");
+            title.className = "bt-multimap-cell-title";
+            title.textContent = `Week ${week}`;
+            cell.appendChild(title);
 
-      const scale = document.createElement("div");
-      scale.className = "bt-multimap-map-scale";
-      scale.id = `bt-multimap-scale-${product.key}-week${week}`;
-      scale.dataset.productKey = product.key;
-      scale.innerHTML = "Loading...";
-      mapContainer.appendChild(scale);
+            const mapContainer = document.createElement("div");
+            mapContainer.className = "bt-multimap-map";
+            mapContainer.id = `bt-multimap-${product.key}-week${week}`;
 
-      cell.appendChild(mapContainer);
+            const scale = document.createElement("div");
+            scale.className = "bt-multimap-map-scale";
+            scale.id = `bt-multimap-scale-${product.key}-week${week}`;
+            scale.dataset.productKey = product.key;
+            scale.innerHTML = "Loading...";
+            mapContainer.appendChild(scale);
 
-      grid.appendChild(cell);
+            cell.appendChild(mapContainer);
+
+            grid.appendChild(cell);
+        });
+
+        row.appendChild(grid);
+        root.appendChild(row);
     });
 
-    row.appendChild(grid);
-    root.appendChild(row);
-  });
-
-  host.appendChild(root);
-  if (metricPanel.nextElementSibling !== root) {
-    host.insertBefore(metricPanel, root);
-  }
-  return root;
+    host.appendChild(root);
+    if (metricPanel.nextElementSibling !== root) {
+        host.insertBefore(metricPanel, root);
+    }
+    return root;
 }
 
 function getCellDefinitions(leadWeeks) {
-  const cells = [];
-  MULTIMAP_PRODUCTS.forEach((product) => {
-    leadWeeks.forEach((week) => {
-      cells.push({
-        key: `${product.key}-week${week}`,
-        productKey: product.key,
-        productValue: product.product,
-        week,
-        containerId: `bt-multimap-${product.key}-week${week}`,
-      });
+    const cells = [];
+    MULTIMAP_PRODUCTS.forEach((product) => {
+        leadWeeks.forEach((week) => {
+            cells.push({
+                key: `${product.key}-week${week}`,
+                productKey: product.key,
+                productValue: product.product,
+                week,
+                containerId: `bt-multimap-${product.key}-week${week}`,
+            });
+        });
     });
-  });
-  return cells;
+    return cells;
 }

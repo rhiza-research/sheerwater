@@ -42,6 +42,7 @@ const BOUNDARY_CONTRAST = {
 };
 const POLL_INTERVAL_MS = 300;
 const VAR_STABILIZE_MS = 700;
+const MULTIMAP_TIME_FILTER_OUTPUT_MODE = "NUMBER";
 
 const MULTIMAP_PRODUCTS = [
     { key: "rain", label: "Precipitation", product: "era5_precip" },
@@ -70,6 +71,7 @@ const readVars = () => ({
     metric: readVar("metric"),
     timeGrouping: readVar("time_grouping"),
     timeFilter: readVar("time_filter", "None"),
+    timeFilterOutputMode: MULTIMAP_TIME_FILTER_OUTPUT_MODE,
     maxLead: Number(readVar("max_lead", "6")) || 6,
 });
 
