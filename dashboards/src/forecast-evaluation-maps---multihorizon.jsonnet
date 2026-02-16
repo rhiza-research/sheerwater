@@ -424,15 +424,15 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "salient",
-          "value": "salient"
+          "text": "ecmwf_ifs_er_debiased",
+          "value": "ecmwf_ifs_er_debiased"
         },
         "includeAll": false,
         "label": "Forecast",
         "name": "forecast",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "AI-Enhanced NWP",
             "value": "salient"
           },
@@ -442,7 +442,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "ecmwf_ifs_er"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER Debiased",
             "value": "ecmwf_ifs_er_debiased"
           },
@@ -482,8 +482,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "smape",
-          "value": "smape"
+          "text": "acc",
+          "value": "acc"
         },
         "includeAll": false,
         "label": "Metric",
@@ -505,7 +505,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "rmse"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ACC",
             "value": "acc"
           },
@@ -515,7 +515,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "bias"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "SMAPE",
             "value": "smape"
           },
@@ -689,20 +689,20 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "month_of_year",
-          "value": "month_of_year"
+          "text": "None",
+          "value": "None"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "None",
             "value": "None"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Month of Year",
             "value": "month_of_year"
           },
@@ -717,8 +717,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "select distinct time from \"78511619b8f3fada8746d000e7f185c6\"",
-          "value": "select distinct time from \"78511619b8f3fada8746d000e7f185c6\""
+          "text": "select v.* from (values ('None')) v(t)",
+          "value": "select v.* from (values ('None')) v(t)"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -736,8 +736,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "8",
-          "value": "8"
+          "text": "None",
+          "value": "None"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -756,8 +756,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "where time = 8",
-          "value": "where time = 8"
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -775,8 +775,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "78511619b8f3fada8746d000e7f185c6",
-          "value": "78511619b8f3fada8746d000e7f185c6"
+          "text": "6c235561d1756eec47cdfb4f614c11d9",
+          "value": "6c235561d1756eec47cdfb4f614c11d9"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
