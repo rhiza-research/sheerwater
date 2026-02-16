@@ -65,7 +65,7 @@
         "styles": "",
         "wrap": true
       },
-      "pluginVersion": "5.6.0",
+      "pluginVersion": "6.2.0",
       "targets": [
         {
           "editorMode": "code",
@@ -439,8 +439,8 @@
       },
       {
         "current": {
-          "text": "pod-1.5",
-          "value": "pod-1.5"
+          "text": "far-3.6",
+          "value": "far-3.6"
         },
         "includeAll": false,
         "label": "Metric",
@@ -467,7 +467,7 @@
             "value": "pod-3.6"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "FAR 40mm/11 days",
             "value": "far-3.6"
           },
@@ -547,7 +547,7 @@
             "value": "far-1.5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "FAR Dry Spell 1.5mm",
             "value": "pod-1.5"
           },
@@ -613,20 +613,20 @@
       },
       {
         "current": {
-          "text": "None",
-          "value": "None"
+          "text": "month_of_year",
+          "value": "month_of_year"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "None",
             "value": "None"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Month of Year",
             "value": "month_of_year"
           }
@@ -636,14 +636,14 @@
       },
       {
         "current": {
-          "text": "None",
-          "value": "None"
+          "text": "January",
+          "value": "January"
         },
-        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
+        "definition": "SELECT\n  CASE\n    WHEN COALESCE(time_grouping, 'None') ~ '^M(0[1-9]|1[0-2])$'\n      THEN to_char(to_date(substr(COALESCE(time_grouping, 'None'), 2, 2), 'MM'), 'FMMonth')\n    ELSE initcap(replace(COALESCE(time_grouping, 'None'), '_', ' '))\n  END AS __text,\n  COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";\n",
         "label": "Time Period",
         "name": "time_option",
         "options": [],
-        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
+        "query": "SELECT\n  CASE\n    WHEN COALESCE(time_grouping, 'None') ~ '^M(0[1-9]|1[0-2])$'\n      THEN to_char(to_date(substr(COALESCE(time_grouping, 'None'), 2, 2), 'MM'), 'FMMonth')\n    ELSE initcap(replace(COALESCE(time_grouping, 'None'), '_', ' '))\n  END AS __text,\n  COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";\n",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -687,8 +687,8 @@
       },
       {
         "current": {
-          "text": "673004e2b5c2829d8a0ae2e1931102db",
-          "value": "673004e2b5c2829d8a0ae2e1931102db"
+          "text": "bfe73ef142b3b65d1cc8f35eb5a0e2c6",
+          "value": "bfe73ef142b3b65d1cc8f35eb5a0e2c6"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",

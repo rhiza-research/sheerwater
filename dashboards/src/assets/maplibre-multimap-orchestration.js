@@ -155,7 +155,8 @@ async function refreshAllCells(runtime, vars) {
     MULTIMAP_PRODUCTS.forEach((product) => {
         const hasStretch = Boolean(scaleByProduct[product.key]);
         setProductRowVisibility(product.key, hasStretch);
-        const scaleMarkup = renderColorScaleHtml(scaleByProduct[product.key] || "");
+        // Pass product and metric so units can be resolved correctly
+        const scaleMarkup = renderColorScaleHtml(scaleByProduct[product.key] || "", product.product, vars.metric);
         const rowScaleEl = document.getElementById(
             `bt-multimap-row-scale-${product.key}`
         );
@@ -197,6 +198,9 @@ async function refreshAllCells(runtime, vars) {
         };
     });
 
+    // Refresh metric description for multimap too
+    refreshMetricDescription(vars.metric);
+
     for (const result of results) {
         const cellRuntime = runtime.cellsByKey.get(result.key);
         if (!cellRuntime) {
@@ -209,6 +213,11 @@ async function refreshAllCells(runtime, vars) {
         cellRuntime.datasetId = result.datasetId;
         cellRuntime.tileUrl = result.tileUrl;
 
+        // Determine the map container element for no-data overlay
+        const cellContainer = cellRuntime.def?.containerId
+            ? document.getElementById(cellRuntime.def.containerId)
+            : null;
+
         if (!cellRuntime.ready) {
             continue;
         }
@@ -216,8 +225,11 @@ async function refreshAllCells(runtime, vars) {
         if (!result.tileUrl) {
             removeRasterSlot(cellRuntime.map, 0);
             removeRasterSlot(cellRuntime.map, 1);
+            showNoDataOverlay(cellContainer);
             continue;
         }
+
+        hideNoDataOverlay(cellContainer);
 
         if (!previousTileUrl) {
             setRasterLayer(cellRuntime.map, result.tileUrl, 0, TERRACOTTA_OPACITY);
@@ -235,13 +247,28 @@ async function initCurrentMultimapPage() {
     const leadWeeks = getLeadWeeks(VARS.maxLead);
     buildMultimapLayout(leadWeeks);
 
-    try {
-        await loadMaplibre();
-    } catch (error) {
-        console.error("MapLibre failed to load.", error);
+    // Post-process: rename lead labels and month codes in the DOM
+    document.querySelectorAll(".bt-multimap-lead-label").forEach((el) => {
+        const raw = el.textContent.trim();
+        el.textContent = humanizeLeadLabel(raw);
+    });
+    // Rename any M01-style text in the layout
+    document.querySelectorAll("[data-time-filter]").forEach((el) => {
+        const raw = el.getAttribute("data-time-filter");
+        if (raw) el.textContent = humanizeTimeFilter(raw);
+    });
+
+    // Kick off MapLibre load and style fetch in parallel
+    const [maplibreResult, styleResult] = await Promise.allSettled([
+        loadMaplibre(),
+        fetchPreparedStyle(DEFAULT_FLAVOR),
+    ]);
+
+    // ── Validate MapLibre loaded ──
+    if (maplibreResult.status === "rejected") {
+        console.error("MapLibre failed to load.", maplibreResult.reason);
         return;
     }
-
     if (!getMaplibreGlobal()) {
         console.error("MapLibre is unavailable after load.");
         return;
@@ -250,13 +277,12 @@ async function initCurrentMultimapPage() {
         window.maplibregl = getMaplibreGlobal();
     }
 
-    let baseStyle = null;
-    try {
-        baseStyle = await fetchPreparedStyle(DEFAULT_FLAVOR);
-    } catch (error) {
-        console.error("Failed to fetch prepared style", error);
+    // ── Resolve base style ──
+    if (styleResult.status === "rejected") {
+        console.error("Failed to fetch prepared style", styleResult.reason);
         return;
     }
+    const baseStyle = styleResult.value;
 
     ensureRuntimeContainer();
 
@@ -283,8 +309,11 @@ async function initCurrentMultimapPage() {
                 cellRuntime.ready = true;
                 applyBoundaryContrastOverrides(map);
                 if (cellRuntime.tileUrl) {
+                    hideNoDataOverlay(container);
                     setRasterLayer(map, cellRuntime.tileUrl, 0, TERRACOTTA_OPACITY);
                     removeRasterSlot(map, 1);
+                } else {
+                    showNoDataOverlay(container);
                 }
             });
             return cellRuntime;

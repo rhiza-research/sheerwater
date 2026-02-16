@@ -409,6 +409,44 @@ function loadMaplibre() {
     return maplibreReady;
 }
 
+// ─── "No Data" overlay helpers ───────────────────────────────────────────────
+function showNoDataOverlay(containerEl) {
+    if (!containerEl) return;
+    let overlay = containerEl.parentElement?.querySelector(".no-data-overlay");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "no-data-overlay";
+        overlay.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.88);">No data available</span>
+            <span style="font-size:12px;color:rgba(255,255,255,0.5);">This forecast/metric combination has no results</span>
+          </div>
+        `;
+        // Insert as sibling inside the map shell
+        const shell = containerEl.parentElement;
+        if (shell) shell.appendChild(overlay);
+    }
+    overlay.style.display = "flex";
+}
+
+function hideNoDataOverlay(containerEl) {
+    if (!containerEl) return;
+    const overlay = containerEl.parentElement?.querySelector(".no-data-overlay");
+    if (overlay) overlay.style.display = "none";
+}
+
+// ─── Humanize lead labels (week1 → Week 1) ──────────────────────────────────
+function humanizeLeadLabel(lead) {
+    const m = String(lead || "").match(/^week(\d+)$/i);
+    if (m) return `Week ${m[1]}`;
+    return lead;
+}
+
 function injectContainerAndStyles() {
     const mapMountId = `${MAP_CONTAINER_ID}__mount`;
     const existing = getOrCreateHostContainer();
@@ -420,50 +458,80 @@ function injectContainerAndStyles() {
     const style = document.createElement("style");
     style.textContent = `
     :root {
-    --ink:#0c1f2e;
-    --panel:#f5f3ef;
+      --ink:#0c1f2e;
+      --panel:#f5f3ef;
     }
-      .map-shell {
-        position:relative;
-        width:100%;
-        height:70vh;
-        min-height:60vh;
-    font-family:"IBM Plex Sans", "Segoe UI", sans-serif;
-    border-radius:18px;
-    overflow:hidden;
-    box-shadow:0 16px 40px rgba(8, 16, 28, 0.25);
-    border:1px solid rgba(12, 31, 46, 0.2);
-    background:#0b1220;
+    .map-shell {
+      position:relative;
+      width:100%;
+      height:70vh;
+      min-height:60vh;
+      font-family:"IBM Plex Sans", "Segoe UI", sans-serif;
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 16px 40px rgba(8, 16, 28, 0.25);
+      border:1px solid rgba(12, 31, 46, 0.2);
+      background:#0b1220;
     }
-      .map-mount {
-        position:absolute;
-        inset:0;
-        width:100%;
-        height:100%;
-      }
+    .map-mount {
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+    }
     .maplibregl-canvas {
-    width:100% !important;
-    height:100% !important;
+      width:100% !important;
+      height:100% !important;
     }
+    /* ── Enlarged color scale ── */
     #map-colorscale {
-    position:absolute;
-    left:14px;
-    bottom:14px;
-    z-index:4;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    pointer-events:none;
-    background:rgba(245, 243, 239, 0.96);
-    color:var(--ink);
-    padding:4px 8px;
-    border-radius:10px;
-    border:1px solid rgba(12, 31, 46, 0.18);
-    font-size:11px;
-    line-height:1.2;
-    min-height:22px;
-    white-space:nowrap;
-    box-shadow:0 12px 24px rgba(8, 16, 28, 0.15);
+      position:absolute;
+      left:14px;
+      bottom:14px;
+      z-index:4;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      background:rgba(245, 243, 239, 0.96);
+      color:var(--ink);
+      padding:7px 14px;
+      border-radius:10px;
+      border:1px solid rgba(12, 31, 46, 0.18);
+      font-size:14px;
+      line-height:1.3;
+      min-height:30px;
+      white-space:nowrap;
+      box-shadow:0 12px 24px rgba(8, 16, 28, 0.15);
+    }
+    /* ── No-data overlay ── */
+    .no-data-overlay {
+      position:absolute;
+      inset:0;
+      z-index:5;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(11,18,32,0.82);
+      backdrop-filter:blur(2px);
+      pointer-events:none;
+      font-family:"IBM Plex Sans","Segoe UI",sans-serif;
+    }
+    /* ── Multimap: larger lead week labels ── */
+    .bt-multimap-lead-label {
+      font-size:16px !important;
+      font-weight:600 !important;
+      letter-spacing:0.01em;
+    }
+    /* ── Multimap: enlarged per-row color scales ── */
+    .bt-multimap-row-scale,
+    .bt-multimap-map-scale {
+      font-size:14px !important;
+      padding:6px 12px !important;
+    }
+    /* ── Metric description panel at bottom ── */
+    #metric-description-panel {
+      margin-top:10px;
     }
 `;
     document.head.appendChild(style);
@@ -475,13 +543,26 @@ function injectContainerAndStyles() {
         <div id="${mapMountId}" class="map-mount"></div>
         <div id="map-colorscale"></div>
       </div>
+      <div id="metric-description-panel"></div>
     `;
+
+    const cssHref = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css";
+
+    // Preload CSS so the browser starts fetching immediately
+    if (!document.querySelector(`link[rel="preload"][href="${cssHref}"]`)) {
+        const preload = document.createElement("link");
+        preload.rel = "preload";
+        preload.as = "style";
+        preload.href = cssHref;
+        document.head.appendChild(preload);
+    }
 
     const css = document.createElement("link");
     css.rel = "stylesheet";
-    css.href = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css";
+    css.href = cssHref;
     document.head.appendChild(css);
 
+    // Kick off MapLibre script load eagerly (non-blocking)
     loadMaplibre();
     return document.getElementById(mapMountId);
 }

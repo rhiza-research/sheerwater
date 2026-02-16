@@ -28,6 +28,30 @@ function getColorStops(colormap) {
             "#2166ac",
             "#053061",
         ],
+        rdylgn: [
+            "#a50026",
+            "#d73027",
+            "#f46d43",
+            "#fdae61",
+            "#fee08b",
+            "#ffffbf",
+            "#d9ef8b",
+            "#a6d96a",
+            "#66bd63",
+            "#1a9850",
+            "#006837",
+        ],
+        blues: [
+            "#f7fbff",
+            "#deebf7",
+            "#c6dbef",
+            "#9ecae1",
+            "#6baed6",
+            "#4292c6",
+            "#2171b5",
+            "#08519c",
+            "#08306b",
+        ],
         reds: [
             "#fff5f0",
             "#fee0d2",
@@ -44,14 +68,16 @@ function getColorStops(colormap) {
     return colormap.endsWith("_r") ? [...stops].reverse() : stops;
 }
 
-function renderColorScaleHtml(stretch) {
+function renderColorScaleHtml(stretch, product, metric) {
     if (!stretch) {
-        return "<span>No stretch</span>";
+        return "<span style='font-size:14px;'>No stretch</span>";
     }
     const decoded = decodeURIComponent(stretch);
     const colormapMatch = decoded.match(/colormap=([^&]+)/);
     const rangeMatch = decoded.match(/stretch_range=\[([^\]]+)\]/);
     const colormap = colormapMatch ? colormapMatch[1] : "";
+    const units = getUnits(metric, product);
+    const unitsSuffix = units ? ` ${units}` : "";
     let min = "min";
     let max = "max";
     if (rangeMatch) {
@@ -64,18 +90,25 @@ function renderColorScaleHtml(stretch) {
     const stops = getColorStops(colormap);
     const gradient = `linear-gradient(90deg, ${stops.join(", ")})`;
     return `
-      <div style="display:flex; align-items:center; height:100%; gap:6px; font-variant-numeric:tabular-nums;">
-        <span>${min}</span>
-        <div style="width:72px; height:8px; border-radius:999px; background:${gradient};"></div>
-        <span>${max}</span>
+      <div style="display:flex; align-items:center; height:100%; gap:8px; font-variant-numeric:tabular-nums; font-size:14px;">
+        <span>${min}${unitsSuffix}</span>
+        <div style="width:120px; height:12px; border-radius:999px; background:${gradient};"></div>
+        <span>${max}${unitsSuffix}</span>
       </div>
     `;
 }
 
-function refreshColorScale(stretch) {
+function refreshColorScale(stretch, product, metric) {
     const scale = document.getElementById("map-colorscale");
     if (!scale) {
         return;
     }
-    scale.innerHTML = renderColorScaleHtml(stretch);
+    scale.innerHTML = renderColorScaleHtml(stretch, product, metric);
+}
+
+// ─── Refresh metric description panel ────────────────────────────────────────
+function refreshMetricDescription(metric) {
+    const panel = document.getElementById("metric-description-panel");
+    if (!panel) return;
+    panel.innerHTML = renderMetricDescriptionHtml(metric);
 }

@@ -24,13 +24,24 @@ function getOrCreateHostContainer() {
 
 async function initCurrentMapPage() {
     const container = injectContainerAndStyles();
-    try {
-        await loadMaplibre();
-    } catch (error) {
-        console.error("MapLibre failed to load.", error);
+
+    const params = {
+        ...VARS,
+        region: resolveRegion(VARS.forecast),
+    };
+
+    // Kick off all three network requests in parallel
+    const [maplibreResult, stretchResult, styleResult] = await Promise.allSettled([
+        loadMaplibre(),
+        fetchStretch(params),
+        fetchPreparedStyle(DEFAULT_FLAVOR),
+    ]);
+
+    // ── Validate MapLibre loaded ──
+    if (maplibreResult.status === "rejected") {
+        console.error("MapLibre failed to load.", maplibreResult.reason);
         return;
     }
-
     if (!getMaplibreGlobal()) {
         console.error("MapLibre is unavailable after load.");
         return;
@@ -39,27 +50,26 @@ async function initCurrentMapPage() {
         window.maplibregl = getMaplibreGlobal();
     }
 
-    const params = {
-        ...VARS,
-        region: resolveRegion(VARS.forecast),
-    };
-
+    // ── Resolve stretch (may have failed → no-data) ──
     let stretch = "";
-    try {
-        stretch = await fetchStretch(params);
-    } catch (error) {
-        console.error("Failed to fetch stretch", error);
+    let fetchFailed = false;
+    if (stretchResult.status === "fulfilled") {
+        stretch = stretchResult.value;
+    } else {
+        console.error("Failed to fetch stretch", stretchResult.reason);
+        fetchFailed = true;
     }
-    refreshColorScale(stretch);
+    refreshColorScale(stretch, params.product, params.metric);
+    refreshMetricDescription(params.metric);
 
-    const { datasetId, tileUrl } = buildTileUrl(params, stretch);
-    let baseStyle = null;
-    try {
-        baseStyle = await fetchPreparedStyle(DEFAULT_FLAVOR);
-    } catch (error) {
-        console.error("Failed to fetch prepared style", error);
+    // ── Resolve base style ──
+    if (styleResult.status === "rejected") {
+        console.error("Failed to fetch prepared style", styleResult.reason);
         return;
     }
+    const baseStyle = styleResult.value;
+
+    const { datasetId, tileUrl } = buildTileUrl(params, stretch);
 
     const existingRuntime = window.__grafanaMaplibre;
     if (existingRuntime?.pollHandle) {
@@ -89,7 +99,12 @@ async function initCurrentMapPage() {
     map.on("load", () => {
         window.__grafanaMaplibre.ready = true;
         applyBoundaryContrastOverrides(map);
-        setRasterLayer(map, tileUrl, 0, TERRACOTTA_OPACITY);
+        if (fetchFailed || !stretch) {
+            showNoDataOverlay(container);
+        } else {
+            hideNoDataOverlay(container);
+            setRasterLayer(map, tileUrl, 0, TERRACOTTA_OPACITY);
+        }
         removeRasterSlot(map, 1);
     });
 
@@ -136,6 +151,7 @@ async function initCurrentMapPage() {
         const token = ++refreshToken;
 
         let nextStretch = "";
+        let nextFetchFailed = false;
         try {
             nextStretch = await fetchStretch(
                 nextParams,
@@ -146,23 +162,37 @@ async function initCurrentMapPage() {
                 return;
             }
             console.error("Failed to fetch stretch", error);
+            nextFetchFailed = true;
         }
         if (token !== refreshToken) {
             return;
         }
 
-        const next = buildTileUrl(nextParams, nextStretch);
-        if (nextStretch !== window.__grafanaMaplibre.stretch) {
-            refreshColorScale(nextStretch);
+        // Handle no-data state
+        if (nextFetchFailed || !nextStretch) {
+            showNoDataOverlay(container);
+            removeRasterSlot(map, 0);
+            removeRasterSlot(map, 1);
+            refreshColorScale("", nextParams.product, nextParams.metric);
+        } else {
+            hideNoDataOverlay(container);
+
+            const next = buildTileUrl(nextParams, nextStretch);
+            if (nextStretch !== window.__grafanaMaplibre.stretch) {
+                refreshColorScale(nextStretch, nextParams.product, nextParams.metric);
+            }
+
+            if (next.tileUrl !== window.__grafanaMaplibre.tileUrl) {
+                await swapRasterLayer(window.__grafanaMaplibre, next.tileUrl);
+            }
+
+            window.__grafanaMaplibre.datasetId = next.datasetId;
+            window.__grafanaMaplibre.tileUrl = next.tileUrl;
+            window.__grafanaMaplibre.stretch = nextStretch;
         }
 
-        if (next.tileUrl !== window.__grafanaMaplibre.tileUrl) {
-            await swapRasterLayer(window.__grafanaMaplibre, next.tileUrl);
-        }
-
-        window.__grafanaMaplibre.datasetId = next.datasetId;
-        window.__grafanaMaplibre.tileUrl = next.tileUrl;
-        window.__grafanaMaplibre.stretch = nextStretch;
+        // Always refresh metric description on variable change
+        refreshMetricDescription(nextParams.metric);
         window.__grafanaMaplibre.params = nextParams;
     }, POLL_INTERVAL_MS);
 }
