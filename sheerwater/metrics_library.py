@@ -124,6 +124,10 @@ class Metric(ABC):
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
+        # Select the variable of interest
+        obs = obs[[self.variable]]
+        fcst = fcst[[self.variable]]
+
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
