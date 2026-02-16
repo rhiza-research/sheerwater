@@ -814,6 +814,29 @@
       },
       {
         "current": {
+          "text": "global1_5",
+          "value": "global1_5"
+        },
+        "includeAll": false,
+        "label": "Grid",
+        "name": "grid",
+        "options": [
+          {
+            "selected": true,
+            "text": "1.5",
+            "value": "global1_5"
+          },
+          {
+            "selected": false,
+            "text": "0.25",
+            "value": "global0_25"
+          }
+        ],
+        "query": "1.5 : global1_5, 0.25 : global0_25",
+        "type": "custom"
+      },
+      {
+        "current": {
           "text": "country",
           "value": "country"
         },
@@ -899,29 +922,6 @@
         "refresh": 1,
         "regex": "",
         "type": "query"
-      },
-      {
-        "current": {
-          "text": "global1_5",
-          "value": "global1_5"
-        },
-        "includeAll": false,
-        "label": "Grid",
-        "name": "grid",
-        "options": [
-          {
-            "selected": true,
-            "text": "1.5",
-            "value": "global1_5"
-          },
-          {
-            "selected": false,
-            "text": "0.25",
-            "value": "global0_25"
-          }
-        ],
-        "query": "1.5 : global1_5, 0.25 : global0_25",
-        "type": "custom"
       },
       {
         "current": {
