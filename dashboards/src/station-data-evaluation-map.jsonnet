@@ -150,29 +150,24 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "tahmo_avg",
-          "value": "tahmo_avg"
+          "text": "stations",
+          "value": "stations"
         },
         "label": "Truth",
         "name": "truth",
         "options": [
           {
-            "selected": false,
-            "text": "All Stations Area Average",
+            "selected": true,
+            "text": "All Stations Average",
             "value": "stations"
           },
           {
-            "selected": true,
-            "text": "TAHMO Area Average",
-            "value": "tahmo_avg"
-          },
-          {
             "selected": false,
-            "text": "GHCN Area Average",
-            "value": "ghcn_avg"
+            "text": "TAHMO Average",
+            "value": "tahmo_avg"
           }
         ],
-        "query": " All Stations Area Average : stations, TAHMO Area Average : tahmo_avg, GHCN Area Average : ghcn_avg",
+        "query": " All Stations Average : stations, TAHMO Average : tahmo_avg",
         "type": "custom"
       },
       {
@@ -200,8 +195,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       {
         "allowCustomValue": false,
         "current": {
-          "text": "5",
-          "value": "5"
+          "text": "10",
+          "value": "10"
         },
         "definition": "SELECT column_name FROM information_schema.columns WHERE table_name = '$precip_tab_name' AND column_name NOT IN ('forecast', 'time_grouping', 'region');",
         "label": "Agg Days",
@@ -214,8 +209,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "pod-7.6",
-          "value": "pod-7.6"
+          "text": "bias",
+          "value": "bias"
         },
         "description": "",
         "label": "Metric",
@@ -227,7 +222,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "mae"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Bias",
             "value": "bias"
           },
@@ -287,7 +282,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "frequencybias-6.6"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "POD 38mm/5 days",
             "value": "pod-7.6"
           },
@@ -377,8 +372,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "None",
-          "value": "None"
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -397,8 +392,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "cfe696eb5ffc3d11cb5c4a3d7cd8dda9",
-          "value": "cfe696eb5ffc3d11cb5c4a3d7cd8dda9"
+          "text": "610451bdfa20fb59e4444e9dc2fed781",
+          "value": "610451bdfa20fb59e4444e9dc2fed781"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
