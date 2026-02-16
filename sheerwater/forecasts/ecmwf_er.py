@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.reanalysis import era5_rolled
+from sheerwater.reanalysis import era5
 from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
@@ -177,7 +177,7 @@ def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type
 
     # Get the pre-aggregated ERA5 data
     agg = {'daily': 1, 'weekly': 7, 'biweekly': 14}[time_group]
-    ds_truth = era5_rolled(new_start, new_end, variable, agg_days=agg, grid=grid, mask=mask, region=region)
+    ds_truth = era5(new_start, new_end, variable, agg_days=agg, grid=grid, mask=mask, region=region)
 
     def get_bias(ds_sub):
         """Get the 20-year estimated bias of the reforecast data."""
@@ -207,8 +207,8 @@ def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type
 @cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 1000, "member": 1}})
 def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
-                            time_group='weekly', grid="global1_5", mask=None,
-                            region='global'):
+                           time_group='weekly', grid="global1_5", mask=None,
+                           region='global'):
     """Computes the bias of ECMWF reforecasts for all leads."""
     # Fetch the reforecast data to calculate how many leads we need
     if time_group == 'weekly':
