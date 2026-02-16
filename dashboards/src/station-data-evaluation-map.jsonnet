@@ -195,8 +195,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       {
         "allowCustomValue": false,
         "current": {
-          "text": "11",
-          "value": "11"
+          "text": "1",
+          "value": "1"
         },
         "definition": "SELECT column_name FROM information_schema.columns WHERE table_name = '$precip_tab_name' AND column_name NOT IN ('forecast', 'time_grouping', 'region');",
         "label": "Agg Days",
@@ -209,8 +209,8 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "ets-3.6",
-          "value": "ets-3.6"
+          "text": "pearson",
+          "value": "pearson"
         },
         "description": "",
         "label": "Metric",
@@ -232,7 +232,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "acc"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Pearson",
             "value": "pearson"
           },
@@ -247,7 +247,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
             "value": "far-3.6"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "ETS 40mm/11 days",
             "value": "ets-3.6"
           },
@@ -378,27 +378,27 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       {
         "allowCustomValue": false,
         "current": {
-          "text": "March",
-          "value": "March"
+          "text": "January",
+          "value": "January"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"43b9f8fd510b587766b75442e9bb46d6\";",
+        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
         "includeAll": false,
         "label": "Time Filter",
         "name": "time_filter",
         "options": [],
-        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"43b9f8fd510b587766b75442e9bb46d6\";",
+        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\";",
         "refresh": 1,
         "regex": "",
         "type": "query"
       },
       {
         "current": {
-          "text": "6e8992f61722408de71cdea1feef87af",
-          "value": "6e8992f61722408de71cdea1feef87af"
+          "text": "bed6f084c9b5ffa1cb47126cd1aab61d",
+          "value": "bed6f084c9b5ffa1cb47126cd1aab61d"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -454,19 +454,19 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       {
         "current": {
-          "text": "-0.3",
-          "value": "-0.3"
+          "text": "",
+          "value": ""
         },
         "label": "vmin",
         "name": "vmin",
         "options": [
           {
             "selected": true,
-            "text": "-0.3",
-            "value": "-0.3"
+            "text": "",
+            "value": ""
           }
         ],
-        "query": "-0.3",
+        "query": "",
         "type": "textbox"
       },
       {
