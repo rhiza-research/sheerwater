@@ -1,26 +1,28 @@
 station_metrics:
-  script: run_grouped_metrics.py
-  forecast:
-    - chirp_v2
-    - chirps_v2
-    - chirp_v3
-    - chirps_v3
-    - imerg_late
-    - imerg_final
-    - rain_over_africa
-    - tamsat
-    - era5
-  truth:
-    - ghcn
-    - ghcn_avg
-    - tahmo
-    - tahmo_avg
-    - knust
-    - knust_avg
-  space-grouping: ['country', 'subregion']
-  grid: ['global0_25', 'global1_5']
-  variable: ['precip']
-  time-grouping: ['None', 'month_of_year']
+  function: metric
+  _all:
+    start_time: "1998-01-01"
+    end_time: "2024-12-31"
+    forecast:
+      - chirp_v3
+      - chirps_v3
+      - imerg_late
+      - imerg_final
+      - rain_over_africa
+      - tamsat
+      - era5
+    truth:
+      - ghcn
+      - ghcn_avg
+      - tahmo
+      - tahmo_avg
+      - knust
+      - knust_avg
+      - stations
+    space-grouping: ['country', 'subregion']
+    grid: ['global0_25', 'global1_5']
+    variable: ['precip']
+    time-grouping: ['None', 'month_of_year']
   combined_metrics:
     agg-days: [1, 5, 7, 10]
     metric: ['mae', 'rmse', 'bias', 'pearson', 'acc']
@@ -29,18 +31,16 @@ station_metrics:
     metric: ['pod-3.6', 'far-3.6', 'ets-3.6', 'csi-3.6', 'frequencybias-3.6']
   wet_5_day:
     agg_days: [5]
-    metric: ['pod-7.6', 'far-7.6', 'ets-7.6', 'csi-7.6', 'frequencybias-3.6']
+    metric: ['pod-7.6', 'far-7.6', 'ets-7.6', 'csi-7.6', 'frequencybias-7.6']
   wet_3_day:
-    agg_days: [11]
-    metric: ['pod-6.6', 'far-6.6', 'ets-6.6', 'csi-6.6', 'frequencybias-3.6']
+    agg_days: [3]
+    metric: ['pod-6.6', 'far-6.6', 'ets-6.6', 'csi-6.6', 'frequencybias-6.6']
   dry:
     agg_days: [7, 10]
     metric: ['pod-1.5', 'far-1.5', 'ets-1.5', 'csi-1.5', 'heidke-1.5-7.6']
 station_spatial_metrics:
-  script: run_spatial_metrics.py
+  function: spatial
   forecast:
-    - chirp_v2
-    - chirps_v2
     - chirp_v3
     - chirps_v3
     - imerg_late
@@ -49,7 +49,7 @@ station_spatial_metrics:
     - tamsat
     - era5
   truth:
-    - combined_stations_avg
+    - stations
   grid: ['global0_25', 'global1_5']
   variable: ['precip']
   time-grouping: ['None', 'month_of_year']
@@ -61,10 +61,10 @@ station_spatial_metrics:
     metric: ['pod-3.6', 'far-3.6', 'ets-3.6', 'csi-3.6', 'frequencybias-3.6']
   wet_5_day:
     agg_days: [5]
-    metric: ['pod-7.6', 'far-7.6', 'ets-7.6', 'csi-7.6', 'frequencybias-3.6']
+    metric: ['pod-7.6', 'far-7.6', 'ets-7.6', 'csi-7.6', 'frequencybias-7.6']
   wet_3_day:
-    agg_days: [11]
-    metric: ['pod-6.6', 'far-6.6', 'ets-6.6', 'csi-6.6', 'frequencybias-3.6']
+    agg_days: [3]
+    metric: ['pod-6.6', 'far-6.6', 'ets-6.6', 'csi-6.6', 'frequencybias-6.6']
   dry:
     agg_days: [7, 10]
     metric: ['pod-1.5', 'far-1.5', 'ets-1.5', 'csi-1.5', 'heidke-1.5-7.6']
