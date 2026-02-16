@@ -97,7 +97,7 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=False)
+                fcst = data_fn(**self.cache_kwargs, memoize=True)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.cache_kwargs)

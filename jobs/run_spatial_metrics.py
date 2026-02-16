@@ -32,7 +32,7 @@ def run_metric(combo):
         return metric(start_time, end_time, variable, agg_days=agg_days, forecast=forecast,
                truth=truth, metric_name=metric_name, spatial=True,
                time_grouping=time_grouping, grid=grid, space_grouping=None,
-               cache_mode='overwrite', filepath_only=filepath_only, recompute=recompute, storage_backend=backend)
+               cache_mode='overwrite', filepath_only=filepath_only, recompute=recompute, storage_backend=backend, backend_kwargs={'target_read_chunk_size_mb': 1000})
     except KeyboardInterrupt as e:
         raise (e)
         return None
