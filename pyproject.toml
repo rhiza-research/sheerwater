@@ -10,7 +10,7 @@ authors = [
 ]
 license = {text = "MIT"}
 dependencies = [
-    "dask",
+    "dask==2026.1.2",
     "dask[complete]",
     "click",
     "numpy",
@@ -80,10 +80,10 @@ allow-direct-references = true
 
 [tool.hatch.build]
 # Necessary to include nuthatch.toml
-include = ["sheerwater/", "jobs/", "dashboard_data/"]
+include = ["sheerwater/", "jobs/", "dashboard_data/", "nuthatch.toml"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["./sheerwater", "./jobs", "./dashboard_data"]
+packages = ["./sheerwater", "./jobs", "./dashboard_data", "nuthatch.toml"]
 
 [tool.uv]
 managed = true
@@ -136,7 +136,14 @@ port = 5432
 database = "postgres"
 username = "sheerwater_write"
 driver = "postgresql"
-raster_store = "gs://terracotta-files"
+remote_cache_size = "256GB"
+dynamic_config_path = "sheerwater.utils.secrets"
+
+[tool.nuthatch.terracotta]
+filesystem = "gs://sheerwater-datalake/rasters"
+database = "terracotta"
+override_path = "/mnt/sheerwater-datalake"
+
 
 [tool.nuthatch.filesystem_options]
 cache_timeout = 0

@@ -5,7 +5,7 @@ import traceback
 
 from sheerwater.utils import start_remote
 from jobs import parse_args, run_in_parallel, prune_metrics
-from dashboard_data import ground_truth_metric_table
+from dashboard_data import coverage_table
 
 (start_time, end_time, forecasts, truth, metrics,
  variables, grids, space_groupings, agg_days,
@@ -24,26 +24,26 @@ if 'crps' in metrics:
     metrics.remove('crps')
 
 
-combos = itertools.product([None], truth,  variables, grids, [None], space_groupings, time_groupings, metrics)
+combos = itertools.product([None], truth,  variables, grids, [None], space_groupings, time_groupings, [None])
 combos = prune_metrics(combos)
 
 
 def run_metrics_table(combo):
     """Run table metrics."""
-    _, truth, variable, grid, _, space_grouping, time_grouping, metric_name = combo
+    _, truth, variable, grid, _, space_grouping, time_grouping, _ = combo
 
     try:
-        return ground_truth_metric_table(start_time, end_time, variable, truth, metric_name,
+        return coverage_table(start_time, end_time, truth, agg_days, variable,
                                          time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
                                          cache_mode='overwrite', filepath_only=filepath_only,
                                          recompute=recompute, storage_backend=backend)
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:
-        print(f"Metric {grid} {variable} {metric_name} not implemented: {traceback.format_exc()}")
+        print(f"Metric {grid} {variable} not implemented: {traceback.format_exc()}")
         return "Not Implemented"
     except:  # noqa: E722
-        print(f"Failed to run metric {grid} {variable} {metric_name} \
+        print(f"Failed to run coverage for {truth} {grid} {variable} \
                 {space_grouping} {time_grouping}: {traceback.format_exc()}")
         return None
 

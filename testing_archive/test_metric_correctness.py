@@ -80,7 +80,7 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
     ds_new = ds_new.rename_vars({mn: variable})
 
     # Run grouped_metric
-    region_call = space_grouping if space_grouping != 'nimbus_east_africa' else 'east_africa'
+    region_call = region if region != 'nimbus_east_africa' else 'east_africa'
     region_call = 'global' if region_call is None else region_call
     ds_old = grouped_metric_test(
         start_time="2016-01-01",
