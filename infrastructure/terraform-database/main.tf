@@ -143,7 +143,9 @@ resource "postgresql_grant" "write_public_terracottads" {
   ]
 }
 
-### Access for the github action to deploy terraform
+################################################
+# Allow GitHub Actions to deploy terraform: read secrets
+################################################
 
 # tflint-ignore: terraform_naming_convention
 resource "google_project_iam_member" "access-terraform-state" {
@@ -156,5 +158,21 @@ resource "google_project_iam_member" "access-terraform-state" {
 resource "google_project_iam_member" "view-secrets" {
   project = google_project.project.project_id
   role = "roles/secretmanager.viewer"
+  member = "serviceAccount:${var.service_account_email}"
+}
+
+################################################
+# Allow GitHub Actions to run tests: read-only access to datalake buckets
+################################################
+
+resource "google_storage_bucket_iam_member" "ci_datalake_reader" {
+  bucket = "sheerwater-datalake"
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${var.service_account_email}"
+}
+
+resource "google_storage_bucket_iam_member" "ci_public_datalake_reader" {
+  bucket = "sheerwater-public-datalake"
+  role   = "roles/storage.objectViewer"
   member = "serviceAccount:${var.service_account_email}"
 }
