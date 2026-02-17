@@ -385,12 +385,12 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"43b9f8fd510b587766b75442e9bb46d6\";",
+        "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"${precip_tab_name}\";",
         "includeAll": false,
         "label": "Time Filter",
         "name": "time_filter",
         "options": [],
-        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"43b9f8fd510b587766b75442e9bb46d6\";",
+        "query": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"${precip_tab_name}\";",
         "refresh": 1,
         "regex": "",
         "type": "query"
