@@ -1,0 +1,7 @@
+{
+  "test_name": "test_get_metric_info",
+  "timestamp": "2026-02-12T10:56:53.550473",
+  "prompt": "Tell me about the MAE metric using sheerwater tools",
+  "response": "## Mean Absolute Error (MAE)\n\n**Full Name:** Mean Absolute Error\n\n**Description:** Measures the average magnitude of errors without considering direction.\n\n**Formula:** \n```\nMAE = (1/n) * sum(|forecast - observed|)\n```\n\n**Key Properties:**\n- **Range:** [0, \u221e)\n- **Direction:** Lower is better\n- **Units:** Match the variable being evaluated (e.g., mm for precipitation, \u00b0C for temperature)\n- **Type:** Deterministic (not probabilistic)\n- **Categorical:** No\n\n**Interpretation:** MAE gives you the average absolute difference between forecasted and observed values. A MAE of 5mm for precipitation means the forecast is off by 5mm on average. Unlike RMSE, MAE treats all errors equally and doesn't penalize large errors more heavily.\n\n**Example Usage:**\n```\nrun_metric(forecast='ecmwf_ifs_er', truth='chirps_v3', metric='mae', region='Kenya')\n```\n",
+  "success": true
+}

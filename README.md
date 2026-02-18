@@ -143,8 +143,15 @@ brew install hdf5 netcdf
 
 4) Install Python dependencies:
 ```console
-uv sync
+uv sync --extra mcp --group dev
 ```
+
+This installs everything: core library, MCP server dependencies, and dev tools (pytest, ruff, jupyter, etc.).
+
+You can also install subsets:
+- `uv sync` — core library only
+- `uv sync --extra mcp` — core + MCP server
+- `uv sync --group dev` — core + dev tools
 
 5) Run commands with UV:
 ```console
@@ -153,6 +160,16 @@ uv run python ...
 or
 ```console
 uv run jupyter lab
+```
+
+6) Run tests:
+```console
+uv run pytest
+```
+
+Some tests require a remote Dask cluster and will start one automatically. To skip these tests:
+```console
+uv run pytest --skip-remote
 ```
 
 ## Deployment and Infrastructure

@@ -201,7 +201,12 @@ def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="ERA5-Land - ECMWF high-resolution land reanalysis",
+    variables=["precip", "tmp2m"],
+    coverage="Global land",
+    data_type="reanalysis",
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
@@ -382,7 +387,12 @@ def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", ma
 
 
 @dask_remote
-@sheerwater_data()
+@sheerwater_data(
+    description="ERA5 - ECMWF Reanalysis (can be used as pseudo-truth)",
+    variables=["precip", "tmp2m"],
+    coverage="Global",
+    data_type="reanalysis",
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'): # noqa: ARG001

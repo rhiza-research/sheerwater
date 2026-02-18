@@ -299,3 +299,26 @@ def test_get_grid():
     assert pytest.approx(grid_size, abs=1e-10) == 0.1
     assert len(lons) == 3600
     assert len(lats) == 1800
+
+
+def test_region_labels():
+    """Test the region labels function."""
+    # Get region data for a single country
+    data = _region_gdf("indonesia")
+    assert data.iloc[0]['region_name'] == "indonesia"
+
+    data = _region_gdf("country")
+    assert len(data) == 242
+
+    # Get for all continents
+    data = _region_gdf("continent")
+    assert len(data) == 8
+
+    data = _region_gdf("eastern_africa")
+    assert len(data) == 1
+
+    data = _region_gdf("meteorological_zone")
+    assert len(data) == 3
+
+    data = _region_gdf("sheerwater_region")
+    assert len(data) == 3

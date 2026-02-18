@@ -1,0 +1,7 @@
+{
+  "test_name": "test_get_dashboard_link",
+  "timestamp": "2026-02-12T10:57:16.674544",
+  "prompt": "Using sheerwater tools, get me a Grafana dashboard link for Kenya precipitation forecasts",
+  "response": "Here's the Grafana dashboard link for Kenya precipitation forecasts:\n\n**URL:** https://dashboards.rhizaresearch.org/d/ee2jzeymn1o8wf/forecast-evaluation?var-region=Kenya&var-variable=precip\n\nThis links to the Forecast Evaluation Dashboard, pre-filtered for Kenya and precipitation. There are also other available dashboards you can explore:\n- forecast-eval-maps\n- ground-truth\n- reanalysis\n",
+  "success": true
+}

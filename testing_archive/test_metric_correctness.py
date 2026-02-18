@@ -2,6 +2,7 @@
 # flake8: noqa: E501
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 from nuthatch import cache
 
 from sheerwater.metrics import metric
@@ -148,7 +149,8 @@ def single_comparison(forecast="ecmwf_ifs_er_debiased",
         raise e
 
 
-def test_multiple_combinations():  # noqa: E501
+@pytest.mark.remote
+def test_multiple_combinations(dask_cluster):  # noqa: ARG001, E501
     """Test multiple combinations of parameters."""
     test_cases = [
         # Our basic test, does lat-weighted averaging and masking globally

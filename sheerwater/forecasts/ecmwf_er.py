@@ -402,7 +402,11 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="ECMWF IFS Extended Range - Operational physics-based model from ECMWF",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
@@ -415,7 +419,11 @@ def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, 
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(
+    description="ECMWF IFS Extended Range with reforecast-based bias correction",
+    forecast_type="deterministic",
+    variables=["precip", "tmp2m"],
+)
 @cache(cache=False, cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',

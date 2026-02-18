@@ -4,18 +4,13 @@ import time
 import pytest
 
 from sheerwater.metrics import metric
-from sheerwater.utils import plot_by_region, start_remote
+from sheerwater.utils import plot_by_region
 
 
-@pytest.fixture(scope="module")
-def setup_remote():
-    """Set up remote cluster for tests."""
-    start_remote(remote_config='large_cluster')
-
-
+@pytest.mark.remote
 @pytest.mark.parametrize("region", ["global", "country", "continent", "subregion"])
 @pytest.mark.parametrize("time_grouping", [None, "month_of_year", "year", "quarter_of_year"])
-def test_grouped_metrics_performance(setup_remote, region, time_grouping):  # noqa: ARG001
+def test_grouped_metrics_performance(dask_cluster, region, time_grouping):  # noqa: ARG001
     """Test performance of grouped metrics with different space and time groupings."""
     start_time = "2016-01-01"
     end_time = "2022-12-31"
@@ -50,7 +45,8 @@ def test_grouped_metrics_performance(setup_remote, region, time_grouping):  # no
     print(f"Region: {region}, Time grouping: {time_grouping}, Time: {elapsed:.2f}s")
 
 
-def test_grouped_metrics_performance_summary():
+@pytest.mark.remote
+def test_grouped_metrics_performance_summary(dask_cluster):  # noqa: ARG001
     """Run a comprehensive performance test and print summary."""
     start_time = "2016-01-01"
     end_time = "2022-12-31"
@@ -115,7 +111,8 @@ def test_grouped_metrics_performance_summary():
     print(f"Max time: {max_time:.2f}s")
 
 
-def test_grouped_metrics_performance_comprehensive():
+@pytest.mark.remote
+def test_grouped_metrics_performance_comprehensive(dask_cluster):  # noqa: ARG001
     """Run a comprehensive performance test and print summary."""
     start_time = "2016-01-01"
     end_time = "2022-12-31"
