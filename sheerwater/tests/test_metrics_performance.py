@@ -25,7 +25,7 @@ BASELINE_PATH = Path(__file__).resolve().parent / "metrics_performance_baseline.
 # Optional upper bound (seconds) per test to catch regressions. Set to None to only record timings.
 METRIC_MAX_SECONDS = None
 # Fail if current run is more than this many times slower than baseline (e.g. 2.0 = 2x slower).
-SLOWDOWN_THRESHOLD = 10.0
+SLOWDOWN_THRESHOLD = 4.0
 
 # Recompute options: full (statistic + metric), or metric-only (statistic from cache).
 METRIC_RECOMPUTE_FULL = ["global_statistic", "metric"]
@@ -48,13 +48,7 @@ def _save_baseline(data):
     BASELINE_PATH.write_text(json.dumps(data, indent=2))
 
 
-def _record_and_compare(
-    test_key,
-    cold_sec,
-    warm_full_sec=None,
-    warm_metric_only_sec=None,
-    warm_memoized_sec=None,
-):
+def _record_and_compare(test_key, cold_sec, warm_full_sec=None, warm_metric_only_sec=None, warm_memoized_sec=None):
     """Load baseline, print comparison with previous run (if any), fail if >2x slower, then save."""
     baseline = _load_baseline()
     prev = baseline.get(test_key)
@@ -91,16 +85,8 @@ def _record_and_compare(
     _save_baseline(baseline)
 
 
-def _print_metric_performance(
-    name,
-    config,
-    result,
-    cold_sec,
-    warm_full_sec=None,
-    warm_metric_only_sec=None,
-    warm_memoized_sec=None,
-    test_key=None,
-):
+def _print_metric_performance(name, config, result, cold_sec, warm_full_sec=None, warm_metric_only_sec=None,
+                              warm_memoized_sec=None, test_key=None):
     """Print performance metrics for cold, warm full recompute, and warm metric-only recompute."""
     print(f"\n--- {name} ---")
     print(f"  config: {config}")
@@ -238,9 +224,8 @@ def test_metric_mae_spatial_region_performance(remote_dask_cluster):  # noqa: AR
 
 @pytest.mark.performance
 @pytest.mark.parametrize("metric_name,variable", [
-    ("mae", "precip"),
-    ("rmse", "precip"),
-    ("bias", "precip"),
+    ("seeps", "precip"),
+    ("heidke-1-5-10-20", "precip"),
     ("acc", "precip"),
 ])
 def test_metric_various_metrics_performance(remote_dask_cluster, metric_name, variable):  # noqa: ARG001
