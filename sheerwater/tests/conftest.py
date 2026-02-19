@@ -15,28 +15,23 @@ def pytest_addoption(parser):
 
 
 def _parse_metric_test_numbers(raw):
-    """Parse a comma/range string into set of 1-based indices. None or empty -> None (run all)."""
+    """Parse --metric-test-numbers into a set of 1-based case indices.
+
+    Accepts comma- and space-separated numbers and inclusive ranges (e.g. "3-7").
+    Returns None if raw is None or empty (meaning run all tests).
+    """
     if not raw or not str(raw).strip():
         return None
-    raw = str(raw).strip()
     out = set()
-    for part in re.split(r"[\s,]+", raw):
-        part = part.strip()
+    for part in re.split(r"[\s,]+", str(raw).strip()):
         if not part:
             continue
-        if "-" in part and not part.startswith("-"):
-            a, b = part.split("-", 1)
-            try:
-                lo, hi = int(a.strip()), int(b.strip())
-                out.update(range(lo, hi + 1))
-            except ValueError:
-                pass
-            continue
-        try:
+        left, sep, right = part.partition("-")
+        if sep and left.isdigit() and right.isdigit():
+            out.update(range(int(left), int(right) + 1))
+        elif part.isdigit():
             out.add(int(part))
-        except ValueError:
-            pass
-    return out if out else None
+    return out or None
 
 
 @pytest.fixture

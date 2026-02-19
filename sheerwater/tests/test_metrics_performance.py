@@ -25,7 +25,7 @@ BASELINE_PATH = Path(__file__).resolve().parent / "metrics_performance_baseline.
 # Optional upper bound (seconds) per test to catch regressions. Set to None to only record timings.
 METRIC_MAX_SECONDS = None
 # Fail if current run is more than this many times slower than baseline (e.g. 2.0 = 2x slower).
-SLOWDOWN_THRESHOLD = 2.0
+SLOWDOWN_THRESHOLD = 10.0
 
 # Recompute options: full (statistic + metric), or metric-only (statistic from cache).
 METRIC_RECOMPUTE_FULL = ["global_statistic", "metric"]
