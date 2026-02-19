@@ -1,13 +1,13 @@
 {
   "metric_mae_global": {
-    "cold_sec": 17.787417,
-    "warm_full_sec": 9.867032,
-    "warm_metric_only_sec": 10.391935
+    "cold_sec": 16.980709,
+    "warm_full_sec": 9.661685,
+    "warm_metric_only_sec": 9.773906
   },
   "metric_mae_spatial_region": {
-    "cold_sec": 27.082227,
-    "warm_full_sec": 19.233821,
-    "warm_metric_only_sec": 19.590526
+    "cold_sec": 26.329749,
+    "warm_full_sec": 19.338752,
+    "warm_metric_only_sec": 21.591158
   },
   "metric_mae_precip": {
     "cold_sec": 10.679383,

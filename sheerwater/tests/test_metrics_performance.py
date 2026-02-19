@@ -2,6 +2,7 @@
 
 Run only performance tests: pytest -m performance -v -s
 Exclude from default runs: pytest -m "not performance"
+Run a specific case with -k: pytest -m performance -v -s -k "1" or -k "mae_global" or -k "acc"
 
 Each test runs three times: (1) cold with full recompute, (2) warm with full recompute,
 (3) warm with recompute only on metric (statistic from cache). Results and baseline
@@ -147,195 +148,85 @@ def _metric_kwargs(overrides=None):
     return kwargs
 
 
-@pytest.mark.performance
-def test_metric_mae_global_performance(remote_dask_cluster):  # noqa: ARG001
-    """Time metric(): cold full recompute, warm full recompute, warm metric-only recompute."""
-    kwargs_cold = _metric_kwargs()
-    kwargs_warm_full = {**kwargs_cold, "recompute": METRIC_RECOMPUTE_FULL, "cache_mode": METRIC_CACHE_MODE}
-    kwargs_warm_metric_only = {**kwargs_cold,
-                               "recompute": METRIC_RECOMPUTE_METRIC_ONLY, "cache_mode": METRIC_CACHE_MODE}
+def _run_metric_three_ways(kwargs):
+    """Run metric() cold full, warm full, warm metric-only.
+
+    Returns (result, cold_sec, warm_full_sec, warm_metric_only_sec).
+    """
+    kw_full = {**kwargs, "recompute": METRIC_RECOMPUTE_FULL, "cache_mode": METRIC_CACHE_MODE}
+    kw_metric_only = {**kwargs, "recompute": METRIC_RECOMPUTE_METRIC_ONLY, "cache_mode": METRIC_CACHE_MODE}
 
     start = time.perf_counter()
-    result = metric(**kwargs_cold)
+    result = metric(**kwargs)
     cold_sec = time.perf_counter() - start
 
     start = time.perf_counter()
-    result = metric(**kwargs_warm_full)
+    result = metric(**kw_full)
     warm_full_sec = time.perf_counter() - start
 
     start = time.perf_counter()
-    result = metric(**kwargs_warm_metric_only)
+    result = metric(**kw_metric_only)
     warm_metric_only_sec = time.perf_counter() - start
 
+    return result, cold_sec, warm_full_sec, warm_metric_only_sec
+
+
+def _assert_metric_result(result, cold_sec, expected_var=None, test_label=""):
+    """Common asserts: result not None, optional expected_var in result, optional METRIC_MAX_SECONDS."""
+    assert result is not None
+    if expected_var is not None:
+        assert expected_var in result
+    if METRIC_MAX_SECONDS is not None:
+        assert cold_sec <= METRIC_MAX_SECONDS, (
+            f"{test_label} took {cold_sec:.2f}s, max allowed {METRIC_MAX_SECONDS}s"
+        )
+
+
+def _expected_var(metric_name):
+    """Result variable name for metric_name (e.g. 'ets-5' -> 'ets')."""
+    return metric_name.split("-")[0] if "-" in metric_name else metric_name
+
+
+# (overrides for _metric_kwargs, baseline test_key). Id and display derived from index + test_key.
+PERFORMANCE_TEST_CASES = [
+    ({}, "metric_mae_global"),
+    ({"spatial": True, "region": "nimbus_east_africa"}, "metric_mae_spatial_region"),
+    ({"metric_name": "seeps", "variable": "precip"}, "metric_seeps_precip"),
+    ({"metric_name": "heidke-1-5-10-20", "variable": "precip"}, "metric_heidke-1-5-10-20_precip"),
+    ({"metric_name": "acc", "variable": "precip"}, "metric_acc_precip"),
+    ({"time_grouping": None}, "metric_time_grouping_None"),
+    ({"time_grouping": "month"}, "metric_time_grouping_month"),
+    ({"time_grouping": "year"}, "metric_time_grouping_year"),
+    ({"space_grouping": None}, "metric_space_grouping_None"),
+    ({"space_grouping": "country"}, "metric_space_grouping_country"),
+]
+
+
+def _perf_case_id(i, test_key):
+    """-k-friendly id: number + test_key with hyphens as underscores."""
+    return f"{i + 1}_{test_key.replace('-', '_')}"
+
+
+@pytest.mark.parametrize(
+    "overrides, test_key",
+    PERFORMANCE_TEST_CASES,
+    ids=[_perf_case_id(i, tk) for i, (_, tk) in enumerate(PERFORMANCE_TEST_CASES)],
+)
+def test_metric_performance(remote_dask_cluster, overrides, test_key):  # noqa: ARG001
+    """Time metric(): cold full, warm full, warm metric-only recompute. One parametrized test per case."""
+    kwargs = _metric_kwargs(overrides)
+    result, cold_sec, warm_full_sec, warm_metric_only_sec = _run_metric_three_ways(kwargs)
+    metric_name = overrides.get("metric_name", "mae")
+    expected_var = _expected_var(metric_name)
+    config_str = ", ".join(f"{k}={v}" for k, v in sorted(overrides.items())) if overrides else "default"
+
     _print_metric_performance(
-        "metric(mae, global)",
-        "metric_name=mae, region=global, spatial=False, time_grouping=None, space_grouping=None",
+        test_key,
+        config_str,
         result,
         cold_sec=cold_sec,
         warm_full_sec=warm_full_sec,
         warm_metric_only_sec=warm_metric_only_sec,
-        test_key="metric_mae_global",
+        test_key=test_key,
     )
-    assert result is not None
-    assert "mae" in result
-    if METRIC_MAX_SECONDS is not None:
-        assert cold_sec <= METRIC_MAX_SECONDS, (
-            f"metric(mae, global) took {cold_sec:.2f}s, max allowed {METRIC_MAX_SECONDS}s"
-        )
-
-
-@pytest.mark.performance
-def test_metric_mae_spatial_region_performance(remote_dask_cluster):  # noqa: ARG001
-    """Time metric(): cold full recompute, warm full recompute, warm metric-only recompute."""
-    kwargs_cold = _metric_kwargs({
-        "spatial": True,
-        "region": "nimbus_east_africa",
-    })
-    kwargs_warm_full = {**kwargs_cold, "recompute": METRIC_RECOMPUTE_FULL, "cache_mode": METRIC_CACHE_MODE}
-    kwargs_warm_metric_only = {**kwargs_cold,
-                               "recompute": METRIC_RECOMPUTE_METRIC_ONLY, "cache_mode": METRIC_CACHE_MODE}
-
-    start = time.perf_counter()
-    result = metric(**kwargs_cold)
-    cold_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_full)
-    warm_full_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_metric_only)
-    warm_metric_only_sec = time.perf_counter() - start
-
-    _print_metric_performance(
-        "metric(mae, spatial, region)",
-        "metric_name=mae, region=nimbus_east_africa, spatial=True",
-        result,
-        cold_sec=cold_sec,
-        warm_full_sec=warm_full_sec,
-        warm_metric_only_sec=warm_metric_only_sec,
-        test_key="metric_mae_spatial_region",
-    )
-    assert result is not None
-    assert "mae" in result
-    if METRIC_MAX_SECONDS is not None:
-        assert cold_sec <= METRIC_MAX_SECONDS, (
-            f"metric(mae, spatial, region) took {cold_sec:.2f}s, max allowed {METRIC_MAX_SECONDS}s"
-        )
-
-
-@pytest.mark.performance
-@pytest.mark.parametrize("metric_name,variable", [
-    ("seeps", "precip"),
-    ("heidke-1-5-10-20", "precip"),
-    ("acc", "precip"),
-])
-def test_metric_various_metrics_performance(remote_dask_cluster, metric_name, variable):  # noqa: ARG001
-    """Time metric(): cold full recompute, warm full recompute, warm metric-only recompute."""
-    kwargs_cold = _metric_kwargs({"metric_name": metric_name, "variable": variable})
-    kwargs_warm_full = {**kwargs_cold, "recompute": METRIC_RECOMPUTE_FULL, "cache_mode": METRIC_CACHE_MODE}
-    kwargs_warm_metric_only = {**kwargs_cold,
-                               "recompute": METRIC_RECOMPUTE_METRIC_ONLY, "cache_mode": METRIC_CACHE_MODE}
-
-    start = time.perf_counter()
-    result = metric(**kwargs_cold)
-    cold_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_full)
-    warm_full_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_metric_only)
-    warm_metric_only_sec = time.perf_counter() - start
-
-    var = metric_name.split("-")[0] if "-" in metric_name else metric_name
-    _print_metric_performance(
-        f"metric({metric_name}, {variable})",
-        f"metric_name={metric_name}, variable={variable}",
-        result,
-        cold_sec=cold_sec,
-        warm_full_sec=warm_full_sec,
-        warm_metric_only_sec=warm_metric_only_sec,
-        test_key=f"metric_{metric_name}_{variable}",
-    )
-    assert result is not None
-    assert var in result
-    if METRIC_MAX_SECONDS is not None:
-        assert cold_sec <= METRIC_MAX_SECONDS, (
-            f"metric({metric_name}) took {cold_sec:.2f}s, max allowed {METRIC_MAX_SECONDS}s"
-        )
-
-
-@pytest.mark.performance
-@pytest.mark.parametrize("time_grouping", [None, "month", "year"])
-def test_metric_time_grouping_performance(remote_dask_cluster, time_grouping):  # noqa: ARG001
-    """Time metric(): cold full recompute, warm full recompute, warm metric-only recompute."""
-    kwargs_cold = _metric_kwargs({"time_grouping": time_grouping})
-    kwargs_warm_full = {**kwargs_cold, "recompute": METRIC_RECOMPUTE_FULL, "cache_mode": METRIC_CACHE_MODE}
-    kwargs_warm_metric_only = {**kwargs_cold,
-                               "recompute": METRIC_RECOMPUTE_METRIC_ONLY, "cache_mode": METRIC_CACHE_MODE}
-
-    start = time.perf_counter()
-    result = metric(**kwargs_cold)
-    cold_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_full)
-    warm_full_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_metric_only)
-    warm_metric_only_sec = time.perf_counter() - start
-
-    _print_metric_performance(
-        f"metric(time_grouping={time_grouping})",
-        f"time_grouping={time_grouping}",
-        result,
-        cold_sec=cold_sec,
-        warm_full_sec=warm_full_sec,
-        warm_metric_only_sec=warm_metric_only_sec,
-        test_key=f"metric_time_grouping_{time_grouping}",
-    )
-    assert result is not None
-    if METRIC_MAX_SECONDS is not None:
-        assert cold_sec <= METRIC_MAX_SECONDS, (
-            f"metric(time_grouping={time_grouping}) took {cold_sec:.2f}s, max allowed {METRIC_MAX_SECONDS}s"
-        )
-
-
-@pytest.mark.performance
-@pytest.mark.parametrize("space_grouping", [None, "country"])
-def test_metric_space_grouping_performance(remote_dask_cluster, space_grouping):  # noqa: ARG001
-    """Time metric(): cold full recompute, warm full recompute, warm metric-only recompute."""
-    kwargs_cold = _metric_kwargs({"space_grouping": space_grouping})
-    kwargs_warm_full = {**kwargs_cold, "recompute": METRIC_RECOMPUTE_FULL, "cache_mode": METRIC_CACHE_MODE}
-    kwargs_warm_metric_only = {**kwargs_cold,
-                               "recompute": METRIC_RECOMPUTE_METRIC_ONLY, "cache_mode": METRIC_CACHE_MODE}
-
-    start = time.perf_counter()
-    result = metric(**kwargs_cold)
-    cold_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_full)
-    warm_full_sec = time.perf_counter() - start
-
-    start = time.perf_counter()
-    result = metric(**kwargs_warm_metric_only)
-    warm_metric_only_sec = time.perf_counter() - start
-
-    _print_metric_performance(
-        f"metric(space_grouping={space_grouping})",
-        f"space_grouping={space_grouping}",
-        result,
-        cold_sec=cold_sec,
-        warm_full_sec=warm_full_sec,
-        warm_metric_only_sec=warm_metric_only_sec,
-        test_key=f"metric_space_grouping_{space_grouping}",
-    )
-    assert result is not None
-    if METRIC_MAX_SECONDS is not None:
-        assert cold_sec <= METRIC_MAX_SECONDS, (
-            f"metric(space_grouping={space_grouping}) took {cold_sec:.2f}s, max allowed {METRIC_MAX_SECONDS}s"
-        )
+    _assert_metric_result(result, cold_sec, expected_var=expected_var, test_label=test_key)
