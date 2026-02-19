@@ -1,7 +1,7 @@
 """Performance tests for metrics functions.
 
-Run with: pytest sheerwater/tests/test_metrics_performance.py -m performance -v -s
-(-s shows printed metrics; exclude from default runs: pytest -m "not performance")
+Run only performance tests: pytest -m performance -v -s
+Exclude from default runs: pytest -m "not performance"
 
 Each test runs three times: (1) cold with full recompute, (2) warm with full recompute,
 (3) warm with recompute only on metric (statistic from cache). Results and baseline
@@ -17,6 +17,8 @@ from pathlib import Path
 import pytest
 
 from sheerwater.metrics import metric
+
+pytestmark = pytest.mark.performance
 
 
 # Baseline file: stores last run timings; new runs compare against it then overwrite.

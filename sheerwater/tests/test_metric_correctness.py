@@ -1,19 +1,25 @@
 """Test the metrics library: run metric() for multiple forecast/metric/region combinations.
 
 Loads the old metric from cache (grouped_metric_test stub) and tests equality against
-the new metric(). Behavior matches testing_archive/test_metric_correctness.
+the new metric().
 
 Run with -s to see diagnostic output:
   pytest sheerwater/tests/test_metric_correctness.py -v -s
 
-Run a specific case by name, e.g.:
-  pytest sheerwater/tests/test_metric_correctness.py -v -s -k ecmwf_mae_precip_global
+Run only correctness tests 
+  pytest -m correctness -v -s
+
+Run a specific case with -k (match parametrized id), e.g.:
+  pytest sheerwater/tests/test_metric_correctness.py -v -s -k "1_ecmwf_ifs_er_debiased_mae_precip_global"
 """
 import numpy as np
+import pytest
 
 from sheerwater.metrics import metric
 from sheerwater.utils import dask_remote
 from nuthatch import cache
+
+pytestmark = pytest.mark.correctness
 
 
 # Stub providing gold standard reference: same cache signature as legacy grouped_metric.
@@ -194,277 +200,55 @@ def _run_single_case(test_case):
     return None, passed, result_code
 
 
-def test_metric_correctness_01_ecmwf_mae_precip_global(remote_dask_cluster):  # noqa: ARG001
-    """Basic: lat-weighted averaging and masking globally."""
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mae",
-        "variable": "precip",
-        "space_grouping": None,
-        "region": "global",
-        "mask": "lsm",
-        "spatial": False,
-    })
-    assert passed
+def _metric_case_id(case):
+    """Unique id for parametrized test (forecast_metric_variable_region)."""
+    c = dict(case)
+    c.setdefault("region", "global")
+    parts = [c["forecast"], c["metric_name"], c["variable"], c["region"]]
+    return "_".join(str(p).replace("-", "_") for p in parts)
 
 
-def test_metric_correctness_02_ecmwf_mae_precip_nimbus_east_africa(remote_dask_cluster):  # noqa: ARG001
-    """Spatial weighting."""
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mae",
-        "variable": "precip",
-        "space_grouping": None,
-        "region": "nimbus_east_africa",
-        "mask": "lsm",
-        "spatial": True,
-    })
-    assert passed
+# Test cases from testing_archive/test_metric_correctness.
+METRIC_TEST_CASES = [
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip",
+     "space_grouping": None, "region": "global", "mask": "lsm", "spatial": False},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip",
+     "space_grouping": None, "region": "nimbus_east_africa", "mask": "lsm", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "acc", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "ets-5", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "pod-5", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "rmse", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "bias", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": True},
+    {"forecast": "salient", "metric_name": "crps", "variable": "precip", "spatial": True, "region": "africa"},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "pearson", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "heidke-1-5-10-20", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "pod-10", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "far-5", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "frequencybias-5", "variable": "precip", "spatial": False},
+    {"forecast": "ecmwf_ifs_er", "metric_name": "mae", "variable": "precip", "spatial": False},
+    {"forecast": "climatology_2015", "metric_name": "mae", "variable": "precip", "spatial": True},
+    {"forecast": "fuxi", "metric_name": "mae", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "tmp2m", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "acc", "variable": "precip", "lead": "week2", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "acc", "variable": "tmp2m", "lead": "week2", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip",
+     "region": "africa", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip",
+     "region": "nimbus_east_africa", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "spatial": False},
+]
 
 
-def test_metric_correctness_03_ecmwf_acc_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_04_ecmwf_ets_5_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "ets-5",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_05_ecmwf_pod_5_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "pod-5",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_06_ecmwf_rmse_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "rmse",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_07_ecmwf_bias_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "bias",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_08_ecmwf_crps_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "crps",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_09_salient_crps_precip_africa(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "salient",
-        "metric_name": "crps",
-        "variable": "precip",
-        "spatial": True,
-        "region": "africa",
-    })
-    assert passed
-
-
-def test_metric_correctness_10_ecmwf_smape_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "smape",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_11_ecmwf_mape_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mape",
-        "variable": "precip",
-        "spatial": False,
-    })
-    assert passed
-
-
-def test_metric_correctness_12_ecmwf_seeps_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "seeps",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_13_ecmwf_pearson_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "pearson",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_14_ecmwf_heidke_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "heidke-1-5-10-20",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_15_ecmwf_pod_10_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "pod-10",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_16_ecmwf_far_5_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "far-5",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_17_ecmwf_frequencybias_5_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "frequencybias-5",
-        "variable": "precip",
-        "spatial": False,
-    })
-    assert passed
-
-
-def test_metric_correctness_18_ecmwf_ifs_er_mae_precip(remote_dask_cluster):  # noqa: ARG001
-    """Different forecast (no debiased)."""
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er",
-        "metric_name": "mae",
-        "variable": "precip",
-        "spatial": False,
-    })
-    assert passed
-
-
-def test_metric_correctness_19_climatology_mae_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "climatology_2015",
-        "metric_name": "mae",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_20_fuxi_mae_precip(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "fuxi",
-        "metric_name": "mae",
-        "variable": "precip",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_21_ecmwf_mae_tmp2m(remote_dask_cluster):  # noqa: ARG001
-    """Different variable."""
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mae",
-        "variable": "tmp2m",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_22_ecmwf_acc_precip_week2(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc",
-        "variable": "precip",
-        "lead": "week2",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_23_ecmwf_acc_tmp2m_week2(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc",
-        "variable": "tmp2m",
-        "lead": "week2",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_24_ecmwf_mae_precip_africa(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mae",
-        "variable": "precip",
-        "region": "africa",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_25_ecmwf_mae_precip_nimbus_east_africa(remote_dask_cluster):  # noqa: ARG001
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mae",
-        "variable": "precip",
-        "region": "nimbus_east_africa",
-        "spatial": True,
-    })
-    assert passed
-
-
-def test_metric_correctness_26_ecmwf_mae_precip_global_nonspatial(remote_dask_cluster):  # noqa: ARG001
-    """Non-spatial (global)."""
-    _, passed, _ = _run_single_case({
-        "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "mae",
-        "variable": "precip",
-        "spatial": False,
-    })
+@pytest.mark.parametrize(
+    "test_case",
+    METRIC_TEST_CASES,
+    ids=[f"{i+1}_{_metric_case_id(c)}" for i, c in enumerate(METRIC_TEST_CASES)],
+)
+def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
+    """One test per metric/forecast/variable/region combination; compares to cached baseline."""
+    _, passed, _ = _run_single_case(test_case)
     assert passed
