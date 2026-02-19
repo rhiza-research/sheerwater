@@ -110,11 +110,11 @@ METRIC_TEST_CASES = [
     # 9.
     {"forecast": "salient", "metric_name": "crps", "variable": "precip", "spatial": True, "region": "africa"},
     # 10. Fails b/c of some change in the underlying data source?
-    # {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
     # 11. Fails b/c of some change in the underlying data source?
-    # {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
     # # 12. Fails b/c of some change in the underlying data source?
-    # {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
+    {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
     # 13.
     {"forecast": "ecmwf_ifs_er_debiased", "metric_name": "pearson", "variable": "precip", "spatial": True},
     # 14.
