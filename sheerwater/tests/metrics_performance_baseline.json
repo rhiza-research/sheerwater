@@ -35,9 +35,9 @@
     "warm_metric_only_sec": 12.202639
   },
   "metric_time_grouping_month": {
-    "cold_sec": 12.843853,
-    "warm_full_sec": 13.720131,
-    "warm_metric_only_sec": 12.780738
+    "cold_sec": 13.891771,
+    "warm_full_sec": 11.686549,
+    "warm_metric_only_sec": 13.788108
   },
   "metric_time_grouping_year": {
     "cold_sec": 12.038275,
