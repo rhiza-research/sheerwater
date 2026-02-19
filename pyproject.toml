@@ -129,11 +129,6 @@ convention = "google"
 [tool.ruff.format]
 indent-style = "space"
 
-[tool.pytest.ini_options]
-markers = [
-    "performance: performance / benchmark tests for metrics (run with pytest -m performance)",
-]
-
 [tool.nuthatch]
 filesystem = "gs://sheerwater-datalake/caches"
 host = "postgres.shared.rhizaresearch.org"

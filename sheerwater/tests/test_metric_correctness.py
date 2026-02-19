@@ -3,18 +3,14 @@
 Loads the old metric from cache (grouped_metric_test stub) and tests equality against
 the new metric(). Behavior matches testing_archive/test_metric_correctness.
 
-Run with -s to see diagnostic output: pytest sheerwater/tests/test_metric_correctness.py -v -s
+Run with -s to see diagnostic output:
+  pytest sheerwater/tests/test_metric_correctness.py -v -s
 
-Run individual tests by number (1–26) via CLI or env:
-  pytest sheerwater/tests/test_metric_correctness.py --metric-test-numbers 5 -v -s
-  pytest sheerwater/tests/test_metric_correctness.py --metric-test-numbers 3,5,10 -v -s
-  pytest sheerwater/tests/test_metric_correctness.py --metric-test-numbers 3-7 -v -s
-  METRIC_TEST_NUMBERS=5 pytest ...  (env fallback)
+Run a specific case by name, e.g.:
+  pytest sheerwater/tests/test_metric_correctness.py -v -s -k "ecmwf_mae_precip_global"
 """
-import os
-import re
-
 import numpy as np
+import pytest
 
 from sheerwater.metrics import metric
 from sheerwater.utils import dask_remote
@@ -45,35 +41,15 @@ def _metric_var(metric_name):
     return metric_name.split("-")[0] if "-" in metric_name else metric_name
 
 
-def _parse_test_numbers_env():
-    """Parse METRIC_TEST_NUMBERS env var. Returns set of 1-based indices or None for all.
-
-    Examples: "5" -> {5}; "3,5,10" -> {3,5,10}; "3-7" -> {3,4,5,6,7}; unset -> None.
-    """
-    raw = os.environ.get("METRIC_TEST_NUMBERS", "").strip()
-    if not raw:
-        return None
-    out = set()
-    for part in re.split(r"[\s,]+", raw):
-        part = part.strip()
-        if not part:
-            continue
-        if "-" in part and not part.startswith("-"):
-            a, b = part.split("-", 1)
-            try:
-                lo, hi = int(a.strip()), int(b.strip())
-                out.update(range(lo, hi + 1))
-            except ValueError:
-                pass
-            continue
-        try:
-            out.add(int(part))
-        except ValueError:
-            pass
-    return out if out else None
+def _metric_case_id(case):
+    """Unique id for parametrized test (forecast_metric_variable_region)."""
+    c = dict(case)
+    c.setdefault("region", "global")
+    parts = [c["forecast"], c["metric_name"], c["variable"], c["region"]]
+    return "_".join(str(p).replace("-", "_") for p in parts)
 
 
-# Test cases from testing_archive/test_metric_correctness (no comparison to old stub).
+# Test cases from testing_archive/test_metric_correctness.
 METRIC_TEST_CASES = [
     # 1. Basic: lat-weighted averaging and masking globally
     {
@@ -307,53 +283,12 @@ def _run_single_case(test_case):
     return None, passed, result_code
 
 
-def test_metric_correctness_multiple_combinations(remote_dask_cluster, metric_test_numbers):  # noqa: ARG001
-    """Run metric test cases with diagnostics and summary. Use --metric-test-numbers to run by number (1–26)."""
-    all_cases = list(METRIC_TEST_CASES)
-    # CLI option overrides env var
-    numbers = metric_test_numbers or _parse_test_numbers_env()
-    if numbers is not None:
-        n_total = len(all_cases)
-        selected = [(i, all_cases[i - 1]) for i in sorted(numbers) if 1 <= i <= n_total]
-        if not selected:
-            raise ValueError(
-                f"metric-test-numbers produced no valid indices (1–{n_total}): "
-                f"{os.environ.get('METRIC_TEST_NUMBERS', '')}"
-            )
-    else:
-        selected = [(i + 1, c) for i, c in enumerate(all_cases)]
-
-    results = []
-    for case_num, test_case in selected:
-        print(f"\n{'='*60}")
-        print(f"Test case {case_num}/{len(all_cases)}")
-        print(f"{'='*60}")
-
-        _, passed, result_code = _run_single_case(test_case)
-        results.append({"params": test_case, "passed": passed, "result_code": result_code})
-
-    # Summary (like testing_archive)
-    n = len(results)
-    both_none = sum(1 for r in results if r["result_code"] == 0)
-    new_failed = sum(1 for r in results if r["result_code"] == 1)
-    old_missing = sum(1 for r in results if r["result_code"] == 2)
-    exact_match = sum(1 for r in results if r["result_code"] == 3)
-    close_match = sum(1 for r in results if r["result_code"] == 4)
-    sig_diff = sum(1 for r in results if r["result_code"] == 5)
-    passed_count = sum(1 for r in results if r["passed"])
-    failed_tests = [r["params"] for r in results if not r["passed"]]
-
-    print(f"\n{'='*60}")
-    print("SUMMARY")
-    print(f"{'='*60}")
-    print(f"Total tests:    {n}")
-    print(f"Exact match:    {exact_match} / {n}, {exact_match/n*100:.2f}%")
-    print(f"Close match:    {close_match} / {n}, {close_match/n*100:.2f}%")
-    print(f"Sig. diff:      {sig_diff} / {n}, {sig_diff/n*100:.2f}%")
-    print(f"New failed:     {new_failed} / {n}, {new_failed/n*100:.2f}%")
-    print(f"Old not cached: {old_missing} / {n}, {old_missing/n*100:.2f}%")
-    print(f"Both none:      {both_none} / {n}, {both_none/n*100:.2f}%")
-    print(f"Passed:         {passed_count} / {n}, {passed_count/n*100:.2f}%")
-    if failed_tests:
-        print(f"Failed tests: {failed_tests}")
-        assert False, f"{len(failed_tests)} test(s) failed"
+@pytest.mark.parametrize(
+    "test_case",
+    METRIC_TEST_CASES,
+    ids=[f"{i+1}_{_metric_case_id(c)}" for i, c in enumerate(METRIC_TEST_CASES)],
+)
+def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
+    """One test per metric/forecast/variable/region combination; compares to cached baseline."""
+    _, passed, _ = _run_single_case(test_case)
+    assert passed

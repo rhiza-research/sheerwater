@@ -1,0 +1,67 @@
+{
+  "metric_mae_global": {
+    "cold_sec": 17.787417,
+    "warm_full_sec": 9.867032,
+    "warm_metric_only_sec": 10.391935
+  },
+  "metric_mae_spatial_region": {
+    "cold_sec": 27.082227,
+    "warm_full_sec": 19.233821,
+    "warm_metric_only_sec": 19.590526
+  },
+  "metric_mae_precip": {
+    "cold_sec": 10.679383,
+    "warm_full_sec": 10.392979,
+    "warm_metric_only_sec": 10.809866
+  },
+  "metric_rmse_precip": {
+    "cold_sec": 10.347976,
+    "warm_full_sec": 10.720275,
+    "warm_metric_only_sec": 10.489597
+  },
+  "metric_bias_precip": {
+    "cold_sec": 10.529055,
+    "warm_full_sec": 10.656526,
+    "warm_metric_only_sec": 10.451471
+  },
+  "metric_acc_precip": {
+    "cold_sec": 12.742394,
+    "warm_full_sec": 23.500083,
+    "warm_metric_only_sec": 26.519822
+  },
+  "metric_time_grouping_None": {
+    "cold_sec": 10.415415,
+    "warm_full_sec": 13.12291,
+    "warm_metric_only_sec": 12.202639
+  },
+  "metric_time_grouping_month": {
+    "cold_sec": 12.843853,
+    "warm_full_sec": 13.720131,
+    "warm_metric_only_sec": 12.780738
+  },
+  "metric_time_grouping_year": {
+    "cold_sec": 12.038275,
+    "warm_full_sec": 12.263333,
+    "warm_metric_only_sec": 12.014684
+  },
+  "metric_space_grouping_None": {
+    "cold_sec": 10.2993,
+    "warm_full_sec": 10.439419,
+    "warm_metric_only_sec": 10.099467
+  },
+  "metric_space_grouping_country": {
+    "cold_sec": 17.912317,
+    "warm_full_sec": 17.279753,
+    "warm_metric_only_sec": 17.762994
+  },
+  "metric_seeps_precip": {
+    "cold_sec": 30.137604,
+    "warm_full_sec": 34.442447,
+    "warm_metric_only_sec": 17.209265
+  },
+  "metric_heidke-1-5-10-20_precip": {
+    "cold_sec": 12.461137,
+    "warm_full_sec": 11.969958,
+    "warm_metric_only_sec": 10.589521
+  }
+}
