@@ -50,9 +50,9 @@
     "warm_metric_only_sec": 12.116521
   },
   "metric_space_grouping_country": {
-    "cold_sec": 17.912317,
-    "warm_full_sec": 17.279753,
-    "warm_metric_only_sec": 17.762994
+    "cold_sec": 27.062261,
+    "warm_full_sec": 19.834441,
+    "warm_metric_only_sec": 19.62322
   },
   "metric_seeps_precip": {
     "cold_sec": 30.137604,
