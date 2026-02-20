@@ -123,6 +123,9 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # Google convention via `convention = "google"`, below.
 select = ["E", "F", "W", "D", "ARG"]
 
+[tool.ruff.lint.per-file-ignores]
+"sheerwater/tests/test_metric_correctness.py" = ["E501"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
