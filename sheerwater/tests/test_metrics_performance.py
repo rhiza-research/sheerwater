@@ -187,33 +187,29 @@ def _expected_var(metric_name):
     return metric_name.split("-")[0] if "-" in metric_name else metric_name
 
 
-# (overrides for _metric_kwargs, baseline test_key). Id and display derived from index + test_key.
+# Each case has "name" (test id and baseline key); rest are overrides for _metric_kwargs.
 PERFORMANCE_TEST_CASES = [
-    ({}, "metric_mae_global"),
-    ({"spatial": True, "region": "nimbus_east_africa"}, "metric_mae_spatial_region"),
-    ({"metric_name": "seeps", "variable": "precip"}, "metric_seeps_precip"),
-    ({"metric_name": "heidke-1-5-10-20", "variable": "precip"}, "metric_heidke-1-5-10-20_precip"),
-    ({"metric_name": "acc", "variable": "precip"}, "metric_acc_precip"),
-    ({"time_grouping": None}, "metric_time_grouping_None"),
-    ({"time_grouping": "month"}, "metric_time_grouping_month"),
-    ({"time_grouping": "year"}, "metric_time_grouping_year"),
-    ({"space_grouping": None}, "metric_space_grouping_None"),
-    ({"space_grouping": "country"}, "metric_space_grouping_country"),
+    {"name": "1_mae_global"},
+    {"name": "2_mae_spatial", "spatial": True, "region": "nimbus_east_africa"},
+    {"name": "3_seeps", "metric_name": "seeps", "variable": "precip"},
+    {"name": "4_heidke", "metric_name": "heidke-1-5-10-20", "variable": "precip"},
+    {"name": "5_acc", "metric_name": "acc", "variable": "precip"},
+    {"name": "6_time_None", "time_grouping": None},
+    {"name": "7_time_month", "time_grouping": "month"},
+    {"name": "8_time_year", "time_grouping": "year"},
+    {"name": "9_space_None", "space_grouping": None},
+    {"name": "10_space_country", "space_grouping": "country"},
 ]
 
 
-def _perf_case_id(i, test_key):
-    """-k-friendly id: number + test_key with hyphens as underscores."""
-    return f"{i + 1}_{test_key.replace('-', '_')}"
-
-
 @pytest.mark.parametrize(
-    "overrides, test_key",
+    "case",
     PERFORMANCE_TEST_CASES,
-    ids=[_perf_case_id(i, tk) for i, (_, tk) in enumerate(PERFORMANCE_TEST_CASES)],
+    ids=[c["name"] for c in PERFORMANCE_TEST_CASES],
 )
-def test_metric_performance(remote_dask_cluster, overrides, test_key):  # noqa: ARG001
+def test_metric_performance(remote_dask_cluster, case):  # noqa: ARG001
     """Time metric(): cold full, warm full, warm metric-only recompute. One parametrized test per case."""
+    overrides = {k: v for k, v in case.items() if k != "name"}
     kwargs = _metric_kwargs(overrides)
     result, cold_sec, warm_full_sec, warm_metric_only_sec = _run_metric_three_ways(kwargs)
     metric_name = overrides.get("metric_name", "mae")
@@ -221,12 +217,12 @@ def test_metric_performance(remote_dask_cluster, overrides, test_key):  # noqa: 
     config_str = ", ".join(f"{k}={v}" for k, v in sorted(overrides.items())) if overrides else "default"
 
     _print_metric_performance(
-        test_key,
+        case["name"],
         config_str,
         result,
         cold_sec=cold_sec,
         warm_full_sec=warm_full_sec,
         warm_metric_only_sec=warm_metric_only_sec,
-        test_key=test_key,
+        test_key=case["name"],
     )
-    _assert_metric_result(result, cold_sec, expected_var=expected_var, test_label=test_key)
+    _assert_metric_result(result, cold_sec, expected_var=expected_var, test_label=case["name"])
