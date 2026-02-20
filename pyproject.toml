@@ -148,3 +148,10 @@ filesystem = "~/.cache/nuthatch"
 filesystem = "gs://sheerwater-public-datalake/caches"
 [tool.nuthatch.mirror-public.filesystem_options]
 cache_timeout = 0
+
+[tool.pytest.ini_options]
+addopts = "--ignore=testing_archive"
+markers = [
+    "performance: metric timing and baseline regression tests (deselect with -m 'not performance')",
+    "correctness: metric vs cached baseline comparison tests (deselect with -m 'not correctness')",
+]

@@ -2,6 +2,15 @@
 import pytest
 
 
+@pytest.fixture(scope="session")
+def remote_dask_cluster():
+    """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
+    from sheerwater.utils import start_remote
+
+    start_remote(remote_config="xlarge_cluster")
+    yield
+
+
 @pytest.fixture
 def start_iri_ecmwf():
     """The start date for the IRI ECMWF data."""
