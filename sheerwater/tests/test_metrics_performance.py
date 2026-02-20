@@ -199,6 +199,7 @@ PERFORMANCE_TEST_CASES = [
     {"name": "8_time_year", "time_grouping": "year"},
     {"name": "9_space_None", "space_grouping": None},
     {"name": "10_space_country", "space_grouping": "country"},
+    {"name": "11_global0_25", "grid": "global0_25"},
 ]
 
 

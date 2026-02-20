@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Test script for all forecasts functionality."""
 
-from sheerwater.utils import get_datasource_fn, start_remote
+from sheerwater.utils import start_remote
+from sheerwater.interfaces import get_forecast
 
 
 def run_forecasting_function(function_name, test_params):
@@ -10,7 +11,7 @@ def run_forecasting_function(function_name, test_params):
 
     try:
         # Get the function using get_datasource_fn
-        fn = get_datasource_fn(function_name)
+        fn = get_forecast(function_name)
 
         # Test 1: Basic function call
         print("   Testing basic call...")
@@ -85,7 +86,7 @@ def test_regions():
 
     try:
         # Use get_datasource_fn for ecmwf_ifs_er_debiased
-        ecmwf_fn = get_datasource_fn('ecmwf_ifs_er_debiased')
+        ecmwf_fn = get_forecast('ecmwf_ifs_er_debiased')
 
         for region in regions_to_test:
             try:
@@ -121,7 +122,7 @@ def test_lead_times():
 
     try:
         # Use get_datasource_fn for ecmwf_ifs_er_debiased
-        ecmwf_fn = get_datasource_fn('ecmwf_ifs_er_debiased')
+        ecmwf_fn = get_forecast('ecmwf_ifs_er_debiased')
 
         for agg_days in leads_to_test:
             try:

@@ -1,0 +1,52 @@
+{
+  "1_mae_global": {
+    "cold_sec": 17.021676,
+    "warm_full_sec": 10.209118,
+    "warm_metric_only_sec": 10.084688
+  },
+  "2_mae_spatial": {
+    "cold_sec": 26.439458,
+    "warm_full_sec": 19.828857,
+    "warm_metric_only_sec": 19.901438
+  },
+  "3_seeps": {
+    "cold_sec": 30.582124,
+    "warm_full_sec": 31.165255,
+    "warm_metric_only_sec": 15.020252
+  },
+  "4_heidke": {
+    "cold_sec": 10.336333,
+    "warm_full_sec": 10.203453,
+    "warm_metric_only_sec": 10.243528
+  },
+  "5_acc": {
+    "cold_sec": 13.191476,
+    "warm_full_sec": 20.472061,
+    "warm_metric_only_sec": 13.411275
+  },
+  "6_time_None": {
+    "cold_sec": 10.02611,
+    "warm_full_sec": 10.10273,
+    "warm_metric_only_sec": 9.873633
+  },
+  "7_time_month": {
+    "cold_sec": 12.671318,
+    "warm_full_sec": 15.844409,
+    "warm_metric_only_sec": 12.34763
+  },
+  "8_time_year": {
+    "cold_sec": 11.861891,
+    "warm_full_sec": 15.534914,
+    "warm_metric_only_sec": 11.700883
+  },
+  "9_space_None": {
+    "cold_sec": 10.384077,
+    "warm_full_sec": 9.805242,
+    "warm_metric_only_sec": 10.46889
+  },
+  "10_space_country": {
+    "cold_sec": 18.871969,
+    "warm_full_sec": 18.003936,
+    "warm_metric_only_sec": 26.343599
+  }
+}
