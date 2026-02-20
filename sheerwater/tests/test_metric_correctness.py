@@ -11,6 +11,7 @@ Run only correctness tests:
 
 Run a specific case with -k, e.g.: pytest ... -k "1" or -k "5_pod_5" or -k "mae_nonspatial"
 """
+# ruff: noqa: E501
 import numpy as np
 import pytest
 

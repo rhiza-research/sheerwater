@@ -1,8 +1,8 @@
 {
   "1_mae_global": {
-    "cold_sec": 17.021676,
-    "warm_full_sec": 10.209118,
-    "warm_metric_only_sec": 10.084688
+    "cold_sec": 20.831784,
+    "warm_full_sec": 11.537953,
+    "warm_metric_only_sec": 11.556509
   },
   "2_mae_spatial": {
     "cold_sec": 26.439458,
@@ -50,8 +50,8 @@
     "warm_metric_only_sec": 26.343599
   },
   "11_global0_25": {
-    "cold_sec": 55.074192,
-    "warm_full_sec": 42.299717,
-    "warm_metric_only_sec": 39.77058
+    "cold_sec": 57.087531,
+    "warm_full_sec": 36.620275,
+    "warm_metric_only_sec": 27.570601
   }
 }
