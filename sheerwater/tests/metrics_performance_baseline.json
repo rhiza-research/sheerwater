@@ -48,5 +48,10 @@
     "cold_sec": 18.871969,
     "warm_full_sec": 18.003936,
     "warm_metric_only_sec": 26.343599
+  },
+  "11_global0_25": {
+    "cold_sec": 55.074192,
+    "warm_full_sec": 42.299717,
+    "warm_metric_only_sec": 39.77058
   }
 }
