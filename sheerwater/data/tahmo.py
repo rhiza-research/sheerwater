@@ -7,7 +7,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid, shift_by_days
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
 from sheerwater.interfaces import data as sheerwater_data
 
 

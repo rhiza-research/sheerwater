@@ -1,10 +1,9 @@
 """A decorator for identifying data sources."""
 
-from sqlalchemy.util import b
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days, roll_and_agg
+from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 import logging
