@@ -166,8 +166,8 @@ def biweekly_metric_table(start_time, end_time, variable,
                           truth, metric_name, time_grouping=None,
                           grid='global1_5', region='global'):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
-                 'climatology_trend_2015', 'climatology_rolling']
+    forecasts = ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_era5_2015',
+                 'climatology_era5_trend_2015', 'climatology_era5_rolling']
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days=14, forecasts=forecasts,
                        time_grouping=time_grouping, grid=grid, region=region)

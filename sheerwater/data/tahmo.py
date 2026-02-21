@@ -124,9 +124,7 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
     if variable != 'precip':
         raise ValueError("TAHMO only supports precip")
 
-    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
-    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
-    ds = tahmo_reindex(new_start, new_end, grid, cell_aggregation)
+    ds = tahmo_reindex(start_time, end_time, grid, cell_aggregation)
 
     # Roll and agg
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)

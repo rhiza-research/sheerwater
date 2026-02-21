@@ -51,37 +51,8 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5", mask=None, re
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['variable', 'agg_days', 'grid'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {"lat": 721, "lon": 1440, "time": 30}
-})
-def cbam_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", mask=None, region='global'):
-    """Aggregates the hourly ERA5 data into daily data and rolls.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days.
-        grid (str): The grid resolution to fetch the data at. One of:
-            - global1_5: 1.5 degree global grid
-            - global0_25: 0.25 degree global grid
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
-    # Read and combine all the data into an array
-    ds = cbam_gridded(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    if agg_days == 1:
-        return ds
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
@@ -97,5 +68,6 @@ def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm'
         region (str): The region to clip the data to.
     """
     # Get daily data
-    ds = cbam_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = cbam_gridded(start_time, end_time, variable, grid=grid, mask=mask, region=region)
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
