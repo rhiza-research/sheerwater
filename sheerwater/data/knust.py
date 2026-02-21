@@ -119,9 +119,7 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 def _knust_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     """Standard interface for knust data."""
-    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
-    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
-    ds = knust_reindex(new_start, new_end, grid, cell_aggregation)
+    ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)

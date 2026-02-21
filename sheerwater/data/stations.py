@@ -50,9 +50,7 @@ def stations(start_time=None, end_time=None, variable='precip', agg_days=1,
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9):
     """Standard interface for all station data."""
-    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
-    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
-    ds = stations_aggregated(new_start, new_end, variable, grid=grid,
+    ds = stations_aggregated(start_time, end_time, variable, grid=grid,
                              missing_thresh=missing_thresh, cell_aggregation='mean',
                              mask=mask, region=region)
 
