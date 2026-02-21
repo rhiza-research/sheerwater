@@ -1,11 +1,10 @@
 """Test lead-based target date fetching."""
 import numpy as np
 
-from sheerwater.climatology import climatology_2015, climatology_agg_raw
+from sheerwater.climatology import climatology_era5_2015, climatology_agg_raw
 from sheerwater.forecasts import salient
 from sheerwater.forecasts.ecmwf_er import ifs_extended_range
 from sheerwater.forecasts.salient import salient_blend
-from sheerwater.reanalysis import era5, era5_rolled
 from sheerwater.utils import convert_init_time_to_pred_time, shift_by_days
 
 
@@ -26,13 +25,8 @@ def test_target_date_conversion():
     assert fd_week34_start == "2019-12-31"
     assert fd_week34_end == "2020-01-17"
 
-    # Ground truth data is already in "target date" format
-    ds = era5(start_date, end_date, "tmp2m", agg_days=7, grid="global1_5", mask=None, region='global')
-    dsr = era5_rolled(start_date, end_date, "tmp2m", agg_days=7, grid="global1_5")
-    assert ds.equals(dsr)
-
     # Climatology data is already in "target date" format
-    ds = climatology_2015(start_date, end_date, "tmp2m", agg_days=7, grid="global1_5", mask=None, region='global')
+    ds = climatology_era5_2015(start_date, end_date, "tmp2m", agg_days=7, grid="global1_5", mask=None, region='global')
     # Select week 2
     ds = ds.sel(prediction_timedelta=np.timedelta64(0, "D"), time="2020-01-14")
     dsr = climatology_agg_raw("tmp2m", 1985, 2014, agg_days=7, grid="global1_5")

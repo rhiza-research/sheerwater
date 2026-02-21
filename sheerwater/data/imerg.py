@@ -9,6 +9,7 @@ from sheerwater.utils import dask_remote, regrid, roll_and_agg
 
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
+
 @dask_remote
 @cache(cache_args=['year', 'version'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
@@ -65,13 +66,10 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['grid', 'agg_days', 'version'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg_rolled(start_time, end_time, agg_days, grid, version, mask=None, region='global'):
-    """IMERG rolled and aggregated."""
+def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask=None, region='global'):
+    """A unified imerg caller."""
+    if variable not in ['precip']:
+        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
     ds = imerg_gridded(start_time, end_time, grid, version, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
@@ -84,9 +82,7 @@ def imerg_rolled(start_time, end_time, agg_days, grid, version, mask=None, regio
 def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
                 grid='global0_25', mask='lsm', region='global'):
     """IMERG Final."""
-    if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
-    return imerg_rolled(start_time, end_time, agg_days=agg_days, grid=grid, version='final', mask=mask, region=region)
+    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='final', mask=mask, region=region)
 
 
 @dask_remote
@@ -96,9 +92,7 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
 def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
                grid='global0_25', mask='lsm', region='global'):
     """IMERG late."""
-    if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
-    return imerg_rolled(start_time, end_time, agg_days=agg_days, grid=grid, version='late', mask=mask, region=region)
+    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='late', mask=mask, region=region)
 
 
 @dask_remote
@@ -108,6 +102,4 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
 def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,
           grid='global0_25', mask='lsm', region='global'):
     """Alias for IMERG final."""
-    if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
-    return imerg_rolled(start_time, end_time, agg_days=agg_days, grid=grid, version='final', mask=mask, region=region)
+    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='final', mask=mask, region=region)

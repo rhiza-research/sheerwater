@@ -3,7 +3,7 @@
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr
+from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 import logging
@@ -105,11 +105,31 @@ class data(SheerwaterDataset):
         DATA_REGISTRY[func.__name__] = wrapped
         return wrapped
 
+    def process_arguments(self, sig, *args, **kwargs):
+        """Process the arguments for the data decorator."""
+        args, kwargs = super().process_arguments(sig, *args, **kwargs)
+        bound_args = self.bind_signature(sig, *args, **kwargs)
+
+        # Adjust the end_time to account for the aggregation days, so that
+        # agg days past the end time is included in the final aggregation.
+        if 'end_time' in bound_args.arguments:
+            end_time = bound_args.arguments['end_time']
+            if end_time is not None:
+                end_time = shift_by_days(end_time, self.agg_days-1)
+            idx = list(bound_args.signature.parameters).index('end_time')
+            if idx < len(args):
+                args = list(args)
+                args[idx] = end_time
+                args = tuple(args)
+            elif 'end_time' in kwargs:
+                kwargs = dict(kwargs)
+                kwargs['end_time'] = end_time
+        return args, kwargs
+
     def post_process(self, ds):
         """Post-processor for a Sheerwater data. It supports xarray datasets."""
         # Implment masking and region clipping and timeseries postprocessing
         ds = super().post_process(ds)
-
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon']])
         return ds

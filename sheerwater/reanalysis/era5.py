@@ -170,42 +170,12 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1", mas
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['variable', 'agg_days', 'grid'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {"lat": 300, "lon": 300, "time": 365},
-})
-def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1", mask=None, region='global'):
-    """Aggregates the hourly ERA5 data into daily data and rolls.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days.
-        grid (str): The grid resolution to fetch the data at. One of:
-            - global1_5: 1.5 degree global grid
-            - global0_25: 0.25 degree global grid
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
-    # Read and combine all the data into an array
-    ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    if agg_days == 1:
-        return ds
-
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'): # noqa: ARG001
+def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
@@ -223,7 +193,8 @@ def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='
         raise NotImplementedError("Unable to regrid ERA5 Land smaller than 0.1x0.1")
 
     # Get daily data
-    ds = era5_land_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
 
 
@@ -236,8 +207,8 @@ def era5_raw(start_time, end_time, variable, grid="global0_25", mask=None, regio
     """ERA5 function that returns data from Google ARCO."""
     if grid != 'global0_25':
         raise NotImplementedError(
-                "Only ERA5 native 0.25 degree grid is implemented for the raw, hourly data."
-                "Please call the era5_daily_regrid function to access daily ERA5 data on other grids.")
+            "Only ERA5 native 0.25 degree grid is implemented for the raw, hourly data."
+            "Please call the era5_daily_regrid function to access daily ERA5 data on other grids.")
 
     # Pull the google dataset
     ds = xr.open_zarr('gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3',
@@ -270,7 +241,7 @@ def era5_raw(start_time, end_time, variable, grid="global0_25", mask=None, regio
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "time": 30}
 })
-def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, region='global'): # noqa: ARG001
+def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, region='global'):  # noqa: ARG001
     """Aggregates the hourly ERA5 data into daily data.
 
     Args:
@@ -288,7 +259,6 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
 
     # Read and combine all the data into an array
     ds = era5_raw(start_time, end_time, variable, grid='global0_25')
-
 
     K_const = 273.15
     if variable == 'tmp2m':
@@ -347,45 +317,11 @@ def era5_daily_regrid(start_time, end_time, variable, grid="global0_25", mask=No
 
 
 @dask_remote
-@spatial()
-@timeseries()
-@cache(cache_args=['variable', 'agg_days', 'grid'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 1000},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, 'time': 30}
-               }
-           }
-})
-def era5_rolled(start_time, end_time, variable, agg_days=7, grid="global1_5", mask=None, region='global'):
-    """Aggregates the hourly ERA5 data into daily data and rolls.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days.
-        grid (str): The grid resolution to fetch the data at. One of:
-            - global1_5: 1.5 degree global grid
-            - global0_25: 0.25 degree global grid
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
-    # Read and combine all the data into an array
-    ds = era5_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    if agg_days == 1:
-        return ds
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'): # noqa: ARG001
+def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
@@ -397,8 +333,12 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
         mask (str): The mask to apply to the data.
         region (str): The region to clip the data to.
     """
+    # Read and combine all the data into an array
     _, _, size, _ = get_grid(grid)
     if size < 0.25:
         raise NotImplementedError("Unable to regrid ERA5 smaller than 0.25x0.25")
-    ds = era5_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    # The decorator will adjust the end_time to account for what will be cut off due to the aggregation days.
+    ds = era5_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
+    # TODO: can't put roll and agg in the post processor b/c it gets applied twice.
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
