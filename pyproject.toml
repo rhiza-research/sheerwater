@@ -93,6 +93,10 @@ max_line_length = 120
 
 [tool.pytest.ini_options]
 testpaths = ["sheerwater/tests"]
+markers = [
+    "performance: metric timing and baseline regression tests (deselect with -m 'not performance')",
+    "correctness: metric vs cached baseline comparison tests (deselect with -m 'not correctness')",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -152,9 +156,3 @@ filesystem = "gs://sheerwater-public-datalake/caches"
 [tool.nuthatch.mirror-public.filesystem_options]
 cache_timeout = 0
 
-[tool.pytest.ini_options]
-addopts = "--ignore=testing_archive"
-markers = [
-    "performance: metric timing and baseline regression tests (deselect with -m 'not performance')",
-    "correctness: metric vs cached baseline comparison tests (deselect with -m 'not correctness')",
-]
