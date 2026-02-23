@@ -3,6 +3,7 @@ import sys
 
 import pytest
 from nuthatch.nuthatch import get_cache_mode as _original_get_cache_mode
+import nuthatch.nuthatch
 
 _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 
@@ -28,16 +29,6 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 # Once those land, remove this monkeypatch and use:
 #     set_global_cache_variables(cache_mode="local")
 
-
-def _patched_get_cache_mode(cache_mode):
-    if cache_mode == 'write':
-        cache_mode = 'local'
-    return _original_get_cache_mode(cache_mode)
-
-
-_nuthatch_mod.get_cache_mode = _patched_get_cache_mode
-
-
 @pytest.fixture(scope="session")
 def remote_dask_cluster():
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
@@ -45,6 +36,38 @@ def remote_dask_cluster():
 
     start_remote(remote_config="xlarge_cluster")
     yield
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(items):
+    """Only use the nuthatch local override on tests that don't use remote"""
+    for item in items:
+        if 'remote_dask_cluster' not in item.fixturenames:
+            item.fixturenames.append('use_local_cache')
+
+@pytest.fixture
+def use_local_cache(monkeypatch):
+    """Fixutre to overwrite nuthatch and force the use of local caching."""
+    def _patched_get_cache_mode(cache_mode):
+        if cache_mode == 'write':
+            cache_mode = 'local'
+        return _original_get_cache_mode(cache_mode)
+
+    print("Running the local cache fixture!")
+    monkeypatch.setattr(_nuthatch_mod, "get_cache_mode", _patched_get_cache_mode)
+
+
+
+@pytest.fixture()
+def remote_dask_cluster():
+    """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
+    from sheerwater.utils import start_remote
+
+    client = start_remote(remote_config="xlarge_cluster")
+    yield
+
+    # Close the client so other tests don't have to use it
+    client.close()
 
 
 @pytest.fixture

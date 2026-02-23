@@ -110,7 +110,7 @@ def start_remote(remote_name=None, remote_config=None):
     except Exception as e:
         print("Failed to send credentials", e)
 
-    cluster.get_client()
+    return cluster.get_client()
 
 
 def dask_remote(func):
