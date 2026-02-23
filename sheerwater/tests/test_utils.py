@@ -7,6 +7,7 @@ import pytest
 from sheerwater.utils import base180_to_base360, base360_to_base180, get_grid
 from sheerwater.utils.data_utils import regrid
 
+pytestmark = pytest.mark.default
 
 def test_get_grid():
     """Test the get_grid function."""

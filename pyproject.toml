@@ -96,7 +96,9 @@ testpaths = ["sheerwater/tests"]
 markers = [
     "performance: metric timing and baseline regression tests (deselect with -m 'not performance')",
     "correctness: metric vs cached baseline comparison tests (deselect with -m 'not correctness')",
+    "defualt: default tests that shoudl be run every time. Not metric performance or correctness tests.",
 ]
+log_cli = true
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.

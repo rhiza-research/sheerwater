@@ -18,6 +18,7 @@ from sheerwater.spatial_subdivisions import (
 )
 from sheerwater.utils import get_grid
 
+pytestmark = pytest.mark.default
 
 def test_clean_spatial_subdivision_name():
     """Test name cleaning including unicode and special cases."""
