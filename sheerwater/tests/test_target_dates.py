@@ -1,5 +1,6 @@
 """Test lead-based target date fetching."""
 import numpy as np
+import pytest
 
 from sheerwater.climatology import climatology_2015, climatology_agg_raw
 from sheerwater.forecasts import salient
@@ -8,6 +9,7 @@ from sheerwater.forecasts.salient import salient_blend
 from sheerwater.reanalysis import era5, era5_rolled
 from sheerwater.utils import convert_init_time_to_pred_time, shift_by_days
 
+pytestmark = pytest.mark.default
 
 def test_target_date_conversion():
     """Test the conversion of target dates to forecast dates."""

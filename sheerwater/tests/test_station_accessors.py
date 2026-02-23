@@ -15,6 +15,8 @@ STATION_ACCESSORS = [
     ("stations", stations),
 ]
 
+pytestmark = pytest.mark.default
+
 
 @pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
 def test_station_accessors_roll_with_agg_days(name, fn):
