@@ -378,10 +378,12 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
 
 
 @dask_remote
-def _climatology_unified(start_time, end_time, variable, agg_days, data='era5',
-                         first_year=1985, last_year=2014, trend=False,
-                         prob_type='deterministic', grid='global0_25', mask=None, region='global'):
-    """Standard format forecast data for climatology forecast."""
+def daily_climatology(start_time, end_time, variable, agg_days, data='era5',
+                      first_year=1985, last_year=2014, trend=False, prob_type='deterministic',
+                      grid='global0_25', mask=None, region='global'):
+    """Standard daily climatology between start time and end time."""
+    # Must shift here to adjust by the days cut off in the agg process,
+    # this is not a wrapped sheerwater datasource, so not done automatically.
     end_time = shift_by_days(end_time, agg_days-1)
     if trend:
         ds = climatology_daily_trend(start_time, end_time, variable, data=data,
@@ -394,7 +396,17 @@ def _climatology_unified(start_time, end_time, variable, agg_days, data='era5',
 
     # Roll by agg days
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    return ds
 
+
+@dask_remote
+def _climatology_unified(start_time, end_time, variable, agg_days, data='era5',
+                         first_year=1985, last_year=2014, trend=False, prob_type='deterministic',
+                         grid='global0_25', mask=None, region='global'):
+    """Standard conversion of daily climatology to a forecast."""
+    ds = daily_climatology(start_time, end_time, variable, agg_days, data=data,
+                           first_year=first_year, last_year=last_year,
+                           trend=trend, prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
@@ -411,11 +423,37 @@ def _climatology_unified(start_time, end_time, variable, agg_days, data='era5',
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
-                          grid='global0_25', mask='lsm', region='global'):
+def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                               grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='era5',
                                 first_year=1985, last_year=2014,
+                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+
+
+@dask_remote
+@sheerwater_forecast()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                                grid='global0_25', mask='lsm', region='global'):
+    """Standard format forecast data for climatology forecast."""
+    return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='imerg_final',
+                                first_year=1998, last_year=2023,
+                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+
+
+@dask_remote
+@sheerwater_forecast()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def climatology_chirps3_1995_2025(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                                  grid='global0_25', mask='lsm', region='global'):
+    """Standard format forecast data for climatology forecast."""
+    return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='chirps_v3',
+                                first_year=1995, last_year=2024,
                                 trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
@@ -428,8 +466,8 @@ def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, p
                                    grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='stations',
-                                first_year=2015, last_year=2024,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                first_year=2015, last_year=2024, trend=False, prob_type=prob_type,
+                                grid=grid, mask=mask, region=region)
 
 
 @dask_remote
@@ -437,12 +475,12 @@ def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, p
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
-                          grid='global0_25', mask='lsm', region='global'):
+def climatology_era5_1990_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+                               grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='era5',
-                                first_year=1990, last_year=2019,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                first_year=1990, last_year=2019, trend=False, prob_type=prob_type,
+                                grid=grid, mask=mask, region=region)
 
 
 @dask_remote
@@ -450,12 +488,12 @@ def climatology_era5_2020(start_time, end_time, variable, agg_days=7, prob_type=
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_trend_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
-                                grid='global0_25', mask='lsm', region='global'):
+def climatology_era5_trend_1985_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',
+                                     grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='era5',
-                                first_year=1985, last_year=2014,
-                                trend=True, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                first_year=1985, last_year=2014, trend=True, prob_type=prob_type,
+                                grid=grid, mask=mask, region=region)
 
 
 @dask_remote

@@ -233,7 +233,8 @@ METRIC_TEST_CASES = [
     METRIC_TEST_CASES,
     ids=[c["name"] for c in METRIC_TEST_CASES],
 )
-def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
+# def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
+def test_metric_correctness(test_case):  # noqa: ARG001
     """One test per metric/forecast/variable/region combination; compares to cached baseline."""
     _, passed, _ = _run_single_case(test_case)
     assert passed

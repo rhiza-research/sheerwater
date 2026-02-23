@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
-from sheerwater.climatology import climatology_era5_2020, seeps_dry_fraction, seeps_wet_threshold
+from sheerwater.climatology import daily_climatology, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
@@ -475,13 +475,17 @@ class ACC(Metric):
         super().prepare_data()
 
         # Get the appropriate climatology dataframe for metric calculation
-        clim_ds = climatology_era5_2020(**self.cache_kwargs, prob_type='deterministic')
+        first_year = 1990
+        last_year = 2019
+        clim_source = 'era5'
+        clim_ds = daily_climatology(data=clim_source, first_year=first_year, last_year=last_year,
+                                    **self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
             leads = self.metric_data['data']['fcst'].prediction_timedelta.values
             # Remove the prediction_timedelta coordinate
-            clim_ds = clim_ds.squeeze('prediction_timedelta')
+            # clim_ds = clim_ds.squeeze('prediction_timedelta')
             # Add in a matching prediction_timedelta coordinate
             clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 
@@ -491,7 +495,7 @@ class ACC(Metric):
         # Add the climatology to the metric data
         self.metric_data['data']['climatology'] = clim_ds
         # Update the metric data key to include the climatology year range
-        self.metric_data['key'] = f'{self.metric_data["key"]}-1990-2019'
+        self.metric_data['key'] = f'{self.metric_data["key"]}-{clim_source}-{first_year}-{last_year}'
 
     def compute_metric(self):
         gs = self.grouped_statistics
