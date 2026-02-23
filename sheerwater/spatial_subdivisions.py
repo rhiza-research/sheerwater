@@ -816,18 +816,21 @@ def clip_with_mask(ds, region_df, drop=True):
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
     """
     # create a mask on the ds grid corresponding to the region
+    # broadcasting gives us an explicit lat/lon for each grid cell
     lon2d, lat2d = xr.broadcast(ds.lon, ds.lat)
     mask = xr.zeros_like(lon2d, dtype=bool)
 
     polygon = region_df.geometry.union_all()
+
     # the mask can be large; two step filtering will be faster
     # first filter to the bounding box of the region
     lon_min, lat_min, lon_max, lat_max = polygon.bounds
     bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
+
     # then filter to the precise polygon
-    mask[bmask] = shapely.intersects_xy(polygon, lon2d[bmask], lat2d[bmask])
-    # convert to xarray
-    mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
+    # use NumPy; lazy xarray breaks Shapely and needs tricky re-alignment
+    mask.values[bmask.values] = shapely.intersects_xy(polygon, lon2d.values[bmask.values], lat2d.values[bmask.values])
+
     # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads
     # to visually strange results. By cropping to the bounding box, we have a better result.
     ds = ds.where(mask, drop=False)
