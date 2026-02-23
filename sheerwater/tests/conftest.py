@@ -3,8 +3,6 @@ import sys
 
 import pytest
 from nuthatch.nuthatch import get_cache_mode as _original_get_cache_mode
-import nuthatch.nuthatch
-
 _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 
 # Workaround: force all nuthatch cache operations to use 'local' mode so that
@@ -29,18 +27,10 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 # Once those land, remove this monkeypatch and use:
 #     set_global_cache_variables(cache_mode="local")
 
-@pytest.fixture(scope="session")
-def remote_dask_cluster():
-    """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
-    from sheerwater.utils import start_remote
-
-    start_remote(remote_config="xlarge_cluster")
-    yield
-
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
-    """Only use the nuthatch local override on tests that don't use remote"""
+    """Only use the nuthatch local override on tests that don't use remote."""
     for item in items:
         if 'remote_dask_cluster' not in item.fixturenames:
             item.fixturenames.append('use_local_cache')
