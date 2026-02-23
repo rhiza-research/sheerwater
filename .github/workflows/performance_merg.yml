@@ -1,13 +1,7 @@
-name: Tests
+name: Performance testing for merge queue
 
 on:
-  workflow_dispatch:
-  push:
-    branches: main
-  pull_request:
-    branches: '*'
   merge_group:
-
 
 jobs:
   test:
@@ -53,7 +47,7 @@ jobs:
     - name: Run tests
       run: |
         mkdir -p coverage
-        uv run pytest -m default\
+        uv run pytest -m performance \
           -v \
           --junitxml=coverage/junit.xml \
           --cov-report=xml:coverage/coverage.xml \
