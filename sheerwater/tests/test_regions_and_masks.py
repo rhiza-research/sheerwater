@@ -20,6 +20,7 @@ from sheerwater.utils import get_grid
 
 pytestmark = pytest.mark.default
 
+
 def test_clean_spatial_subdivision_name():
     """Test name cleaning including unicode and special cases."""
     assert clean_spatial_subdivision_name("United States") == "united_states_of_america"
@@ -249,6 +250,7 @@ def test_nonuniform_clip():
     mask_outside = ((ds_africa.lat < -40) | (ds_africa.lat > 40) | (ds_africa.lon < -20) | (ds_africa.lon > 55))
     assert ds_africa['precip'].where(mask_outside).isnull().all()
 
+
 def test_get_grid():
     """Test the get_grid function."""
     # Test global0_25 grid
@@ -280,6 +282,16 @@ def test_get_grid():
     assert grid_size == 0.25
     assert len(lons) == 1440
     assert len(lats) == 720
+
+    # Test global0_05 grid
+    lons, lats, grid_size, _ = get_grid("global0_05")
+    assert pytest.approx(lons[0], abs=1e-10) == -180.0 + 0.025
+    assert pytest.approx(lons[-1], abs=1e-10) == 180.0 - 0.025
+    assert pytest.approx(lats[0], abs=1e-10) == -90.0 + 0.025
+    assert pytest.approx(lats[-1], abs=1e-10) == 90.0 - 0.025
+    assert pytest.approx(grid_size, abs=1e-10) == 0.05
+    assert len(lons) == 7200
+    assert len(lats) == 3600
 
     # Test chirps grid raises NotImplementedError
     with pytest.raises(NotImplementedError, match="Grid chirps has not been implemented"):
