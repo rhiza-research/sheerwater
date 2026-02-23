@@ -51,7 +51,7 @@ jobs:
     - name: Run tests
       run: |
         mkdir -p coverage
-        uv run pytest \
+        uv run pytest -m default\
           -v \
           --junitxml=coverage/junit.xml \
           --cov-report=xml:coverage/coverage.xml \
