@@ -3,6 +3,7 @@ import sys
 
 import pytest
 from nuthatch.nuthatch import get_cache_mode as _original_get_cache_mode
+from nuthatch import clear_memoizer
 _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 
 # Workaround: force all nuthatch cache operations to use 'local' mode so that
@@ -48,7 +49,8 @@ def use_local_cache(monkeypatch):
 
 
 
-@pytest.fixture()
+# Scope to module so the memoizer is active throughout performance tests
+@pytest.fixture(scope='module')
 def remote_dask_cluster():
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
     from sheerwater.utils import start_remote
@@ -57,6 +59,8 @@ def remote_dask_cluster():
     yield
 
     # Close the client so other tests don't have to use it
+    # requires clearing the memoizer of remote objects
+    clear_memoizer()
     client.close()
 
 
