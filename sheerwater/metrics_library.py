@@ -479,13 +479,11 @@ class ACC(Metric):
         last_year = 2019
         clim_source = 'era5'
         clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
-                                    **self.cache_kwargs, prob_type='deterministic')
+                              **self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
             leads = self.metric_data['data']['fcst'].prediction_timedelta.values
-            # Remove the prediction_timedelta coordinate
-            # clim_ds = clim_ds.squeeze('prediction_timedelta')
             # Add in a matching prediction_timedelta coordinate
             clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 

@@ -130,8 +130,7 @@ def climatology_agg_raw(variable, data='era5', first_year=1985, last_year=2014,
                          f"of the climatology period {first_year}-{last_year}.")
     # Take average over the period to produce climatology
     if prob_type == 'deterministic':
-        # return ds.groupby('dayofyear').mean(dim='time', skipna=True)
-        return ds.groupby('dayofyear').mean(dim='time')
+        return ds.groupby('dayofyear').mean(dim='time', skipna=True)
     elif prob_type == 'probabilistic':
         # Otherwise, get ensemble members sampled from climatology
         def sample_members(sub_ds, members=30):
