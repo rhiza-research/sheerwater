@@ -84,6 +84,9 @@ def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
         else:
             mn = metric
         ds_new = ds_new.rename_vars({mn: variable})
+
+        # Drop lead time coordinate
+        ds_new = ds_new.drop_vars('lead_time')
     return ds_new
 
 
@@ -130,7 +133,6 @@ def _single_comparison(test_case):
         recompute=recompute,
         cache_mode='overwrite',
     )
-
     # Convert from new metric format to old format by selection region and lead time (archive logic)
     if ds_new is not None:
         if region in ds_new.dims and len(ds_new.region.values) > 1:
@@ -303,6 +305,6 @@ def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
 if __name__ == "__main__":
     from sheerwater.utils import start_remote
     cluster = start_remote(remote_config='xlarge_cluster')
-    # test_metric_correctness(cluster, METRIC_TEST_CASES[2])
+    test_metric_correctness(cluster, METRIC_TEST_CASES[2])
     # test_metric_correctness(cluster, METRIC_TEST_CASES[21])
-    test_metric_correctness(cluster, METRIC_TEST_CASES[22])
+    # test_metric_correctness(cluster, METRIC_TEST_CASES[22])
