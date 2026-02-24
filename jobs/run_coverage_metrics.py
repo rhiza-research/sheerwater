@@ -27,7 +27,8 @@ def run_coverage(combo):
     try:
         return station_coverage(start_time, end_time, variable, agg_days=agg_days,
                       station_data=truth, time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
-                      cache_mode='overwrite', filepath_only=True, recompute=recompute, retry_null_cache=True, backend_kwargs={'target_read_chunk_size_mb': 1000})
+                      cache_mode='overwrite', filepath_only=True, recompute=recompute, retry_null_cache=True,
+                      backend_kwargs={'target_read_chunk_size_mb': 1000})
     except KeyboardInterrupt as e:
         raise (e)
     except NotImplementedError:

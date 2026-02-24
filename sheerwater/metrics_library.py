@@ -48,7 +48,8 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 mask='lsm', space_grouping='country', region='global', data_key='none'):
+                 mask='lsm', space_grouping='country', region='global', data_key='none',
+                 memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
@@ -63,6 +64,8 @@ class Metric(ABC):
         self.region = region
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
+        self.memoize_forecast = memoize_forecast
+        self.memoize_truth = memoize_truth
 
         # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
         # This is a dictionary that contains a data entry and a key entry.
@@ -88,7 +91,7 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=True)
+                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
@@ -97,7 +100,7 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=True)
+                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.cache_kwargs)
@@ -115,7 +118,7 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs, memoize=False)
+            obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.cache_kwargs)
@@ -165,7 +168,6 @@ class Metric(ABC):
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
-        # Must align prior to null matching to enable sparse coordinates
         no_null = obs.notnull() & fcst.notnull()
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
@@ -288,7 +290,7 @@ class Metric(ABC):
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
 
-        # Add the region coordinate to the statistic. Must align for sparse coordinates
+        # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
 
         ############################################################
