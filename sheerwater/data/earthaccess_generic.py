@@ -18,9 +18,9 @@ def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, pre
     earthaccess.login(strategy="environment", persist=True)
 
     # Takes a single earthaccess result, fetches the file, opens it in xarray, the returns it to be cached
-    earthaccess.download([earthaccess_result], local_path="./smap")
+    earthaccess.download([earthaccess_result], local_path="./eafiles")
 
-    ds = xr.open_datatree('./smap/' + filename, engine='h5netcdf', phony_dims='access')
+    ds = xr.open_datatree('./eafiles/' + filename, engine='h5netcdf', phony_dims='access')
 
     if preprocessor:
         ds = preprocessor(ds)
@@ -28,7 +28,7 @@ def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, pre
     if ds:
         ds = ds.compute()
 
-    os.remove('./smap/' + filename)
+    os.remove('./eafiles/' + filename)
 
     return ds
 
