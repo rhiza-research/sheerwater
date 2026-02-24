@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
-from sheerwater.climatology import daily_climatology, seeps_dry_fraction, seeps_wet_threshold
+from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
@@ -478,7 +478,7 @@ class ACC(Metric):
         first_year = 1990
         last_year = 2019
         clim_source = 'era5'
-        clim_ds = daily_climatology(data=clim_source, first_year=first_year, last_year=last_year,
+        clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
                                     **self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast

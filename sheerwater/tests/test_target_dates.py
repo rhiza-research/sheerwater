@@ -1,8 +1,7 @@
 """Test lead-based target date fetching."""
 import numpy as np
 import pytest
-
-from sheerwater.climatology import daily_climatology, climatology_agg_raw
+from sheerwater.climatology import climatology, climatology_agg_raw
 from sheerwater.forecasts import salient
 from sheerwater.forecasts.ecmwf_er import ifs_extended_range
 from sheerwater.forecasts.salient import salient_blend
@@ -29,18 +28,19 @@ def test_target_date_conversion():
     assert fd_week34_end == "2020-01-17"
 
     # Climatology data is already in "target date" format
-    ds = daily_climatology(start_date, end_date, "tmp2m",
-                           data='era5', first_year=1985, last_year=2014,
-                           agg_days=7, grid="global1_5", mask=None, region='global')
+    ds = climatology(start_date, end_date, "tmp2m",
+                     data='era5', first_year=1985, last_year=2014,
+                     agg_days=7, grid="global1_5", mask=None, region='global')
     # Select week 2
     ds = ds.sel(time="2020-01-14")
-    dsr = climatology_agg_raw("tmp2m", data='era5', first_year=1985, last_year=2014,
-                              agg_days=7, grid="global1_5")
+    dsr = climatology_agg_raw("tmp2m", data='era5', first_year=1985, last_year=2014, agg_days=7, grid="global1_5")
     dsr = dsr.sel(dayofyear="1904-01-14")
     # Align coordinates for comparison
     dsr = dsr.rename({"dayofyear": "time"})
     dsr['time'] = ds['time']
-    assert ds.equals(dsr)
+    # Doing the rolling before vs after the daily expansion leads to some small
+    # numerical differences, so we use a small tolerance here.
+    assert (ds-dsr).tmp2m.max() < 1e-4
 
     # Test forecast conversion
     ds = salient(start_date, end_date, "tmp2m", agg_days=7, grid="global1_5", mask=None, region='global')

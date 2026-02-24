@@ -378,7 +378,7 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
 
 
 @dask_remote
-def daily_climatology(start_time, end_time, variable, agg_days, data='era5',
+def climatology(start_time, end_time, variable, agg_days, data='era5',
                       first_year=1985, last_year=2014, trend=False, prob_type='deterministic',
                       grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
@@ -404,7 +404,7 @@ def _climatology_unified(start_time, end_time, variable, agg_days, data='era5',
                          first_year=1985, last_year=2014, trend=False, prob_type='deterministic',
                          grid='global0_25', mask=None, region='global'):
     """Standard conversion of daily climatology to a forecast."""
-    ds = daily_climatology(start_time, end_time, variable, agg_days, data=data,
+    ds = climatology(start_time, end_time, variable, agg_days, data=data,
                            first_year=first_year, last_year=last_year,
                            trend=trend, prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
