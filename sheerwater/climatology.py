@@ -378,8 +378,8 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
 
 @dask_remote
 def climatology(start_time, end_time, variable, agg_days, data='era5',
-                      first_year=1985, last_year=2014, trend=False, prob_type='deterministic',
-                      grid='global0_25', mask=None, region='global'):
+                first_year=1985, last_year=2014, trend=False,
+                prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
     # Must shift here to adjust by the days cut off in the agg process,
     # this is not a wrapped sheerwater datasource, so not done automatically.
@@ -404,8 +404,8 @@ def _climatology_unified(start_time, end_time, variable, agg_days, data='era5',
                          grid='global0_25', mask=None, region='global'):
     """Standard conversion of daily climatology to a forecast."""
     ds = climatology(start_time, end_time, variable, agg_days, data=data,
-                           first_year=first_year, last_year=last_year,
-                           trend=trend, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                     first_year=first_year, last_year=last_year,
+                     trend=trend, prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
@@ -448,11 +448,11 @@ def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_chirps3_1995_2025(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
+def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic',
                                   grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, agg_days=agg_days, data='chirps_v3',
-                                first_year=1995, last_year=2024,
+                                first_year=1998, last_year=2023,
                                 trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
