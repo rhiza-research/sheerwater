@@ -372,7 +372,7 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
     # Select the climatology data for the target dates, and split large chunks
     with dask.config.set(**{'array.slicing.split_large_chunks': True}):
         ds = ds.sel(dayofyear=time_ds.dayofyear)
-        ds = ds.drop('dayofyear')
+        ds = ds.drop_vars('dayofyear')
     return ds
 
 
