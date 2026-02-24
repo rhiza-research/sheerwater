@@ -51,9 +51,7 @@ jobs:
       run: uv sync --all-groups --all-extras
 
     - name: Coiled Login
-      uses: coiled/login-action@v1
-      with:
-        token: ${{ secrets.COILED_API_TOKEN }}
+      run: uv run coiled login --token ${{ secrets.COILED_API_TOKEN }}
 
     - name: Run tests
       run: |
