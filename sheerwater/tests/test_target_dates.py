@@ -10,6 +10,7 @@ from sheerwater.utils import convert_init_time_to_pred_time, shift_by_days
 
 pytestmark = pytest.mark.default
 
+
 def test_target_date_conversion():
     """Test the conversion of target dates to forecast dates."""
     start_date = "2020-01-14"
@@ -32,8 +33,9 @@ def test_target_date_conversion():
                            data='era5', first_year=1985, last_year=2014,
                            agg_days=7, grid="global1_5", mask=None, region='global')
     # Select week 2
-    ds = ds.sel(prediction_timedelta=np.timedelta64(0, "D"), time="2020-01-14")
-    dsr = climatology_agg_raw("tmp2m", 1985, 2014, agg_days=7, grid="global1_5")
+    ds = ds.sel(time="2020-01-14")
+    dsr = climatology_agg_raw("tmp2m", data='era5', first_year=1985, last_year=2014,
+                              agg_days=7, grid="global1_5")
     dsr = dsr.sel(dayofyear="1904-01-14")
     # Align coordinates for comparison
     dsr = dsr.rename({"dayofyear": "time"})

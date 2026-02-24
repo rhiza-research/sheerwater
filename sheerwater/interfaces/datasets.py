@@ -182,6 +182,8 @@ def get_data(data_name):
     import sheerwater.data  # noqa: F401
     import sheerwater.climatology  # noqa: F401
     import sheerwater.reanalysis  # noqa: F401
+    if data_name not in DATA_REGISTRY:
+        raise ValueError(f"Data source {data_name} not found in the global data registry.")
     return DATA_REGISTRY[data_name]
 
 
