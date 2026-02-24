@@ -7,9 +7,6 @@ resolution-markers = [
     "python_full_version < '3.13'",
 ]
 
-[manifest]
-overrides = [{ name = "numpy", specifier = ">=2.3.5" }]
-
 [[package]]
 name = "affine"
 version = "2.4.0"
@@ -3330,7 +3327,7 @@ wheels = [
 
 [[package]]
 name = "nuthatch"
-version = "0.4.6"
+version = "0.4.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -3353,9 +3350,9 @@ dependencies = [
     { name = "xarray" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/68/825d2657d9b10014f8b63bacf52e09f6a30bf17ea8233b74aa5557740a98/nuthatch-0.4.6.tar.gz", hash = "sha256:f49126bc068312eb0fa15eefab743f271c5b6e57821ba346d0a03ec693b23ab2", size = 203445, upload-time = "2026-02-24T19:21:35.684Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/76/45cff493ab133656cf045ee5510340fa15238732c37042b4210547c3f042/nuthatch-0.4.7.tar.gz", hash = "sha256:35c97307050eb10a6b336f901e0c2632476170e19d9249c6558cba7aa092149f", size = 207886, upload-time = "2026-02-24T20:36:47.615Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/e0/b11eed4e55314b323369cbb1f0d15bf405c8a7115ac9f73083620c20eb36/nuthatch-0.4.6-py3-none-any.whl", hash = "sha256:69e0b47abba6a23eaf137cd121729908ac03e571e37593cab1ffef8492bf8305", size = 47297, upload-time = "2026-02-24T19:21:36.722Z" },
+    { url = "https://files.pythonhosted.org/packages/e1/4a/64f82bded0cdd80df4a93b5592778115ff2ec0bce9bf03ae06da326f306c/nuthatch-0.4.7-py3-none-any.whl", hash = "sha256:75ed5a7041503f03eee62ba141b0c26156fecdc07844d5d3b2af40d6bc67d527", size = 47307, upload-time = "2026-02-24T20:36:46.69Z" },
 ]
 
 [[package]]
@@ -5049,7 +5046,7 @@ requires-dist = [
     { name = "netcdf4" },
     { name = "numcodecs", specifier = "<0.16.0" },
     { name = "numpy", specifier = ">=2.3.5" },
-    { name = "nuthatch", specifier = "==0.4.6" },
+    { name = "nuthatch", specifier = "==0.4.7" },
     { name = "opt-einsum", specifier = ">=3.4.0" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "properscoring" },
@@ -5212,7 +5209,7 @@ wheels = [
 
 [[package]]
 name = "terracotta"
-version = "0.8.5"
+version = "0.8.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "apispec" },
@@ -5233,7 +5230,7 @@ dependencies = [
     { name = "toml" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ae/14/66d1b88bbd3242c9ec0bdef8c3f22238e3d9420607c41b7496aaf57ec4a5/terracotta-0.8.5.tar.gz", hash = "sha256:7d5f8a632141909a25bca2174a1e291e158285fe806192fe8742a754619ce6a6", size = 3660358, upload-time = "2024-08-12T09:15:42.7Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/75/d6/813487ed47f3df49a1d999aeb5035be5274aec06a620508f8bf44a21ddab/terracotta-0.8.6.tar.gz", hash = "sha256:c17e04723d2b1cd1f0bf60e22f338b31902b1aab6e8ab5303f3edc4a1bebc68a", size = 3662752, upload-time = "2025-02-27T08:42:24.303Z" }
 
 [[package]]
 name = "texttable"

@@ -50,7 +50,7 @@ dependencies = [
     "bottleneck",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch==0.4.6",
+    "nuthatch==0.4.7",
 ]
 
 [dependency-groups]
@@ -74,7 +74,6 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 managed = true
-override-dependencies = ["numpy>=2.3.5"]
 
 [tool.hatch.version]
 source = "vcs"
