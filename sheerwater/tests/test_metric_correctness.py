@@ -26,6 +26,7 @@ pytestmark = pytest.mark.correctness
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast', 'truth',
                    'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
+       fail_if_no_cache=True,
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
            'chunk_by_arg': {
@@ -36,8 +37,15 @@ pytestmark = pytest.mark.correctness
 })
 def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
                              metric, time_grouping=None, spatial=False, grid="global1_5",
-                             mask='lsm', region='africa', fail_if_no_cache=True):  # noqa
-    """Stub function providing gold standard reference for testing."""
+                             mask='lsm', region='africa'):  # noqa
+    """Stub function providing gold standard reference for testing.
+
+    The following code enables us to call this with recompute=True and replace the old
+    metric value with a new metric value. This can be used if we want to change the gold
+    standard metric value because a methodology or data source has changed.
+
+    To use this, disable the fail_if_no_cache flag above and call with recompute=True.
+    """
     if 'weeks' in lead:
         agg_days = 14
     elif 'week' in lead:
@@ -260,7 +268,7 @@ METRIC_TEST_CASES = [
     {"name": "9_crps_salient_africa", "forecast": "salient", "metric_name": "crps",
         "variable": "precip", "spatial": True, "region": "africa"},
     {"name": "10_smape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
-    #{"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
+    # {"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
     {"name": "12_seeps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
     {"name": "13_pearson", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "pearson", "variable": "precip", "spatial": True},
