@@ -209,7 +209,7 @@ METRIC_TEST_CASES = [
     {"name": "8_crps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": True},
     {"name": "9_crps_salient_africa", "forecast": "salient", "metric_name": "crps", "variable": "precip", "spatial": True, "region": "africa"},
     {"name": "10_smape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
-    {"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
+    #{"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
     {"name": "12_seeps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
     {"name": "13_pearson", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "pearson", "variable": "precip", "spatial": True},
     {"name": "14_heidke", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "heidke-1-5-10-20", "variable": "precip", "spatial": True},

@@ -13,7 +13,7 @@ dependencies = [
     "dask",
     "dask[complete]",
     "click",
-    "numpy",
+    "numpy>=2.3.5",
     "httplib2",
     "s3fs",
     "gcsfs",
@@ -50,7 +50,7 @@ dependencies = [
     "bottleneck",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch",
+    "nuthatch==0.4.7",
 ]
 
 [dependency-groups]
@@ -72,6 +72,9 @@ dev = [
 requires = ["hatchling==1.26.3", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+managed = true
+
 [tool.hatch.version]
 source = "vcs"
 
@@ -84,9 +87,6 @@ include = ["sheerwater/", "jobs/", "dashboard_data/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["./sheerwater", "./jobs", "./dashboard_data"]
-
-[tool.uv]
-managed = true
 
 [tool.autopep8]
 max_line_length = 120
