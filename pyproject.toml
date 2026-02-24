@@ -50,7 +50,7 @@ dependencies = [
     "bottleneck",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch==0.4.7",
+    "nuthatch",
 ]
 
 [dependency-groups]
