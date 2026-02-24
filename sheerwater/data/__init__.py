@@ -7,6 +7,7 @@ from .knust import knust, knust_avg
 from .stations import stations
 from .rain_over_africa import rain_over_africa
 from .tamsat import tamsat
+from .smap import smap_l3, smap_l4
 
 # Use __all__ to define what is part of the public API.
 __all__ = [
@@ -26,5 +27,7 @@ __all__ = [
     "knust_avg",
     "stations",
     "rain_over_africa",
-    "tamsat"
+    "tamsat",
+    "smap_l3",
+    "smap_l4",
 ]
