@@ -1305,6 +1305,27 @@ wheels = [
 ]
 
 [[package]]
+name = "earthaccess"
+version = "0.16.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fsspec" },
+    { name = "importlib-resources" },
+    { name = "multimethod" },
+    { name = "pqdm" },
+    { name = "python-cmr" },
+    { name = "requests" },
+    { name = "s3fs" },
+    { name = "tenacity" },
+    { name = "tinynetrc" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f1/2b/c8f47a23fecdcd873209d18c30b3bd11509e1b4dba29af8a52325b256f64/earthaccess-0.16.0.tar.gz", hash = "sha256:e19337682c205b807c52edd691b9ca43bfbd6250acb044c30af1e925fa469a1a", size = 7288951, upload-time = "2026-01-30T20:04:59.909Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/13/5193c501614cae2cb241f3efd82b711e562ba562435a4930ea8213db86d4/earthaccess-0.16.0-py3-none-any.whl", hash = "sha256:a8fd36fc0516898dbf87ac6fffaff5a9a5a2357aae24508d1622c35e130b9e52", size = 71249, upload-time = "2026-01-30T20:04:57.225Z" },
+]
+
+[[package]]
 name = "ecmwf-api-client"
 version = "1.6.5"
 source = { registry = "https://pypi.org/simple" }
