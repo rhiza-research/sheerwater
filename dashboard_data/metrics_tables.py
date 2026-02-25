@@ -2,9 +2,26 @@
 import xarray as xr
 import numpy as np
 
-from nuthatch import cache
+from google.cloud import secretmanager
+
+from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote
 from sheerwater.metrics import metric
+
+# Add the postgres write password to the config parameter, so that this code
+# module can read and write to our postgres database.
+
+
+@config_parameter('password', location='root', backend='sql', secret=True)
+def postgres_write_password():
+    """Get a postgres write password."""
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(
+        request={"name": "projects/750045969992/secrets/postgres-write-password/versions/latest"})
+    key = response.payload.data.decode("UTF-8")
+
+    return key
 
 
 @dask_remote

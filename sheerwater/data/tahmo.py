@@ -20,7 +20,7 @@ def tahmo_deployment():
 @cache(cache_args=['station_id'], fail_if_no_cache=True)
 def tahmo_station_cleaned(station_id):  # noqa: ARG001
     """Stub function to get data cache."""
-    pass
+    raise RuntimeError("Processing not implemented for tahmo_deployment and wasn't found in the cache.")
 
 
 @dask_remote
@@ -111,7 +111,7 @@ def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     NOTE: This must be done as a separate step from the raw data. If merging and reindexing in one step,
     the task graph will explode.
     """
-    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
+    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation, recompute=True)
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
     ds['precip_count'] = ds['precip_count'].fillna(0)

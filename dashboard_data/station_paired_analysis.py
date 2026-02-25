@@ -2,12 +2,27 @@
 import xarray as xr
 import dask.dataframe as dd
 
-from nuthatch import cache
+from google.cloud import secretmanager
 
+from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote, snap_point_to_grid, get_grid
 from sheerwater.spatial_subdivisions import nonuniform_grid, space_grouping_labels, clip_region
-from sheerwater.data.tahmo import tahmo_deployment
+from sheerwater.data.tahmo import tahmo_deployment, tahmo_raw_daily
 from sheerwater.interfaces import get_data
+
+
+# Add the postgres write password to the config parameter, so that this code
+# module can read and write to our postgres database.
+@config_parameter('password', location='root', backend='sql', secret=True)
+def postgres_write_password():
+    """Get a postgres write password."""
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(
+        request={"name": "projects/750045969992/secrets/postgres-write-password/versions/latest"})
+    key = response.payload.data.decode("UTF-8")
+
+    return key
 
 
 @dask_remote
@@ -65,6 +80,28 @@ def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='
     return ds
 
 
+@dask_remote
+@cache(cache_args=['station'], backend='sql')
+def station_data(start_time, end_time, station='tahmo'):
+    """Get a non-gridded, raw station data product."""
+    if station != 'tahmo':
+        raise ValueError(f"Invalid station dataset: {station}")
+
+    # Get TAHMO data by station ID and time
+    df = tahmo_raw_daily()
+
+    # Get TAHMO deployment locations
+    df_dep = tahmo_deployment().compute()
+    df_dep = df_dep[['code', 'location_latitude', 'location_longitude']]
+    df_dep = df_dep.rename(columns={'code': 'station_id',
+                                    'location_latitude': 'lat',
+                                    'location_longitude': 'lon'})
+
+    # Join the two dataframes on station ID
+    df = df.merge(df_dep, on='station_id', how='left')
+    return df
+
+
 @cache(cache_args=['sources', 'variables', 'agg_days', 'grid', 'mask', 'region'], backend='sql')
 def paried_data(start_time, end_time,
                 sources=['chirps', 'imerg', 'tahmo', 'era5', 'era5'],
@@ -76,6 +113,7 @@ def paried_data(start_time, end_time,
                                  grid=grid, mask=mask, region=region)
                 .rename({variable: f'{source}_{variable}'})
                 for source, variable in zip(sources, variables)]
+
     # Get space grouping labels
     agzones = space_grouping_labels(grid=grid, space_grouping=['agroecological_zone', 'admin_1'])
     # clip agzones to the region
@@ -105,13 +143,14 @@ if __name__ == "__main__":
     from sheerwater.utils import start_remote
     start_remote()
     now = datetime.now().strftime("%Y-%m-%d")
-    import pdb
-    pdb.set_trace()
-    data_at_stations(start_time='2015-01-01', end_time=now, data='chirps_v3',
-                     station='tahmo', grid='chirps', backend='sql')
+    # ds1 = data_at_stations(start_time='2015-01-01', end_time=now, data='imerg_final',
+    #                        station='tahmo', grid='imerg', backend='sql')
 
-    paried_data(start_time='2015-01-01', end_time=now,
-                sources=['chirps_v3', 'imerg', 'tahmo', 'era5', 'era5'],
-                variables=['precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
-                agg_days=1,
-                grid='global0_25', mask='lsm', region='global', backend='sql')
+    # ds2 = paried_data(start_time='2015-01-01', end_time=now,
+    #                   sources=['chirps_v3', 'imerg', 'tahmo', 'era5', 'era5'],
+    #                   variables=['precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
+    #                   agg_days=1,
+    #                   grid='imerg', mask='lsm', region='kenya', backend='sql')
+
+    ds3 = station_data(start_time='2015-01-01', end_time=now, station='tahmo')
+    import pdb; pdb.set_trace()

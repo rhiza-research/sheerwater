@@ -72,7 +72,7 @@
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "enable": true,
+        "enable": false,
         "hide": false,
         "iconColor": "red",
         "name": "Rainfall flagged",
@@ -166,8 +166,11 @@
               "tooltip": false,
               "viz": false
             },
-            "insertNulls": 172800000,
+            "insertNulls": 86400000,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -183,10 +186,9 @@
               "mode": "off"
             }
           },
-          "displayName": "Station: ${__field.labels.station}, Sensor: ${__field.labels.sensor}",
           "mappings": [],
           "max": 150,
-          "min": 0,
+          "min": -2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -223,43 +225,13 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#ff6b35",
+                  "fixedColor": "#b044cc",
                   "mode": "fixed"
                 }
               },
               {
                 "id": "displayName",
                 "value": "IMERG"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "1d Cumulative Rain"
-            },
-            "properties": [
-              {
-                "id": "custom.drawStyle",
-                "value": "line"
-              },
-              {
-                "id": "custom.pointSize",
-                "value": 8
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 2
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "light-blue",
-                  "mode": "fixed"
-                }
-              },
-              {
-                "id": "displayName"
               }
             ]
           },
@@ -284,7 +256,7 @@
               {
                 "id": "color",
                 "value": {
-                  "fixedColor": "#21b460",
+                  "fixedColor": "#2cb5a0",
                   "mode": "fixed"
                 }
               },
@@ -294,29 +266,14 @@
               },
               {
                 "id": "displayName",
-                "value": "CHIRPS v2"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "1d cumulative drip"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
+                "value": "CHIRPS v3"
               }
             ]
           }
         ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 13,
         "w": 24,
         "x": 0,
         "y": 0
@@ -347,8 +304,8 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, precip as imerg_precip \nFROM \"imerg_tahmo/\" \n  WHERE code = SPLIT_PART('${station:csv}', ',', 1)\n-- WHERE code = '${station:raw}' \n  AND time $__timeFilter() \nORDER BY time ASC",
-          "refId": "C",
+          "rawSql": "SELECT time, precip as imerg_precip \nFROM \"imerg_tahmo/\" \n  WHERE code = SPLIT_PART('${station:csv}', ',', 1)\n  AND time $__timeFilter() \nORDER BY time ASC",
+          "refId": "IMERG",
           "sql": {
             "columns": [
               {
@@ -377,7 +334,7 @@
           "hide": false,
           "rawQuery": true,
           "rawSql": "SELECT time, precip as chirps_precip \nFROM \"chirps_tahmo/\" \n-- WHERE code = '${station:raw}' \nWHERE code = SPLIT_PART('${station:csv}', ',', 1)\n  AND time $__timeFilter() \nORDER BY time ASC",
-          "refId": "D",
+          "refId": "CHIRPS",
           "sql": {
             "columns": [
               {
@@ -397,7 +354,36 @@
           }
         },
         {
-          "alias": "1d Cumulative Rain $tag_sensor",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT\n  time,\n  precip AS \"1d rain\",\n  station_id AS station\nFROM \"station_data/tahmo\"\nWHERE station_id IN (${station:singlequote})\n  AND $__timeFilter(time)\nORDER BY time ASC",
+          "refId": "TAHMO",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "alias": "Live",
           "datasource": {
             "type": "influxdb",
             "uid": "eepjuov1zfi0wb"
@@ -420,7 +406,7 @@
           "measurement": "controlled",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT sum(\"value\") \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pr') \n  AND $timeFilter \nGROUP BY time(1d), \"station\"::tag, \"sensor\"::tag",
+          "query": "SELECT mean(\"value\")\nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pr') \n  AND $timeFilter \n  AND time >= '2025-09-15T00:00:00Z'\nGROUP BY time(1d), \"station\"::tag",
           "rawQuery": true,
           "refId": "B",
           "resultFormat": "time_series",
@@ -453,7 +439,7 @@
           ]
         },
         {
-          "alias": "1d Dual Station (Tip count)",
+          "alias": "Live",
           "datasource": {
             "type": "influxdb",
             "uid": "eepjuov1zfi0wb"
@@ -470,7 +456,7 @@
           "measurement": "controlled",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT sum(\"value\")/2.9411 \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pt') \n  AND $timeFilter \nGROUP BY time(1d), \"station\"::tag, \"sensor\"::tag",
+          "query": "SELECT sum(\"value\")/2.9411\nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pt') \n  AND $timeFilter \n  AND time >= '2025-09-15T00:00:00Z'\nGROUP BY time(1d), \"station\"::tag",
           "rawQuery": true,
           "refId": "A",
           "resultFormat": "time_series",
@@ -503,7 +489,7 @@
           ]
         },
         {
-          "alias": "1d Dual Station (Drip count)",
+          "alias": "Live",
           "datasource": {
             "type": "influxdb",
             "uid": "eepjuov1zfi0wb"
@@ -520,7 +506,7 @@
           "measurement": "controlled",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT sum(\"value\")/58.823 \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pd') \n  AND $timeFilter \nGROUP BY time(1d), \"station\"::tag, \"sensor\"::tag",
+          "query": "SELECT sum(\"value\")/58.823\nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pd') \n  AND $timeFilter \n  AND time >= '2025-09-15T00:00:00Z'\nGROUP BY time(1d), \"station\"::tag",
           "rawQuery": true,
           "refId": "E",
           "resultFormat": "time_series",
@@ -551,38 +537,17 @@
               "value": "pr"
             }
           ]
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "bdz3m3xs99p1cf"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "hide": false,
-          "rawQuery": true,
-          "rawSql": "-- SELECT \n--   \"start\" AS time,\n--   \"end\" AS timeEnd,\n--   \"station_id\",\n--   'Bad rainfall' as \"text\"\n-- FROM \"classifier_annotation/rainfall_final\"\n-- WHERE ($__timeFrom() < \"end\" AND $__timeTo() > \"start\") \n--   AND \"station_id\" IN (${station:singlequote})",
-          "refId": "F",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
         }
       ],
       "title": "Daily Precipitation vs Satellites",
+      "transformations": [
+        {
+          "id": "prepareTimeSeries",
+          "options": {
+            "format": "multi"
+          }
+        }
+      ],
       "type": "timeseries"
     },
     {
@@ -738,31 +703,6 @@
                 "id": "displayName"
               }
             ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "Relative Humidity: TA00190",
-                  "Relative Humidity: TA00719"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
           }
         ]
       },
@@ -770,7 +710,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 13
       },
       "id": 7,
       "options": {
@@ -1116,7 +1056,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 20
       },
       "id": 8,
       "options": {
@@ -1299,7 +1239,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1327,7 +1268,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 28
       },
       "id": 9,
       "options": {
@@ -1531,8 +1472,8 @@
     ]
   },
   "time": {
-    "from": "2024-11-26T07:58:20.206Z",
-    "to": "2025-12-06T07:32:37.349Z"
+    "from": "2021-12-27T21:45:50.440Z",
+    "to": "2024-04-02T11:17:49.578Z"
   },
   "timepicker": {},
   "timezone": "utc",
