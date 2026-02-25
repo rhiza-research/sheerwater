@@ -15,7 +15,7 @@ Run a specific case with -k, e.g.: pytest ... -k "1" or -k "5_pod_5" or -k "mae_
 import numpy as np
 import pytest
 
-from sheerwater.metrics import metric
+from sheerwater.metrics import metric as new_metric
 from sheerwater.utils import dask_remote
 from nuthatch import cache
 
@@ -26,6 +26,7 @@ pytestmark = pytest.mark.correctness
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast', 'truth',
                    'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
+       fail_if_no_cache=True,
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
            'chunk_by_arg': {
@@ -37,8 +38,67 @@ pytestmark = pytest.mark.correctness
 def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
                              metric, time_grouping=None, spatial=False, grid="global1_5",
                              mask='lsm', region='africa'):  # noqa
-    """Stub function providing gold standard reference for testing."""
-    pass
+    """Stub function providing gold standard reference for testing.
+
+    The following code enables us to call this with recompute=True and replace the old
+    metric value with a new metric value. This can be used if we want to change the gold
+    standard metric value because a methodology or data source has changed.
+
+    To use this, disable the fail_if_no_cache flag above and call with recompute=True.
+    """
+    if 'weeks' in lead:
+        agg_days = 14
+    elif 'week' in lead:
+        agg_days = 7
+    else:
+        raise ValueError(f"Invalid lead time: {lead}")
+
+    # Run grouped_metric_new (same call structure as archive)
+    ds_new = new_metric(
+        start_time=start_time,
+        end_time=end_time,
+        variable=variable,
+        agg_days=agg_days,
+        forecast=forecast,
+        truth=truth,
+        metric_name=metric,
+        time_grouping=time_grouping,
+        spatial=spatial,
+        space_grouping=None,
+        region=region,
+        mask=mask,
+        grid=grid,
+    )
+
+    # Convert from new metric format to old format by selection region and lead time (archive logic)
+    if ds_new is not None:
+        if region in ds_new.dims and len(ds_new.region.values) > 1:
+            ds_new = ds_new.sel(region=region)
+        if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
+            lead_dict = {
+                'week1': 0,
+                'week2': 7,
+                'week3': 14,
+                'week4': 21,
+                'week5': 28,
+                'week6': 35,
+            }
+            ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
+            ds_new = ds_new.rename({'prediction_timedelta': 'lead_time'})
+            ds_new.lead_time.values = lead
+
+        if '-' in metric:
+            mn = metric.split('-')[0]
+        else:
+            mn = metric
+        ds_new = ds_new.rename_vars({mn: variable})
+
+        # Drop lead time coordinate
+        if 'lead_time' in ds_new.coords:
+            ds_new = ds_new.drop_vars('lead_time')
+        if 'prediction_timedelta' in ds_new.coords:
+            ds_new = ds_new.drop_vars('prediction_timedelta')
+    return ds_new
 
 
 def _single_comparison(test_case):
@@ -67,7 +127,7 @@ def _single_comparison(test_case):
     recompute = test_case.get("recompute", ["global_statistic", "metric"])
 
     # Run grouped_metric_new (same call structure as archive)
-    ds_new = metric(
+    ds_new = new_metric(
         start_time="2016-01-01",
         end_time="2022-12-31",
         variable=variable,
@@ -84,7 +144,6 @@ def _single_comparison(test_case):
         recompute=recompute,
         cache_mode='overwrite',
     )
-
     # Convert from new metric format to old format by selection region and lead time (archive logic)
     if ds_new is not None:
         if region in ds_new.dims and len(ds_new.region.values) > 1:
@@ -117,7 +176,6 @@ def _single_comparison(test_case):
         region_call = space_grouping
     else:
         region_call = 'global'
-
     ds_old = grouped_metric_test(
         start_time="2016-01-01",
         end_time="2022-12-31",
@@ -199,32 +257,47 @@ def _run_single_case(test_case):
 
 # Test cases from testing_archive/test_metric_correctness. Each has a "name" used as the test id.
 METRIC_TEST_CASES = [
-    {"name": "1_mae_global", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "space_grouping": None, "region": "global", "mask": "lsm", "spatial": False},
-    {"name": "2_mae_nimbus_east_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "space_grouping": None, "region": "nimbus_east_africa", "mask": "lsm", "spatial": True},
+    {"name": "1_mae_global", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
+        "variable": "precip", "space_grouping": None, "region": "global", "mask": "lsm", "spatial": False},
+    {"name": "2_mae_nimbus_east_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
+        "variable": "precip", "space_grouping": None, "region": "nimbus_east_africa", "mask": "lsm", "spatial": True},
     {"name": "3_acc", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "acc", "variable": "precip", "spatial": True},
     {"name": "4_ets_5", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "ets-5", "variable": "precip", "spatial": True},
     {"name": "5_pod_5", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "pod-5", "variable": "precip", "spatial": True},
     {"name": "6_rmse", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "rmse", "variable": "precip", "spatial": True},
     {"name": "7_bias", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "bias", "variable": "precip", "spatial": True},
     {"name": "8_crps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": True},
-    {"name": "9_crps_salient_africa", "forecast": "salient", "metric_name": "crps", "variable": "precip", "spatial": True, "region": "africa"},
+    {"name": "9_crps_salient_africa", "forecast": "salient", "metric_name": "crps",
+        "variable": "precip", "spatial": True, "region": "africa"},
     {"name": "10_smape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
-    #{"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
+    # {"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
     {"name": "12_seeps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
-    {"name": "13_pearson", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "pearson", "variable": "precip", "spatial": True},
-    {"name": "14_heidke", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "heidke-1-5-10-20", "variable": "precip", "spatial": True},
-    {"name": "15_pod_10", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "pod-10", "variable": "precip", "spatial": True},
+    {"name": "13_pearson", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "pearson", "variable": "precip", "spatial": True},
+    {"name": "14_heidke", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "heidke-1-5-10-20", "variable": "precip", "spatial": True},
+    {"name": "15_pod_10", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "pod-10", "variable": "precip", "spatial": True},
     {"name": "16_far_5", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "far-5", "variable": "precip", "spatial": True},
-    {"name": "17_frequencybias_5", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "frequencybias-5", "variable": "precip", "spatial": False},
-    {"name": "18_mae_ecmwf_ifs_er", "forecast": "ecmwf_ifs_er", "metric_name": "mae", "variable": "precip", "spatial": False},
-    {"name": "19_mae_climatology", "forecast": "climatology_2015", "metric_name": "mae", "variable": "precip", "spatial": True},
+    {"name": "17_frequencybias_5", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "frequencybias-5", "variable": "precip", "spatial": False},
+    {"name": "18_mae_ecmwf_ifs_er", "forecast": "ecmwf_ifs_er",
+        "metric_name": "mae", "variable": "precip", "spatial": False},
+    {"name": "19_mae_climatology", "forecast": "climatology_era5_1985_2015",
+        "metric_name": "mae", "variable": "precip", "spatial": True},
     {"name": "20_mae_fuxi", "forecast": "fuxi", "metric_name": "mae", "variable": "precip", "spatial": True},
-    {"name": "21_mae_tmp2m", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "tmp2m", "spatial": True},
-    {"name": "22_acc_week2", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "acc", "variable": "precip", "lead": "week2", "spatial": True},
-    {"name": "23_acc_tmp2m_week2", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "acc", "variable": "tmp2m", "lead": "week2", "spatial": True},
-    {"name": "24_mae_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "region": "africa", "spatial": True},
-    {"name": "25_mae_nimbus_east_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "region": "nimbus_east_africa", "spatial": True},
-    {"name": "26_mae_nonspatial", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae", "variable": "precip", "spatial": False},
+    {"name": "21_mae_tmp2m", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "mae", "variable": "tmp2m", "spatial": True},
+    {"name": "22_acc_week2", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "acc", "variable": "precip", "lead": "week2", "spatial": True},
+    {"name": "23_acc_tmp2m_week2", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "acc", "variable": "tmp2m", "lead": "week2", "spatial": True},
+    {"name": "24_mae_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
+        "variable": "precip", "region": "africa", "spatial": True},
+    {"name": "25_mae_nimbus_east_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
+        "variable": "precip", "region": "nimbus_east_africa", "spatial": True},
+    {"name": "26_mae_nonspatial", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "mae", "variable": "precip", "spatial": False},
 ]
 
 
@@ -237,3 +310,11 @@ def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
     """One test per metric/forecast/variable/region combination; compares to cached baseline."""
     _, passed, _ = _run_single_case(test_case)
     assert passed
+
+
+if __name__ == "__main__":
+    from sheerwater.utils import start_remote
+    cluster = start_remote(remote_config='xlarge_cluster')
+    test_metric_correctness(cluster, METRIC_TEST_CASES[2])
+    # test_metric_correctness(cluster, METRIC_TEST_CASES[21])
+    # test_metric_correctness(cluster, METRIC_TEST_CASES[22])

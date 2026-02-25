@@ -6,7 +6,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid, shift_by_days
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
@@ -18,6 +18,10 @@ def knust_ashanti():
                               engine='h5netcdf')
     ashanti = ashanti.swap_dims({'ncells': 'station_id'})
     ashanti = ashanti.dropna(dim='time')
+
+    # We need to convert from base 360 to base 180 but we can't
+    # use the standard function because lat and lon must be dims not just coords
+    ashanti = ashanti.assign_coords(lon = ("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
     return ashanti
@@ -33,6 +37,10 @@ def knust_dacciwa():
     dacciwa['station_id'] = dacciwa['station_id'].astype(str)
     dacciwa['lat'] = dacciwa.lat.isel(time=0)
     dacciwa['lon'] = dacciwa.lon.isel(time=0)
+
+    # Some -99999 values are coming through - mask them to NaNs
+    dacciwa['precipitation_amount'] = dacciwa['precipitation_amount'].where(dacciwa['precipitation_amount'] >= 0)
+
     return dacciwa
 
 
@@ -43,6 +51,7 @@ def knust_furiflood():
                                 engine='h5netcdf')
     furiflood = furiflood.rename({'latitude': 'lat', 'longitude': 'lon'})
     furiflood['station_id'] = furiflood['station_id'].astype(str)
+
     return furiflood
 
 
@@ -113,15 +122,14 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     return ds
 
 
+
 @dask_remote
 @timeseries()
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     """Standard interface for knust data."""
-    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
-    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
-    ds = knust_reindex(new_start, new_end, grid, cell_aggregation)
+    ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)

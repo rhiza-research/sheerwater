@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
-from sheerwater.climatology import climatology_era5_2020, seeps_dry_fraction, seeps_wet_threshold
+from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
@@ -48,7 +48,8 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 mask='lsm', space_grouping='country', region='global', data_key='none'):
+                 mask='lsm', space_grouping='country', region='global', data_key='none',
+                 memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
@@ -63,6 +64,8 @@ class Metric(ABC):
         self.region = region
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
+        self.memoize_forecast = memoize_forecast
+        self.memoize_truth = memoize_truth
 
         # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
         # This is a dictionary that contains a data entry and a key entry.
@@ -88,7 +91,7 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=True)
+                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
@@ -97,7 +100,7 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=True)
+                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.cache_kwargs)
@@ -115,7 +118,7 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs, memoize=True)
+            obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.cache_kwargs)
@@ -169,6 +172,7 @@ class Metric(ABC):
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
+
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
@@ -313,8 +317,12 @@ class Metric(ABC):
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+
                 # If we've passed a global region and clipped, drop any null groups
-                ds = ds.dropna(dim='space_grouping', how='all')
+                # Currently commenting out because it was hurting performance
+                # hopefully a future change can drop nan regions more efficiently
+                # until then it's fine to return NaN
+                # ds = ds.dropna(dim='space_grouping', how='all')
             else:
                 # If we don't have any valid space groups after clipping, the dataframe is empty
                 # we can just continue
@@ -475,13 +483,15 @@ class ACC(Metric):
         super().prepare_data()
 
         # Get the appropriate climatology dataframe for metric calculation
-        clim_ds = climatology_era5_2020(**self.cache_kwargs, prob_type='deterministic')
+        first_year = 1990
+        last_year = 2019
+        clim_source = 'era5'
+        clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
+                              **self.cache_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
             leads = self.metric_data['data']['fcst'].prediction_timedelta.values
-            # Remove the prediction_timedelta coordinate
-            clim_ds = clim_ds.squeeze('prediction_timedelta')
             # Add in a matching prediction_timedelta coordinate
             clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 
@@ -491,7 +501,7 @@ class ACC(Metric):
         # Add the climatology to the metric data
         self.metric_data['data']['climatology'] = clim_ds
         # Update the metric data key to include the climatology year range
-        self.metric_data['key'] = f'{self.metric_data["key"]}-1990-2019'
+        self.metric_data['key'] = f'{self.metric_data["key"]}-{clim_source}-{first_year}-{last_year}'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -563,42 +573,6 @@ class POD(Metric):
         tp = self.grouped_statistics['true_positives']
         fn = self.grouped_statistics['false_negatives']
         return tp / (tp + fn)
-
-
-class FalseNegative(Metric):
-    """False Negative metric."""
-    sparse = True
-    prob_type = 'deterministic'
-    valid_variables = ['precip']
-    categorical = True
-    statistics = ['false_negatives']
-
-
-class FalsePositive(Metric):
-    """False Positive metric."""
-    sparse = True
-    prob_type = 'deterministic'
-    valid_variables = ['precip']
-    categorical = True
-    statistics = ['false_positives']
-
-
-class TruePositive(Metric):
-    """True Positive metric."""
-    sparse = True
-    prob_type = 'deterministic'
-    valid_variables = ['precip']
-    categorical = True
-    statistics = ['true_positives']
-
-
-class TrueNegative(Metric):
-    """True Negative metric."""
-    sparse = True
-    prob_type = 'deterministic'
-    valid_variables = ['precip']
-    categorical = True
-    statistics = ['true_negatives']
 
 
 class FAR(Metric):

@@ -171,38 +171,8 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1", mas
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['variable', 'agg_days', 'grid'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {"lat": 300, "lon": 300, "time": 365},
-})
-def era5_land_rolled(start_time, end_time, variable, agg_days=7, grid="global0_1", mask=None, region='global'):
-    """Aggregates the hourly ERA5 data into daily data and rolls.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days.
-        grid (str): The grid resolution to fetch the data at. One of:
-            - global1_5: 1.5 degree global grid
-            - global0_25: 0.25 degree global grid
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
-    # Read and combine all the data into an array
-    ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    if agg_days == 1:
-        return ds
-
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
@@ -224,7 +194,8 @@ def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='
         raise NotImplementedError("Unable to regrid ERA5 Land smaller than 0.1x0.1")
 
     # Get daily data
-    ds = era5_land_rolled(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
 
 
@@ -393,12 +364,10 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
     _, _, size, _ = get_grid(grid)
     if size < 0.25:
         raise NotImplementedError("Unable to regrid ERA5 smaller than 0.25x0.25")
-    # Adjust start and end to account for what will be cut off due to the a
-    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
-    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
-    ds = era5_daily_regrid(new_start, new_end, variable, grid=grid, mask=mask, region=region)
-    # Temporary fix for the rh2m variable, which was cached incorrectly
+    # The decorator will adjust the end_time to account for what will be cut off due to the aggregation days.
+    ds = era5_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
     if variable == 'rh2m':
         ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
+    # TODO: can't put roll and agg in the post processor b/c it gets applied twice.
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
