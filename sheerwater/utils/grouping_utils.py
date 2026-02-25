@@ -33,7 +33,9 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         elif time_grouping == 'day_of_year':
             coords = [f'D{x:03d}' for x in ds.time.dt.dayofyear.values]
         elif time_grouping == 'month':
-            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01'
+            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds.time.values]
+        elif time_grouping == 'daily':
+            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-{pd.to_datetime(x).day:02d}'
                       for x in ds.time.values]
         else:
             raise ValueError("Invalid time grouping")
@@ -75,7 +77,6 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
         # Group by region and average in space, while applying weighting for mask
         weights = latitude_weights(ds.lat)
         # Expand weights to have a time dimension that matches ds
-        weights = weights.expand_dims(lon=ds.lon)
         if 'time' in ds.dims:  # Enable a time specific null pattern
             weights = weights.expand_dims(time=ds.time)
 
