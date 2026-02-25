@@ -68,7 +68,7 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
     obs = tahmo_raw_daily().compute()
 
-    if grid != 'tahmo':
+    if grid != 'source':
         # Round the coordinates to the nearest grid
         lats, lons, grid_size, offset = get_grid(grid)
 
@@ -87,16 +87,14 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
             obs = obs.drop(['station_id'], axis=1)
             obs = obs.reset_index()
             obs = obs.drop(['index'], axis=1)
+            obs['precip_count'] = obs['precip'].notnull().astype(int)
         elif cell_aggregation == 'mean':
-            obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'))
+            obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'),
+                                                             precip_count=('precip', 'count'))
             obs = obs.reset_index()
 
         # Convert to xarray - for this to succeed obs must be a pandas dataframe
         obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
-
-        # Fill out the grid for clipping and masking
-        grid_ds = get_grid_ds(grid)
-        ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
     else:
         stat = stat[['station_id', 'lat', 'lon']]
         stat = stat.set_index('station_id')
@@ -108,6 +106,7 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         obs['lon'] = obs.lon.isel(time=0)
         obs = obs.set_coords('lat')
         obs = obs.set_coords('lon')
+        obs['precip_count'] = obs['precip'].notnull().astype(int)
 
 
     # Return the xarray
@@ -127,6 +126,10 @@ def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     the task graph will explode.
     """
     ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
+
+    if grid == 'source':
+        return ds
+
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
     ds['precip_count'] = ds['precip_count'].fillna(0)

@@ -79,7 +79,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     ds = ds.rename({'precipitation_amount': 'precip'})
 
     # Snap the lat/lon values to our requested grid
-    if grid != 'knust':
+    if grid != 'source':
         _, _, grid_size, offset = get_grid(grid)
 
         partial_func = partial(snap_point_to_grid, grid_size=grid_size, offset=offset)
@@ -90,26 +90,27 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
 
         if cell_aggregation == 'mean':
-            ds = ds.groupby(['lat','lon']).mean()
+            ds_grouped = ds.groupby(['lat','lon']).mean()
+            # Add the station count of non-null values
+            ds_grouped['precip_count'] = ds.precip.groupby(['lat', 'lon']).count()
         elif cell_aggregation == 'first':
-            ds = ds.groupby(['lat','lon']).first()
+            ds_grouped = ds.groupby(['lat','lon']).first()
+
+            # Add the station count of non-null values
+            ds_grouped['precip_count'] = ds_grouped['precip'].notnull().astype(int)
         else:
             raise ValueError("Cell aggregation must be 'first' or 'mean'")
 
         # Return the xarray
-        ds = ds.chunk({'time':365, 'lat': 300, 'lon': 300})
+        ds_grouped = ds_grouped.chunk({'time':365, 'lat': 300, 'lon': 300})
 
-        # Apply grid to fill out lat/lon
-        grid_ds = get_grid_ds(grid)
-        ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005)
+        return ds_grouped
     else:
         ds = ds.chunk({'time':365, 'station_id': 50})
         ds = ds.set_coords("lat")
         ds = ds.set_coords("lon")
-
-    # Return the xarray
-    ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
-    return ds_grouped
+        ds['precip_count'] = ds_grouped['precip'].notnull().astype(int)
+        return ds
 
 
 @dask_remote
@@ -125,6 +126,10 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     the task graph will explode.
     """
     ds = knust_raw(start_time, end_time, grid, cell_aggregation)
+
+    if grid == 'source':
+        return ds
+
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
     ds['precip_count'] = ds['precip_count'].fillna(0)
