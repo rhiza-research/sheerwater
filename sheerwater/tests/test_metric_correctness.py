@@ -94,7 +94,10 @@ def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
         ds_new = ds_new.rename_vars({mn: variable})
 
         # Drop lead time coordinate
-        ds_new = ds_new.drop_vars('lead_time')
+        if 'lead_time' in ds_new.coords:
+            ds_new = ds_new.drop_vars('lead_time')
+        if 'prediction_timedelta' in ds_new.coords:
+            ds_new = ds_new.drop_vars('prediction_timedelta')
     return ds_new
 
 
@@ -173,7 +176,6 @@ def _single_comparison(test_case):
         region_call = space_grouping
     else:
         region_call = 'global'
-
     ds_old = grouped_metric_test(
         start_time="2016-01-01",
         end_time="2022-12-31",
@@ -281,7 +283,7 @@ METRIC_TEST_CASES = [
         "metric_name": "frequencybias-5", "variable": "precip", "spatial": False},
     {"name": "18_mae_ecmwf_ifs_er", "forecast": "ecmwf_ifs_er",
         "metric_name": "mae", "variable": "precip", "spatial": False},
-    {"name": "19_mae_climatology", "forecast": "climatology_2015",
+    {"name": "19_mae_climatology", "forecast": "climatology_era5_1985_2015",
         "metric_name": "mae", "variable": "precip", "spatial": True},
     {"name": "20_mae_fuxi", "forecast": "fuxi", "metric_name": "mae", "variable": "precip", "spatial": True},
     {"name": "21_mae_tmp2m", "forecast": "ecmwf_ifs_er_debiased",
