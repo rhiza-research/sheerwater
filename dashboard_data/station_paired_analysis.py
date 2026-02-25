@@ -1,12 +1,10 @@
 """Get gridded prodcuts by station locations."""
-from datetime import datetime
-
 import xarray as xr
 import dask.dataframe as dd
 
 from nuthatch import cache
 
-from sheerwater.utils import dask_remote, snap_point_to_grid, get_grid, start_remote
+from sheerwater.utils import dask_remote, snap_point_to_grid, get_grid
 from sheerwater.spatial_subdivisions import nonuniform_grid, space_grouping_labels, clip_region
 from sheerwater.data.tahmo import tahmo_deployment
 from sheerwater.interfaces import get_data
@@ -103,24 +101,17 @@ def paried_data(start_time, end_time,
 
 
 if __name__ == "__main__":
-    start_remote(remote_name="precip_scatters")
-    start_time = "2012-01-01"
-    end_time = "2025-12-31"
+    from datetime import datetime
+    from sheerwater.utils import start_remote
+    start_remote()
+    now = datetime.now().strftime("%Y-%m-%d")
+    import pdb
+    pdb.set_trace()
+    data_at_stations(start_time='2015-01-01', end_time=now, data='chirps_v3',
+                     station='tahmo', grid='chirps', backend='sql')
 
-    grid = 'global0_25'
-    mask = 'lsm'
-    agg_day_vals = [1, 5, 10]
-    regions = ['kenya', 'ghana']
-    precip1s = ["imerg", "chirps"]
-    precip2 = "tahmo_avg"
-
-    total_tables = len(regions) * len(precip1s) * len(agg_day_vals)
-    current_table = 0
-    for region in regions:
-        for precip1 in precip1s:
-            for agg_day in agg_day_vals:
-                current_table += 1
-                print(
-                    f"Generating scatter table for {precip1} and {precip2} in {region} with {agg_day} day aggregation ({current_table}/{total_tables})")
-                df = pairwise_precip(start_time, end_time, precip1, precip2, agg_days=agg_day,
-                                     grid=grid, mask=mask, region=region, recompute=True, cache_mode='overwrite')
+    paried_data(start_time='2015-01-01', end_time=now,
+                sources=['chirps_v3', 'imerg', 'tahmo', 'era5', 'era5'],
+                variables=['precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
+                agg_days=1,
+                grid='global0_25', mask='lsm', region='global', backend='sql')
