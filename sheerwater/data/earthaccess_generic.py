@@ -2,7 +2,7 @@
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.utils.secrets import earthaccess_password
+from sheerwater.utils.secrets import earthaccess_username, earthaccess_password
 from sheerwater.utils import dask_remote
 
 import dask
@@ -13,7 +13,7 @@ import earthaccess
 @cache(cache_args=['filename', 'preprocessor_key'])
 def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, preprocessor_key=None): # noqa: ARG001
     """Download single earthaccess file."""
-    os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
+    os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
     os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
     earthaccess.login(strategy="environment", persist=True)
 
@@ -41,7 +41,7 @@ def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open
     Opens data by shortname, and processes each file with the preprocessor before opening with mfdataset.
     NOT CACHED - make sure you cache the result!
     """
-    os.environ["EARTHDATA_USERNAME"] = "joshua_adkins"
+    os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
     os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
     earthaccess.login(strategy="environment", persist=True)
 

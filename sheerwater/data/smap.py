@@ -29,6 +29,9 @@ def smap_l4_raw(start_time, end_time, delayed=False):
         ds = ds.drop_attrs()
         return ds
 
+    # L4 is on the curved EASE Grid, which is indexed by x/y, and therefore need coordinates for lat/lon
+    # Because the lat/lon coordinates are stored in a different group, we get them separately and merge
+    # them into the original dataset
     single_ds = earthaccess_dataset("2016-01-01 00:00:00", "2016-01-01 00:00:00", "SPL4SMGP",
                                     preprocessor=latlon_preprocessor, delayed=delayed, limit=1)
     ds = ds.assign_coords({'lat': single_ds.cell_lat, 'lon': single_ds.cell_lon})
@@ -43,13 +46,18 @@ def smap_l3_raw(start_time, end_time, delayed=False):
     """L3 raw concatenated."""
 
     def l3_preprocessor(dt):
+        # Soil moisture comes through at both AM and PM. AM is considered more reliable, but coalescing (and averaging)
+        # them increases pass rate to at minimum once every 2 days. Get both for averaging later
         ds_am = dt['/Soil_Moisture_Retrieval_Data_AM'].to_dataset()
         ds_am = ds_am[['soil_moisture', 'tb_time_seconds']]
         ds_am = ds_am.rename_dims({'phony_dim_0': 'y', 'phony_dim_1': 'x'})
 
+        # There is no daily timestamp, but a set of seconds since 2000 for the physical retrievals
+        # Get that set and average them, then round to the nearest day
         try:
             time = pd.Timestamp(pd.to_datetime("2000-01-01") + ds_am['tb_time_seconds'].mean().values).round(freq='1d')
         except: #noqa: E722
+            # On two files this process fails, just drop those files
             return None
 
         ds_am = ds_am.drop_vars("tb_time_seconds")
@@ -66,6 +74,7 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 
     ds = earthaccess_dataset(start_time, end_time, "SPL3SMP_E", preprocessor=l3_preprocessor, delayed=delayed)
 
+    # Average AM and PM together
     ds['soil_moisture'] = ds[['soil_moisture', 'soil_moisture_pm']].to_array(dim='mdim').mean(dim='mdim', skipna=True)
     ds = ds.drop_vars(["soil_moisture_pm"])
 
@@ -74,6 +83,10 @@ def smap_l3_raw(start_time, end_time, delayed=False):
         ds = ds.drop_attrs()
         return ds
 
+    # L3 is on the curved EASE Grid, which is indexed by x/y, and therefore need coordinates for lat/lon
+    # Because the lat/lon coordinates are stored in a different group, we get them separately and merge
+    # them into the original dataset. We actually pull the lat/lon from the L4 product because it's,
+    # for some reason, not something I can find in the L3 product, but it's the same grid
     single_ds = earthaccess_dataset("2016-01-01 00:00:00", "2016-01-01 00:00:00", "SPL4SMGP",
                                     preprocessor=latlon_preprocessor, delayed=delayed, limit=1)
     ds = ds.assign_coords({'lat': single_ds.cell_lat, 'lon': single_ds.cell_lon})
@@ -98,6 +111,7 @@ def smap_gridded(start_time, end_time, grid='smap', version='L3'):
         raise ValueError("Invalid smap version")
 
     # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
+    # Can't do normal regirdding because the EASE grid is curved
     if grid != 'smap':
         # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
         raise ValueError("Currently SMAP only supports the SMAP grid")
