@@ -9,9 +9,10 @@ import dask
 import os
 import earthaccess
 
+
 @dask_remote
 @cache(cache_args=['filename', 'preprocessor_key'])
-def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, preprocessor_key=None): # noqa: ARG001
+def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, preprocessor_key=None):  # noqa: ARG001
     """Download single earthaccess file.
 
        Intended to be used by earthaccess_dataset.
@@ -63,7 +64,7 @@ def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open
     if preprocessor:
         preprocessor_key = preprocessor.__name__
     else:
-        preprocessor_key=None
+        preprocessor_key = None
 
     files = []
     for result in results:
