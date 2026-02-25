@@ -35,9 +35,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         elif time_grouping == 'month':
             coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds.time.values]
         elif time_grouping == 'daily':
-            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-{pd.to_datetime(x).day:02d}'
-                      for x in ds.time.values]
-        else:
+            coords = [pd.to_datetime(x).date() for x in ds.time.values]
             raise ValueError("Invalid time grouping")
         ds = ds.assign_coords(group=("time", coords))
 
