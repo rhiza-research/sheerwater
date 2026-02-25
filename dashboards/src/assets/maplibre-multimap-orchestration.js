@@ -267,6 +267,7 @@ async function refreshAllCells(runtime, panelState, panelDeps) {
     // Refresh metric description for multimap too
     refreshMetricDescription(vars.metric);
 
+    const pendingSwaps = [];
     for (const result of results) {
         const cellRuntime = runtime.cellsByKey.get(result.key);
         if (!cellRuntime) {
@@ -301,8 +302,12 @@ async function refreshAllCells(runtime, panelState, panelDeps) {
         }
 
         if (previousTileUrl !== result.tileUrl) {
-            await swapRasterLayer(cellRuntime, result.tileUrl);
+            pendingSwaps.push(swapRasterLayer(cellRuntime, result.tileUrl));
         }
+    }
+
+    if (pendingSwaps.length > 0) {
+        await Promise.all(pendingSwaps);
     }
 }
 

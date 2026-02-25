@@ -21,6 +21,9 @@ if (typeof POLL_INTERVAL_MS === "undefined") {
 if (typeof VAR_STABILIZE_MS === "undefined") {
     globalThis.VAR_STABILIZE_MS = 700;
 }
+if (typeof MAPLIBRE_LOAD_MODE === "undefined") {
+    globalThis.MAPLIBRE_LOAD_MODE = "esm-first";
+}
 
 const DEFAULT_FLAVOR = "black";
 const BASE_STYLE_LANG = "en";
