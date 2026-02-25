@@ -19,6 +19,7 @@ pytestmark = pytest.mark.default
 
 @pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
 def test_station_accessor_source_grid(name, fn):
+    """Test that source grid works for stations."""
     start = "2020-01-01"
     end = "2020-09-30"
 
