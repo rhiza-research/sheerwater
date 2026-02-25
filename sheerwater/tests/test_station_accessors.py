@@ -17,6 +17,20 @@ STATION_ACCESSORS = [
 
 pytestmark = pytest.mark.default
 
+@pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
+def test_station_accessor_source_grid(name, fn):
+    start = "2020-01-01"
+    end = "2020-09-30"
+
+    if name == 'stations' or 'ghcn' in name:
+        pytest.skip(f"{name}: not supported")
+
+    ds_1 = fn(start, end, agg_days=1, grid='source', recompute=True, cache_mode='overwrite')
+
+    assert 'station_id' in ds_1.dims
+    assert 'time' in ds_1.dims
+    assert 'lat' in ds_1.coords
+    assert 'lon' in ds_1.coords
 
 @pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
 def test_station_accessors_roll_with_agg_days(name, fn):

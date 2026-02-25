@@ -109,7 +109,7 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         ds = ds.chunk({'time':365, 'station_id': 50})
         ds = ds.set_coords("lat")
         ds = ds.set_coords("lon")
-        ds['precip_count'] = ds_grouped['precip'].notnull().astype(int)
+        ds['precip_count'] = ds['precip'].notnull().astype(int)
         return ds
 
 
