@@ -638,14 +638,14 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 ##############################################################################
 
 
-def clip_region(ds, region, grid, region_dim=None, drop=True):
+def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
     """Clip a dataset to a region.
 
     Args:
         ds(xr.Dataset): The dataset to clip to a specific region.
         region(str, list): The region to clip to. A str or list of strs.
         grid(str): The grid to clip to.
-        region_dim(str): The name of the region dimension. If None, region data is fetched from the region registry.
+        coords_to_clip(list): The coordinates to clip to the region. Coordinates outside set to 'nan'.
         drop(bool): Whether to drop the original coordinates that are NaN'd by clipping.
     """
     if region == 'global' or region is None or 'global' in region:
@@ -658,9 +658,12 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     if not isinstance(region, list):
         region = [region]
 
-    if region_dim is not None:
-        # If we already have a region dimension, just select the region
-        return ds.where(ds[region_dim] == '-'.join(region), drop=drop)
+    # if coords_to_clip is not None or a list, convert to a list.
+    if coords_to_clip is not None and not isinstance(coords_to_clip, list):
+        coords_to_clip = [coords_to_clip]
+        for coord in coords_to_clip:
+            if ["lat", "lon"] not in ds[coord].dims:
+                raise ValueError(f"Coordinates to clip must be indexed by lat and lon: {coord}")
 
     # Clean the region names
     region = [clean_spatial_subdivision_name(x) for x in region]
@@ -677,6 +680,11 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
     sort_idx = np.argsort(promoted_levels)
     promoted_levels = [promoted_levels[i] for i in sort_idx]
     region = [region[i] for i in sort_idx]
+
+    # setting coordinates to variables allows them to be clipped to the region.
+    # these are then reset to coordinates so those outside the region are 'nan'.
+    if coords_to_clip is not None:
+        ds = ds.reset_coords(coords_to_clip, drop=False)
 
     #########################################################
     # Clip to geometry regions
@@ -703,6 +711,11 @@ def clip_region(ds, region, grid, region_dim=None, drop=True):
         region_ds = region_ds.rename({'region': '_clip_region'})
         ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
+
+    # restore coordinate variables to coordinates.
+    if coords_to_clip is not None:
+        ds = ds.set_coords(coords_to_clip)
+
     return ds
 
 
@@ -803,18 +816,21 @@ def clip_with_mask(ds, region_df, drop=True):
         drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
     """
     # create a mask on the ds grid corresponding to the region
+    # broadcasting gives us an explicit lat/lon for each grid cell
     lon2d, lat2d = xr.broadcast(ds.lon, ds.lat)
     mask = xr.zeros_like(lon2d, dtype=bool)
 
     polygon = region_df.geometry.union_all()
+
     # the mask can be large; two step filtering will be faster
     # first filter to the bounding box of the region
     lon_min, lat_min, lon_max, lat_max = polygon.bounds
     bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
+
     # then filter to the precise polygon
-    mask[bmask] = shapely.intersects_xy(polygon, lon2d[bmask], lat2d[bmask])
-    # convert to xarray
-    mask = xr.DataArray(mask, dims=("lon", "lat"), coords={"lon": ds.lon, "lat": ds.lat})
+    # use NumPy; lazy xarray breaks Shapely and needs tricky re-alignment
+    mask.values[bmask.values] = shapely.intersects_xy(polygon, lon2d.values[bmask.values], lat2d.values[bmask.values])
+
     # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads
     # to visually strange results. By cropping to the bounding box, we have a better result.
     ds = ds.where(mask, drop=False)

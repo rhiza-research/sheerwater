@@ -43,15 +43,17 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         if agg_fn == 'mean':
             ds = ds.groupby("group").mean(dim="time", skipna=True)
         else:
-            ds = ds.groupby("group").sum(dim="time", skipna=True)
+            # min_count ensures that all nan groups return nan
+            ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
         ds = ds.rename({"group": "time"})
         ds = ds.assign_coords(time=ds['time'].astype('<U10'))
     else:
         # Average in time
         if agg_fn == 'mean':
-            ds = ds.mean(dim="time")
+            ds = ds.mean(dim="time", skipna=True)
         elif agg_fn == 'sum':
-            ds = ds.sum(dim="time")
+            # min_count ensures that all nan groups return nan
+            ds = ds.sum(dim="time", skipna=True, min_count=1)
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
     return ds
@@ -72,7 +74,7 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
     # Aggregate in space
     if weighted:
         # Group by region and average in space, while applying weighting for mask
-        weights = latitude_weights(ds, lat_dim='lat', lon_dim='lon')
+        weights = latitude_weights(ds.lat)
         # Expand weights to have a time dimension that matches ds
         if 'time' in ds.dims:  # Enable a time specific null pattern
             weights = weights.expand_dims(time=ds.time)
@@ -80,17 +82,18 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
         # Ensure the weights null pattern matches the ds null pattern
         # Get all variable names in the dataset (excluding coords)
         weights = weights.where(ds[variable_names[0]].notnull(), np.nan, drop=False)
-
-        # Mulitply by weights
-        weights = weights * mask_ds.mask
     else:
-        weights = mask_ds.mask
-
+        weights = xr.ones_like(ds[variable_names[0]])
+    # set weights to nan outside the mask - this is robust to boolean masks
+    weights = weights.where(mask_ds.mask)
+    if 'number' in weights.coords:
+        weights = weights.reset_coords('number', drop=True)
     ds['weights'] = weights
+
     for var in variable_names:
         ds[var] = ds[var] * ds['weights']
 
-    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True)
+    ds = ds.groupby('region').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
     if agg_fn == 'mean':
         for var in variable_names:
@@ -100,45 +103,16 @@ def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
     return ds
 
 
-def latitude_weights(ds, lat_dim='lat', lon_dim='lon'):
-    """Return latitude weights as an xarray DataArray.
+def latitude_weights(lats):
+    """Return cosine latitude weights for any arbitrary collection of latitude values.
 
-    This function weights each latitude band by the actual cell area,
-    which accounts for the fact that grid cells near the poles are smaller
-    in area than those near the equator.
+    Args:
+        lats (array-like): Latitude values in degrees.
+
+    Returns:
+        xr.DataArray: Normalized weights proportional to cos(lat).
     """
-    if ds[lat_dim].size == 0:
-        # Handle empty / dimensionless dataset
-        return xr.DataArray(np.array([]), coords=[ds[lat_dim]], dims=[lat_dim]).expand_dims({lon_dim: ds[lon_dim]})
-    # Calculate latitude cell bounds
-    lat_rad = np.deg2rad(ds[lat_dim].values)
-    pi_over_2 = np.array([np.pi / 2], dtype=ds[lat_dim].dtype)
-
-    if lat_rad.min() == -pi_over_2 and lat_rad.max() == pi_over_2:
-        # Dealing with the full globe
-        lower_bound = -pi_over_2
-        upper_bound = pi_over_2
-    else:
-        # Compute the difference in between cells
-        diff = np.diff(lat_rad)
-        if diff.std() > 0.5:
-            raise ValueError(
-                "Nonuniform grid! Need to think about spatial averaging more carefully.")
-        diff = diff.mean()
-        lower_bound = np.array([lat_rad[0] - diff / 2.0], dtype=lat_rad.dtype)
-        upper_bound = np.array([lat_rad[-1] + diff / 2.0], dtype=lat_rad.dtype)
-
-    bounds = np.concatenate([lower_bound, (lat_rad[:-1] + lat_rad[1:]) / 2, upper_bound])
-
-    # Calculate cell areas from latitude bounds
-    upper = bounds[1:]
-    lower = bounds[:-1]
-    # normalized cell area: integral from lower to upper of cos(latitude)
-    weights = np.sin(upper) - np.sin(lower)
-
-    # Normalize weights
-    weights /= np.mean(weights)
-    # Return an xarray DataArray with dimensions lat
-    weights = xr.DataArray(weights, coords=[ds[lat_dim]], dims=[lat_dim])
-    weights = weights.expand_dims({lon_dim: ds[lon_dim]})
+    lats = xr.DataArray(lats, dims='lat') if not isinstance(lats, xr.DataArray) else lats
+    weights = np.cos(np.deg2rad(lats))
+    weights /= weights.mean()
     return weights
