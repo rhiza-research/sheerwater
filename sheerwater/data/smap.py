@@ -58,9 +58,6 @@ def smap_l3_raw(start_time, end_time, delayed=False):
             time = pd.Timestamp(pd.to_datetime("2000-01-01") + ds_am['tb_time_seconds'].mean().values).round(freq='1d')
         except: #noqa: E722
             # On two files this process fails, just drop those files
-        try:
-            time = pd.Timestamp(pd.to_datetime("2000-01-01") + ds_am['tb_time_seconds'].mean().values).round(freq='1d')
-        except: #noqa: E722
             return None
 
         ds_am = ds_am.drop_vars("tb_time_seconds")

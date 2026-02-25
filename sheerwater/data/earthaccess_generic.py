@@ -2,11 +2,7 @@
 import xarray as xr
 from nuthatch import cache
 
-<<<<<<< HEAD
 from sheerwater.utils.secrets import earthaccess_username, earthaccess_password
-=======
-from sheerwater.utils.secrets import earthaccess_password
->>>>>>> 64820a5 (add just smap code)
 from sheerwater.utils import dask_remote
 
 import dask
