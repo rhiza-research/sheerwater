@@ -167,29 +167,14 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     return ds
 
 
-@timeseries()
-@spatial()
-@cache(cache_args=['grid', 'agg_days', 'stations', 'version'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-})
-def chirps_rolled(start_time, end_time, agg_days, grid, stations=True, version=2, mask=None, region='global'):
-    """CHIRPS rolled and aggregated."""
-    ds = chirps_gridded(start_time, end_time, grid, stations=stations, version=version, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
-    return ds
-
-
 @dask_remote
 def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
                     stations=True, version=2, mask=None, region='global'):
     """A unified chirps caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by CHIRP/S.")
-    ds = chirps_rolled(start_time, end_time, agg_days, grid,
-                       stations=stations, version=version, mask=mask,
-                       region=region)
+    ds = chirps_gridded(start_time, end_time, grid, stations=stations, version=version, mask=mask, region=region)
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     ds = ds.assign_attrs(sparse=True)
     return ds
 

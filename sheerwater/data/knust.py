@@ -118,7 +118,7 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
                    grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
-
+    """Standard interface for knust data."""
     ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
@@ -136,6 +136,7 @@ def _knust_unified(start_time, end_time, variable, agg_days,
 
 @dask_remote
 @sheerwater_data()
+@timeseries()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
