@@ -2,8 +2,6 @@
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def to_name(name):
@@ -88,103 +86,86 @@ def bounds(variable):
         return (None, None)
 
 
-def plot_by_region(ds, region, variable, file_string='none', title='Regional Map'):
-    """Plot a variable from an xarray dataset by region.
+def plot_by_region(ds, space_grouping, region=None, variable=None, file_string='none', title='Regional Map', plot_kwargs=None):
+    """Plot a variable from an xarray dataset as (lon, lat) points with region boundaries overlaid.
+
+    Uses polygon_subdivision_geodataframe for the overlay. When region is provided
+    with space_grouping 'admin_1' or 'admin_2', overlays all admin1 or admin2
+    subdivisions within that country.
 
     Args:
-        ds: xarray DataArray or Dataset with a 'region' coordinate
-        region: Region level or specific region name to plot
-        variable: Variable name if ds is a Dataset (optional)
-        file_string: File path string for saving the plot
-        title: Title for the plot
+        ds: xarray DataArray or Dataset with 'lat' and 'lon' coordinates.
+        space_grouping: Polygon subdivision level for the overlay, e.g. 'country',
+            'admin_1', 'admin_2', 'continent', 'subregion', 'region_un', 'region_wb',
+            or custom levels like 'sheerwater_region', 'meteorological_zone'.
+        region: Optional. If provided, only overlay subdivisions within this region
+            (e.g. country name like 'ghana' or 'kenya' to overlay admin_1 or
+            admin_2 boundaries for that country). If None, overlay all regions at
+            the given space_grouping level.
+        variable: Variable name if ds is a Dataset. If None and ds is a
+            DataArray, ds is plotted directly.
+        file_string: File path string for saving the plot.
+        title: Title for the plot.
 
     Returns:
         matplotlib axes object
     """
-    # Get the region GeoDataFrame and metric bounds
-    from sheerwater.spatial_subdivisions import political_subdivision_geodataframe
-    gdf = political_subdivision_geodataframe(region)
-    # Extract the data values
-    try:
-        data = ds[variable]
-    except KeyError:
+    from sheerwater.spatial_subdivisions import (
+        polygon_subdivision_geodataframe,
+        clean_spatial_subdivision_name,
+    )
+
+    gdf = polygon_subdivision_geodataframe(space_grouping)
+
+    if region is not None:
+        region_clean = clean_spatial_subdivision_name(region)
+        if space_grouping == 'country':
+            gdf = gdf[gdf['region_name'] == region_clean]
+        else:
+            # admin_1, admin_2, etc.: region_name is "country-..." or "country-admin1-..."
+            gdf = gdf[gdf['region_name'].str.startswith(region_clean + '-')]
+        if gdf.empty:
+            raise ValueError(
+                f"No regions found for space_grouping={space_grouping!r} "
+                f"and region={region!r} (cleaned: {region_clean!r})."
+            )
+
+    # Extract the data
+    if variable is not None:
+        try:
+            data = ds[variable]
+        except KeyError:
+            data = ds
+    else:
         data = ds
 
-    # Convert to numpy array if it's a dask array
     if hasattr(data, 'compute'):
         data = data.compute()
 
-    # Extract values for each region in the GeoDataFrame
-    values = []
-    for region_name in gdf.region_name:
-        try:
-            # Select the region and extract the scalar value
-            region_value = data.sel(region=region_name)
-            # Handle case where selection might still have dimensions
-            if region_value.size > 1:
-                # If there are multiple values, take the first or mean
-                region_value = float(region_value.values.flatten()[0])
-            else:
-                region_value = float(region_value.values)
-            values.append(region_value)
-        except (KeyError, ValueError):
-            # Region not found in dataset, use NaN
-            values.append(np.nan)
+    if 'time' in data.dims:
+        data = data.isel(time=0)
 
-    # Add values to GeoDataFrame
-    gdf['value'] = values
+    # vmin, vmax = bounds(variable) if variable else (None, None)
+    plot_kwargs.update({'x': 'lon'})
+    # if vmin is not None:
+    #     # plot_kwargs['vmin'] = vmin
+    #     plot_kwargs['vmin'] = -2.0
+    # if vmax is not None:
+    #     # plot_kwargs['vmax'] = vmax
+    #     plot_kwargs['vmax'] = 2.0
 
-    # Calculate 95th percentile for vmax (excluding NaNs)
-    vmin, vmax = bounds(variable)
-    values_array = np.array(values)
-    valid_values = values_array[~np.isnan(values_array)]
-    if vmin is None:
-        vmin = np.percentile(valid_values, 5)
-    if vmax is None:
-        vmax = np.percentile(valid_values, 95)
-
-    # Reproject to a better projection for world maps (Robinson projection)
-    # Robinson is good for world maps, preserves area relationships well
-    gdf_projected = gdf.to_crs('ESRI:54030')  # Robinson projection
-
-    # Create the plot
     fig, ax = plt.subplots(1, 1, figsize=(14, 8))
+    data.plot(ax=ax, **plot_kwargs)
 
-    # Plot the choropleth map (without legend, we'll add it manually)
-    gdf_projected.plot(column='value', ax=ax, legend=False,
-                       cmap='viridis', edgecolor='black', linewidth=0.5,
-                       vmin=vmin,
-                       vmax=vmax,
-                       missing_kwds={'color': 'red', 'edgecolor': 'black'})
+    # Overlay region boundaries on top
+    gdf.plot(ax=ax, facecolor='none', edgecolor='grey', linewidth=0.5, alpha=0.5)
 
-    # Create colorbar with same height as plot and larger tick labels
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="3%", pad=0.1)
-    sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis,
-                               norm=plt.Normalize(vmin=vmin, vmax=vmax))
-    sm.set_array([])
-    cbar = plt.colorbar(sm, cax=cax)
-    cbar.ax.tick_params(labelsize=12)
-
-    # Remove axis labels (not meaningful in projected coordinates)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-
-    # Set title
     ax.set_title(title, fontsize=14, pad=10)
-
     plt.tight_layout()
 
-    # Ensure colorbar height matches plot height exactly
-    ax_pos = ax.get_position()
-    cax_pos = cax.get_position()
-    cax.set_position([cax_pos.x0, ax_pos.y0, cax_pos.width, ax_pos.height])
-    # Save
     if not os.path.exists('metric_maps'):
         os.makedirs('metric_maps')
-    plt.savefig(f'metric_maps/{variable}_{region}_{file_string}_map.png')
+    region_slug = region if region is not None else space_grouping
+    var_slug = variable if variable is not None else 'value'
+    plt.savefig(f'metric_maps/{var_slug}_{region_slug}_{file_string}_map.png')
     return ax
