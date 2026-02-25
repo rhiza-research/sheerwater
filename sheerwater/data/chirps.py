@@ -138,7 +138,8 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
 @cache(cache_args=['grid', 'stations', 'version'],
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-})
+       }
+)
 def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
                    mask=None, region='global'):  # noqa: ARG001
     """CHIRPS regridded by year."""
@@ -161,7 +162,7 @@ def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
     # Need to regrid even if on the chirps grid, because the native grid is irregular -
     # while documentation says it is a regular 0.05x0.05 grid
     # in practice, lat/lon values are not evenly spaced.
-    if grid != "chirps":
+    if grid != "sources" and grid != "chirps":
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds
