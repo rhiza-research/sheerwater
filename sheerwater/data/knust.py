@@ -18,6 +18,10 @@ def knust_ashanti():
                               engine='h5netcdf')
     ashanti = ashanti.swap_dims({'ncells': 'station_id'})
     ashanti = ashanti.dropna(dim='time')
+
+    # We need to convert from base 360 to base 180 but we can't
+    # use the standard function because lat and lon must be dims not just coords
+    ashanti = ashanti.assign_coords(lon = ("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
     return ashanti
@@ -33,6 +37,10 @@ def knust_dacciwa():
     dacciwa['station_id'] = dacciwa['station_id'].astype(str)
     dacciwa['lat'] = dacciwa.lat.isel(time=0)
     dacciwa['lon'] = dacciwa.lon.isel(time=0)
+
+    # Some -99999 values are coming through - mask them to NaNs
+    dacciwa['precipitation_amount'] = dacciwa['precipitation_amount'].where(dacciwa['precipitation_amount'] >= 0)
+
     return dacciwa
 
 
@@ -43,6 +51,7 @@ def knust_furiflood():
                                 engine='h5netcdf')
     furiflood = furiflood.rename({'latitude': 'lat', 'longitude': 'lon'})
     furiflood['station_id'] = furiflood['station_id'].astype(str)
+
     return furiflood
 
 
@@ -111,6 +120,7 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
     ds['precip_count'] = ds['precip_count'].fillna(0)
     return ds
+
 
 
 @dask_remote

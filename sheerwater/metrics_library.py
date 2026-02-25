@@ -48,7 +48,8 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 mask='lsm', space_grouping='country', region='global', data_key='none'):
+                 mask='lsm', space_grouping='country', region='global', data_key='none',
+                 memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
@@ -63,6 +64,8 @@ class Metric(ABC):
         self.region = region
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
+        self.memoize_forecast = memoize_forecast
+        self.memoize_truth = memoize_truth
 
         # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
         # This is a dictionary that contains a data entry and a key entry.
@@ -88,7 +91,7 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=True)
+                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
@@ -97,7 +100,7 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=True)
+                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.cache_kwargs)
@@ -115,7 +118,7 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs, memoize=True)
+            obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.cache_kwargs)
@@ -169,6 +172,7 @@ class Metric(ABC):
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
+
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
@@ -313,8 +317,12 @@ class Metric(ABC):
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+
                 # If we've passed a global region and clipped, drop any null groups
-                ds = ds.dropna(dim='space_grouping', how='all')
+                # Currently commenting out because it was hurting performance
+                # hopefully a future change can drop nan regions more efficiently
+                # until then it's fine to return NaN
+                # ds = ds.dropna(dim='space_grouping', how='all')
             else:
                 # If we don't have any valid space groups after clipping, the dataframe is empty
                 # we can just continue
