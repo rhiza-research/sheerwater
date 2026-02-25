@@ -12,6 +12,7 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 
 from sheerwater.utils import (
     dask_remote,
+    shift_by_days,
     get_grid,
     get_grid_ds,
     get_variable,
@@ -262,26 +263,52 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
 
     K_const = 273.15
     if variable == 'tmp2m':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').mean(dim='time')
     elif variable == 'tmax2m':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').max(dim='time')
     elif variable == 'tmin2m':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').min(dim='time')
     elif variable == 'precip':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
         ds = ds.resample(time='D').sum(dim='time')
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
+    elif variable == 'tcwv':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
+        ds.attrs.update(units='kg/m^2')
+        ds = ds.resample(time='D').sum(dim='time')
     elif variable == 'ssrd':
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds = ds.resample(time='D').sum(dim='time')
         ds = np.maximum(ds, 0)
+    elif variable == 'rh2m':
+        # Read and combine all the data into an array
+        ds1 = era5_raw(start_time, end_time, 'd2m', grid='global0_25')
+        ds2 = era5_raw(start_time, end_time, 'tmp2m', grid='global0_25')
+        ds = xr.merge([ds1, ds2])
+        # Convert to Celsius
+        ds['tmp2m'] = ds['tmp2m'] - K_const
+        ds['d2m'] = ds['d2m'] - K_const
+
+        # Apply the Magnus formula to derive the relative humidity
+        # Using this formula: https://bmcnoldy.earth.miami.edu/Humidity.html
+        water_vapor_pressure = np.exp(17.625 * ds['d2m'] / (243.04 + ds['d2m']))  # in hPa
+        saturation_water_vapor_pressure = np.exp(17.625 * ds['tmp2m'] / (243.04 + ds['tmp2m']))  # in hPa
+        ds['rh2m'] = 100.0 * water_vapor_pressure / saturation_water_vapor_pressure
+        ds.attrs.update(units='%')
+        ds = ds.drop_vars(['d2m', 'tmp2m'])
+        ds = ds.resample(time='D').mean(dim='time')
     else:
         raise ValueError(f"Variable {variable} not implemented.")
     return ds
@@ -340,5 +367,8 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
     # The decorator will adjust the end_time to account for what will be cut off due to the aggregation days.
     ds = era5_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
     # TODO: can't put roll and agg in the post processor b/c it gets applied twice.
+    # Temporary fix for the rh2m variable, which was cached incorrectly
+    if variable == 'rh2m':
+        ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
