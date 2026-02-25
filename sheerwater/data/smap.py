@@ -123,10 +123,7 @@ def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
 
     ds = smap_gridded(start_time, end_time, grid=grid, version="L3")
-
-    if agg_days:
-        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
-
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
 
@@ -141,8 +138,5 @@ def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
 
     ds = smap_gridded(start_time, end_time, grid=grid, version="L4")
-
-    if agg_days:
-        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
-
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
