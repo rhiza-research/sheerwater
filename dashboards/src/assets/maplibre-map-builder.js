@@ -267,6 +267,14 @@ async function swapRasterLayer(runtime, tileUrl) {
     const oldSlotId = getRasterSlotId(oldSlot);
     const swapToken = (runtime.rasterSwapToken || 0) + 1;
     runtime.rasterSwapToken = swapToken;
+    const rasterLoadTimeoutMs = getBtConfig(
+        "RASTER_LOAD_TIMEOUT_MS",
+        RASTER_LOAD_TIMEOUT_MS
+    );
+    const rasterCrossfadeMs = getBtConfig(
+        "RASTER_CROSSFADE_MS",
+        RASTER_CROSSFADE_MS
+    );
 
     await new Promise((resolve) => {
         let settled = false;
@@ -287,7 +295,7 @@ async function swapRasterLayer(runtime, tileUrl) {
             }
         };
         map.on("sourcedata", onSourceData);
-        window.setTimeout(finish, RASTER_LOAD_TIMEOUT_MS);
+        window.setTimeout(finish, rasterLoadTimeoutMs);
     });
 
     if (runtime.rasterSwapToken !== swapToken) {
@@ -300,14 +308,14 @@ async function swapRasterLayer(runtime, tileUrl) {
             nextSlotId,
             0,
             TERRACOTTA_OPACITY,
-            RASTER_CROSSFADE_MS
+            rasterCrossfadeMs
         ),
         fadeRasterOpacity(
             map,
             oldSlotId,
             TERRACOTTA_OPACITY,
             0,
-            RASTER_CROSSFADE_MS
+            rasterCrossfadeMs
         ),
     ]);
 
@@ -354,13 +362,14 @@ function waitForMaplibreGlobal(timeoutMs = 4000) {
 }
 
 function loadMaplibre() {
+    const sharedRuntime = getBtSharedRuntime();
     if (getMaplibreGlobal()) {
         return Promise.resolve();
     }
-    if (maplibreReady) {
-        return maplibreReady;
+    if (sharedRuntime.maplibreReady) {
+        return sharedRuntime.maplibreReady;
     }
-    maplibreReady = new Promise((resolve, reject) => {
+    sharedRuntime.maplibreReady = new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js";
         script.crossOrigin = "anonymous";
@@ -406,7 +415,7 @@ function loadMaplibre() {
         };
         document.head.appendChild(script);
     });
-    return maplibreReady;
+    return sharedRuntime.maplibreReady;
 }
 
 // ─── "No Data" overlay helpers ───────────────────────────────────────────────

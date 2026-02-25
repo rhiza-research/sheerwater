@@ -47,14 +47,15 @@ function applyManualSync(maps) {
 }
 
 function loadSyncMovePlugin() {
+    const sharedRuntime = getBtSharedRuntime();
     if (window.syncMaps && typeof window.syncMaps === "function") {
         return Promise.resolve();
     }
-    if (syncMoveReady) {
-        return syncMoveReady;
+    if (sharedRuntime.syncMoveReady) {
+        return sharedRuntime.syncMoveReady;
     }
 
-    syncMoveReady = new Promise((resolve) => {
+    sharedRuntime.syncMoveReady = new Promise((resolve) => {
         const script = document.createElement("script");
         script.src = "https://unpkg.com/mapbox-gl-sync-move@0.3.1/index.js";
         script.onload = () => resolve();
@@ -62,7 +63,7 @@ function loadSyncMovePlugin() {
         document.head.appendChild(script);
     });
 
-    return syncMoveReady;
+    return sharedRuntime.syncMoveReady;
 }
 
 async function synchronizeMaps(cellRuntimes) {
@@ -83,7 +84,10 @@ async function synchronizeMaps(cellRuntimes) {
     applyManualSync(maps);
 }
 
-function buildCellParams(vars, cellDef) {
+function buildCellParams(vars, cellDef, panelDeps) {
+    const resolveRegionFn =
+        panelDeps.resolveRegion ||
+        (typeof resolveRegion === "function" ? resolveRegion : (_) => "global");
     return {
         forecast: vars.forecast,
         grid: vars.grid,
@@ -93,7 +97,7 @@ function buildCellParams(vars, cellDef) {
         timeGrouping: vars.timeGrouping,
         timeFilter: vars.timeFilter,
         timeFilterOutputMode: vars.timeFilterOutputMode,
-        region: resolveRegion(vars.forecast),
+        region: resolveRegionFn(vars.forecast),
     };
 }
 
@@ -160,18 +164,20 @@ function getCellOverlayContainer(cellRuntime) {
     return null;
 }
 
-async function refreshAllCells(runtime, vars) {
-    if (stretchRequestController) {
-        stretchRequestController.abort();
+async function refreshAllCells(runtime, panelState, panelDeps) {
+    const vars = panelState.vars;
+    const products = panelDeps.products || [];
+    if (panelState.stretchRequestController) {
+        panelState.stretchRequestController.abort();
     }
-    stretchRequestController = new AbortController();
-    const signal = stretchRequestController.signal;
+    panelState.stretchRequestController = new AbortController();
+    const signal = panelState.stretchRequestController.signal;
     const token = (runtime.refreshToken || 0) + 1;
     runtime.refreshToken = token;
 
     const metadataResults = await Promise.all(
         runtime.cells.map(async (cellRuntime) => {
-            const nextParams = buildCellParams(vars, cellRuntime.def);
+            const nextParams = buildCellParams(vars, cellRuntime.def, panelDeps);
             let metadata = null;
             try {
                 metadata = await fetchMetadata(nextParams, signal);
@@ -194,7 +200,7 @@ async function refreshAllCells(runtime, vars) {
     }
 
     const scaleByProduct = {};
-    MULTIMAP_PRODUCTS.forEach((product) => {
+    products.forEach((product) => {
         const leadMetadata = metadataResults
             .filter(
                 (result) =>
@@ -211,7 +217,7 @@ async function refreshAllCells(runtime, vars) {
         scaleByProduct[product.key] = sharedStretch;
     });
 
-    MULTIMAP_PRODUCTS.forEach((product) => {
+    products.forEach((product) => {
         const hasStretch = Boolean(scaleByProduct[product.key]);
         setProductRowVisibility(product.key, true);
         setProductRowNoDataState(product.key, hasStretch);
@@ -300,9 +306,26 @@ async function refreshAllCells(runtime, vars) {
     }
 }
 
-async function initCurrentMultimapPage() {
-    const leadWeeks = getLeadWeeks(VARS.maxLead);
-    buildMultimapLayout(leadWeeks);
+async function initCurrentMultimapPage(panelState = null, panelDeps = {}) {
+    const readVarsFn =
+        panelDeps.readVars ||
+        (typeof readVars === "function" ? readVars : null);
+    const getLeadWeeksFn =
+        panelDeps.getLeadWeeks ||
+        (typeof getLeadWeeks === "function" ? getLeadWeeks : null);
+    const products = panelDeps.products || [];
+    if (typeof readVarsFn !== "function") {
+        throw new Error("initCurrentMultimapPage requires panelDeps.readVars");
+    }
+    if (typeof getLeadWeeksFn !== "function") {
+        throw new Error("initCurrentMultimapPage requires panelDeps.getLeadWeeks");
+    }
+    if (!panelState) {
+        panelState = createBtPanelState(readVarsFn());
+    }
+
+    const leadWeeks = getLeadWeeksFn(panelState.vars.maxLead);
+    buildMultimapLayout(leadWeeks, products);
 
     // Post-process: rename lead labels and month codes in the DOM
     document.querySelectorAll(".bt-multimap-lead-label").forEach((el) => {
@@ -343,7 +366,7 @@ async function initCurrentMultimapPage() {
 
     ensureRuntimeContainer();
 
-    const defs = getCellDefinitions(leadWeeks);
+    const defs = getCellDefinitions(leadWeeks, products);
     const cells = defs
         .map((def) => {
             const container = document.getElementById(def.containerId);
@@ -388,15 +411,15 @@ async function initCurrentMultimapPage() {
     };
 
     synchronizeMaps(cells);
-    await refreshAllCells(window.__grafanaMaplibreMultimap, VARS);
+    await refreshAllCells(window.__grafanaMaplibreMultimap, panelState, panelDeps);
 
     let pendingVars = null;
     let pendingSince = 0;
 
     window.__grafanaMaplibreMultimap.pollHandle = window.setInterval(async () => {
-        const observedVars = readVars();
+        const observedVars = readVarsFn();
         const observedSig = JSON.stringify(observedVars);
-        const currentSig = JSON.stringify(VARS);
+        const currentSig = JSON.stringify(panelState.vars);
         if (observedSig === currentSig) {
             pendingVars = null;
             pendingSince = 0;
@@ -409,14 +432,21 @@ async function initCurrentMultimapPage() {
             return;
         }
 
-        if (Date.now() - pendingSince < VAR_STABILIZE_MS) {
+        if (
+            Date.now() - pendingSince <
+            getBtConfig("VAR_STABILIZE_MS", VAR_STABILIZE_MS)
+        ) {
             return;
         }
 
-        VARS = pendingVars;
+        panelState.vars = pendingVars;
         pendingVars = null;
         pendingSince = 0;
 
-        await refreshAllCells(window.__grafanaMaplibreMultimap, VARS);
-    }, POLL_INTERVAL_MS);
+        await refreshAllCells(
+            window.__grafanaMaplibreMultimap,
+            panelState,
+            panelDeps
+        );
+    }, getBtConfig("POLL_INTERVAL_MS", POLL_INTERVAL_MS));
 }
