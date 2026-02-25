@@ -1,18 +1,14 @@
+"""Generate paired precipitation data for scatter plots."""
 import xarray as xr
 from sheerwater.interfaces import get_data
-import matplotlib.pyplot as plt
-from sheerwater.utils import start_remote
-from scipy.stats import gaussian_kde
-import numpy as np
-import scipy.stats
 from nuthatch import cache
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from sheerwater.reanalysis.era5 import era5
 
-# make this a cacheable function
+
 @cache(cache_args=['agg_days', 'grid', 'precip1', 'precip2', 'region'], backend='sql')
 def pairwise_precip(start_time, end_time, precip1, precip2, agg_days, grid='global0_25', mask='lsm', region='global'):
-    
+    """Generate paired precipitation data for scatter plots."""
     ds1 = get_data(precip1)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
     ds2 = get_data(precip2)(start_time, end_time, 'precip', agg_days=agg_days, grid=grid, mask=mask, region=region)
 

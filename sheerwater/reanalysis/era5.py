@@ -12,7 +12,6 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 
 from sheerwater.utils import (
     dask_remote,
-    shift_by_days,
     get_grid,
     get_grid_ds,
     get_variable,
