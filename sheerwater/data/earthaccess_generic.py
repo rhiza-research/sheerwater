@@ -12,7 +12,16 @@ import earthaccess
 @dask_remote
 @cache(cache_args=['filename', 'preprocessor_key'])
 def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, preprocessor_key=None): # noqa: ARG001
-    """Download single earthaccess file."""
+    """Download single earthaccess file.
+
+       Intended to be used by earthaccess_dataset.
+
+       filename (str): The earthaccess filename to access
+       earthaccess_result (dict): The dictionary of the data granule returned by an earthaccess search
+       preprocessor (callable): A function to preprocess the file before caching
+       preprocessor_key (str): A unique key used to cache result. Necessary for accessing the same file
+            with different preprocessors. Most basically the preprocessor function name.
+    """
     os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
     os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
     earthaccess.login(strategy="environment", persist=True)
