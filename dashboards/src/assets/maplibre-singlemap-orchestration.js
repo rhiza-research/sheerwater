@@ -22,12 +22,25 @@ function getOrCreateHostContainer() {
     return host;
 }
 
-async function initCurrentMapPage() {
+async function initCurrentMapPage(panelState = null, panelDeps = {}) {
+    const readVarsFn =
+        panelDeps.readVars ||
+        (typeof readVars === "function" ? readVars : null);
+    const resolveRegionFn =
+        panelDeps.resolveRegion ||
+        (typeof resolveRegion === "function" ? resolveRegion : (_) => "global");
+    if (typeof readVarsFn !== "function") {
+        throw new Error("initCurrentMapPage requires panelDeps.readVars");
+    }
+    if (!panelState) {
+        panelState = createBtPanelState(readVarsFn());
+    }
     const container = injectContainerAndStyles();
+    const currentVars = panelState.vars;
 
     const params = {
-        ...VARS,
-        region: resolveRegion(VARS.forecast),
+        ...currentVars,
+        region: resolveRegionFn(currentVars.forecast),
     };
 
     // Kick off all three network requests in parallel
@@ -61,7 +74,13 @@ async function initCurrentMapPage() {
     }
 
     // ── Apply vmin/vmax overrides ──
-    stretch = applyVminVmaxOverrides(stretch, VARS.vmin, VARS.vmax, params.metric, params.product);
+    stretch = applyVminVmaxOverrides(
+        stretch,
+        currentVars.vmin,
+        currentVars.vmax,
+        params.metric,
+        params.product
+    );
 
     refreshColorScale(stretch, params.product, params.metric);
     refreshMetricDescription(params.metric);
@@ -121,9 +140,9 @@ async function initCurrentMapPage() {
             return;
         }
 
-        const observedVars = readVars();
+        const observedVars = readVarsFn();
         const observedSig = JSON.stringify(observedVars);
-        const currentSig = JSON.stringify(VARS);
+        const currentSig = JSON.stringify(panelState.vars);
         if (observedSig === currentSig) {
             pendingVars = null;
             pendingSince = 0;
@@ -136,22 +155,26 @@ async function initCurrentMapPage() {
             return;
         }
 
-        if (Date.now() - pendingSince < VAR_STABILIZE_MS) {
+        if (
+            Date.now() - pendingSince <
+            getBtConfig("VAR_STABILIZE_MS", VAR_STABILIZE_MS)
+        ) {
             return;
         }
 
-        VARS = pendingVars;
+        panelState.vars = pendingVars;
         pendingVars = null;
         pendingSince = 0;
+        const nextVars = panelState.vars;
         const nextParams = {
-            ...VARS,
-            region: resolveRegion(VARS.forecast),
+            ...nextVars,
+            region: resolveRegionFn(nextVars.forecast),
         };
 
-        if (stretchRequestController) {
-            stretchRequestController.abort();
+        if (panelState.stretchRequestController) {
+            panelState.stretchRequestController.abort();
         }
-        stretchRequestController = new AbortController();
+        panelState.stretchRequestController = new AbortController();
         const token = ++refreshToken;
 
         let nextStretch = "";
@@ -159,7 +182,7 @@ async function initCurrentMapPage() {
         try {
             nextStretch = await fetchStretch(
                 nextParams,
-                stretchRequestController.signal
+                panelState.stretchRequestController.signal
             );
         } catch (error) {
             if (error?.name === "AbortError") {
@@ -173,7 +196,13 @@ async function initCurrentMapPage() {
         }
 
         // ── Apply vmin/vmax overrides ──
-        nextStretch = applyVminVmaxOverrides(nextStretch, VARS.vmin, VARS.vmax, nextParams.metric, nextParams.product);
+        nextStretch = applyVminVmaxOverrides(
+            nextStretch,
+            nextVars.vmin,
+            nextVars.vmax,
+            nextParams.metric,
+            nextParams.product
+        );
 
         // Handle no-data state
         if (nextFetchFailed || !nextStretch) {
@@ -201,5 +230,5 @@ async function initCurrentMapPage() {
         // Always refresh metric description on variable change
         refreshMetricDescription(nextParams.metric);
         window.__grafanaMaplibre.params = nextParams;
-    }, POLL_INTERVAL_MS);
+    }, getBtConfig("POLL_INTERVAL_MS", POLL_INTERVAL_MS));
 }
