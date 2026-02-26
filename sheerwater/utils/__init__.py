@@ -18,6 +18,7 @@ from .space_utils import (
     check_bases,
     add_spatial_attrs,
     check_spatial_attr,
+    is_station_grid,
 )
 from .task_utils import first_satisfied_date
 from .time_utils import (
