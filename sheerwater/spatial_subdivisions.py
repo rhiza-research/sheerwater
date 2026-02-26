@@ -744,7 +744,6 @@ def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True)
     if len(ds.data_vars) == 0:
         # Must have a data variable to clip
         ds['mask'] = xr.ones_like(ds.lat * ds.lon, dtype=np.int32)
-    import pdb; pdb.set_trace()
     if is_station_grid(ds):
         ds = clip_station_grid(ds, geometry=geometry, drop=drop)
     elif nonuniform_grid(ds):
@@ -854,7 +853,7 @@ def clip_station_grid(ds, geometry=None, drop=True):
     def station_within(station_lons, station_lats):
         buffer = 1e-5
         return shapely.contains_xy(geometry.iloc[0].buffer(buffer), station_lons, station_lats)
-    
+
     mask = xr.apply_ufunc(station_within, ds["lon"], ds["lat"], dask="parallelized", output_dtypes=[bool])
     ds = ds.where(mask.compute(), drop=drop)
 

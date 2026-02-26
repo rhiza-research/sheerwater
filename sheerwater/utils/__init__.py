@@ -83,4 +83,5 @@ __all__ = [
     "first_satisfied_date",
     "add_spatial_attrs",
     "check_spatial_attr",
+    "is_station_grid",
 ]
