@@ -59,7 +59,7 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
     ds = ds.rename({'precipitation': 'precip'})
 
     # Regrid if not on the native grid
-    if grid != 'imerg' and grid != 'global0_1' and grid != 'source':
+    if grid != 'global0_1' and grid != 'source':
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds

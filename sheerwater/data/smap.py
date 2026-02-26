@@ -99,8 +99,6 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 @timeseries()
 @cache(cache_args=['grid', 'version'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
        cache_disable_if=[{
-           'grid': 'smap'
-       }, {
            'grid': 'source'
        }])
 def smap_gridded(start_time, end_time, grid='smap', version='L3'):
@@ -114,7 +112,7 @@ def smap_gridded(start_time, end_time, grid='smap', version='L3'):
 
     # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
     # Can't do normal regirdding because the EASE grid is curved
-    if grid != 'smap' and grid != 'source':
+    if grid != 'source':
         # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
         raise ValueError("Currently SMAP only supports the SMAP grid")
         #import xesmf as xe
