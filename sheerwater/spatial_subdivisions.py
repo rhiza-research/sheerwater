@@ -777,6 +777,13 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
         # If the dataset is empty / dimensionless, return it untouched
         return ds
 
+    # If the grid doesn't exist throw a warning and return
+    try:
+        get_grid_ds(grid)
+    except NotImplementedError:
+        logger.warning(f"Cannot apply mask for undefinied grid {grid}.")
+        return ds
+
     if isinstance(mask, str):
         from .masks import spatial_mask
         mask_ds = spatial_mask(mask, grid)
