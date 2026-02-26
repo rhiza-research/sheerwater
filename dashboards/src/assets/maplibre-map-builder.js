@@ -6,12 +6,36 @@ function buildStyleUrl(flavor) {
 }
 
 async function fetchPreparedStyle(flavor) {
-    const response = await fetch(buildStyleUrl(flavor));
-    if (!response.ok) {
-        throw new Error(`Style request failed (${response.status}).`);
+    const sharedRuntime =
+        typeof getBtSharedRuntime === "function"
+            ? getBtSharedRuntime()
+            : (globalThis.__btSharedRuntime = globalThis.__btSharedRuntime || {});
+    const cacheKey = flavor || DEFAULT_FLAVOR;
+    if (!sharedRuntime.preparedStyleByFlavor) {
+        sharedRuntime.preparedStyleByFlavor = {};
     }
-    const rawStyle = await response.json();
-    return prepareStyle(rawStyle);
+    if (sharedRuntime.preparedStyleByFlavor[cacheKey]) {
+        return sharedRuntime.preparedStyleByFlavor[cacheKey];
+    }
+
+    const fetchPromise = (async () => {
+        const response = await fetch(buildStyleUrl(cacheKey));
+        if (!response.ok) {
+            throw new Error(`Style request failed (${response.status}).`);
+        }
+        const rawStyle = await response.json();
+        return prepareStyle(rawStyle);
+    })();
+
+    sharedRuntime.preparedStyleByFlavor[cacheKey] = fetchPromise;
+    try {
+        return await fetchPromise;
+    } catch (error) {
+        if (sharedRuntime.preparedStyleByFlavor[cacheKey] === fetchPromise) {
+            delete sharedRuntime.preparedStyleByFlavor[cacheKey];
+        }
+        throw error;
+    }
 }
 
 function prepareStyle(styleJson) {
@@ -267,6 +291,14 @@ async function swapRasterLayer(runtime, tileUrl) {
     const oldSlotId = getRasterSlotId(oldSlot);
     const swapToken = (runtime.rasterSwapToken || 0) + 1;
     runtime.rasterSwapToken = swapToken;
+    const rasterLoadTimeoutMs = getBtConfig(
+        "RASTER_LOAD_TIMEOUT_MS",
+        RASTER_LOAD_TIMEOUT_MS
+    );
+    const rasterCrossfadeMs = getBtConfig(
+        "RASTER_CROSSFADE_MS",
+        RASTER_CROSSFADE_MS
+    );
 
     await new Promise((resolve) => {
         let settled = false;
@@ -287,7 +319,7 @@ async function swapRasterLayer(runtime, tileUrl) {
             }
         };
         map.on("sourcedata", onSourceData);
-        window.setTimeout(finish, RASTER_LOAD_TIMEOUT_MS);
+        window.setTimeout(finish, rasterLoadTimeoutMs);
     });
 
     if (runtime.rasterSwapToken !== swapToken) {
@@ -300,14 +332,14 @@ async function swapRasterLayer(runtime, tileUrl) {
             nextSlotId,
             0,
             TERRACOTTA_OPACITY,
-            RASTER_CROSSFADE_MS
+            rasterCrossfadeMs
         ),
         fadeRasterOpacity(
             map,
             oldSlotId,
             TERRACOTTA_OPACITY,
             0,
-            RASTER_CROSSFADE_MS
+            rasterCrossfadeMs
         ),
     ]);
 
@@ -331,7 +363,7 @@ function getMaplibreGlobal() {
     return null;
 }
 
-function waitForMaplibreGlobal(timeoutMs = 4000) {
+function waitForMaplibreGlobal(timeoutMs = 300) {
     return new Promise((resolve, reject) => {
         if (getMaplibreGlobal()) {
             resolve();
@@ -353,14 +385,16 @@ function waitForMaplibreGlobal(timeoutMs = 4000) {
     });
 }
 
-function loadMaplibre() {
-    if (getMaplibreGlobal()) {
-        return Promise.resolve();
-    }
-    if (maplibreReady) {
-        return maplibreReady;
-    }
-    maplibreReady = new Promise((resolve, reject) => {
+function loadMaplibreViaEsm() {
+    return import("https://esm.sh/maplibre-gl@3.6.2")
+        .then((module) => {
+            window.maplibregl = module.default || module;
+            return waitForMaplibreGlobal();
+        });
+}
+
+function loadMaplibreViaUmd({ fallbackToEsm = true } = {}) {
+    return new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = "https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js";
         script.crossOrigin = "anonymous";
@@ -373,12 +407,12 @@ function loadMaplibre() {
                     }
                     resolve();
                 })
-                .catch(() => {
-                    import("https://esm.sh/maplibre-gl@3.6.2")
-                        .then((module) => {
-                            window.maplibregl = module.default || module;
-                            return waitForMaplibreGlobal();
-                        })
+                .catch((umdError) => {
+                    if (!fallbackToEsm) {
+                        reject(umdError);
+                        return;
+                    }
+                    loadMaplibreViaEsm()
                         .then(resolve)
                         .catch((error) => {
                             reject(
@@ -390,11 +424,11 @@ function loadMaplibre() {
                 });
         };
         script.onerror = () => {
-            import("https://esm.sh/maplibre-gl@3.6.2")
-                .then((module) => {
-                    window.maplibregl = module.default || module;
-                    return waitForMaplibreGlobal();
-                })
+            if (!fallbackToEsm) {
+                reject(new Error("Failed to load maplibre-gl.js"));
+                return;
+            }
+            loadMaplibreViaEsm()
                 .then(resolve)
                 .catch((error) => {
                     reject(
@@ -406,7 +440,34 @@ function loadMaplibre() {
         };
         document.head.appendChild(script);
     });
-    return maplibreReady;
+}
+
+function loadMaplibre() {
+    const sharedRuntime = getBtSharedRuntime();
+    if (getMaplibreGlobal()) {
+        return Promise.resolve();
+    }
+    if (sharedRuntime.maplibreReady) {
+        return sharedRuntime.maplibreReady;
+    }
+    const loadModeRaw = String(
+        getBtConfig("MAPLIBRE_LOAD_MODE", MAPLIBRE_LOAD_MODE || "esm-first")
+    )
+        .trim()
+        .toLowerCase();
+    const loadMode =
+        loadModeRaw === "umd-first" || loadModeRaw === "esm-first"
+            ? loadModeRaw
+            : "esm-first";
+
+    if (loadMode === "esm-first") {
+        sharedRuntime.maplibreReady = loadMaplibreViaEsm().catch(() =>
+            loadMaplibreViaUmd({ fallbackToEsm: false })
+        );
+    } else {
+        sharedRuntime.maplibreReady = loadMaplibreViaUmd({ fallbackToEsm: true });
+    }
+    return sharedRuntime.maplibreReady;
 }
 
 // ─── "No Data" overlay helpers ───────────────────────────────────────────────
