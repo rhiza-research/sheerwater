@@ -1,4 +1,84 @@
 // EXTERNAL:terracotta_dataset_utilities.js
+const SKILL_SCORE_COMPUTE_EXPRESSION = "(1-v1/v2)";
+const SKILL_SCORE_STRETCH = "colormap=rdylgn&stretch_range=[-1,1]";
+
+function isNullSelection(value) {
+    return value === undefined || value === null || value === "" || value === "None";
+}
+
+function resolveRegionForForecastValue(forecast, fallbackRegion = "global") {
+    if (typeof resolveRegion === "function") {
+        try {
+            return resolveRegion(forecast);
+        } catch (error) {
+            console.warn("resolveRegion failed for reference forecast", error);
+        }
+    }
+    return forecast === "salient" ? "africa" : fallbackRegion;
+}
+
+function buildReferenceParams(params) {
+    const referenceVarMap = params?.referenceVarMap;
+    if (!referenceVarMap || typeof referenceVarMap !== "object") {
+        return null;
+    }
+
+    let hasReferenceOverride = false;
+    let forecastOverridden = false;
+    const nextParams = { ...params };
+
+    Object.entries(referenceVarMap).forEach(([primaryKey, referenceKey]) => {
+        const referenceValue = params?.[referenceKey];
+        if (isNullSelection(referenceValue)) {
+            return;
+        }
+        nextParams[primaryKey] = referenceValue;
+        hasReferenceOverride = true;
+        if (primaryKey === "forecast") {
+            forecastOverridden = true;
+        }
+    });
+
+    if (!hasReferenceOverride) {
+        return null;
+    }
+
+    if (
+        forecastOverridden &&
+        !Object.prototype.hasOwnProperty.call(referenceVarMap, "region")
+    ) {
+        nextParams.region = resolveRegionForForecastValue(
+            nextParams.forecast,
+            params?.region || "global"
+        );
+    }
+
+    return nextParams;
+}
+
+function resolveTerracottaTileRequest(params) {
+    const datasetId = buildDatasetId(params);
+    const referenceParams = buildReferenceParams(params);
+
+    if (!referenceParams) {
+        return {
+            datasetId,
+            computeMode: null,
+            computeDatasetId2: null,
+        };
+    }
+
+    return {
+        datasetId,
+        computeMode: "skill_score",
+        computeDatasetId2: buildDatasetId(referenceParams),
+    };
+}
+
+function encodeTerracottaQuery(stretch) {
+    return encodeURIComponent(stretch).replace(/%26/g, "&").replace(/%3D/g, "=");
+}
+
 function buildDatasetId(params) {
     const datasetFamily = params?.datasetFamily || "grouped_metric";
     const { startDate, endDate } = resolveDatasetDates(datasetFamily);
@@ -200,7 +280,11 @@ function computeStretch(metadata, metric, product) {
     return buildStretchFromBounds(bounds[0], bounds[1], metric, product);
 }
 
-function computeSharedStretchFromMetadata(metadataList, metric, product) {
+function computeSharedStretchFromMetadata(metadataList, metric, product, params = null) {
+    const request = params ? resolveTerracottaTileRequest(params) : null;
+    if (request?.computeMode === "skill_score") {
+        return SKILL_SCORE_STRETCH;
+    }
     const bounds = (metadataList || [])
         .map((metadata) => extractPercentileBounds(metadata))
         .filter((item) => Array.isArray(item));
@@ -212,8 +296,7 @@ function computeSharedStretchFromMetadata(metadataList, metric, product) {
     return buildStretchFromBounds(colorMin, colorMax, metric, product);
 }
 
-async function fetchMetadata(params, signal) {
-    const datasetId = buildDatasetId(params);
+async function fetchMetadataByDatasetId(datasetId, signal) {
     const url = `${TERRACOTTA_BASE_URL}/metadata/${encodeURIComponent(datasetId)}`;
     const response = await fetch(url, signal ? { signal } : undefined);
     if (!response.ok) {
@@ -224,19 +307,48 @@ async function fetchMetadata(params, signal) {
     return response.json();
 }
 
+async function fetchMetadata(params, signal) {
+    const request = resolveTerracottaTileRequest(params);
+    if (request.computeMode !== "skill_score") {
+        return fetchMetadataByDatasetId(request.datasetId, signal);
+    }
+    const [primaryMetadata] = await Promise.all([
+        fetchMetadataByDatasetId(request.datasetId, signal),
+        fetchMetadataByDatasetId(request.computeDatasetId2, signal),
+    ]);
+    return primaryMetadata;
+}
+
 async function fetchStretch(params, signal) {
+    const request = resolveTerracottaTileRequest(params);
     const metadata = await fetchMetadata(params, signal);
+    if (request.computeMode === "skill_score") {
+        return SKILL_SCORE_STRETCH;
+    }
     return computeStretch(metadata, params.metric, params.product);
 }
 
 function buildTileUrl(params, stretch) {
-    const datasetId = buildDatasetId(params);
+    const request = resolveTerracottaTileRequest(params);
+    const datasetId = request.datasetId;
+    if (request.computeMode === "skill_score") {
+        const base = `${TERRACOTTA_BASE_URL}/compute/{z}/{x}/{y}.png`;
+        const queryParts = [];
+        if (stretch) {
+            queryParts.push(encodeTerracottaQuery(stretch));
+        }
+        queryParts.push(
+            `expression=${encodeURIComponent(SKILL_SCORE_COMPUTE_EXPRESSION)}`
+        );
+        queryParts.push(`v1=${encodeURIComponent(datasetId)}`);
+        queryParts.push(`v2=${encodeURIComponent(request.computeDatasetId2)}`);
+        return { datasetId, tileUrl: `${base}?${queryParts.join("&")}` };
+    }
+
     const base = `${TERRACOTTA_BASE_URL}/singleband/${encodeURIComponent(datasetId)}/{z}/{x}/{y}.png`;
     if (!stretch) {
         return { datasetId, tileUrl: base };
     }
-    const query = encodeURIComponent(stretch)
-        .replace(/%26/g, "&")
-        .replace(/%3D/g, "=");
+    const query = encodeTerracottaQuery(stretch);
     return { datasetId, tileUrl: `${base}?${query}` };
 }

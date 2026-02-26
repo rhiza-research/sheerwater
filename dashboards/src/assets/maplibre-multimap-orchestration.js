@@ -84,6 +84,24 @@ async function synchronizeMaps(cellRuntimes) {
     applyManualSync(maps);
 }
 
+function pickReferenceVars(vars) {
+    const referenceVarMap = vars?.referenceVarMap;
+    if (!referenceVarMap || typeof referenceVarMap !== "object") {
+        return {};
+    }
+
+    const forwarded = {};
+    Object.values(referenceVarMap).forEach((referenceField) => {
+        if (
+            typeof referenceField === "string" &&
+            Object.prototype.hasOwnProperty.call(vars, referenceField)
+        ) {
+            forwarded[referenceField] = vars[referenceField];
+        }
+    });
+    return forwarded;
+}
+
 function buildCellParams(vars, cellDef, panelDeps) {
     const resolveRegionFn =
         panelDeps.resolveRegion ||
@@ -98,6 +116,8 @@ function buildCellParams(vars, cellDef, panelDeps) {
         timeFilter: vars.timeFilter,
         timeFilterOutputMode: vars.timeFilterOutputMode,
         region: resolveRegionFn(vars.forecast),
+        referenceVarMap: vars.referenceVarMap,
+        ...pickReferenceVars(vars),
     };
 }
 
@@ -164,6 +184,13 @@ function getCellOverlayContainer(cellRuntime) {
     return null;
 }
 
+function isSkillScoreComputeParams(params) {
+    if (typeof resolveTerracottaTileRequest !== "function") {
+        return false;
+    }
+    return resolveTerracottaTileRequest(params)?.computeMode === "skill_score";
+}
+
 async function refreshAllCells(runtime, panelState, panelDeps) {
     const vars = panelState.vars;
     const products = panelDeps.products || [];
@@ -200,7 +227,11 @@ async function refreshAllCells(runtime, panelState, panelDeps) {
     }
 
     const scaleByProduct = {};
+    const sampleParamsByProduct = {};
     products.forEach((product) => {
+        const sampleParams =
+            metadataResults.find((result) => result.productKey === product.key)?.params || null;
+        sampleParamsByProduct[product.key] = sampleParams;
         const leadMetadata = metadataResults
             .filter(
                 (result) =>
@@ -210,7 +241,8 @@ async function refreshAllCells(runtime, panelState, panelDeps) {
         let sharedStretch = computeSharedStretchFromMetadata(
             leadMetadata,
             vars.metric,
-            product.product
+            product.product,
+            sampleParams
         );
         // ── Apply vmin/vmax overrides for multimap ──
         sharedStretch = applyVminVmaxOverrides(sharedStretch, vars.vmin, vars.vmax, vars.metric, product.product);
@@ -221,8 +253,16 @@ async function refreshAllCells(runtime, panelState, panelDeps) {
         const hasStretch = Boolean(scaleByProduct[product.key]);
         setProductRowVisibility(product.key, true);
         setProductRowNoDataState(product.key, hasStretch);
+        const scaleOptions = isSkillScoreComputeParams(sampleParamsByProduct[product.key])
+            ? { unitless: true }
+            : {};
         // Pass product and metric so units can be resolved correctly
-        const scaleMarkup = renderColorScaleHtml(scaleByProduct[product.key] || "", product.product, vars.metric);
+        const scaleMarkup = renderColorScaleHtml(
+            scaleByProduct[product.key] || "",
+            product.product,
+            vars.metric,
+            scaleOptions
+        );
         const rowScaleEl = document.getElementById(
             `bt-multimap-row-scale-${product.key}`
         );
