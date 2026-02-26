@@ -1,7 +1,4 @@
 // EXTERNAL:terracotta_dataset_utilities.js
-const SKILL_SCORE_COMPUTE_EXPRESSION = "(1-v1/v2)";
-const SKILL_SCORE_STRETCH = "colormap=rdylgn&stretch_range=[-1,1]";
-
 function isNullSelection(value) {
     return value === undefined || value === null || value === "" || value === "None";
 }
@@ -67,6 +64,14 @@ function resolveTerracottaTileRequest(params) {
             computeDatasetId2: null,
         };
     }
+    const skillScoreSpec = getSkillScoreSpecForMetric(params?.metric);
+    if (skillScoreSpec.supported === false) {
+        return {
+            datasetId,
+            computeMode: null,
+            computeDatasetId2: null,
+        };
+    }
 
     return {
         datasetId,
@@ -77,6 +82,26 @@ function resolveTerracottaTileRequest(params) {
 
 function encodeTerracottaQuery(stretch) {
     return encodeURIComponent(stretch).replace(/%26/g, "&").replace(/%3D/g, "=");
+}
+
+function buildStretchString(colormap, range) {
+    if (!range) {
+        return "";
+    }
+    return `colormap=${colormap}&stretch_range=[${range.min},${range.max}]`;
+}
+
+function getSkillScoreSpecForMetric(metric) {
+    if (typeof resolveSkillScoreSpec === "function") {
+        return resolveSkillScoreSpec(metric);
+    }
+    return {
+        computeMode: "skill_score",
+        expression: "(1-v1/v2)",
+        range: { min: -1, max: 1 },
+        displayRange: { min: -1, max: 1 },
+        colormap: "rdylgn",
+    };
 }
 
 function buildDatasetId(params) {
@@ -152,72 +177,11 @@ function extractPercentileBounds(metadata) {
 }
 
 function buildStretchFromBounds(colorMin, colorMax, metric, product) {
-    const m = String(metric || "").toLowerCase();
-    let colormap = "reds";
-
-    // ── Bias: diverging around 0 ──
-    if (m === "bias") {
-        // Symmetrise around zero
-        const absMax = Math.max(Math.abs(colorMin), Math.abs(colorMax));
-        colorMin = -absMax;
-        colorMax = absMax;
-        colormap = product === "era5_tmp2m" ? "rdbu_r" : "brbg";
-
-        // ── ACC / Pearson: correlation [-1, 1], higher is better ──
-    } else if (m === "acc" || m === "pearson") {
-        colorMin = -1;
-        colorMax = 1;
-        colormap = "rdbu";
-
-        // ── SEEPS: fixed [0, 2], lower is better ──
-    } else if (m === "seeps") {
-        colorMin = 0;
-        colorMax = 2.0;
-        colormap = "reds";
-
-        // ── SMAPE: fixed [0, 1], lower is better ──
-    } else if (m === "smape") {
-        colorMin = 0;
-        colorMax = 1;
-        colormap = "reds";
-
-        // ── Heidke: higher is better, open lower bound up to 1 ──
-    } else if (m.startsWith("heidke-")) {
-        // Keep data-driven min, cap max at 1
-        colorMax = 1;
-        colormap = "rdbu";
-
-        // ── POD: [0, 1], higher is better ──
-    } else if (m.startsWith("pod-")) {
-        colorMin = 0;
-        colorMax = 1;
-        colormap = "rdbu";
-
-        // ── CSI: [0, 1], higher is better ──
-    } else if (m.startsWith("csi-")) {
-        colorMin = 0;
-        colorMax = 1;
-        colormap = "rdylgn";
-
-        // ── FAR: [0, 1], lower is better ──
-    } else if (m.startsWith("far-")) {
-        colorMin = 0;
-        colorMax = 1;
-        colormap = "reds";
-
-        // ── ETS: [-1/3, 1], higher is better ──
-    } else if (m.startsWith("ets-")) {
-        colorMin = -1 / 3;
-        colorMax = 1;
-        colormap = "rdylgn";
-
-        // ── MAE, RMSE, CRPS, and anything else: lower is better ──
-    } else {
-        // m === "mae" || m === "rmse" || m === "crps" || fallback
-        colormap = "reds";
-    }
-
-    return `colormap=${colormap}&stretch_range=[${colorMin},${colorMax}]`;
+    const spec =
+        typeof resolveMetricScale === "function"
+            ? resolveMetricScale(metric, product, colorMin, colorMax)
+            : { colorMin, colorMax, colormap: "reds" };
+    return `colormap=${spec.colormap}&stretch_range=[${spec.colorMin},${spec.colorMax}]`;
 }
 
 /** Parse a vmin/vmax variable string into a finite number, or return null. */
@@ -283,7 +247,8 @@ function computeStretch(metadata, metric, product) {
 function computeSharedStretchFromMetadata(metadataList, metric, product, params = null) {
     const request = params ? resolveTerracottaTileRequest(params) : null;
     if (request?.computeMode === "skill_score") {
-        return SKILL_SCORE_STRETCH;
+        const spec = getSkillScoreSpecForMetric(metric);
+        return buildStretchString(spec.colormap, spec.displayRange || spec.range);
     }
     const bounds = (metadataList || [])
         .map((metadata) => extractPercentileBounds(metadata))
@@ -323,7 +288,8 @@ async function fetchStretch(params, signal) {
     const request = resolveTerracottaTileRequest(params);
     const metadata = await fetchMetadata(params, signal);
     if (request.computeMode === "skill_score") {
-        return SKILL_SCORE_STRETCH;
+        const spec = getSkillScoreSpecForMetric(params.metric);
+        return buildStretchString(spec.colormap, spec.displayRange || spec.range);
     }
     return computeStretch(metadata, params.metric, params.product);
 }
@@ -332,13 +298,14 @@ function buildTileUrl(params, stretch) {
     const request = resolveTerracottaTileRequest(params);
     const datasetId = request.datasetId;
     if (request.computeMode === "skill_score") {
+        const skillScoreSpec = getSkillScoreSpecForMetric(params.metric);
         const base = `${TERRACOTTA_BASE_URL}/compute/{z}/{x}/{y}.png`;
         const queryParts = [];
         if (stretch) {
             queryParts.push(encodeTerracottaQuery(stretch));
         }
         queryParts.push(
-            `expression=${encodeURIComponent(SKILL_SCORE_COMPUTE_EXPRESSION)}`
+            `expression=${encodeURIComponent(skillScoreSpec.expression)}`
         );
         queryParts.push(`v1=${encodeURIComponent(datasetId)}`);
         queryParts.push(`v2=${encodeURIComponent(request.computeDatasetId2)}`);

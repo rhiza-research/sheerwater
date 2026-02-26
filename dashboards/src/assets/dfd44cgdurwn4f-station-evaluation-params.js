@@ -6,6 +6,8 @@ const readVars = () => {
     const product = readVar("product", "precip");
     return {
         forecast: readVar("reanalysis", "era5"),
+        forecast_ref: readVar("reanalysis_ref", "None"),
+        referenceVarMap: { forecast: "forecast_ref" },
         grid: readVar("grid"),
         metric: readVar("metric", "mae"),
         product: resolveMetricProduct(product, truth),

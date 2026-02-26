@@ -11,6 +11,8 @@ const MULTIMAP_PRODUCTS = [
 
 const readVars = () => ({
     forecast: readVar("forecast"),
+    forecast_ref: readVar("forecast_ref", "None"),
+    referenceVarMap: { forecast: "forecast_ref" },
     grid: readVar("grid"),
     metric: readVar("metric"),
     timeGrouping: readVar("time_grouping"),

@@ -22,6 +22,30 @@ function getOrCreateHostContainer() {
     return host;
 }
 
+function getColorScaleOptionsForParams(params) {
+    if (typeof resolveTerracottaTileRequest !== "function") {
+        return {};
+    }
+    return resolveTerracottaTileRequest(params)?.computeMode === "skill_score"
+        ? { unitless: true }
+        : {};
+}
+
+function getMetricDescriptionOptionsForParams(params) {
+    if (
+        typeof resolveTerracottaTileRequest !== "function" ||
+        typeof buildReferenceParams !== "function"
+    ) {
+        return {};
+    }
+    const computeMode = resolveTerracottaTileRequest(params)?.computeMode;
+    if (computeMode) {
+        return { computeMode };
+    }
+    const hasReferenceSelection = Boolean(buildReferenceParams(params));
+    return hasReferenceSelection ? { computeMode: "skill_score" } : {};
+}
+
 async function initCurrentMapPage(panelState = null, panelDeps = {}) {
     const readVarsFn =
         panelDeps.readVars ||
@@ -82,8 +106,13 @@ async function initCurrentMapPage(panelState = null, panelDeps = {}) {
         params.product
     );
 
-    refreshColorScale(stretch, params.product, params.metric);
-    refreshMetricDescription(params.metric);
+    refreshColorScale(
+        stretch,
+        params.product,
+        params.metric,
+        getColorScaleOptionsForParams(params)
+    );
+    refreshMetricDescription(params.metric, getMetricDescriptionOptionsForParams(params));
 
     // ── Resolve base style ──
     if (styleResult.status === "rejected") {
@@ -209,13 +238,23 @@ async function initCurrentMapPage(panelState = null, panelDeps = {}) {
             showNoDataOverlay(container);
             removeRasterSlot(map, 0);
             removeRasterSlot(map, 1);
-            refreshColorScale("", nextParams.product, nextParams.metric);
+            refreshColorScale(
+                "",
+                nextParams.product,
+                nextParams.metric,
+                getColorScaleOptionsForParams(nextParams)
+            );
         } else {
             hideNoDataOverlay(container);
 
             const next = buildTileUrl(nextParams, nextStretch);
             if (nextStretch !== window.__grafanaMaplibre.stretch) {
-                refreshColorScale(nextStretch, nextParams.product, nextParams.metric);
+                refreshColorScale(
+                    nextStretch,
+                    nextParams.product,
+                    nextParams.metric,
+                    getColorScaleOptionsForParams(nextParams)
+                );
             }
 
             if (next.tileUrl !== window.__grafanaMaplibre.tileUrl) {
@@ -228,7 +267,10 @@ async function initCurrentMapPage(panelState = null, panelDeps = {}) {
         }
 
         // Always refresh metric description on variable change
-        refreshMetricDescription(nextParams.metric);
+        refreshMetricDescription(
+            nextParams.metric,
+            getMetricDescriptionOptionsForParams(nextParams)
+        );
         window.__grafanaMaplibre.params = nextParams;
     }, getBtConfig("POLL_INTERVAL_MS", POLL_INTERVAL_MS));
 }

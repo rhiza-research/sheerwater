@@ -487,6 +487,69 @@ local vars_utilities_js = importstr './assets/vars_utilities.js';
       },
       {
         "current": {
+          "text": "None",
+          "value": "None"
+        },
+        "includeAll": false,
+        "label": "Ref. Forecast",
+        "name": "forecast_ref",
+        "options": [
+          {
+            "selected": true,
+            "text": "None",
+            "value": "None"
+          },
+          {
+            "selected": false,
+            "text": "AI-Enhanced NWP",
+            "value": "salient"
+          },
+          {
+            "selected": false,
+            "text": "ECMWF IFS ER",
+            "value": "ecmwf_ifs_er"
+          },
+          {
+            "selected": false,
+            "text": "ECMWF IFS ER Debiased",
+            "value": "ecmwf_ifs_er_debiased"
+          },
+          {
+            "selected": false,
+            "text": "Clim 1985-2014",
+            "value": "climatology_2015"
+          },
+          {
+            "selected": false,
+            "text": "Clim + Trend",
+            "value": "climatology_trend_2015"
+          },
+          {
+            "selected": false,
+            "text": "Clim Rolling",
+            "value": "climatology_rolling"
+          },
+          {
+            "selected": false,
+            "text": "FuXi",
+            "value": "fuxi"
+          },
+          {
+            "selected": false,
+            "text": "GraphCast",
+            "value": "graphcast"
+          },
+          {
+            "selected": false,
+            "text": "GenCast",
+            "value": "gencast"
+          }
+        ],
+        "query": "None : None, AI-Enhanced NWP : salient, ECMWF IFS ER : ecmwf_ifs_er, ECMWF IFS ER Debiased : ecmwf_ifs_er_debiased, Clim 1985-2014 : climatology_2015, Clim + Trend : climatology_trend_2015, Clim Rolling : climatology_rolling, FuXi : fuxi, GraphCast : graphcast, GenCast : gencast",
+        "type": "custom"
+      },
+      {
+        "current": {
           "text": "acc",
           "value": "acc"
         },

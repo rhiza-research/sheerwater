@@ -98,10 +98,10 @@ function renderColorScaleHtml(stretch, product, metric, options = {}) {
     `;
 }
 
-function refreshColorScale(stretch, product, metric) {
+function refreshColorScale(stretch, product, metric, options = {}) {
     const scale = document.getElementById("map-colorscale");
     if (!scale) {
         return;
     }
-    scale.innerHTML = renderColorScaleHtml(stretch, product, metric);
+    scale.innerHTML = renderColorScaleHtml(stretch, product, metric, options);
 }

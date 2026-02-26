@@ -304,8 +304,29 @@ async function refreshAllCells(runtime, panelState, panelDeps) {
         };
     });
 
+    // Row no-data state must reflect actual renderable tiles, not just stretch.
+    products.forEach((product) => {
+        const rowHasData = results.some(
+            (result) =>
+                result.productKey === product.key &&
+                typeof result.tileUrl === "string" &&
+                result.tileUrl !== ""
+        );
+        setProductRowNoDataState(product.key, rowHasData);
+    });
+
     // Refresh metric description for multimap too
-    refreshMetricDescription(vars.metric);
+    const hasActiveSkillScore = metadataResults.some((result) =>
+        isSkillScoreComputeParams(result.params)
+    );
+    const hasReferenceSelection =
+        typeof buildReferenceParams === "function" &&
+        metadataResults.some((result) => Boolean(buildReferenceParams(result.params)));
+    const metricDescriptionOptions =
+        hasActiveSkillScore || hasReferenceSelection
+            ? { computeMode: "skill_score" }
+            : {};
+    refreshMetricDescription(vars.metric, metricDescriptionOptions);
 
     const pendingSwaps = [];
     for (const result of results) {

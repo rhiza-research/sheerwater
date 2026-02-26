@@ -59,7 +59,7 @@ local vars_utilities_js = importstr './assets/vars_utilities.js';
         "overrides": []
       },
       "gridPos": {
-        "h": 27,
+        "h": 29,
         "w": 24,
         "x": 0,
         "y": 0
@@ -152,6 +152,58 @@ local vars_utilities_js = importstr './assets/vars_utilities.js';
           }
         ],
         "query": "CHIRP v3 : chirp_v3, CHIRPS v3 (Gauge-Adjusted) : chirps_v3, IMERG Late Run : imerg_late, IMERG Final Run (Gauge-Adjusted) : imerg_final, ERA5 : era5, Rain over Africa : rain_over_africa, TAMSAT : tamsat",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "None",
+          "value": "None"
+        },
+        "label": "Ref. Analysis",
+        "name": "reanalysis_ref",
+        "options": [
+          {
+            "selected": true,
+            "text": "None",
+            "value": "None"
+          },
+          {
+            "selected": false,
+            "text": "CHIRP v3",
+            "value": "chirp_v3"
+          },
+          {
+            "selected": false,
+            "text": "CHIRPS v3 (Gauge-Adjusted)",
+            "value": "chirps_v3"
+          },
+          {
+            "selected": false,
+            "text": "IMERG Late Run",
+            "value": "imerg_late"
+          },
+          {
+            "selected": false,
+            "text": "IMERG Final Run (Gauge-Adjusted)",
+            "value": "imerg_final"
+          },
+          {
+            "selected": false,
+            "text": "ERA5",
+            "value": "era5"
+          },
+          {
+            "selected": false,
+            "text": "Rain over Africa",
+            "value": "rain_over_africa"
+          },
+          {
+            "selected": false,
+            "text": "TAMSAT",
+            "value": "tamsat"
+          }
+        ],
+        "query": "None : None, CHIRP v3 : chirp_v3, CHIRPS v3 (Gauge-Adjusted) : chirps_v3, IMERG Late Run : imerg_late, IMERG Final Run (Gauge-Adjusted) : imerg_final, ERA5 : era5, Rain over Africa : rain_over_africa, TAMSAT : tamsat",
         "type": "custom"
       },
       {
