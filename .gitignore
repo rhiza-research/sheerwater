@@ -189,4 +189,4 @@ salient_scripts
 config.yaml
 
 # dont ignore the dashboards build directory
-!dashboards/build/
+dashboards/build/

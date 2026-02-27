@@ -1,3 +1,5 @@
+local grid_size_sql = importstr './assets/grid_size.sql';
+
 {
   "annotations": {
     "list": [
@@ -269,6 +271,64 @@
                 "value": "CHIRPS v3"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "roa_precip"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#e8409c",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "Rain over Africa"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "1d rain TA00312"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "Rain over Africa"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
           }
         ]
       },
@@ -304,7 +364,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, precip as imerg_precip \nFROM \"imerg_tahmo/\" \n  WHERE code = SPLIT_PART('${station:csv}', ',', 1)\n  AND time $__timeFilter() \nORDER BY time ASC",
+          "rawSql": "SELECT time, precip AS imerg_precip\nFROM \"data_at_stations/imerg_final_${grid}_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
           "refId": "IMERG",
           "sql": {
             "columns": [
@@ -333,8 +393,37 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, precip as chirps_precip \nFROM \"chirps_tahmo/\" \n-- WHERE code = '${station:raw}' \nWHERE code = SPLIT_PART('${station:csv}', ',', 1)\n  AND time $__timeFilter() \nORDER BY time ASC",
+          "rawSql": "SELECT time, precip AS chirps_precip\nFROM \"data_at_stations/chirps_v3_${grid}_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
           "refId": "CHIRPS",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, precip AS roa_precip\nFROM \"data_at_stations/rain_over_africa_global0_1_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
+          "refId": "ROA",
           "sql": {
             "columns": [
               {
@@ -1336,19 +1425,19 @@
     "list": [
       {
         "current": {
-          "text": "6.75",
-          "value": "6.75"
+          "text": "6.5",
+          "value": "6.5"
         },
         "label": "Latitude",
         "name": "lat",
         "options": [
           {
             "selected": true,
-            "text": "6.75",
-            "value": "6.75"
+            "text": "6.5",
+            "value": "6.5"
           }
         ],
-        "query": "6.75",
+        "query": "6.5",
         "type": "textbox"
       },
       {
@@ -1371,31 +1460,9 @@
       {
         "allowCustomValue": true,
         "current": {
-          "text": [
-            "TA00847",
-            "TA00845",
-            "TA00844",
-            "TA00843",
-            "TA00842",
-            "TA00757",
-            "TA00617",
-            "TA00393",
-            "TA00039",
-            "TA00044",
-            "TA00279"
-          ],
+          "text": "All",
           "value": [
-            "TA00847",
-            "TA00845",
-            "TA00844",
-            "TA00843",
-            "TA00842",
-            "TA00757",
-            "TA00617",
-            "TA00393",
-            "TA00039",
-            "TA00044",
-            "TA00279"
+            "$__all"
           ]
         },
         "definition": "SELECT station_ids\nFROM \"tahmo_grid_counts/global0_25\"\nWHERE lat = ${lat} AND lon = ${lon}",
@@ -1465,12 +1532,54 @@
         "refresh": 1,
         "regex": "",
         "type": "query"
+      },
+      {
+        "current": {
+          "text": "global0_1",
+          "value": "global0_1"
+        },
+        "label": "Grid",
+        "name": "grid",
+        "options": [
+          {
+            "selected": false,
+            "text": "1.5",
+            "value": "global1_5"
+          },
+          {
+            "selected": false,
+            "text": "0.25",
+            "value": "global0_25"
+          },
+          {
+            "selected": true,
+            "text": "0.10",
+            "value": "global0_1"
+          }
+        ],
+        "query": "1.5 : global1_5, 0.25 : global0_25, 0.10 : global0_1",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "0.050001",
+          "value": "0.050001"
+        },
+        "definition": grid_size_sql,
+        "description": "",
+        "hide": 2,
+        "name": "grid_size",
+        "options": [],
+        "query": grid_size_sql,
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
       }
     ]
   },
   "time": {
-    "from": "2021-12-27T21:45:50.440Z",
-    "to": "2024-04-02T11:17:49.578Z"
+    "from": "2019-11-16T15:56:14.464Z",
+    "to": "2025-05-11T09:22:48.332Z"
   },
   "timepicker": {},
   "timezone": "utc",

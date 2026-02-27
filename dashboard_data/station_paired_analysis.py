@@ -1,4 +1,5 @@
 """Get gridded prodcuts by station locations."""
+import numpy as np
 import xarray as xr
 import dask.dataframe as dd
 
@@ -27,8 +28,8 @@ def postgres_write_password():
 
 @dask_remote
 @cache(cache_args=['data', 'station', 'grid'], backend='sql')
-def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='imerg'):
-    """Get a gridded data product at the station locations.
+def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='global0_1'):
+    """Get a gridded data product at grid cells containing stations in tabular form.
 
     Args:
         start_time (str): The start time of the data.
@@ -40,7 +41,8 @@ def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='
     """
     # Select the station deployment locations
     if station == 'tahmo':
-        df = tahmo_deployment().compute()
+        # TODO: update this to use the source grid for all data sources
+        station_df = tahmo_deployment().compute()
     else:
         raise ValueError(f"Invalid station dataset: {station}")
 
@@ -51,39 +53,30 @@ def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='
         raise ValueError("Grid is nonuniform. Cannot calculate grid points for stations.")
 
     # Calculate which grid points the stations are on, requires a uniform grid
-    _, _, grid_size, offset = get_grid(grid)
-    df["location_latitude"] = df["location_latitude"].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
-    df["location_longitude"] = df["location_longitude"].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
-    lats = df["location_latitude"].unique()
-    lons = df["location_longitude"].unique()
+    _, _, grid_size, _ = get_grid(grid)
+
+    tab = ds.sel(
+        lat=xr.DataArray(station_df["location_latitude"], dims="points"),
+        lon=xr.DataArray(station_df["location_longitude"], dims="points"),
+        method="nearest",
+        tolerance=grid_size/2 + 1e-6,
+    )
 
     # Select those grid points from the satellite data
-    ds = ds.sel(lat=lats, lon=lons, method="nearest", tolerance=0.001)
-    ds = ds.to_dask_dataframe()
-
-    # Get grid index for joining (more numerically stable than using lat/lon)
-    ds['lat_index'] = (ds['lat']/grid_size).astype("int32")
-    ds['lon_index'] = (ds['lon']/grid_size).astype("int32")
-
-    # Join to filter
-    df_filt = df[["location_latitude", "location_longitude", "code"]]
-    df_filt["location_latitude"] = df_filt["location_latitude"].astype("float32")
-    df_filt["location_longitude"] = df_filt["location_longitude"].astype("float32")
-    df_filt["lat_index"] = (df_filt["location_latitude"]/grid_size).astype("int32")
-    df_filt["lon_index"] = (df_filt["location_longitude"]/grid_size).astype("int32")
-
-    # Join on index
-    ds = dd.merge(ds, df_filt, on=["lat_index", "lon_index"], how="inner")
-
-    # Drop index columns
-    ds = ds.drop(columns=["lat_index", "lon_index", "location_latitude", "location_longitude"])
-    return ds
+    tab = tab.to_dask_dataframe()
+    tab = tab.drop(columns=['points'])
+    # Drop columns where the precip is NaN
+    tab = tab.dropna(subset=['precip'])
+    return tab
 
 
 @dask_remote
 @cache(cache_args=['station'], backend='sql')
-def station_data(start_time, end_time, station='tahmo'):
-    """Get a non-gridded, raw station data product."""
+def station_data(start_time, end_time, station='tahmo'):  # noqa: ARG001
+    """Get a non-gridded, raw station data product.
+
+    TODO: update this to use the source grid for all data sources
+    """
     if station != 'tahmo':
         raise ValueError(f"Invalid station dataset: {station}")
 
@@ -102,10 +95,10 @@ def station_data(start_time, end_time, station='tahmo'):
     return df
 
 
-@cache(cache_args=['sources', 'variables', 'agg_days', 'grid', 'mask', 'region'], backend='sql')
+@cache(cache_args=['agg_days', 'grid', 'mask', 'region'], backend='sql')
 def paried_data(start_time, end_time,
-                sources=['chirps', 'imerg', 'tahmo', 'era5', 'era5'],
-                variables=['precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
+                sources=['rain_over_africa', 'chirps', 'imerg', 'tahmo', 'era5', 'era5'],
+                variables=['precip', 'precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
                 agg_days=1,
                 grid='global0_25', mask='lsm', region='global'):
     """Generate paired data at stations data for scatter plots."""
@@ -134,6 +127,8 @@ def paried_data(start_time, end_time,
     # convert to dataframe
     df = ds.to_dataframe()
     df = df.drop(columns=['time', 'lat', 'lon', 'spatial_ref']).reset_index()
+    import pdb
+    pdb.set_trace()
 
     return df
 
@@ -143,14 +138,21 @@ if __name__ == "__main__":
     from sheerwater.utils import start_remote
     start_remote()
     now = datetime.now().strftime("%Y-%m-%d")
-    # ds1 = data_at_stations(start_time='2015-01-01', end_time=now, data='imerg_final',
-    #                        station='tahmo', grid='imerg', backend='sql')
+    if False:
+        for grid in ['global0_1', 'global0_25', 'global1_5']:
+            for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
+                ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
+                                      station='tahmo', grid=grid, backend='sql')
 
-    # ds2 = paried_data(start_time='2015-01-01', end_time=now,
-    #                   sources=['chirps_v3', 'imerg', 'tahmo', 'era5', 'era5'],
-    #                   variables=['precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
-    #                   agg_days=1,
-    #                   grid='imerg', mask='lsm', region='kenya', backend='sql')
+    if True:
+        for grid in ['global0_1', 'global0_25', 'global1_5']:
+            ds2 = paried_data(start_time='2015-01-01', end_time=now,
+                              sources=['rain_over_africa', 'chirps_v3', 'imerg_final', 'tahmo', 'era5', 'era5'],
+                              variables=['precip', 'precip', 'precip', 'precip', 'tmp2m', 'rh2m'],
+                              agg_days=10,
+                              grid=grid, mask='lsm', region='kenya', backend='sql')
 
-    ds3 = station_data(start_time='2015-01-01', end_time=now, station='tahmo')
-    import pdb; pdb.set_trace()
+    if False:
+        ds3 = station_data(start_time='2015-01-01', end_time=now, station='tahmo')
+    import pdb
+    pdb.set_trace()

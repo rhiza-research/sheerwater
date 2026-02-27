@@ -35,7 +35,7 @@ def land_sea_mask(grid="global1_5"):
                {
                    'product_type': 'reanalysis',
                    'variable': "land_sea_mask",
-                   'year': 2022,
+                   'year': 2025,
                    'month': months,
                    'day': days,
                    'time': times,
@@ -89,14 +89,14 @@ def spatial_mask(mask, grid='global1_5', region='global'):
     if mask is None:
         return get_grid_ds(grid)
     elif 'lsm' in mask:
-        if grid == 'global1_5' or grid == 'global0_25':
-            mask_ds = land_sea_mask(grid=grid).compute()
-        else:
-            # Import here to avoid circular imports
-            # TODO: Should implement a more resolved land-sea mask for the other grids
-            from sheerwater.utils.data_utils import regrid
-            mask_ds = land_sea_mask(grid='global0_25')
-            mask_ds = regrid(mask_ds, grid, method='nearest', region=region).compute()
+        from sheerwater.utils.data_utils import regrid
+        # Import here to avoid circular imports
+        # Get the ECMWF global land-sea mask, which will be zero aligned by default
+        mask_ds = land_sea_mask(grid=grid).compute()
+        # Regrid to the desired grid, to handle offsets
+        _, _, _, offset = get_grid(grid)
+        if offset != 0.0:
+            mask_ds = regrid(mask_ds, grid, method='nearest', region=region)
 
         val = 0.0
         if '-' in mask:
