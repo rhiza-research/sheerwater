@@ -841,6 +841,10 @@ def clip_with_mask(ds, region_df, drop=True):
 
 def nonuniform_grid(ds, error_thresh=1e-4):
     """Check if a dataset has a nonuniform grid."""
+    # if lat or lon are not 1d arrays this must be a nonuniform grid, like smap
+    if len(ds.lat.shape) > 1 or len(ds.lon.shape) > 1:
+        return True
+
     lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
