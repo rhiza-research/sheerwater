@@ -57,7 +57,10 @@ class spatial(NuthatchProcessor):
                 ds = clip_region(ds, grid=self.grid, region=self.region)
             if not check_spatial_attr(ds, mask=self.mask):
                 # Only apply mask if this dataframe has not already been masked
-                ds = apply_mask(ds, self.mask, grid=self.grid)
+                try:
+                    ds = apply_mask(ds, self.mask, grid=self.grid)
+                except NotImplementedError:
+                    logger.warning(f"Mask {self.mask} not implemented for grid {self.grid}")
             ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
         else:
             raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")

@@ -1,12 +1,13 @@
 """Get gridded prodcuts by station locations."""
 import numpy as np
 import xarray as xr
+import xoak
 import dask.dataframe as dd
 
 from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote, snap_point_to_grid, get_grid
+from sheerwater.utils import dask_remote, get_grid
 from sheerwater.spatial_subdivisions import nonuniform_grid, space_grouping_labels, clip_region
 from sheerwater.data.tahmo import tahmo_deployment, tahmo_raw_daily
 from sheerwater.interfaces import get_data
@@ -48,25 +49,33 @@ def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='
 
     # Get data source function
     data_fn = get_data(data)
-    ds = data_fn(start_time, end_time, variable="precip", grid=grid, agg_days=1, mask="lsm")
-    if nonuniform_grid(ds):
-        raise ValueError("Grid is nonuniform. Cannot calculate grid points for stations.")
+    if 'smap' in data:
+        variable = 'soil_moisture'
+    else:
+        variable = 'precip'
+    ds = data_fn(start_time, end_time, variable=variable, grid=grid, agg_days=1, mask="lsm")
+    if nonuniform_grid(ds) or grid == 'smap':
+        # Set the index for lat and lon in a nonuniform grid
+        ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
     # Calculate which grid points the stations are on, requires a uniform grid
-    _, _, grid_size, _ = get_grid(grid)
+    try:
+        _, _, grid_size, _ = get_grid(grid)
+    except NotImplementedError:
+        grid_size = 0.05
 
     tab = ds.sel(
         lat=xr.DataArray(station_df["location_latitude"], dims="points"),
         lon=xr.DataArray(station_df["location_longitude"], dims="points"),
         method="nearest",
-        tolerance=grid_size/2 + 1e-6,
+        tolerance=grid_size/2 + 1e-6
     )
 
     # Select those grid points from the satellite data
     tab = tab.to_dask_dataframe()
     tab = tab.drop(columns=['points'])
-    # Drop columns where the precip is NaN
-    tab = tab.dropna(subset=['precip'])
+    # Drop columns where the variable is NaN
+    tab = tab.dropna(subset=[variable])
     return tab
 
 
@@ -136,15 +145,18 @@ def paried_data(start_time, end_time,
 if __name__ == "__main__":
     from datetime import datetime
     from sheerwater.utils import start_remote
-    start_remote()
+    start_remote(remote_name='genevieve')
+    # start_remote()
     now = datetime.now().strftime("%Y-%m-%d")
-    if False:
-        for grid in ['global0_1', 'global0_25', 'global1_5']:
-            for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
-                ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
-                                      station='tahmo', grid=grid, backend='sql')
-
     if True:
+        # for grid in ['global0_1', 'global0_25', 'global1_5']:
+        for grid in ['smap']:
+            # for truth in ['smap_l4', 'chirps_v3', 'imerg_final', 'rain_over_africa']:
+            for truth in ['smap_l3']:
+                ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
+                                      station='tahmo', grid=grid, backend='sql', recompute=True)
+
+    if False:
         for grid in ['global0_1', 'global0_25', 'global1_5']:
             ds2 = paried_data(start_time='2015-01-01', end_time=now,
                               sources=['rain_over_africa', 'chirps_v3', 'imerg_final', 'tahmo', 'era5', 'era5'],

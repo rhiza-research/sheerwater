@@ -293,8 +293,8 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "1d rain TA00312"
+              "id": "byFrameRefID",
+              "options": "TAHMO"
             },
             "properties": [
               {
@@ -307,26 +307,47 @@ local grid_size_sql = importstr './assets/grid_size.sql';
             ]
           },
           {
-            "__systemRef": "hideSeriesFrom",
             "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "Rain over Africa"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
+              "id": "byName",
+              "options": "smap_soil_moisture"
             },
             "properties": [
               {
-                "id": "custom.hideFrom",
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.scaleDistribution",
                 "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
+                  "type": "linear"
                 }
+              },
+              {
+                "id": "custom.axisSoftMax",
+                "value": 0.5
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Soil Moisture"
+              },
+              {
+                "id": "custom.axisSoftMin",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#d28602",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.insertNulls",
+                "value": 172800000
+              },
+              {
+                "id": "displayName",
+                "value": "Soil Moisture"
               }
             ]
           }
@@ -424,6 +445,35 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           "rawQuery": true,
           "rawSql": "SELECT time, precip AS roa_precip\nFROM \"data_at_stations/rain_over_africa_global0_1_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
           "refId": "ROA",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, soil_moisture AS smap_soil_moisture\nFROM \"data_at_stations/smap_l3_smap_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= 1.0\n  AND ABS(lon - (${lon:raw})::real) <= 1.0\nORDER BY time ASC",
+          "refId": "SMAP",
           "sql": {
             "columns": [
               {
@@ -1425,36 +1475,36 @@ local grid_size_sql = importstr './assets/grid_size.sql';
     "list": [
       {
         "current": {
-          "text": "6.5",
-          "value": "6.5"
+          "text": "3.5",
+          "value": "3.5"
         },
         "label": "Latitude",
         "name": "lat",
         "options": [
           {
             "selected": true,
-            "text": "6.5",
-            "value": "6.5"
+            "text": "3.5",
+            "value": "3.5"
           }
         ],
-        "query": "6.5",
+        "query": "3.5",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-1.5",
-          "value": "-1.5"
+          "text": "35.75",
+          "value": "35.75"
         },
         "label": "Longitude",
         "name": "lon",
         "options": [
           {
             "selected": true,
-            "text": "-1.5",
-            "value": "-1.5"
+            "text": "35.75",
+            "value": "35.75"
           }
         ],
-        "query": "-1.5",
+        "query": "35.75",
         "type": "textbox"
       },
       {
@@ -1535,8 +1585,8 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "global0_1",
-          "value": "global0_1"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "label": "Grid",
         "name": "grid",
@@ -1547,12 +1597,12 @@ local grid_size_sql = importstr './assets/grid_size.sql';
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.10",
             "value": "global0_1"
           }
@@ -1562,8 +1612,8 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "0.050001",
-          "value": "0.050001"
+          "text": "0.125001",
+          "value": "0.125001"
         },
         "definition": grid_size_sql,
         "description": "",
@@ -1578,8 +1628,8 @@ local grid_size_sql = importstr './assets/grid_size.sql';
     ]
   },
   "time": {
-    "from": "2019-11-16T15:56:14.464Z",
-    "to": "2025-05-11T09:22:48.332Z"
+    "from": "now-2y",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "utc",
