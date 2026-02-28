@@ -101,7 +101,7 @@ def smap_l3_raw(start_time, end_time, delayed=False):
        cache_disable_if=[{
            'grid': 'source'
        }])
-def smap_gridded(start_time, end_time, grid='smap', version='L3'):
+def smap_gridded(start_time, end_time, grid='source', version='L3'):
     """SMAP Gridded product."""
     if version == 'L3':
         ds = smap_l3_raw(start_time, end_time)
@@ -131,7 +131,7 @@ def smap_gridded(start_time, end_time, grid='smap', version='L3'):
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='smap', mask=None, region='global'): # noqa: ARG001
+          grid='source', mask=None, region='global'): # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
@@ -146,7 +146,7 @@ def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='smap', mask=None, region='global'): # noqa: ARG001
+          grid='source', mask=None, region='global'): # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")

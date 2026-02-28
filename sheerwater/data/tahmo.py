@@ -102,11 +102,12 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
         obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'station_id']))
         obs = obs.chunk({'time':365, 'station_id': 50})
-        obs['lat'] = obs.lat.isel(time=0)
-        obs['lon'] = obs.lon.isel(time=0)
+        obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
+        obs['lon'] = obs.lon.groupby('station_id').mean(dim='time')
         obs = obs.set_coords('lat')
         obs = obs.set_coords('lon')
         obs['precip_count'] = obs['precip'].notnull().astype(int)
+        obs = obs.assign_coords(station_id=obs.coords["station_id"].astype(str))
 
 
     # Return the xarray

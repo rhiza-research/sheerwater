@@ -129,8 +129,11 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
         # Convert to xarray - for this to succeed obs must be a pandas dataframe
         obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'station_id']))
+        obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
+        obs['lon'] = obs.lon.groupby('station_id').mean(dim='time')
         obs = obs.set_coords('lat')
         obs = obs.set_coords('lon')
+        obs = obs.assign_coords(station_id=obs.coords["station_id"].astype(str))
 
     # Return the xarray
     return obs
@@ -181,7 +184,6 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
                               chunks={'station_id': 10000, 'time': 365})
 
         x = x.chunk({'time':365, 'station_id': 10000})
-
         x = x.assign_coords(station_id=x.coords["station_id"].astype(str))
     else:
         x = xr.open_mfdataset(datasets,
