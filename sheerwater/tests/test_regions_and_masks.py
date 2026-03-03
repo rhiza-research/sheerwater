@@ -4,6 +4,7 @@ import geopandas as gpd
 import numpy as np
 import xarray as xr
 
+from sheerwater.data import imerg, chirps, smap_l4
 from sheerwater.masks import land_sea_mask
 from sheerwater.metrics import metric
 from sheerwater.spatial_subdivisions import (
@@ -222,6 +223,22 @@ def test_land_sea_mask():
     for grid in grids:
         lsm = land_sea_mask(grid=grid)
         assert len(lsm.lat.values) > 0
+
+
+def test_nonuniform_check():
+    """Test the nonuniform check function.
+
+    Test on imerg, chirps, smap_l4.
+    """
+    # imerg on global1_5 grid is uniform
+    ds_imerg = imerg(start_time="2020-01-01", end_time="2020-01-01", grid="global1_5")
+    # native chirps grid is nonuniform
+    ds_chirps = chirps(start_time="2020-01-01", end_time="2020-01-01", grid="chirps")
+    # native smap grid is nonuniform
+    ds_smap_l4 = smap_l4(start_time="2020-01-01", end_time="2020-01-01")
+    assert not nonuniform_grid(ds_imerg)
+    assert nonuniform_grid(ds_chirps)
+    assert nonuniform_grid(ds_smap_l4)
 
 
 def test_nonuniform_clip():
