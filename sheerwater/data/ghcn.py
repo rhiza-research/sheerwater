@@ -191,7 +191,6 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
                               parallel=True,
                               chunks={'lat': 300, 'lon': 300, 'time': 365})
 
-    print(x)
     return x
 
 
