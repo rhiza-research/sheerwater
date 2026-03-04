@@ -13,7 +13,7 @@ from shapely.geometry import box
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from nuthatch import cache
-from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object, is_station_grid
+from sheerwater.utils import get_grid, get_grid_ds, regrid, check_bases, load_object, is_station_grid
 
 import warnings
 from rasterio.errors import ShapeSkipWarning
@@ -779,7 +779,7 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
 
     # If the grid doesn't exist throw a warning and return
     try:
-        get_grid_ds(grid)
+        get_grid(grid)
     except NotImplementedError:
         logger.warning(f"Cannot apply mask for undefinied grid {grid}.")
         return ds
