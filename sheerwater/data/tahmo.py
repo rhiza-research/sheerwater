@@ -121,7 +121,10 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-})
+       },
+       cache_disable_if={
+           'grid': 'source'
+       })
 def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Reindex the TAHMO data to the requested grid.
 
@@ -141,7 +144,7 @@ def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 
 @dask_remote
 def _tahmo_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     if variable != 'precip':
         raise ValueError("TAHMO only supports precip")
 
@@ -165,7 +168,7 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,
-          grid='global0_25', mask=None, region='global',  # noqa: ARG001
+          grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
           missing_thresh=0.9):
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,
@@ -179,7 +182,7 @@ def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def tahmo_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
-              grid='global0_25', mask=None, region='global',  # noqa: ARG001
+              grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9):
     """Standard interface for TAHMO data."""
     return _tahmo_unified(start_time, end_time, variable, agg_days,

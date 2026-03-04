@@ -98,9 +98,9 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 @spatial()
 @timeseries()
 @cache(cache_args=['grid', 'version'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
-       cache_disable_if=[{
+       cache_disable_if={
            'grid': 'source'
-       }])
+       })
 def smap_gridded(start_time, end_time, grid='source', version='L3'):
     """SMAP Gridded product."""
     if version == 'L3':

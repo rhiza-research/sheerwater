@@ -142,7 +142,10 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
 @dask_remote
 @cache(cache_args=['year', 'grid', 'cell_aggregation'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
+       cache_disable_if = {
+           'grid': 'source'
+       })
 def ghcnd_reindexed(year, grid="global0_25", cell_aggregation='first'):
     """Reindex yearly data in separate step to reduce graph size."""
     obs = ghcnd_yearly(year, grid, cell_aggregation)

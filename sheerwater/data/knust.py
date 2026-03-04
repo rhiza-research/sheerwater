@@ -118,7 +118,10 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-})
+       },
+       cache_disable_if={
+           'grid': 'source'
+       })
 def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Reindex the KNUST data to the requested grid.
 
