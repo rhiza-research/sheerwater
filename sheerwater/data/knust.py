@@ -144,7 +144,7 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 @timeseries()
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     """Standard interface for knust data."""
     ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
@@ -168,7 +168,7 @@ def _knust_unified(start_time, end_time, variable, agg_days,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
-          grid='global0_25', mask=None, region='global',  # noqa: ARG001
+          grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
           missing_thresh=0.9):
     """Standard interface for knust data."""
     return _knust_unified(start_time, end_time, variable, agg_days,
@@ -182,7 +182,7 @@ def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
        cache_args=['variable', 'agg_days', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
-              grid='global0_25', mask=None, region='global',  # noqa: ARG001
+              grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9):
     """Standard interface for knust data."""
     return _knust_unified(start_time, end_time, variable, agg_days,
