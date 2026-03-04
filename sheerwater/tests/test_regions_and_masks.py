@@ -233,7 +233,7 @@ def test_nonuniform_check():
     # imerg on global1_5 grid is uniform
     ds_imerg = imerg(start_time="2020-01-01", end_time="2020-01-01", grid="global1_5")
     # native chirps grid is nonuniform
-    ds_chirps = chirps(start_time="2020-01-01", end_time="2020-01-01", grid="chirps")
+    ds_chirps = chirps(start_time="2020-01-01", end_time="2020-01-01", grid="source")
     # native smap grid is nonuniform
     ds_smap_l4 = smap_l4(start_time="2020-01-01", end_time="2020-01-01")
     assert not nonuniform_grid(ds_imerg)
