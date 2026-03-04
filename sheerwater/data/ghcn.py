@@ -129,6 +129,8 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
         # Convert to xarray - for this to succeed obs must be a pandas dataframe
         obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'station_id']))
+        # Only way I could figure out how to collapse the time index for lat/lon.
+        # lat/lon should be constant per station ID
         obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
         obs['lon'] = obs.lon.groupby('station_id').mean(dim='time')
         obs = obs.set_coords('lat')

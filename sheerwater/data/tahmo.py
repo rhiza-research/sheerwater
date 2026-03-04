@@ -102,6 +102,8 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
         obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'station_id']))
         obs = obs.chunk({'time':365, 'station_id': 50})
+        # Only way I could figure out how to collapse the time index for lat/lon.
+        # lat/lon should be constant per station ID
         obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
         obs['lon'] = obs.lon.groupby('station_id').mean(dim='time')
         obs = obs.set_coords('lat')
