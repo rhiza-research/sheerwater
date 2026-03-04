@@ -231,11 +231,11 @@ def test_nonuniform_check():
     Test on imerg, chirps, smap_l4.
     """
     # imerg on global1_5 grid is uniform
-    ds_imerg = imerg(start_time="2020-01-01", end_time="2020-01-01", grid="global1_5")
+    ds_imerg = imerg(start_time="2020-01-01", end_time="2020-01-01", grid="global1_5", mask=None)
     # native chirps grid is nonuniform
-    ds_chirps = chirps(start_time="2020-01-01", end_time="2020-01-01", grid="source")
+    ds_chirps = chirps(start_time="2020-01-01", end_time="2020-01-01", grid="source", mask=None)
     # native smap grid is nonuniform
-    ds_smap_l4 = smap_l4(start_time="2020-01-01", end_time="2020-01-01")
+    ds_smap_l4 = smap_l4(start_time="2020-01-01", end_time="2020-01-01", mask=None)
     assert not nonuniform_grid(ds_imerg)
     assert nonuniform_grid(ds_chirps)
     assert nonuniform_grid(ds_smap_l4)
