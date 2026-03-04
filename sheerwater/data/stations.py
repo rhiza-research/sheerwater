@@ -21,22 +21,40 @@ def stations_aggregated(start_time, end_time, variable,
     if cell_aggregation != 'mean':
         raise ValueError(f"Cell aggregation {cell_aggregation} not supported")
 
-    sources = ['knust_avg', 'tahmo_avg', 'ghcn_avg']
-    # Get all the datasets
-    fns = [(source, get_data(source)) for source in sources]
-    datasets = [fn(start_time, end_time, variable=variable, grid=grid, agg_days=1,
-                   missing_thresh=missing_thresh,
-                   mask=mask, region=region)
-                .expand_dims(dim={"source": [source]})
-                for source, fn in fns]
-    ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal",
-                   compat="override", join='outer', fill_value=np.nan)
 
-    weight_sum = ds[f'{variable}_count'].sum(dim='source', min_count=1)
-    ds['relative_weight'] = ds[f'{variable}_count'] / weight_sum
-    ds[variable] = ds[variable] * ds['relative_weight']
-    ds = ds.sum(dim='source', skipna=True, min_count=1)
-    ds = ds.drop_vars(['relative_weight'])
+    if grid == 'source':
+        sources = ['knust', 'tahmo', 'ghcn']
+        fns = [(source, get_data(source)) for source in sources]
+        datasets = [fn(start_time, end_time, variable=variable, grid=grid, agg_days=1,
+                       missing_thresh=missing_thresh,
+                       mask=mask, region=region)
+                    for source, fn in fns]
+
+
+        ds = xr.concat(datasets, dim='station_id', data_vars="minimal", coords="minimal",
+                       compat="override", join='outer', fill_value=np.nan)
+        ds = ds.chunk({'station_id': 10000, 'time': 365})
+    else:
+        sources = ['knust_avg', 'tahmo_avg', 'ghcn_avg']
+
+        # Get all the datasets
+        fns = [(source, get_data(source)) for source in sources]
+        datasets = [fn(start_time, end_time, variable=variable, grid=grid, agg_days=1,
+                       missing_thresh=missing_thresh,
+                       mask=mask, region=region)
+                    .expand_dims(dim={"source": [source]})
+                    for source, fn in fns]
+
+
+        ds = xr.concat(datasets, dim='source', data_vars="minimal", coords="minimal",
+                       compat="override", join='outer', fill_value=np.nan)
+
+        weight_sum = ds[f'{variable}_count'].sum(dim='source', min_count=1)
+        ds['relative_weight'] = ds[f'{variable}_count'] / weight_sum
+        ds[variable] = ds[variable] * ds['relative_weight']
+        ds = ds.sum(dim='source', skipna=True, min_count=1)
+        ds = ds.drop_vars(['relative_weight'])
+
     return ds
 
 

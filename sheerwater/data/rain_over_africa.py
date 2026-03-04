@@ -75,7 +75,7 @@ def roa_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa:
                            chunks={})
 
     # Regrid if not on the native grid
-    if grid != 'roa':
+    if grid != 'source':
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds

@@ -83,12 +83,8 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     obs["time"] = dd.to_datetime(obs["date"])
     obs = obs.drop(['date'], axis=1)
 
-    # Round the coordinates to the nearest grid
-    lats, lons, grid_size, offset = get_grid(grid)
 
     stat = ghcn_station_list()
-    stat['lat'] = stat['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
-    stat['lon'] = stat['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
 
     stat = stat.set_index('ghcn_id')
 
@@ -99,35 +95,69 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
     obs = obs.join(stat, on='ghcn_id', how='inner')
 
-    if cell_aggregation == 'first':
-        stations_to_use = obs.groupby(['lat', 'lon']).agg(ghcn_id=('ghcn_id', 'first'))
-        stations_to_use = stations_to_use['ghcn_id'].unique()
-
-        obs = obs[obs['ghcn_id'].isin(stations_to_use)]
-        obs = obs.drop(['ghcn_id'], axis=1)
-    elif cell_aggregation == 'mean':
-        # Group by lat/lon/time
-        obs = obs.groupby(by=['lat', 'lon', 'time']).agg(temp=('temp', 'mean'),
-                                                         precip=('precip', 'mean'),
-                                                         tmin=('tmin', 'min'),
-                                                         tmax=('tmax', 'max'))
-        obs = obs.reset_index()
-
     obs.temp = obs.temp.astype(np.float32)
     obs.tmax = obs.tmax.astype(np.float32)
     obs.tmin = obs.tmin.astype(np.float32)
     obs.precip = obs.precip.astype(np.float32)
 
-    # Convert to xarray - for this to succeed obs must be a pandas dataframe
-    obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'lat', 'lon']))
+    if grid != 'source':
+        # Round the coordinates to the nearest grid
+        lats, lons, grid_size, offset = get_grid(grid)
+        obs['lat'] = obs['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
+        obs['lon'] = obs['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
+
+        if cell_aggregation == 'first':
+            stations_to_use = obs.groupby(['lat', 'lon']).agg(ghcn_id=('ghcn_id', 'first'))
+            stations_to_use = stations_to_use['ghcn_id'].unique()
+
+            obs = obs[obs['ghcn_id'].isin(stations_to_use)]
+            obs = obs.drop(['ghcn_id'], axis=1)
+        elif cell_aggregation == 'mean':
+            # Group by lat/lon/time
+            obs = obs.groupby(by=['lat', 'lon', 'time']).agg(temp=('temp', 'mean'),
+                                                             precip=('precip', 'mean'),
+                                                             tmin=('tmin', 'min'),
+                                                             tmax=('tmax', 'max'))
+            obs = obs.reset_index()
+
+
+        # Convert to xarray - for this to succeed obs must be a pandas dataframe
+        obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'lat', 'lon']))
+    else:
+        # Convert to staiton ID index with lat/lon coords
+        obs = obs.rename(columns = {'ghcn_id': 'station_id'})
+
+        # Convert to xarray - for this to succeed obs must be a pandas dataframe
+        obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'station_id']))
+        # Only way I could figure out how to collapse the time index for lat/lon.
+        # lat/lon should be constant per station ID
+        obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
+        obs['lon'] = obs.lon.groupby('station_id').mean(dim='time')
+        obs = obs.set_coords('lat')
+        obs = obs.set_coords('lon')
+        obs = obs.assign_coords(station_id=obs.coords["station_id"].astype(str))
+
+    # Return the xarray
+    return obs
+
+@dask_remote
+@cache(cache_args=['year', 'grid', 'cell_aggregation'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
+       cache_disable_if = {
+           'grid': 'source'
+       })
+def ghcnd_reindexed(year, grid="global0_25", cell_aggregation='first'):
+    """Reindex yearly data in separate step to reduce graph size."""
+    obs = ghcnd_yearly(year, grid, cell_aggregation)
+
+    if grid == 'source':
+        return obs
 
     # Reindex to fill out the lat/lon
     grid_ds = get_grid_ds(grid)
     obs = obs.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
-    # Return the xarray
     return obs
-
 
 @dask_remote
 @timeseries()
@@ -143,19 +173,28 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
     datasets = []
     for year in years:
         if delayed:
-            ds = dask.delayed(ghcnd_yearly)(year, grid, cell_aggregation, filepath_only=True)
+            ds = dask.delayed(ghcnd_reindexed)(year, grid, cell_aggregation, filepath_only=True)
             datasets.append(ds)
         else:
-            ds = dask.delayed(ghcnd_yearly)(year, grid, cell_aggregation, filepath_only=True)
+            ds = dask.delayed(ghcnd_reindexed)(year, grid, cell_aggregation, filepath_only=True)
             datasets.append(dask.compute(ds)[0])
 
     if delayed:
         datasets = dask.compute(*datasets)
 
-    x = xr.open_mfdataset(datasets,
-                          engine='zarr',
-                          parallel=True,
-                          chunks={'lat': 300, 'lon': 300, 'time': 365})
+    if grid == 'source':
+        x = xr.open_mfdataset(datasets,
+                              engine='zarr',
+                              parallel=True,
+                              chunks={'station_id': 10000, 'time': 365})
+
+        x = x.chunk({'time':365, 'station_id': 10000})
+        x = x.assign_coords(station_id=x.coords["station_id"].astype(str))
+    else:
+        x = xr.open_mfdataset(datasets,
+                              engine='zarr',
+                              parallel=True,
+                              chunks={'lat': 300, 'lon': 300, 'time': 365})
 
     return x
 

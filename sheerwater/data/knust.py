@@ -75,32 +75,42 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     # combine
     ds = xr.merge([ashanti, dacciwa, furiflood], join='outer', compat='no_conflicts', fill_value=np.nan)
 
-    # Snap the lat/lon values to our requested grid
-    _, _, grid_size, offset = get_grid(grid)
-
-    partial_func = partial(snap_point_to_grid, grid_size=grid_size, offset=offset)
-    ds['lat'] = xr.apply_ufunc(partial_func, ds['lat'].compute(), vectorize=True)
-    ds['lon'] = xr.apply_ufunc(partial_func, ds['lon'].compute(), vectorize=True)
-    ds = ds.set_coords("lat")
-    ds = ds.set_coords("lon")
-
     # Rename
     ds = ds.rename({'precipitation_amount': 'precip'})
 
-    if cell_aggregation == 'mean':
-        ds_grouped = ds.groupby(['lat', 'lon']).mean()
-        # Add the station count of non-null values
-        ds_grouped['precip_count'] = ds.precip.groupby(['lat', 'lon']).count()
-    elif cell_aggregation == 'first':
-        ds_grouped = ds.groupby(['lat', 'lon']).first()
-        # Add the station count of non-null values
-        ds_grouped['precip_count'] = ds_grouped['precip'].notnull().astype(int)
-    else:
-        raise ValueError("Cell aggregation must be 'first' or 'mean'")
+    # Snap the lat/lon values to our requested grid
+    if grid != 'source':
+        _, _, grid_size, offset = get_grid(grid)
 
-    # Return the xarray
-    ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
-    return ds_grouped
+        partial_func = partial(snap_point_to_grid, grid_size=grid_size, offset=offset)
+        ds['lat'] = xr.apply_ufunc(partial_func, ds['lat'].compute(), vectorize=True)
+        ds['lon'] = xr.apply_ufunc(partial_func, ds['lon'].compute(), vectorize=True)
+        ds = ds.set_coords("lat")
+        ds = ds.set_coords("lon")
+
+
+        if cell_aggregation == 'mean':
+            ds_grouped = ds.groupby(['lat','lon']).mean()
+            # Add the station count of non-null values
+            ds_grouped['precip_count'] = ds.precip.groupby(['lat', 'lon']).count()
+        elif cell_aggregation == 'first':
+            ds_grouped = ds.groupby(['lat','lon']).first()
+
+            # Add the station count of non-null values
+            ds_grouped['precip_count'] = ds_grouped['precip'].notnull().astype(int)
+        else:
+            raise ValueError("Cell aggregation must be 'first' or 'mean'")
+
+        # Return the xarray
+        ds_grouped = ds_grouped.chunk({'time':365, 'lat': 300, 'lon': 300})
+
+        return ds_grouped
+    else:
+        ds = ds.chunk({'time':365, 'station_id': 50})
+        ds = ds.set_coords("lat")
+        ds = ds.set_coords("lon")
+        ds['precip_count'] = ds['precip'].notnull().astype(int)
+        return ds
 
 
 @dask_remote
@@ -108,7 +118,10 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-})
+       },
+       cache_disable_if={
+           'grid': 'source'
+       })
 def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Reindex the KNUST data to the requested grid.
 
@@ -116,6 +129,10 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     the task graph will explode.
     """
     ds = knust_raw(start_time, end_time, grid, cell_aggregation)
+
+    if grid == 'source':
+        return ds
+
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
     ds['precip_count'] = ds['precip_count'].fillna(0)
@@ -127,7 +144,7 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 @timeseries()
 @spatial()
 def _knust_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     """Standard interface for knust data."""
     ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
 
