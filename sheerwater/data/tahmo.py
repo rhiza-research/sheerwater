@@ -64,37 +64,54 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
     """Get tahmo data from the QC controlled stations."""
     # Get the station list
     stations = tahmo_deployment().compute()
+    stat = stations.rename(columns={'location_latitude': 'lat', 'location_longitude': 'lon', 'code': 'station_id'})
 
     obs = tahmo_raw_daily().compute()
 
-    # Round the coordinates to the nearest grid
-    lats, lons, grid_size, offset = get_grid(grid)
+    if grid != 'source':
+        # Round the coordinates to the nearest grid
+        lats, lons, grid_size, offset = get_grid(grid)
 
-    stat = stations.rename(columns={'location_latitude': 'lat', 'location_longitude': 'lon', 'code': 'station_id'})
-    stat['lat'] = stat['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
-    stat['lon'] = stat['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
+        stat['lat'] = stat['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
+        stat['lon'] = stat['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
 
-    stat = stat[['station_id', 'lat', 'lon']]
-    stat = stat.set_index('station_id')
-    obs = obs.join(stat, on='station_id', how='inner')
+        stat = stat[['station_id', 'lat', 'lon']]
+        stat = stat.set_index('station_id')
+        obs = obs.join(stat, on='station_id', how='inner')
 
-    if cell_aggregation == 'first':
-        stations_to_use = obs.groupby(['lat', 'lon']).agg(station_id=('station_id', 'first'))
-        stations_to_use = stations_to_use['station_id'].unique()
+        if cell_aggregation == 'first':
+            stations_to_use = obs.groupby(['lat', 'lon']).agg(station_id=('station_id', 'first'))
+            stations_to_use = stations_to_use['station_id'].unique()
 
-        obs = obs[obs['station_id'].isin(stations_to_use)]
-        obs = obs.drop(['station_id'], axis=1)
-        obs = obs.reset_index()
-        obs = obs.drop(['index'], axis=1)
+            obs = obs[obs['station_id'].isin(stations_to_use)]
+            obs = obs.drop(['station_id'], axis=1)
+            obs = obs.reset_index()
+            obs = obs.drop(['index'], axis=1)
+            obs['precip_count'] = obs['precip'].notnull().astype(int)
+        elif cell_aggregation == 'mean':
+            obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'),
+                                                             precip_count=('precip', 'count'))
+            obs = obs.reset_index()
+
+        # Convert to xarray - for this to succeed obs must be a pandas dataframe
+        obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
+    else:
+        stat = stat[['station_id', 'lat', 'lon']]
+        stat = stat.set_index('station_id')
+        obs = obs.join(stat, on='station_id', how='inner')
+
+        obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'station_id']))
+        obs = obs.chunk({'time':365, 'station_id': 50})
+        # Only way I could figure out how to collapse the time index for lat/lon.
+        # lat/lon should be constant per station ID
+        obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
+        obs['lon'] = obs.lon.groupby('station_id').mean(dim='time')
+        obs = obs.set_coords('lat')
+        obs = obs.set_coords('lon')
         obs['precip_count'] = obs['precip'].notnull().astype(int)
-    elif cell_aggregation == 'mean':
-        obs = obs.groupby(by=['lat', 'lon', 'time']).agg(precip=('precip', 'mean'),
-                                                         precip_count=('precip', 'count'))
-        obs = obs.reset_index()
+        obs = obs.assign_coords(station_id=obs.coords["station_id"].astype(str))
 
-    # Convert to xarray - for this to succeed obs must be a pandas dataframe
-    obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
-    obs = obs.chunk({'time': 365, 'lat': 300, 'lon': 300})
+
     # Return the xarray
     return obs
 
@@ -104,14 +121,21 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-})
+       },
+       cache_disable_if={
+           'grid': 'source'
+       })
 def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Reindex the TAHMO data to the requested grid.
 
     NOTE: This must be done as a separate step from the raw data. If merging and reindexing in one step,
     the task graph will explode.
     """
-    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation, recompute=True)
+    ds = tahmo_raw(start_time, end_time, grid, cell_aggregation)
+
+    if grid == 'source':
+        return ds
+
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
     ds['precip_count'] = ds['precip_count'].fillna(0)
@@ -120,7 +144,7 @@ def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 
 @dask_remote
 def _tahmo_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
+                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     if variable != 'precip':
         raise ValueError("TAHMO only supports precip")
 

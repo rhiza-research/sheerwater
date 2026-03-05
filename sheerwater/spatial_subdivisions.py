@@ -13,7 +13,7 @@ from shapely.geometry import box
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
 
 from nuthatch import cache
-from sheerwater.utils import get_grid_ds, regrid, check_bases, load_object
+from sheerwater.utils import get_grid, get_grid_ds, regrid, check_bases, load_object, is_station_grid
 
 import warnings
 from rasterio.errors import ShapeSkipWarning
@@ -744,8 +744,9 @@ def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True)
     if len(ds.data_vars) == 0:
         # Must have a data variable to clip
         ds['mask'] = xr.ones_like(ds.lat * ds.lon, dtype=np.int32)
-
-    if nonuniform_grid(ds):
+    if is_station_grid(ds):
+        ds = clip_station_grid(ds, geometry=geometry, drop=drop)
+    elif nonuniform_grid(ds):
         ds = clip_with_mask(ds, geometry, drop=drop)
     else:
         # Set up dataframe for clipping
@@ -774,6 +775,13 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
 
     if ds.lat.size == 0 and ds.lon.size == 0:
         # If the dataset is empty / dimensionless, return it untouched
+        return ds
+
+    # If the grid doesn't exist throw a warning and return
+    try:
+        get_grid(grid)
+    except NotImplementedError:
+        logger.warning(f"Cannot apply mask for undefinied grid {grid}.")
         return ds
 
     if isinstance(mask, str):
@@ -839,8 +847,34 @@ def clip_with_mask(ds, region_df, drop=True):
     return ds
 
 
-def nonuniform_grid(ds, error_thresh=1e-4):
-    """Check if a dataset has a nonuniform grid."""
+def clip_station_grid(ds, geometry=None, drop=True):
+    """Clip a station grid to a geometry.
+
+    A station grid is indexed by station_id and has lat/lon coordinates corresponding to
+    individual station locations. Each lat/lon point needs to be checked against the geometry to
+    determine if it is within the geometry.
+    """
+    if geometry is None:
+        return ds
+
+    def station_within(station_lons, station_lats):
+        buffer = 1e-5
+        return shapely.contains_xy(geometry.iloc[0].buffer(buffer), station_lons, station_lats)
+
+    mask = xr.apply_ufunc(station_within, ds["lon"], ds["lat"], dask="parallelized", output_dtypes=[bool])
+    ds = ds.where(mask.compute(), drop=drop)
+
+    return ds
+
+def nonuniform_grid(ds, error_thresh=1e-6):
+    """Check if a dataset has a nonuniform grid.
+
+    Threshold value has been chosen based on inconsistency in chirps source grid.
+    """
+    # if lat or lon are not 1d arrays this must be a nonuniform grid, like smap
+    if len(ds.lat.shape) > 1 or len(ds.lon.shape) > 1:
+        return True
+
     lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))

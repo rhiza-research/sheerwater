@@ -99,9 +99,9 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 @timeseries()
 @cache(cache_args=['grid', 'version'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
        cache_disable_if={
-           'grid': 'smap'
+           'grid': 'source'
        })
-def smap_gridded(start_time, end_time, grid='smap', version='L3'):
+def smap_gridded(start_time, end_time, grid='source', version='L3'):
     """SMAP Gridded product."""
     if version == 'L3':
         ds = smap_l3_raw(start_time, end_time)
@@ -112,7 +112,7 @@ def smap_gridded(start_time, end_time, grid='smap', version='L3'):
 
     # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
     # Can't do normal regirdding because the EASE grid is curved
-    if grid != 'smap':
+    if grid != 'source':
         # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
         raise ValueError("Currently SMAP only supports the SMAP grid")
         #import xesmf as xe
@@ -131,7 +131,7 @@ def smap_gridded(start_time, end_time, grid='smap', version='L3'):
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='smap', mask=None, region='global'): # noqa: ARG001
+          grid='source', mask=None, region='global'): # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
@@ -146,7 +146,7 @@ def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='smap', mask=None, region='global'): # noqa: ARG001
+          grid='source', mask=None, region='global'): # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
