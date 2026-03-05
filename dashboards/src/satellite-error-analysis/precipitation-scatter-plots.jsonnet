@@ -670,11 +670,34 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "",
-          "value": ""
+          "text": "false",
+          "value": "false"
         },
         "label": "Filter Lat/Lon",
         "name": "filter_space",
+        "options": [
+          {
+            "selected": false,
+            "text": "Yes",
+            "value": "true"
+          },
+          {
+            "selected": true,
+            "text": "No",
+            "value": "false"
+          }
+        ],
+        "query": "Yes : true, No : false",
+        "type": "custom"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "label": "Agg Time",
+        "name": "agg_time",
         "options": [
           {
             "selected": false,
@@ -761,8 +784,8 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "humidity",
-          "value": "humidity"
+          "text": "none",
+          "value": "none"
         },
         "description": "parameter to color points by",
         "label": "color by",
@@ -770,41 +793,46 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "options": [
           {
             "selected": true,
-            "text": "humidity",
+            "text": "None",
+            "value": "none"
+          },
+          {
+            "selected": false,
+            "text": "Humidity",
             "value": "humidity"
           },
           {
             "selected": false,
-            "text": "temperature",
+            "text": "Temperature",
             "value": "temperature"
           },
           {
             "selected": false,
-            "text": "admin1",
+            "text": "Admin 1",
             "value": "admin1"
           },
           {
             "selected": false,
-            "text": "agroecological",
+            "text": "Agroecological",
             "value": "agroecological"
           },
           {
             "selected": false,
-            "text": "latitude",
+            "text": "Latitude",
             "value": "latitude"
           },
           {
             "selected": false,
-            "text": "longitude",
+            "text": "Longitude",
             "value": "longitude"
           },
           {
             "selected": false,
-            "text": "location",
+            "text": "Location",
             "value": "location"
           }
         ],
-        "query": "humidity, temperature, admin1, agroecological, latitude, longitude, location",
+        "query": "None : none, Humidity : humidity, Temperature : temperature, Admin 1 : admin1, Agroecological : agroecological, Latitude : latitude, Longitude : longitude, Location : location",
         "type": "custom"
       },
       {

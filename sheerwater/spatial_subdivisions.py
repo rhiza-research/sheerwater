@@ -866,7 +866,7 @@ def clip_station_grid(ds, geometry=None, drop=True):
 
     return ds
 
-def nonuniform_grid(ds, error_thresh=1e-6):
+def nonuniform_grid(ds, error_thresh=1e-5):
     """Check if a dataset has a nonuniform grid.
 
     Threshold value has been chosen based on inconsistency in chirps source grid.
