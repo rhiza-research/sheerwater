@@ -303,6 +303,10 @@ local grid_size_sql = importstr './assets/grid_size.sql';
                   "fixedColor": "blue",
                   "mode": "fixed"
                 }
+              },
+              {
+                "id": "displayName",
+                "value": "1d rain TAHMO ${station}"
               }
             ]
           },
@@ -520,162 +524,6 @@ local grid_size_sql = importstr './assets/grid_size.sql';
             ],
             "limit": 50
           }
-        },
-        {
-          "alias": "Live",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "1d"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "sensor::tag"
-              ],
-              "type": "tag"
-            }
-          ],
-          "hide": false,
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT mean(\"value\")\nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pr') \n  AND $timeFilter \n  AND time >= '2025-09-15T00:00:00Z'\nGROUP BY time(1d), \"station\"::tag",
-          "rawQuery": true,
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "pr"
-            }
-          ]
-        },
-        {
-          "alias": "Live",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "1d"
-              ],
-              "type": "time"
-            }
-          ],
-          "hide": false,
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT sum(\"value\")/2.9411\nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pt') \n  AND $timeFilter \n  AND time >= '2025-09-15T00:00:00Z'\nGROUP BY time(1d), \"station\"::tag",
-          "rawQuery": true,
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "pr"
-            }
-          ]
-        },
-        {
-          "alias": "Live",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "1d"
-              ],
-              "type": "time"
-            }
-          ],
-          "hide": false,
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT sum(\"value\")/58.823\nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'pd') \n  AND $timeFilter \n  AND time >= '2025-09-15T00:00:00Z'\nGROUP BY time(1d), \"station\"::tag",
-          "rawQuery": true,
-          "refId": "E",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "sum"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "pr"
-            }
-          ]
         }
       ],
       "title": "Daily Precipitation vs Satellites",
