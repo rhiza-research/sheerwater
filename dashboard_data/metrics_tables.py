@@ -2,11 +2,15 @@
 import xarray as xr
 import numpy as np
 
+from google.cloud import secretmanager
+
 from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote
 from sheerwater.metrics import metric
 
-from google.cloud import secretmanager
+# Add the postgres write password to the config parameter, so that this code
+# module can read and write to our postgres database.
+
 
 @config_parameter('password', location='root', backend='sql', secret=True)
 def postgres_write_password():
@@ -18,9 +22,6 @@ def postgres_write_password():
     key = response.payload.data.decode("UTF-8")
 
     return key
-
-
-
 
 
 @dask_remote

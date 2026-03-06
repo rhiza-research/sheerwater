@@ -70,6 +70,8 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask
     """A unified imerg caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by IMERG.")
+    if grid == 'global0_1': # TODO: temporary hack to handle global0_1 grid; the global0_1 grid is not complete
+        grid = 'imerg'
     ds = imerg_gridded(start_time, end_time, grid, version, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds

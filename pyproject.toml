@@ -21,7 +21,7 @@ dependencies = [
     "google-cloud-storage",
     "google-cloud-secret-manager",
     "cryptography",
-    "xarray==2025.1.0",
+    "xarray==2025.7.1",
     "matplotlib",
     "geopandas",
     "rioxarray",
@@ -52,7 +52,8 @@ dependencies = [
     "properscoring",
     "nuthatch",
     "xesmf",
-    "earthaccess"
+    "earthaccess",
+    "xoak>=0.1.2",
 ]
 
 [dependency-groups]
