@@ -140,12 +140,11 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     # Return the xarray
     return obs
 
+# Note that this cache can't be disabled because we use filepath only below and it
+# doesn't/can't pass through
 @dask_remote
 @cache(cache_args=['year', 'grid', 'cell_aggregation'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
-       cache_disable_if = {
-           'grid': 'source'
-       })
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcnd_reindexed(year, grid="global0_25", cell_aggregation='first'):
     """Reindex yearly data in separate step to reduce graph size."""
     obs = ghcnd_yearly(year, grid, cell_aggregation)
@@ -176,8 +175,8 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
             ds = dask.delayed(ghcnd_reindexed)(year, grid, cell_aggregation, filepath_only=True)
             datasets.append(ds)
         else:
-            ds = dask.delayed(ghcnd_reindexed)(year, grid, cell_aggregation, filepath_only=True)
-            datasets.append(dask.compute(ds)[0])
+            ds = ghcnd_reindexed(year, grid, cell_aggregation, filepath_only=True)
+            datasets.append(ds)
 
     if delayed:
         datasets = dask.compute(*datasets)
@@ -187,6 +186,15 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
                               engine='zarr',
                               parallel=True,
                               chunks={'station_id': 10000, 'time': 365})
+
+
+        # This needs to be done againt after the open_mfdataset.
+        # For some reason it reindexed lat/lon by time
+        # I verified it was the same across time for each stations
+        x['lat'] = x.lat.groupby('station_id').mean(dim='time')
+        x['lon'] = x.lon.groupby('station_id').mean(dim='time')
+        x = x.set_coords('lat')
+        x = x.set_coords('lon')
 
         x = x.chunk({'time':365, 'station_id': 10000})
         x = x.assign_coords(station_id=x.coords["station_id"].astype(str))
