@@ -1,6 +1,6 @@
 """Get gridded prodcuts by station locations."""
 import xarray as xr
-
+import numpy as np
 from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
@@ -92,48 +92,44 @@ def station_data(start_time, end_time, station='tahmo'):  # noqa: ARG001
 
 @cache(cache_args=['agg_days', 'grid', 'mask', 'region'], backend='sql')
 def paried_data(start_time, end_time,
-                sources=['rain_over_africa', 'chirps', 'imerg', 'tahmo_avg', 'smap_l3', 'era5', 'era5'],
-                variables=['precip', 'precip', 'precip', 'precip', 'soil_moisture', 'tmp2m', 'rh2m'],
+                sources=[('rain_over_africa', 'precip'), ('chirps_v3', 'precip'), ('imerg_final', 'precip'),
+                         ('tahmo_avg', 'precip'), ('era5', 'tmp2m'), ('era5', 'rh2m')],
                 agg_days=1,
                 grid='global0_25', mask='lsm', region='global'):
     """Generate paired data at stations data for scatter plots."""
-    datasets = [get_data(source)(start_time, end_time, variable, agg_days=agg_days,
-                                 grid=grid, mask=mask, region=region)
+    datasets = [get_data(source)(start_time, end_time, variable=variable, agg_days=agg_days,
+                                 grid=grid if 'smap' not in source else 'source',
+                                 mask=mask, region=region)
                 .rename({variable: f'{source}_{variable}'})
-                for source, variable in zip(sources, variables)]
+                for source, variable in sources]
 
-    import pdb; pdb.set_trace()
-    # Get space grouping labels
-    agzones = space_grouping_labels(grid=grid, space_grouping=['agroecological_zone', 'admin_1'])
-    # clip agzones to the region
-    agzones = clip_region(agzones, grid=grid, region=region)
-    ds = xr.merge(datasets + [agzones])
+    # Ensure that lat and lon are rounded to 5 decimal places and cast as float32 so the merging doesn't fail
+    for ds in datasets:
+        ds['lat'] = ds['lat'].round(5).astype(np.float32)
+        ds['lon'] = ds['lon'].round(5).astype(np.float32)
+    ds = xr.merge(datasets)
 
-    # drop variable mask & region coordinates
-    ds = ds.drop_vars(['mask', 'region'])
-
-    # move admin_1_region and agroecological_zone_region from coords to variables
-    ds = ds.reset_coords(['admin_1_region', 'agroecological_zone_region'])
+    # Assign country coordinate values to the main dataset
+    # country_ds = space_grouping_labels(grid=grid, space_grouping=['country'])
+    # country_ds = clip_region(country_ds, grid=grid, region=region)
+    # ds = ds.assign_coords(country=(('lat', 'lon'), country_ds['region'].values))
 
     # stack into a table
     ds = ds.stack(points=("time", "lat", "lon"))
-    # drop coords and variables that are not needed
-    ds = ds.dropna("points")
+    # drop rows where 'tahmo_avg_precip' is NaN
+    ds = ds.dropna("points", subset=["tahmo_avg_precip"])
 
     # convert to dataframe
     df = ds.to_dataframe()
-    df = df.drop(columns=['time', 'lat', 'lon', 'spatial_ref']).reset_index()
-    import pdb
-    pdb.set_trace()
-
+    df = df.drop(columns=['time', 'lat', 'lon']).reset_index()
     return df
 
 
 if __name__ == "__main__":
     from datetime import datetime
     from sheerwater.utils import start_remote
-    start_remote(remote_name='genevieve')
-    # start_remote()
+    # start_remote(remote_name='genevieve')
+    start_remote()
     now = datetime.now().strftime("%Y-%m-%d")
     if False:
         variable = 'precip'
@@ -150,11 +146,22 @@ if __name__ == "__main__":
 
     if True:
         for grid in ['global0_1', 'global0_25', 'global1_5']:
-            ds2 = paried_data(start_time='2015-01-01', end_time=now,
-                              sources=['rain_over_africa', 'chirps_v3', 'imerg_final', 'tahmo_avg', 'smap_l3', 'era5', 'era5'],
-                              variables=['precip', 'precip', 'precip', 'precip', 'soil_moisture', 'tmp2m', 'rh2m'],
-                              agg_days=10,
-                              grid=grid, mask='lsm', region='kenya', backend='sql')
+            for region in ['ghana', 'kenya']:
+                for agg_days in [1, 5, 10]:
+                    sources = [('rain_over_africa', 'precip'),
+                               ('chirps_v3', 'precip'),
+                               ('imerg_final', 'precip'),
+                               ('tahmo_avg', 'precip')]
+                    if grid in ['global0_25', 'global1_5']:
+                        # ERA5 is only available on global0_25 and global1_5
+                        # sources.append(('era5', 'tmp2m'))
+                        # sources.append(('era5', 'rh2m'))
+                        pass
+
+                    ds2 = paried_data(start_time='2015-01-01', end_time=now,
+                                      sources=sources,
+                                      agg_days=agg_days,
+                                      grid=grid, mask='lsm', region=region, backend='sql')
 
     if False:
         ds3 = station_data(start_time='2015-01-01', end_time=now, station='tahmo')

@@ -415,18 +415,21 @@ def polygon_subdivision_labels(grid='global1_5', level='country'):
     # Fixed data type of strings of length 40
     ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
 
-    # If admin group, construct the admin gridded dataframe
+    # Create a copy of the region data for assignments
+    region_data = ds['region'].copy()
+
     # Loop through each region and label grid cells
     for i, rn in gdf.iterrows():
-        print(i+1, '/', len(gdf.region_name), rn.region_name)
+        print(i + 1, '/', len(gdf.region_name), rn.region_name)
         # Clip the grid to the boundary of Shapefile
         world_ds = xr.full_like(ds.lat * ds.lon, 1.0, dtype=np.float32)
-        #  Add geometry to the dataframe and clip
         world_ds = world_ds.rio.write_crs("EPSG:4326")
         world_ds = world_ds.rio.set_spatial_dims('lon', 'lat')
         region_ds = world_ds.rio.clip(rn, gdf.crs, drop=False)
-        # Assign the region name to the region coordinate
-        ds['region'] = xr.where(~region_ds.isnull(), rn.region_name, ds['region'])
+        region_mask = ~region_ds.isnull()
+        region_data = xr.where(region_mask, rn.region_name, region_data)
+
+    ds['region'] = region_data
     return ds
 
 

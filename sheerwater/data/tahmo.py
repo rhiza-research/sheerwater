@@ -70,7 +70,7 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 
     if grid != 'source':
         # Round the coordinates to the nearest grid
-        lats, lons, grid_size, offset = get_grid(grid)
+        _, _, grid_size, offset = get_grid(grid)
 
         stat['lat'] = stat['lat'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
         stat['lon'] = stat['lon'].apply(lambda x: snap_point_to_grid(x, grid_size, offset))
@@ -101,7 +101,7 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         obs = obs.join(stat, on='station_id', how='inner')
 
         obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'station_id']))
-        obs = obs.chunk({'time':365, 'station_id': 50})
+        obs = obs.chunk({'time': 365, 'station_id': 50})
         # Only way I could figure out how to collapse the time index for lat/lon.
         # lat/lon should be constant per station ID
         obs['lat'] = obs.lat.groupby('station_id').mean(dim='time')
@@ -110,7 +110,6 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         obs = obs.set_coords('lon')
         obs['precip_count'] = obs['precip'].notnull().astype(int)
         obs = obs.assign_coords(station_id=obs.coords["station_id"].astype(str))
-
 
     # Return the xarray
     return obs
@@ -121,10 +120,10 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-       },
-       cache_disable_if={
+},
+    cache_disable_if={
            'grid': 'source'
-       })
+})
 def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Reindex the TAHMO data to the requested grid.
 

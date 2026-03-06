@@ -86,7 +86,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  *,\n  rh2m * 100 AS rh2m_pct\nFROM \"pairwise_precip/${agg_days}_global0_25_${satellite}_${station}_${region1}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat1}::real) <= 1e-6\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon1}::real) <= 1e-6\n  );\n",
+          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"paried_data/${agg_days}_${grid}_lsm_${region1}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat1}::real) <= 1e-4\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon1}::real) <= 1e-4\n  );\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -170,7 +170,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  *,\n  rh2m * 100 AS rh2m_pct\nFROM \"pairwise_precip/${agg_days}_global0_25_${satellite}_${station}_${region2}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat2}::real) <= 1e-6\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon2}::real) <= 1e-6\n  );\n",
+          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"paried_data/${agg_days}_${grid}_lsm_${region2}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat2}::real) <= 1e-4\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon2}::real) <= 1e-4\n  );\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -292,7 +292,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         },
         "onclick": "try {\n  const { type: eventType, data: eventData } = event;\n\n  if (eventType === 'click') {\n    const clickedPoint = eventData?.points?.[0];\n\n    if (clickedPoint) {\n      const useSecond = eventData.event?.shiftKey;\n      const currentUrl = new URL(window.location.href);\n\n      if (useSecond) {\n        currentUrl.searchParams.set('var-lat2', clickedPoint.lat);\n        currentUrl.searchParams.set('var-lon2', clickedPoint.lon);\n      } else {\n        currentUrl.searchParams.set('var-lat1', clickedPoint.lat);\n        currentUrl.searchParams.set('var-lon1', clickedPoint.lon);\n      }\n\n      currentUrl.searchParams.set('var-filter_space', true);\n\n      const plots = document.querySelectorAll('.js-plotly-plot');\n      const plotEl = Array.from(plots).find(p => p._fullLayout?.mapbox);\n      const mapSubplot = plotEl._fullLayout.mapbox._subplot;\n\n      console.log(plotEl._fullLayout.mapbox);\n\n      \n      const center = mapSubplot.map.getCenter();\n      const zoom = mapSubplot.map.getZoom();\n      console.log(\"Testing\")\n      console.log(center)\n      console.log(zoom)\n      console.log(mapSubplot)\n\n      currentUrl.searchParams.set('var-map_zoom', zoom.toFixed(2));\n      currentUrl.searchParams.set('var-map_center_lat', center.lat.toFixed(4));\n      currentUrl.searchParams.set('var-map_center_lon', center.lng.toFixed(4));\n\n      window.location.href = currentUrl.toString();\n    }\n  }\n} catch (error) {\n  console.error('Error in map click handler:', error);\n}",
         "resScale": 2,
-        "script": "const fields = data.series[0].fields;\n\nconst lats = fields[0].values.toArray();\nconst lons = fields[1].values.toArray();\n\nconst lat1 = parseFloat(variables.lat1.query);\nconst lon1 = parseFloat(variables.lon1.query);\nconst lat2 = parseFloat(variables.lat2.query);\nconst lon2 = parseFloat(variables.lon2.query);\n\nconst mapZoom = parseFloat(variables.map_zoom.query);\nconst mapCenterLat = parseFloat(variables.map_center_lat.query);\nconst mapCenterLon = parseFloat(variables.map_center_lon.query);\n\nconsole.log(mapZoom, mapCenterLat, mapCenterLon);\nconst traces = [{\n  type: 'scattermapbox',\n  lat: lats,\n  lon: lons,\n  mode: 'markers',\n  marker: {\n    size: 7,\n    color: '#4A90D9',\n    opacity: 0.85,\n  },\n  hoverinfo: 'lat+lon',\n  hoverlabel: { bgcolor: '#333333' }\n}];\n\nif (!isNaN(lat1) && !isNaN(lon1)) {\n  traces.push({\n    type: 'scattermapbox',\n    lat: [lat1],\n    lon: [lon1],\n    mode: 'markers',\n    marker: { size: 10, color: 'gold' },\n    text: [`Point 1: ${lat1}, ${lon1}`],\n    hoverinfo: 'text',\n    hoverlabel: { bgcolor: '#333333' }\n  });\n}\n\nif (!isNaN(lat2) && !isNaN(lon2)) {\n  traces.push({\n    type: 'scattermapbox',\n    lat: [lat2],\n    lon: [lon2],\n    mode: 'markers',\n    marker: { size: 10, color: 'red' },\n    text: [`Point 2: ${lat2}, ${lon2}`],\n    hoverinfo: 'text',\n    hoverlabel: { bgcolor: '#333333' }\n  });\n}\n\nreturn {\n  data: traces,\n  layout: {\n    mapbox: {\n      style: 'open-street-map',\n      center: { lat: mapCenterLat, lon: mapCenterLon },\n      zoom: mapZoom,\n      dragmode: 'zoom'\n    },\n    margin: { t: 0, b: 0, l: 0, r: 0 },\n    paper_bgcolor: 'rgba(0,0,0,0)',\n    plot_bgcolor: 'rgba(0,0,0,0)',\n    showlegend: false\n  },\n  config: {\n    responsive: true,\n    displayModeBar: true,\n    scrollZoom: true\n  }\n};",
+        "script": "const fields = data.series[0].fields;\n\nconst lats = fields[0].values.toArray();\nconst lons = fields[1].values.toArray();\nconsole.log(\"lats\", lats);\n\nconst lat1 = parseFloat(variables.lat1.query);\nconst lon1 = parseFloat(variables.lon1.query);\nconst lat2 = parseFloat(variables.lat2.query);\nconst lon2 = parseFloat(variables.lon2.query);\n\nconst mapZoom = parseFloat(variables.map_zoom.query);\nconst mapCenterLat = parseFloat(variables.map_center_lat.query);\nconst mapCenterLon = parseFloat(variables.map_center_lon.query);\n\n// console.log(mapZoom, mapCenterLat, mapCenterLon);\nconst traces = [{\n  type: 'scattermapbox',\n  lat: lats,\n  lon: lons,\n  mode: 'markers',\n  marker: {\n    size: 7,\n    color: '#4A90D9',\n    opacity: 0.85,\n  },\n  hoverinfo: 'lat+lon',\n  hoverlabel: { bgcolor: '#333333' }\n}];\n\nif (!isNaN(lat1) && !isNaN(lon1)) {\n  traces.push({\n    type: 'scattermapbox',\n    lat: [lat1],\n    lon: [lon1],\n    mode: 'markers',\n    marker: { size: 10, color: 'gold' },\n    text: [`Point 1: ${lat1}, ${lon1}`],\n    hoverinfo: 'text',\n    hoverlabel: { bgcolor: '#333333' }\n  });\n}\n\nif (!isNaN(lat2) && !isNaN(lon2)) {\n  traces.push({\n    type: 'scattermapbox',\n    lat: [lat2],\n    lon: [lon2],\n    mode: 'markers',\n    marker: { size: 10, color: 'red' },\n    text: [`Point 2: ${lat2}, ${lon2}`],\n    hoverinfo: 'text',\n    hoverlabel: { bgcolor: '#333333' }\n  });\n}\n\nreturn {\n  data: traces,\n  layout: {\n    mapbox: {\n      style: 'open-street-map',\n      center: { lat: mapCenterLat, lon: mapCenterLon },\n      zoom: mapZoom,\n      dragmode: 'zoom'\n    },\n    margin: { t: 0, b: 0, l: 0, r: 0 },\n    paper_bgcolor: 'rgba(0,0,0,0)',\n    plot_bgcolor: 'rgba(0,0,0,0)',\n    showlegend: false\n  },\n  config: {\n    responsive: true,\n    displayModeBar: true,\n    scrollZoom: true\n  }\n};",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -307,7 +307,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT lat, lon\nFROM (\n  SELECT lat, lon FROM \"pairwise_precip/${agg_days}_global0_25_${satellite}_${station}_${region1}\"\n  UNION\n  SELECT lat, lon FROM \"pairwise_precip/${agg_days}_global0_25_${satellite}_${station}_${region2}\"\n) p",
+          "rawSql": "SELECT DISTINCT lat, lon\nFROM (\n  SELECT lat, lon FROM \"paried_data/${agg_days}_${grid}_lsm_${region1}\"\n  UNION\n  SELECT lat, lon FROM \"paried_data/${agg_days}_${grid}_lsm_${region2}\"\n) p",
           "refId": "A",
           "sql": {
             "columns": [
@@ -469,8 +469,8 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "imerg",
-          "value": "imerg"
+          "text": "imerg_final",
+          "value": "imerg_final"
         },
         "description": "precip satellite data source",
         "label": "Satellite Product",
@@ -478,23 +478,56 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "options": [
           {
             "selected": true,
-            "text": "imerg",
-            "value": "imerg"
+            "text": "IMERG",
+            "value": "imerg_final"
           },
           {
             "selected": false,
-            "text": "chirps",
-            "value": "chirps"
+            "text": "CHIRPS",
+            "value": "chirps_v3"
+          },
+          {
+            "selected": false,
+            "text": "Rain over Africa",
+            "value": "rain_over_africa"
           }
         ],
-        "query": "imerg, chirps",
+        "query": "IMERG : imerg_final, CHIRPS : chirps_v3, Rain over Africa : rain_over_africa",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "global0_1",
+          "value": "global0_1"
+        },
+        "description": "",
+        "label": "Grid",
+        "name": "grid",
+        "options": [
+          {
+            "selected": false,
+            "text": "1.5",
+            "value": "global1_5"
+          },
+          {
+            "selected": false,
+            "text": "0.25",
+            "value": "global0_25"
+          },
+          {
+            "selected": true,
+            "text": "0.10",
+            "value": "global0_1"
+          }
+        ],
+        "query": "1.5 : global1_5, 0.25 : global0_25, 0.10 : global0_1",
         "type": "custom"
       },
       {
         "allowCustomValue": false,
         "current": {
-          "text": "10",
-          "value": "10"
+          "text": "5",
+          "value": "5"
         },
         "label": "agg_days",
         "name": "agg_days",
@@ -505,12 +538,12 @@ local station_codes_sql = importstr './assets/station_codes.sql';
             "value": "1"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "5",
             "value": "5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "10",
             "value": "10"
           }
@@ -541,14 +574,10 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "allowCustomValue": false,
         "current": {
           "text": [
-            "4",
-            "5",
-            "6"
+            "$__all"
           ],
           "value": [
-            "4",
-            "5",
-            "6"
+            "$__all"
           ]
         },
         "description": "",
@@ -573,17 +602,17 @@ local station_codes_sql = importstr './assets/station_codes.sql';
             "value": "3"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "4",
             "value": "4"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "5",
             "value": "5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "6",
             "value": "6"
           },
@@ -691,16 +720,15 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "type": "custom"
       },
       {
-        "allowCustomValue": false,
         "current": {
-          "text": "",
-          "value": ""
+          "text": "true",
+          "value": "true"
         },
         "label": "Agg Time",
         "name": "agg_time",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "Yes",
             "value": "true"
           },
@@ -715,70 +743,70 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "6.5",
-          "value": "6.5"
+          "text": "6.45",
+          "value": "6.45"
         },
         "label": "Lat A",
         "name": "lat1",
         "options": [
           {
             "selected": true,
-            "text": "6.5",
-            "value": "6.5"
+            "text": "6.45",
+            "value": "6.45"
           }
         ],
-        "query": "6.5",
+        "query": "6.45",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-1.5",
-          "value": "-1.5"
+          "text": "-2.35",
+          "value": "-2.35"
         },
         "label": "Lon A",
         "name": "lon1",
         "options": [
           {
             "selected": true,
-            "text": "-1.5",
-            "value": "-1.5"
+            "text": "-2.35",
+            "value": "-2.35"
           }
         ],
-        "query": "-1.5",
+        "query": "-2.35",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "3.5",
-          "value": "3.5"
+          "text": "1.75",
+          "value": "1.75"
         },
         "label": "Lat B",
         "name": "lat2",
         "options": [
           {
             "selected": true,
-            "text": "3.5",
-            "value": "3.5"
+            "text": "1.75",
+            "value": "1.75"
           }
         ],
-        "query": "3.5",
+        "query": "1.75",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "35.75",
-          "value": "35.75"
+          "text": "40.05",
+          "value": "40.05"
         },
         "label": "Lon B",
         "name": "lon2",
         "options": [
           {
             "selected": true,
-            "text": "35.75",
-            "value": "35.75"
+            "text": "40.05",
+            "value": "40.05"
           }
         ],
-        "query": "35.75",
+        "query": "40.05",
         "type": "textbox"
       },
       {
@@ -878,8 +906,8 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "40",
-          "value": "40"
+          "text": "10",
+          "value": "10"
         },
         "description": "set limits on all axes",
         "label": "axis limit",
@@ -887,11 +915,11 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "options": [
           {
             "selected": true,
-            "text": "40",
-            "value": "40"
+            "text": "10",
+            "value": "10"
           }
         ],
-        "query": "40",
+        "query": "10",
         "type": "textbox"
       },
       {
@@ -918,6 +946,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         },
         "definition": "SELECT \n  country_name\nFROM \n  \"country_codes/\"",
         "description": "",
+        "hide": 2,
         "includeAll": true,
         "label": "Country",
         "multi": true,
@@ -938,6 +967,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         },
         "definition": station_codes_sql,
         "description": "",
+        "hide": 2,
         "includeAll": true,
         "label": "Station ID",
         "multi": true,
@@ -950,60 +980,60 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "6.79",
-          "value": "6.79"
+          "text": "7.33",
+          "value": "7.33"
         },
         "hide": 2,
         "name": "map_zoom",
         "options": [
           {
             "selected": true,
-            "text": "6.79",
-            "value": "6.79"
+            "text": "7.33",
+            "value": "7.33"
           }
         ],
-        "query": "6.79",
+        "query": "7.33",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "7.0851",
-          "value": "7.0851"
+          "text": "7.3112",
+          "value": "7.3112"
         },
         "hide": 2,
         "name": "map_center_lat",
         "options": [
           {
             "selected": true,
-            "text": "7.0851",
-            "value": "7.0851"
+            "text": "7.3112",
+            "value": "7.3112"
           }
         ],
-        "query": "7.0851",
+        "query": "7.3112",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-0.8967",
-          "value": "-0.8967"
+          "text": "-1.6336",
+          "value": "-1.6336"
         },
         "hide": 2,
         "name": "map_center_lon",
         "options": [
           {
             "selected": true,
-            "text": "-0.8967",
-            "value": "-0.8967"
+            "text": "-1.6336",
+            "value": "-1.6336"
           }
         ],
-        "query": "-0.8967",
+        "query": "-1.6336",
         "type": "textbox"
       }
     ]
   },
   "time": {
-    "from": "2021-04-03T00:00:00.000Z",
-    "to": "2021-04-13T00:00:00.000Z"
+    "from": "now-10y",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "utc",
