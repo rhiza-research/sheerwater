@@ -1,12 +1,17 @@
+local bt_after_ready_imports_js = importstr './assets/bt_after_ready_imports.js';
+local bt_shared_preload_exports_js = importstr './assets/bt_shared_preload_exports.js';
 local color_utilities_js = importstr './assets/color_utilities.js';
 local dfd44cgdurwn4f_singlemap_evaluation_call_function_js = importstr './assets/dfd44cgdurwn4f-singlemap-evaluation-call-function.js';
 local dfd44cgdurwn4f_station_evaluation_params_js = importstr './assets/dfd44cgdurwn4f-station-evaluation-params.js';
 local maplibre_map_builder_js = importstr './assets/maplibre-map-builder.js';
+local maplibre_multimap_layout_js = importstr './assets/maplibre-multimap-layout.js';
 local maplibre_multimap_orchestration_js = importstr './assets/maplibre-multimap-orchestration.js';
 local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlemap-orchestration.js';
 local metrics_utilities_js = importstr './assets/metrics_utilities.js';
+local params_maplibre_maps_js = importstr './assets/params_maplibre_maps.js';
 local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_utilities.js';
 local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.js';
+local vars_utilities_js = importstr './assets/vars_utilities.js';
 
 {
   "annotations": {
@@ -54,14 +59,14 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
         "overrides": []
       },
       "gridPos": {
-        "h": 27,
+        "h": 29,
         "w": 24,
         "x": 0,
         "y": 0
       },
       "id": 9,
       "options": {
-        "afterRender": dfd44cgdurwn4f_station_evaluation_params_js + maplibre_map_builder_js + time_grouping_utilities_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + dfd44cgdurwn4f_singlemap_evaluation_call_function_js,
+        "afterRender": bt_after_ready_imports_js + dfd44cgdurwn4f_station_evaluation_params_js + dfd44cgdurwn4f_singlemap_evaluation_call_function_js,
         "content": "<div id=\"map-container\" style=\"height:900px\" />",
         "contentPartials": [],
         "defaultContent": "",
@@ -70,10 +75,11 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
           "language": "html"
         },
         "editors": [
-          "afterRender"
+          "afterRender",
+          "helpers"
         ],
         "externalStyles": [],
-        "helpers": "",
+        "helpers": vars_utilities_js + params_maplibre_maps_js + maplibre_map_builder_js + time_grouping_utilities_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bt_shared_preload_exports_js,
         "renderMode": "data",
         "styles": "",
         "wrap": true
@@ -146,6 +152,58 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
           }
         ],
         "query": "CHIRP v3 : chirp_v3, CHIRPS v3 (Gauge-Adjusted) : chirps_v3, IMERG Late Run : imerg_late, IMERG Final Run (Gauge-Adjusted) : imerg_final, ERA5 : era5, Rain over Africa : rain_over_africa, TAMSAT : tamsat",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "None",
+          "value": "None"
+        },
+        "label": "Ref. Analysis",
+        "name": "reanalysis_ref",
+        "options": [
+          {
+            "selected": true,
+            "text": "None",
+            "value": "None"
+          },
+          {
+            "selected": false,
+            "text": "CHIRP v3",
+            "value": "chirp_v3"
+          },
+          {
+            "selected": false,
+            "text": "CHIRPS v3 (Gauge-Adjusted)",
+            "value": "chirps_v3"
+          },
+          {
+            "selected": false,
+            "text": "IMERG Late Run",
+            "value": "imerg_late"
+          },
+          {
+            "selected": false,
+            "text": "IMERG Final Run (Gauge-Adjusted)",
+            "value": "imerg_final"
+          },
+          {
+            "selected": false,
+            "text": "ERA5",
+            "value": "era5"
+          },
+          {
+            "selected": false,
+            "text": "Rain over Africa",
+            "value": "rain_over_africa"
+          },
+          {
+            "selected": false,
+            "text": "TAMSAT",
+            "value": "tamsat"
+          }
+        ],
+        "query": "None : None, CHIRP v3 : chirp_v3, CHIRPS v3 (Gauge-Adjusted) : chirps_v3, IMERG Late Run : imerg_late, IMERG Final Run (Gauge-Adjusted) : imerg_final, ERA5 : era5, Rain over Africa : rain_over_africa, TAMSAT : tamsat",
         "type": "custom"
       },
       {
