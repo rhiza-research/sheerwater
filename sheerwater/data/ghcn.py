@@ -10,7 +10,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, get_variable, roll_and_agg, snap_point_to_grid, shift_by_days
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
@@ -204,7 +204,10 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask=None, region='global'):  # noqa: ARG001
     """Standard interface for ghcn data."""
     # Roll and agg
-    ds = ghcnd(start_time, end_time, grid=grid, cell_aggregation=cell_aggregation)
+    new_start = shift_by_days(start_time, -agg_days+1) if start_time is not None else None
+    new_end = shift_by_days(end_time, agg_days-1) if end_time is not None else None
+    ds = ghcnd(new_start, new_end, grid=grid, cell_aggregation=cell_aggregation)
+
     agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
 

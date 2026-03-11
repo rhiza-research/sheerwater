@@ -87,6 +87,12 @@ data "google_secret_manager_secret_version" "postgres_read_password" {
   secret = "postgres-read-password"
 }
 
+# Gcloud secrets for influx read user
+data "google_secret_manager_secret_version" "tahmo_influx_read_password" {
+  secret = "tahmo-influx-read-password"
+  project = "sheerwater"
+}
+
 resource "grafana_organization" "org" {
   name = "SheerWater"
 
@@ -116,6 +122,7 @@ resource "grafana_organization_preferences" "preferences" {
 resource "grafana_data_source" "postgres" {
   type = "grafana-postgresql-datasource"
   name = "postgres"
+  is_default = true
   url = local.postgres_url
   username = "sheerwater_read"
   uid = "bdz3m3xs99p1cf"
@@ -136,6 +143,38 @@ resource "grafana_data_source" "postgres" {
   depends_on = [grafana_organization.org]
 
 }
+
+# Connect grafana to the read user with a datasource
+resource "grafana_data_source" "influx_tahmo" {
+  type = "influxdb"
+  name = "influx"
+  url = "https://heavy-d24620b1.influxcloud.net:8086"
+  basic_auth_enabled = true
+  basic_auth_username = "RhizaResearch"
+  database_name = "TAHMO"
+  uid = "eepjuov1zfi0wb"
+
+  secure_json_data_encoded = jsonencode({
+    basicAuthPassword = data.google_secret_manager_secret_version.tahmo_influx_read_password.secret_data
+  })
+
+  json_data_encoded = jsonencode({
+    dbname = "TAHMO"
+    basicAuthPassword = data.google_secret_manager_secret_version.tahmo_influx_read_password.secret_data
+    authType = "default"
+    query_language = "SQL"
+  })
+
+  org_id = grafana_organization.org.id
+
+  depends_on = [grafana_organization.org]
+
+  lifecycle {
+    replace_triggered_by = [grafana_organization.org.id]
+  }
+
+}
+
 
 module "grafana-weaver" {
   source = "git::https://github.com/rhiza-research/grafana-weaver.git//terraform_module"
