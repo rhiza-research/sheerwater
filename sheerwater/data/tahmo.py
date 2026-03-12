@@ -96,7 +96,6 @@ def tahmo_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         # Convert to xarray - for this to succeed obs must be a pandas dataframe
         obs = xr.Dataset.from_dataframe(obs.set_index(['time', 'lat', 'lon']))
     else:
-        import pdb; pdb.set_trace()
         stat = stat[['station_id', 'lat', 'lon']]
         stat = stat.set_index('station_id')
         obs = obs.join(stat, on='station_id', how='inner')
