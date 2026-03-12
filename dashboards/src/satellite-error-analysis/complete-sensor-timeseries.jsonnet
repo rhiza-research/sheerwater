@@ -141,6 +141,87 @@ local grid_size_sql = importstr './assets/grid_size.sql';
   "panels": [
     {
       "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 0,
+        "y": 0
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0-pre",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT station_id) AS unique_stations\nFROM \"data_at_stations/1_tahmo_source_stations_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Panel Title",
+      "type": "stat"
+    },
+    {
+      "datasource": {
         "type": "datasource",
         "uid": "-- Mixed --"
       },
@@ -197,10 +278,6 @@ local grid_size_sql = importstr './assets/grid_size.sql';
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
@@ -234,6 +311,10 @@ local grid_size_sql = importstr './assets/grid_size.sql';
               {
                 "id": "displayName",
                 "value": "IMERG"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
               }
             ]
           },
@@ -269,6 +350,14 @@ local grid_size_sql = importstr './assets/grid_size.sql';
               {
                 "id": "displayName",
                 "value": "CHIRPS v3"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
               }
             ]
           },
@@ -305,8 +394,20 @@ local grid_size_sql = importstr './assets/grid_size.sql';
                 }
               },
               {
-                "id": "displayName",
-                "value": "1d rain TAHMO ${station}"
+                "id": "custom.fillOpacity",
+                "value": 1
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
               }
             ]
           },
@@ -354,14 +455,32 @@ local grid_size_sql = importstr './assets/grid_size.sql';
                 "value": "Soil Moisture"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Event Threshold"
+            },
+            "properties": [
+              {
+                "id": "custom.fillOpacity",
+                "value": 7
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 13,
+        "h": 21,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 2
       },
       "id": 13,
       "options": {
@@ -389,7 +508,36 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, precip AS imerg_precip\nFROM \"data_at_stations/imerg_final_${grid}_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
+          "rawSql": "-- SELECT \n--   time, \n--   AVG(precip) OVER (\n--     PARTITION BY station_id\n--     ORDER BY time\n--     ROWS BETWEEN (${agg_days} - 1) PRECEDING AND CURRENT ROW\n--   ) AS \"TAHMO\", \n--   station_id AS station\n-- FROM \"data_at_stations/1_tahmo_source_stations_precip\"\n-- WHERE time $__timeFilter()\n--   AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n--   AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\n-- ORDER BY time ASC\nSELECT \n  time, \n  AVG(AVG(precip)) OVER (\n    ORDER BY time\n    ROWS BETWEEN (${agg_days} - 1) PRECEDING AND CURRENT ROW\n  ) AS \"TAHMO\"\nFROM \"data_at_stations/1_tahmo_source_stations_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nGROUP BY time\nORDER BY time ASC",
+          "refId": "TAHMO",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT time, AVG(AVG(precip)) OVER (\n    ORDER BY time\n    ROWS BETWEEN (${agg_days} - 1) PRECEDING AND CURRENT ROW\n  ) AS imerg_precip\nFROM \"data_at_stations/1_imerg_final_${grid}_tahmo_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nGROUP BY time\nORDER BY time ASC",
           "refId": "IMERG",
           "sql": {
             "columns": [
@@ -418,7 +566,7 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, precip AS chirps_precip\nFROM \"data_at_stations/chirps_v3_${grid}_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
+          "rawSql": "SELECT time, AVG(AVG(precip)) OVER (\n    ORDER BY time\n    ROWS BETWEEN (${agg_days} - 1) PRECEDING AND CURRENT ROW\n  ) AS chirps_precip\nFROM \"data_at_stations/1_chirps_v3_${grid}_tahmo_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nGROUP BY time\nORDER BY time ASC",
           "refId": "CHIRPS",
           "sql": {
             "columns": [
@@ -447,7 +595,7 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, precip AS roa_precip\nFROM \"data_at_stations/rain_over_africa_global0_1_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nORDER BY time ASC",
+          "rawSql": "SELECT time, AVG(AVG(precip)) OVER (\n    ORDER BY time\n    ROWS BETWEEN (${agg_days} - 1) PRECEDING AND CURRENT ROW\n  ) AS roa_precip\nFROM \"data_at_stations/1_rain_over_africa_${grid}_tahmo_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nGROUP BY time\nORDER BY time ASC",
           "refId": "ROA",
           "sql": {
             "columns": [
@@ -476,7 +624,7 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT time, soil_moisture AS smap_soil_moisture\nFROM \"data_at_stations/smap_l3_smap_tahmo\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= 1.0\n  AND ABS(lon - (${lon:raw})::real) <= 1.0\nORDER BY time ASC",
+          "rawSql": "SELECT time, AVG(AVG(soil_moisture)) OVER (\n    ORDER BY time\n    ROWS BETWEEN (${agg_days} - 1) PRECEDING AND CURRENT ROW\n  ) AS smap_soil_moisture\nFROM \"data_at_stations/1_smap_l3_source_tahmo_soil_moisture\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}\nGROUP BY time\nORDER BY time ASC",
           "refId": "SMAP",
           "sql": {
             "columns": [
@@ -505,8 +653,37 @@ local grid_size_sql = importstr './assets/grid_size.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  precip AS \"1d rain\",\n  station_id AS station\nFROM \"station_data/tahmo\"\nWHERE station_id IN (${station:singlequote})\n  AND $__timeFilter(time)\nORDER BY time ASC",
-          "refId": "TAHMO",
+          "rawSql": "SELECT \n  generate_series(\n    $__timeFrom()::timestamptz,\n    $__timeTo()::timestamptz,\n    '1 day'::interval\n  ) AS time,\n  ${event} / ${agg_days} AS \"Event Threshold\"",
+          "refId": "Threshhold",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "",
+          "refId": "A",
           "sql": {
             "columns": [
               {
@@ -536,783 +713,6 @@ local grid_size_sql = importstr './assets/grid_size.sql';
         }
       ],
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "eepjuov1zfi0wb"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": 432000000,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": 3600000,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Temperature"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Degree C"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "left"
-              },
-              {
-                "id": "custom.axisWidth",
-                "value": 30
-              },
-              {
-                "id": "displayName",
-                "value": "Temperature: ${__field.labels.station}"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Humidity"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Relative Humidity"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "left"
-              },
-              {
-                "id": "custom.axisWidth",
-                "value": 30
-              },
-              {
-                "id": "displayName",
-                "value": "Relative Humidity: ${__field.labels.station}"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Pressure"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Pressure (kPa)"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "left"
-              },
-              {
-                "id": "custom.axisWidth",
-                "value": 30
-              },
-              {
-                "id": "displayName",
-                "value": "Pressure: ${__field.labels.station}"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ""
-            },
-            "properties": [
-              {
-                "id": "displayName"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.5.0-pre",
-      "targets": [
-        {
-          "alias": "Pressure",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT mean(\"value\") \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'ap') \n  AND $timeFilter \nGROUP BY time($__interval), \"station\"::tag fill(null)",
-          "rawQuery": true,
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "ap"
-            }
-          ]
-        },
-        {
-          "alias": "Temperature",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT mean(\"value\") \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'te') \n  AND $timeFilter \nGROUP BY time($__interval), \"station\"::tag fill(null)",
-          "rawQuery": true,
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "te"
-            }
-          ]
-        },
-        {
-          "alias": "Humidity",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT mean(\"value\") \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'rh') \n  AND $timeFilter \nGROUP BY time($__interval), \"station\"::tag fill(null)",
-          "rawQuery": true,
-          "refId": "C",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "rh"
-            }
-          ]
-        }
-      ],
-      "title": "Temperature, humidity, pressure",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "eepjuov1zfi0wb"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": 432000000,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": 3600000,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Wind speed"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Wind Speed (m/s)"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "left"
-              },
-              {
-                "id": "custom.axisWidth",
-                "value": 45
-              },
-              {
-                "id": "max",
-                "value": 7
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Wind direction"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "custom.axisLabel",
-                "value": "Wind Direction (Degree)"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "left"
-              },
-              {
-                "id": "custom.axisWidth",
-                "value": 45
-              },
-              {
-                "id": "custom.drawStyle",
-                "value": "line"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#f28f0c",
-                  "mode": "fixed"
-                }
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "dash": [
-                    0,
-                    10
-                  ],
-                  "fill": "dot"
-                }
-              },
-              {
-                "id": "max"
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 2
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*/"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Station: ${__field.labels.station}"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 20
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.5.0-pre",
-      "targets": [
-        {
-          "alias": "Wind speed",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT mean(\"value\") \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'ws') \n  AND $timeFilter \nGROUP BY time($__interval), \"station\"::tag fill(null)",
-          "rawQuery": true,
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "ws"
-            },
-            {
-              "condition": "AND",
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            }
-          ]
-        },
-        {
-          "alias": "Wind direction",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [
-            {
-              "params": [
-                "$__interval"
-              ],
-              "type": "time"
-            },
-            {
-              "params": [
-                "null"
-              ],
-              "type": "fill"
-            }
-          ],
-          "hide": false,
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT mean(\"value\") \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'wd') \n  AND $timeFilter \nGROUP BY time($__interval), \"station\"::tag fill(null)",
-          "rawQuery": true,
-          "refId": "B",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              },
-              {
-                "params": [],
-                "type": "mean"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "wd"
-            },
-            {
-              "condition": "AND",
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            }
-          ]
-        }
-      ],
-      "title": "Wind speed and direction",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "eepjuov1zfi0wb"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "dark-yellow",
-            "mode": "fixed"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Irradiance (W/m^2)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": 432000000,
-            "lineInterpolation": "linear",
-            "lineWidth": 0.5,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": 3600000,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "displayName": "Station: ${__field.labels.station}",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "solar radiation"
-            },
-            "properties": [
-              {
-                "id": "custom.axisWidth",
-                "value": 90
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 28
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.5.0-pre",
-      "targets": [
-        {
-          "alias": "solar radiation",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "eepjuov1zfi0wb"
-          },
-          "groupBy": [],
-          "measurement": "controlled",
-          "orderByTime": "ASC",
-          "policy": "default",
-          "query": "SELECT \"value\" \nFROM \"controlled\" \nWHERE (\"station\"::tag =~ /^${station:regex}$/ AND \"variable\"::tag = 'ra') \n  AND $timeFilter \nGROUP BY \"station\"::tag",
-          "rawQuery": true,
-          "refId": "A",
-          "resultFormat": "time_series",
-          "select": [
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "field"
-              }
-            ]
-          ],
-          "tags": [
-            {
-              "key": "station::tag",
-              "operator": "=~",
-              "value": "/^$station$/"
-            },
-            {
-              "condition": "AND",
-              "key": "variable::tag",
-              "operator": "=",
-              "value": "ra"
-            }
-          ]
-        }
-      ],
-      "title": "Solar Radiation",
-      "type": "timeseries"
     }
   ],
   "preload": false,
@@ -1323,56 +723,37 @@ local grid_size_sql = importstr './assets/grid_size.sql';
     "list": [
       {
         "current": {
-          "text": "3.5",
-          "value": "3.5"
+          "text": "5.75",
+          "value": "5.75"
         },
         "label": "Latitude",
         "name": "lat",
         "options": [
           {
             "selected": true,
-            "text": "3.5",
-            "value": "3.5"
+            "text": "5.75",
+            "value": "5.75"
           }
         ],
-        "query": "3.5",
+        "query": "5.75",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "35.75",
-          "value": "35.75"
+          "text": "-0.25",
+          "value": "-0.25"
         },
         "label": "Longitude",
         "name": "lon",
         "options": [
           {
             "selected": true,
-            "text": "35.75",
-            "value": "35.75"
+            "text": "-0.25",
+            "value": "-0.25"
           }
         ],
-        "query": "35.75",
+        "query": "-0.25",
         "type": "textbox"
-      },
-      {
-        "allowCustomValue": true,
-        "current": {
-          "text": "All",
-          "value": [
-            "$__all"
-          ]
-        },
-        "definition": "SELECT station_ids\nFROM \"tahmo_grid_counts/global0_25\"\nWHERE lat = ${lat} AND lon = ${lon}",
-        "includeAll": true,
-        "label": "Station",
-        "multi": true,
-        "name": "station",
-        "options": [],
-        "query": "SELECT station_ids\nFROM \"tahmo_grid_counts/global0_25\"\nWHERE lat = ${lat} AND lon = ${lon}",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
       },
       {
         "current": {
@@ -1390,62 +771,19 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "TA00002 - Benso SHS",
-          "value": "TA00002"
-        },
-        "definition": "SELECT \n  code || ' - ' || location_name AS __text, \n  code AS __value \nFROM \n  ${tahmo_deployment_name}",
-        "hide": 2,
-        "label": "Station",
-        "name": "all_station",
-        "options": [],
-        "query": "SELECT \n  code || ' - ' || location_name AS __text, \n  code AS __value \nFROM \n  ${tahmo_deployment_name}",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": "ec6142179608733b2a6d10218590cf61",
-          "value": "ec6142179608733b2a6d10218590cf61"
-        },
-        "definition": "select * from 'tahmo_station/${station}_controlled'",
-        "hide": 2,
-        "name": "station_table_name",
-        "options": [],
-        "query": "select * from 'tahmo_station/${station}_controlled'",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": "2bd5bb18c0f0a80adf62831278519769",
-          "value": "2bd5bb18c0f0a80adf62831278519769"
-        },
-        "definition": "select * from md5('battery_cycle_periods_all_stations/')",
-        "hide": 2,
-        "name": "batt_zero_name",
-        "options": [],
-        "query": "select * from md5('battery_cycle_periods_all_stations/')",
-        "refresh": 1,
-        "regex": "",
-        "type": "query"
-      },
-      {
-        "current": {
-          "text": "global0_25",
-          "value": "global0_25"
+          "text": "global1_5",
+          "value": "global1_5"
         },
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.25",
             "value": "global0_25"
           },
@@ -1460,8 +798,8 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "0.125001",
-          "value": "0.125001"
+          "text": "0.750001",
+          "value": "0.750001"
         },
         "definition": grid_size_sql,
         "description": "",
@@ -1472,12 +810,46 @@ local grid_size_sql = importstr './assets/grid_size.sql';
         "refresh": 1,
         "regex": "",
         "type": "query"
+      },
+      {
+        "current": {
+          "text": "10",
+          "value": "10"
+        },
+        "label": "Agg Days",
+        "name": "agg_days",
+        "options": [
+          {
+            "selected": true,
+            "text": "10",
+            "value": "10"
+          }
+        ],
+        "query": "10",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "20",
+          "value": "20"
+        },
+        "label": "Event mm",
+        "name": "event",
+        "options": [
+          {
+            "selected": true,
+            "text": "20",
+            "value": "20"
+          }
+        ],
+        "query": "20",
+        "type": "textbox"
       }
     ]
   },
   "time": {
-    "from": "now-2y",
-    "to": "now"
+    "from": "2013-09-11T23:39:20.768Z",
+    "to": "2033-09-10T23:39:20.768Z"
   },
   "timepicker": {},
   "timezone": "utc",

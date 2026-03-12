@@ -39,45 +39,39 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
         agg_days (int): The number of days to aggregate the data over.
         grid (str): The grid to get the gridded data on.
     """
-    # Get the station data on the source grid to determine which grid points the stations are on
-    # This data is not piped through to the final data product
-    station_fn = get_data(station)
-    station_df = station_fn(start_time, end_time, variable='precip', grid='source', agg_days=agg_days, mask="lsm")
-    if not is_station_grid(station_df):
-        raise ValueError(f"Station grid {station_df} is not a station grid")
-
     # Get data source function
     data_fn = get_data(data)
     ds = data_fn(start_time, end_time, variable=variable, grid=grid, agg_days=agg_days, mask="lsm")
-    import pdb; pdb.set_trace()
-    if is_station_grid(ds):
-        # If we're already a station grid, return the 
-        return ds
 
-    if nonuniform_grid(ds):
-        # Set the index for lat and lon in a nonuniform grid
-        ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
+    if not is_station_grid(ds):
+        # Get the station data on the source grid to determine which grid points the stations are on
+        # This data is not piped through to the final data product
+        station_fn = get_data(station)
+        station_df = station_fn(start_time, end_time, variable='precip', grid='source', agg_days=agg_days, mask="lsm")
+        if not is_station_grid(station_df):
+            raise ValueError(f"Station grid {station_df} is not a station grid")
 
-    # Calculate which grid points the stations are on, requires a uniform grid
-    try:
-        _, _, grid_size, _ = get_grid(grid)
-    except NotImplementedError:
-        grid_size = 0.05
+        if nonuniform_grid(ds):
+            # Set the index for lat and lon in a nonuniform grid
+            ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
-    import pdb; pdb.set_trace()
-    tab = ds.sel(
-        lat=station_df["lat"],
-        lon=station_df["lon"],
-        method="nearest",
-        tolerance=grid_size/2 + 1e-6
-    )
+        # Calculate which grid points the stations are on, requires a uniform grid
+        try:
+            _, _, grid_size, _ = get_grid(grid)
+        except NotImplementedError:
+            grid_size = 0.05
+
+        ds = ds.sel(
+            lat=station_df["lat"],
+            lon=station_df["lon"],
+            method="nearest",
+            tolerance=grid_size/2 + 1e-6
+        )
 
     # Select those grid points from the satellite data
-    tab = tab.to_dask_dataframe()
-    tab = tab.drop(columns=['station_id'])
+    tab = ds.to_dask_dataframe()
     # Drop columns where the variable is NaN
     tab = tab.dropna(subset=[variable])
-    import pdb; pdb.set_trace()
     return tab
 
 
@@ -122,20 +116,22 @@ if __name__ == "__main__":
     # start_remote(remote_config='xlarge_cluster')
     start_remote(remote_name='genevieve')
     now = datetime.now().strftime("%Y-%m-%d")
-    if True:
-        # for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
-        #     for grid in ['global0_1', 'global0_25', 'global1_5']:
-        #         ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
-        #                               station='stations', grid=grid, variable='precip', backend='sql')
+    if False:
+        for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
+            for grid in ['global0_1', 'global0_25', 'global1_5']:
+                ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
+                                      station='tahmo', grid=grid, variable='precip', backend='sql')
 
         # SMAP and TAHMO data are on the source grid
-        # ds = data_at_stations(start_time='2015-01-01', end_time=now, data='smap_l3',
-        #                       station='stations', grid='source', variable='soil_moisture', backend='sql')
+        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='smap_l3',
+                              station='tahmo', grid='source', variable='soil_moisture',
+                              backend='sql', recompute=True)
 
-        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='tahmo_avg',
-                              station='stations', grid='source', variable='precip', backend='sql')
+        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='tahmo',
+                              station='stations', grid='source', variable='precip',
+                              backend='sql', recompute=True)
 
-    if False:
+    if True:
         for grid in ['global0_1', 'global0_25', 'global1_5']:
             for region in ['ghana', 'kenya']:
                 for agg_days in [1, 5, 10]:

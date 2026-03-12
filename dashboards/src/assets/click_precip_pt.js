@@ -15,11 +15,12 @@ try {
     let timeField = fields.find(f => f.name === "time");
 
     let aggDays = variables.agg_days.current.value;
+    let grid = variables.grid.current.value;
     let startTime = new Date(timeField.values.get(pointIndex));
     let endTime = new Date(startTime.getTime() + aggDays * 24 * 60 * 60 * 1000);
 
     if (pointIndex != null) {
-        const url = `${urlFragment}var-lat=${lat.values.get(pointIndex)}&var-lon=${lon.values.get(pointIndex)}&from=${startTime.toISOString()}&to=${endTime.toISOString()}&var-timezone=utc`;
+        const url = `${urlFragment}var-lat=${lat.values.get(pointIndex)}&var-lon=${lon.values.get(pointIndex)}&from=${startTime.toISOString()}&to=${endTime.toISOString()}&var-timezone=utc&var-grid=${grid}&var-agg_days=${aggDays}`;
         window.open(url, '_blank');
     }
   }

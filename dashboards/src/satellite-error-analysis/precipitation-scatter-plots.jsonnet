@@ -1,4 +1,5 @@
 local click_precip_pt_js = importstr './assets/click_precip_pt.js';
+local grid_size_sql = importstr './assets/grid_size.sql';
 local precip_event_pie_js = importstr './assets/precip_event_pie.js';
 local precip_scatter_js = importstr './assets/precip_scatter.js';
 local station_codes_sql = importstr './assets/station_codes.sql';
@@ -86,7 +87,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"paried_data/${agg_days}_${grid}_lsm_${region1}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat1}::real) <= 1e-4\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon1}::real) <= 1e-4\n  );\n",
+          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"paried_data/${agg_days}_${grid}_lsm_${region1}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat1}::real) <= ${grid_size}\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon1}::real) <= ${grid_size}\n  );",
           "refId": "A",
           "sql": {
             "columns": [
@@ -497,8 +498,8 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "global0_1",
-          "value": "global0_1"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "description": "",
         "label": "Grid",
@@ -510,12 +511,12 @@ local station_codes_sql = importstr './assets/station_codes.sql';
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.10",
             "value": "global0_1"
           }
@@ -526,19 +527,19 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "5",
-          "value": "5"
+          "text": "1",
+          "value": "1"
         },
         "label": "agg_days",
         "name": "agg_days",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1",
             "value": "1"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "5",
             "value": "5"
           },
@@ -574,10 +575,14 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "allowCustomValue": false,
         "current": {
           "text": [
-            "$__all"
+            "5",
+            "6",
+            "7"
           ],
           "value": [
-            "$__all"
+            "5",
+            "6",
+            "7"
           ]
         },
         "description": "",
@@ -607,17 +612,17 @@ local station_codes_sql = importstr './assets/station_codes.sql';
             "value": "4"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "5",
             "value": "5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "6",
             "value": "6"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "7",
             "value": "7"
           },
@@ -699,8 +704,8 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "false",
-          "value": "false"
+          "text": "",
+          "value": ""
         },
         "label": "Filter Lat/Lon",
         "name": "filter_space",
@@ -711,28 +716,6 @@ local station_codes_sql = importstr './assets/station_codes.sql';
             "value": "true"
           },
           {
-            "selected": true,
-            "text": "No",
-            "value": "false"
-          }
-        ],
-        "query": "Yes : true, No : false",
-        "type": "custom"
-      },
-      {
-        "current": {
-          "text": "true",
-          "value": "true"
-        },
-        "label": "Agg Time",
-        "name": "agg_time",
-        "options": [
-          {
-            "selected": true,
-            "text": "Yes",
-            "value": "true"
-          },
-          {
             "selected": false,
             "text": "No",
             "value": "false"
@@ -743,70 +726,92 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "6.45",
-          "value": "6.45"
+          "text": "false",
+          "value": "false"
+        },
+        "label": "Agg Time",
+        "name": "agg_time",
+        "options": [
+          {
+            "selected": false,
+            "text": "Yes",
+            "value": "true"
+          },
+          {
+            "selected": true,
+            "text": "No",
+            "value": "false"
+          }
+        ],
+        "query": "Yes : true, No : false",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "9.5",
+          "value": "9.5"
         },
         "label": "Lat A",
         "name": "lat1",
         "options": [
           {
             "selected": true,
-            "text": "6.45",
-            "value": "6.45"
+            "text": "9.5",
+            "value": "9.5"
           }
         ],
-        "query": "6.45",
+        "query": "9.5",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-2.35",
-          "value": "-2.35"
+          "text": "-1",
+          "value": "-1"
         },
         "label": "Lon A",
         "name": "lon1",
         "options": [
           {
             "selected": true,
-            "text": "-2.35",
-            "value": "-2.35"
+            "text": "-1",
+            "value": "-1"
           }
         ],
-        "query": "-2.35",
+        "query": "-1",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "1.75",
-          "value": "1.75"
+          "text": "0.5",
+          "value": "0.5"
         },
         "label": "Lat B",
         "name": "lat2",
         "options": [
           {
             "selected": true,
-            "text": "1.75",
-            "value": "1.75"
+            "text": "0.5",
+            "value": "0.5"
           }
         ],
-        "query": "1.75",
+        "query": "0.5",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "40.05",
-          "value": "40.05"
+          "text": "35.75",
+          "value": "35.75"
         },
         "label": "Lon B",
         "name": "lon2",
         "options": [
           {
             "selected": true,
-            "text": "40.05",
-            "value": "40.05"
+            "text": "35.75",
+            "value": "35.75"
           }
         ],
-        "query": "40.05",
+        "query": "35.75",
         "type": "textbox"
       },
       {
@@ -906,8 +911,8 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "10",
-          "value": "10"
+          "text": "20",
+          "value": "20"
         },
         "description": "set limits on all axes",
         "label": "axis limit",
@@ -915,11 +920,11 @@ local station_codes_sql = importstr './assets/station_codes.sql';
         "options": [
           {
             "selected": true,
-            "text": "10",
-            "value": "10"
+            "text": "20",
+            "value": "20"
           }
         ],
-        "query": "10",
+        "query": "20",
         "type": "textbox"
       },
       {
@@ -980,54 +985,68 @@ local station_codes_sql = importstr './assets/station_codes.sql';
       },
       {
         "current": {
-          "text": "7.33",
-          "value": "7.33"
+          "text": "5.16",
+          "value": "5.16"
         },
         "hide": 2,
         "name": "map_zoom",
         "options": [
           {
             "selected": true,
-            "text": "7.33",
-            "value": "7.33"
+            "text": "5.16",
+            "value": "5.16"
           }
         ],
-        "query": "7.33",
+        "query": "5.16",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "7.3112",
-          "value": "7.3112"
+          "text": "4.7074",
+          "value": "4.7074"
         },
         "hide": 2,
         "name": "map_center_lat",
         "options": [
           {
             "selected": true,
-            "text": "7.3112",
-            "value": "7.3112"
+            "text": "4.7074",
+            "value": "4.7074"
           }
         ],
-        "query": "7.3112",
+        "query": "4.7074",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-1.6336",
-          "value": "-1.6336"
+          "text": "0.3752",
+          "value": "0.3752"
         },
         "hide": 2,
         "name": "map_center_lon",
         "options": [
           {
             "selected": true,
-            "text": "-1.6336",
-            "value": "-1.6336"
+            "text": "0.3752",
+            "value": "0.3752"
           }
         ],
-        "query": "-1.6336",
+        "query": "0.3752",
         "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "0.125001",
+          "value": "0.125001"
+        },
+        "definition": grid_size_sql,
+        "hide": 2,
+        "name": "grid_size",
+        "options": [],
+        "query": grid_size_sql,
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
       }
     ]
   },
