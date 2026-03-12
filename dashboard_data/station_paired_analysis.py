@@ -24,7 +24,7 @@ def postgres_write_password():
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'data', 'station', 'grid'], backend='sql')
+@cache(cache_args=['data', 'station', 'grid', 'variable', 'agg_days'], backend='sql')
 def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_days=1,
                      station='tahmo', grid='global0_1'):
     """Get a gridded data product at grid cells containing stations in tabular form.
@@ -49,6 +49,11 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
     # Get data source function
     data_fn = get_data(data)
     ds = data_fn(start_time, end_time, variable=variable, grid=grid, agg_days=agg_days, mask="lsm")
+    import pdb; pdb.set_trace()
+    if is_station_grid(ds):
+        # If we're already a station grid, return the 
+        return ds
+
     if nonuniform_grid(ds):
         # Set the index for lat and lon in a nonuniform grid
         ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
@@ -59,6 +64,7 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
     except NotImplementedError:
         grid_size = 0.05
 
+    import pdb; pdb.set_trace()
     tab = ds.sel(
         lat=station_df["lat"],
         lon=station_df["lon"],
@@ -71,6 +77,7 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
     tab = tab.drop(columns=['station_id'])
     # Drop columns where the variable is NaN
     tab = tab.dropna(subset=[variable])
+    import pdb; pdb.set_trace()
     return tab
 
 
@@ -112,7 +119,8 @@ def paried_data(start_time, end_time,
 if __name__ == "__main__":
     from datetime import datetime
     from sheerwater.utils import start_remote
-    start_remote(remote_config='xlarge_cluster')
+    # start_remote(remote_config='xlarge_cluster')
+    start_remote(remote_name='genevieve')
     now = datetime.now().strftime("%Y-%m-%d")
     if True:
         # for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
@@ -121,8 +129,8 @@ if __name__ == "__main__":
         #                               station='stations', grid=grid, variable='precip', backend='sql')
 
         # SMAP and TAHMO data are on the source grid
-        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='smap_l3',
-                              station='stations', grid='source', variable='soil_moisture', backend='sql')
+        # ds = data_at_stations(start_time='2015-01-01', end_time=now, data='smap_l3',
+        #                       station='stations', grid='source', variable='soil_moisture', backend='sql')
 
         ds = data_at_stations(start_time='2015-01-01', end_time=now, data='tahmo_avg',
                               station='stations', grid='source', variable='precip', backend='sql')
