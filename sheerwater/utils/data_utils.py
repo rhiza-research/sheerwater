@@ -11,7 +11,7 @@ from .space_utils import get_grid_ds
 from .time_utils import add_dayofyear
 
 
-def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
+def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None, alignment='left'):
     """Rolling aggregation of the dataset.
 
     Applies rolling and then corrects rolling window labels to be left aligned.
@@ -30,10 +30,15 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
     if agg_thresh is None:
         # If no agg_thresh is provided, use the full aggregation period by default
         agg_thresh = agg
+
+    center = False
+    if alignment == 'center':
+        center = True
+
     agg_kwargs = {
         f"{agg_col}": agg,
         "min_periods": agg_thresh,
-        "center": False
+        "center": center
     }
     # Apply n-day rolling aggregation
     if agg_fn == "mean":
@@ -44,14 +49,21 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         raise NotImplementedError(f"Aggregation function {agg_fn} not implemented.")
 
     # Check to see if coord is a time value
-    assert np.issubdtype(ds[agg_col].dtype, np.timedelta64) or np.issubdtype(ds[agg_col].dtype, np.datetime64)
+    #assert np.issubdtype(ds[agg_col].dtype, np.timedelta64) or np.issubdtype(ds[agg_col].dtype, np.datetime64)
 
     # Chop off the first agg-1 days, which will be all NaNs
     ds_agg = ds_agg.isel(**{f"{agg_col}": slice(agg-1, None)})
 
     # Correct coords to left-align the aggregated forecast window
     # (default is right aligned)
-    ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-np.timedelta64(agg-1, 'D')})
+    if alignment == 'left':
+        ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-np.timedelta64(agg-1, 'D')})
+    elif alignment == 'right' or alignment == 'center':
+        # already aligned correctly
+        pass
+    else:
+        raise ValueError(f"Alignment must be one of 'left', 'right', or 'center' but got {alignment}")
+
 
     return ds_agg
 
