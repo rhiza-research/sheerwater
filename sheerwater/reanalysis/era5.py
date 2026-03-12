@@ -257,9 +257,6 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
     if grid != 'global0_25':
         raise ValueError("Only ERA5 native 0.25 degree grid is implemented.")
 
-    # Read and combine all the data into an array
-    ds = era5_raw(start_time, end_time, variable, grid='global0_25')
-
     K_const = 273.15
     if variable == 'tmp2m':
         ds = era5_raw(start_time, end_time, variable, grid='global0_25')

@@ -68,10 +68,7 @@ class SheerwaterDataset(NuthatchProcessor):
                 ds = clip_region(ds, grid=self.grid, region=self.region)
             if not check_spatial_attr(ds, mask=self.mask):
                 # Only apply mask if this dataframe has not already been masked
-                try:
-                    ds = apply_mask(ds, self.mask, grid=self.grid)
-                except NotImplementedError:
-                    logger.warning(f"Mask {self.mask} not implemented for grid {self.grid}")
+                ds = apply_mask(ds, self.mask, grid=self.grid)
             attrs = {
                 'agg_days': float(self.agg_days),
                 'variable': self.variable,

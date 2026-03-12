@@ -5,8 +5,7 @@ from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote, get_grid
-from sheerwater.spatial_subdivisions import nonuniform_grid, space_grouping_labels, clip_region, is_station_grid
-from sheerwater.data.tahmo import tahmo_deployment, tahmo_raw_daily
+from sheerwater.spatial_subdivisions import nonuniform_grid, is_station_grid
 from sheerwater.interfaces import get_data
 
 
@@ -26,27 +25,30 @@ def postgres_write_password():
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'data', 'station', 'grid'], backend='sql')
-def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='global0_1'):
+def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_days=1,
+                     station='tahmo', grid='global0_1'):
     """Get a gridded data product at grid cells containing stations in tabular form.
 
     Args:
         start_time (str): The start time of the data.
         end_time (str): The end time of the data.
         data (str): The gridded data product to get the data from.
-        station (str): The dataset to get the data from. Can be 'tahmo'.
-            TODO: implement for GHCN, KNUST, etc. Need to get their station locations.
+        station (str): The dataset to get the data from. Can be any valid station dataset, 
+        including 'tahmo', 'knust', 'ghcn', 'stations', etc.
+        variable (str): The variable to get the data from. Can be 'precip' or 'soil_moisture'.
+        agg_days (int): The number of days to aggregate the data over.
         grid (str): The grid to get the gridded data on.
     """
-    # Get the station data on the source grid
+    # Get the station data on the source grid to determine which grid points the stations are on
+    # This data is not piped through to the final data product
     station_fn = get_data(station)
-    station_df = station_fn(start_time, end_time, variable='precip', grid='source', agg_days=1, mask="lsm")
+    station_df = station_fn(start_time, end_time, variable='precip', grid='source', agg_days=agg_days, mask="lsm")
     if not is_station_grid(station_df):
         raise ValueError(f"Station grid {station_df} is not a station grid")
 
     # Get data source function
-    variable = 'precip' if 'smap' not in data else 'soil_moisture'
     data_fn = get_data(data)
-    ds = data_fn(start_time, end_time, variable=variable, grid=grid, agg_days=1, mask="lsm")
+    ds = data_fn(start_time, end_time, variable=variable, grid=grid, agg_days=agg_days, mask="lsm")
     if nonuniform_grid(ds):
         # Set the index for lat and lon in a nonuniform grid
         ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
@@ -70,24 +72,6 @@ def data_at_stations(start_time, end_time, data='imerg', station='tahmo', grid='
     # Drop columns where the variable is NaN
     tab = tab.dropna(subset=[variable])
     return tab
-
-
-@dask_remote
-@cache(cache_args=['station'], backend='sql')
-def station_data(start_time, end_time, station='tahmo'):  # noqa: ARG001
-    """Get a non-gridded, raw station data product.
-
-    TODO: update this to use the source grid for all data sources
-    """
-    if station != 'tahmo':
-        raise ValueError(f"Invalid station dataset: {station}")
-
-    # Get TAHMO data by station ID and time
-    station_fn = get_data(station)
-    station_df = station_fn(start_time, end_time, variable='precip', grid='source', agg_days=1, mask="lsm")
-    if not is_station_grid(station_df):
-        raise ValueError(f"Station grid {station_df} is not a station grid")
-    return station_df
 
 
 @cache(cache_args=['agg_days', 'grid', 'mask', 'region'], backend='sql')
@@ -116,7 +100,7 @@ def paried_data(start_time, end_time,
 
     # stack into a table
     ds = ds.stack(points=("time", "lat", "lon"))
-    # drop rows where 'tahmo_avg_precip' is NaN
+    # drop rows where 'tahmo_avg_precip' is NaN, so that we only have data where both TAHMO and the truth are available
     ds = ds.dropna("points", subset=["tahmo_avg_precip"])
 
     # convert to dataframe
@@ -128,23 +112,22 @@ def paried_data(start_time, end_time,
 if __name__ == "__main__":
     from datetime import datetime
     from sheerwater.utils import start_remote
-    # start_remote(remote_name='genevieve')
-    start_remote()
+    start_remote(remote_config='xlarge_cluster')
     now = datetime.now().strftime("%Y-%m-%d")
-    if False:
-        variable = 'precip'
-        for truth in ['smap_l3', 'chirps_v3', 'imerg_final', 'rain_over_africa']:
-            for grid in ['global0_1', 'global0_25', 'global1_5']:
-                if 'smap' in truth and grid == 'global0_1':
-                    # Hard code source grid and soil moisture variable for smap
-                    ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
-                                          station='stations', grid='source', backend='sql')
-                elif 'smap' not in truth:
-                    # Otherwise, use the regular grid
-                    ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
-                                          station='stations', grid=grid, backend='sql')
-
     if True:
+        # for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
+        #     for grid in ['global0_1', 'global0_25', 'global1_5']:
+        #         ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
+        #                               station='stations', grid=grid, variable='precip', backend='sql')
+
+        # SMAP and TAHMO data are on the source grid
+        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='smap_l3',
+                              station='stations', grid='source', variable='soil_moisture', backend='sql')
+
+        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='tahmo_avg',
+                              station='stations', grid='source', variable='precip', backend='sql')
+
+    if False:
         for grid in ['global0_1', 'global0_25', 'global1_5']:
             for region in ['ghana', 'kenya']:
                 for agg_days in [1, 5, 10]:
@@ -163,7 +146,5 @@ if __name__ == "__main__":
                                       agg_days=agg_days,
                                       grid=grid, mask='lsm', region=region, backend='sql')
 
-    if False:
-        ds3 = station_data(start_time='2015-01-01', end_time=now, station='tahmo')
     import pdb
     pdb.set_trace()
