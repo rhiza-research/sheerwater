@@ -1,3 +1,10 @@
+"""Simulated experiments to test representitivy error in differnt 'size' rainfall regimes.
+
+The rainfall is calculated as a Gaussian function of the distance from the centroid.
+The rainfall is then averaged over the domain to get the cell average.
+The sensor average is the average of the rainfall at the sensor locations.
+The sensor average is then compared to the cell average to get the representitivy error.
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -137,7 +144,7 @@ if __name__ == "__main__":
     cell_averages = []
     movement = True
     n_timesteps = 10
-    velocity_scale = 4.0 # speed of the rain windows / day
+    velocity_scale = 4.0  # speed of the rain windows / day
     birth_rate = 0.1  # expected number of new centroids per time step
 
     n_exps = 100
@@ -206,7 +213,9 @@ if __name__ == "__main__":
 
     plt.xlabel("Sensor Average (mm)")
     plt.ylabel("Cell Average (mm)")
-    plt.title(f"Sensor vs Cell Averages: {experiment_name}, {movement_tag}, n={n}, scale={scale}, s={s}, V={velocity_scale}")
+    plt.title(
+        f"Sensor vs Cell Averages: {experiment_name}, {movement_tag}, n={n}, scale={scale}, s={s}, V={velocity_scale}")
     plt.legend()
-    plt.savefig(os.path.join(dir, f"sensor_vs_cell_averages_movement_{movement_tag}_n{n}_scale{scale}_s{s}_V{velocity_scale}.png"))
+    plt.savefig(os.path.join(
+        dir, f"sensor_vs_cell_averages_movement_{movement_tag}_n{n}_scale{scale}_s{s}_V{velocity_scale}.png"))
     plt.close()

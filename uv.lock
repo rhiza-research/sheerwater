@@ -440,6 +440,18 @@ css = [
 ]
 
 [[package]]
+name = "blessings"
+version = "1.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/f8/9f5e69a63a9243448350b44c87fae74588aa634979e6c0c501f26a4f6df7/blessings-1.7.tar.gz", hash = "sha256:98e5854d805f50a5b58ac2333411b0482516a8210f23f43308baeb58d77c157d", size = 28194, upload-time = "2018-06-21T14:00:25.518Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/74/489f85a78247609c6b4f13733cbf3ba0d864b11aa565617b645d6fdf2a4a/blessings-1.7-py3-none-any.whl", hash = "sha256:b1fdd7e7a675295630f9ae71527a8ebc10bfefa236b3d6aa4932ee4462c17ba3", size = 18460, upload-time = "2018-06-21T14:00:24.412Z" },
+]
+
+[[package]]
 name = "blinker"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1305,6 +1317,23 @@ wheels = [
 ]
 
 [[package]]
+name = "earthengine-api"
+version = "1.7.16"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "google-api-python-client" },
+    { name = "google-auth" },
+    { name = "google-auth-httplib2" },
+    { name = "google-cloud-storage" },
+    { name = "httplib2" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3b/f9/ea3c54876cf9731d852cf7e8cb681f9225ec4ed39459234ba703688774e4/earthengine_api-1.7.16.tar.gz", hash = "sha256:01a505c806c5478819222ab32c60c25fa7befbc427a8d4c08b5fa5fbb482f9fb", size = 429718, upload-time = "2026-03-02T23:02:33.073Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/21/b5/ffe5d39b4012164b980b85dbd241f77ba4f94440c4d4bbae7a66435f9586/earthengine_api-1.7.16-py3-none-any.whl", hash = "sha256:742502839533335f5728e598f38b7a9a88e5f79da5ec95aeaac31460c9ef93fc", size = 477084, upload-time = "2026-03-02T23:02:31.26Z" },
+]
+
+[[package]]
 name = "ecmwf-api-client"
 version = "1.6.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1327,6 +1356,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/54/5b/0bc6424595d7a0d4e
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/cf/7feb3222d770566ca9eaf0bf6922745fadd1ed7ab11832520063a515c240/ecmwf_datastores_client-0.4.1-py3-none-any.whl", hash = "sha256:a14515a892889a602ec2c81b15ec81d048932ca05480f12c778136028b6230a3", size = 29094, upload-time = "2025-11-04T14:32:25.936Z" },
 ]
+
+[[package]]
+name = "ee"
+version = "0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "blessings" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/85/c84cb4e02eeec6be1be045bc9b6c16ed964cb0c614abd3f0eee127f1b2be/ee-0.2.tar.gz", hash = "sha256:3f1bc017e8eb293425e7378a865c2b24cef67166f6929bd2289ea9413d0a7c65", size = 3038, upload-time = "2014-02-21T03:23:18.837Z" }
 
 [[package]]
 name = "executing"
@@ -5104,6 +5142,7 @@ dependencies = [
     { name = "dateparser" },
     { name = "earthaccess" },
     { name = "ecmwf-api-client" },
+    { name = "ee" },
     { name = "flox" },
     { name = "gcsfs" },
     { name = "geopandas" },
@@ -5134,6 +5173,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "xarray" },
     { name = "xarray-regrid" },
+    { name = "xee" },
     { name = "xesmf" },
     { name = "xoak" },
     { name = "zarr" },
@@ -5167,6 +5207,7 @@ requires-dist = [
     { name = "dateparser" },
     { name = "earthaccess" },
     { name = "ecmwf-api-client" },
+    { name = "ee", specifier = ">=0.2" },
     { name = "flox" },
     { name = "gcsfs" },
     { name = "geopandas" },
@@ -5196,6 +5237,7 @@ requires-dist = [
     { name = "tqdm" },
     { name = "xarray", specifier = "==2025.7.1" },
     { name = "xarray-regrid" },
+    { name = "xee", specifier = ">=0.0.24" },
     { name = "xesmf" },
     { name = "xoak", specifier = ">=0.1.2" },
     { name = "zarr", specifier = "==2.18.3" },
@@ -5697,6 +5739,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b2/ea/9554e5fb78eda4dbc9e9ccaf23034166fe3e9ea9af82ea6204b9578434bc/xarray-2025.7.1-py3-none-any.whl", hash = "sha256:e8647b659e53bd350d7c5a91c34dd4122ad6a3ca0bc41399d424a7c0273c7635", size = 1324464, upload-time = "2025-07-10T04:53:05.104Z" },
 ]
 
+[package.optional-dependencies]
+parallel = [
+    { name = "dask", extra = ["complete"] },
+]
+
 [[package]]
 name = "xarray-regrid"
 version = "0.4.1"
@@ -5710,6 +5757,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/58/23/d55ead2418c4421f337297e3413afd8e39f2f7f7dba7935bd374cef6d20f/xarray_regrid-0.4.1.tar.gz", hash = "sha256:2c8a7baa321c2451aa42b387fef3b22ecd7bdf693e7ee5c52ebe5168482a1e2a", size = 67694777, upload-time = "2025-04-08T17:37:23.366Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/70/af/5b36e319b559cc5713b66fcb5941fca1598a36d97f7c3bd50d6873c9d28c/xarray_regrid-0.4.1-py3-none-any.whl", hash = "sha256:92c7cf676292b29996149b06be56fe0b5cc6f6238fa9e88a45d8022c6a653468", size = 22715, upload-time = "2025-04-08T17:37:20.81Z" },
+]
+
+[[package]]
+name = "xee"
+version = "0.0.24"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "affine" },
+    { name = "earthengine-api" },
+    { name = "pyproj" },
+    { name = "xarray", extra = ["parallel"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/d8/7b2a591bda24e3b734ed50605c188f7b7eeb1b17d8d58c8a0b6ae6a0dc9e/xee-0.0.24.tar.gz", hash = "sha256:93ff9719527a5a9fea43b6e8ee439ebc6172edbcec7d2c1f677a7deecc0e90de", size = 421922, upload-time = "2026-01-16T18:45:03.273Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/66/e8db0175e49b8d34d02e04ec57c36731ac4c126a1eb421f7e93aa1b1f4a8/xee-0.0.24-py3-none-any.whl", hash = "sha256:8f6fe58f04f22990e029291caa132a8836df8eeb047a6b636bb4b2cce35f413a", size = 31197, upload-time = "2026-01-16T18:45:01.793Z" },
 ]
 
 [[package]]
