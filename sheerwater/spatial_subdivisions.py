@@ -698,6 +698,12 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_idx = region[i]
         gdf = spatial_subdivisions[region_name][1]()
         sub = gdf[gdf['region_name'] == region_idx]
+
+        # Rounding was necessary here to ensure that on fine grids
+        # we get the same number of lats/lons for countries with
+        # regions on the border of a cell
+        ds['lon'] = np.round(ds.lon, 5).astype(np.float32)
+        ds['lat'] = np.round(ds.lat, 5).astype(np.float32)
         ds = clip_by_geometry(ds, sub.geometry, drop=drop)
 
     #########################################################
