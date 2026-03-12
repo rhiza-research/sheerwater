@@ -113,10 +113,9 @@ def paried_data(start_time, end_time,
 if __name__ == "__main__":
     from datetime import datetime
     from sheerwater.utils import start_remote
-    # start_remote(remote_config='xlarge_cluster')
-    start_remote(remote_name='genevieve')
+    start_remote(remote_config='xlarge_cluster')
     now = datetime.now().strftime("%Y-%m-%d")
-    if False:
+    if True:
         for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
             for grid in ['global0_1', 'global0_25', 'global1_5']:
                 ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
@@ -149,6 +148,3 @@ if __name__ == "__main__":
                                       sources=sources,
                                       agg_days=agg_days,
                                       grid=grid, mask='lsm', region=region, backend='sql')
-
-    import pdb
-    pdb.set_trace()
