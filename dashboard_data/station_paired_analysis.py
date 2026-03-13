@@ -4,7 +4,7 @@ import numpy as np
 from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote, get_grid
+from sheerwater.utils import dask_remote
 from sheerwater.spatial_subdivisions import nonuniform_grid, is_station_grid
 from sheerwater.interfaces import get_data
 
@@ -58,12 +58,12 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
             # Set the index for lat and lon in a nonuniform grid
             ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
-        # Get the grid size to ensure that only one nearest neigthbor 
+        # Get the grid size to ensure that only one nearest neigthbor
         ds = ds.sel(
             lat=station_df["lat"],
             lon=station_df["lon"],
             method="nearest",
-            tolerance=1.0
+            tolerance=2.0
         )
 
     # Select those grid points from the satellite data
@@ -74,11 +74,11 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
 
 
 @cache(cache_args=['agg_days', 'grid', 'mask', 'region'], backend='sql')
-def paried_data(start_time, end_time,
-                sources=[('rain_over_africa', 'precip'), ('chirps_v3', 'precip'), ('imerg_final', 'precip'),
-                         ('tahmo_avg', 'precip'), ('era5', 'tmp2m'), ('era5', 'rh2m')],
-                agg_days=1,
-                grid='global0_25', mask='lsm', region='global'):
+def scatter_data(start_time, end_time,
+                 sources=[('rain_over_africa', 'precip'), ('chirps_v3', 'precip'), ('imerg_final', 'precip'),
+                          ('tahmo_avg', 'precip'), ('era5', 'tmp2m'), ('era5', 'rh2m')],
+                 agg_days=1,
+                 grid='global0_25', mask='lsm', region='global'):
     """Generate paired data at stations data for scatter plots."""
     datasets = [get_data(source)(start_time, end_time, variable=variable, agg_days=agg_days,
                                  grid=grid if 'smap' not in source else 'source',
@@ -106,43 +106,3 @@ def paried_data(start_time, end_time,
     df = ds.to_dataframe()
     df = df.drop(columns=['time', 'lat', 'lon']).reset_index()
     return df
-
-
-if __name__ == "__main__":
-    from datetime import datetime
-    from sheerwater.utils import start_remote
-    start_remote(remote_config='xlarge_cluster')
-    now = datetime.now().strftime("%Y-%m-%d")
-    if True:
-        for truth in ['chirps_v3', 'imerg_final', 'rain_over_africa']:
-            for grid in ['global0_1', 'global0_25', 'global1_5']:
-                ds = data_at_stations(start_time='2015-01-01', end_time=now, data=truth,
-                                      station='tahmo', grid=grid, variable='precip', backend='sql')
-
-        # SMAP and TAHMO data are on the source grid
-        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='smap_l3',
-                              station='tahmo', grid='source', variable='soil_moisture',
-                              backend='sql', recompute=True)
-
-        ds = data_at_stations(start_time='2015-01-01', end_time=now, data='tahmo',
-                              station='stations', grid='source', variable='precip',
-                              backend='sql', recompute=True)
-
-    if True:
-        for grid in ['global0_1', 'global0_25', 'global1_5']:
-            for region in ['ghana', 'kenya']:
-                for agg_days in [1, 5, 10]:
-                    sources = [('rain_over_africa', 'precip'),
-                               ('chirps_v3', 'precip'),
-                               ('imerg_final', 'precip'),
-                               ('tahmo_avg', 'precip')]
-                    if grid in ['global0_25', 'global1_5']:
-                        # ERA5 is only available on global0_25 and global1_5
-                        # sources.append(('era5', 'tmp2m'))
-                        # sources.append(('era5', 'rh2m'))
-                        pass
-
-                    ds2 = paried_data(start_time='2015-01-01', end_time=now,
-                                      sources=sources,
-                                      agg_days=agg_days,
-                                      grid=grid, mask='lsm', region=region, backend='sql')

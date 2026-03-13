@@ -87,7 +87,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"paried_data/${agg_days}_${grid}_lsm_${region1}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat1}::real) <= ${grid_size}\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon1}::real) <= ${grid_size}\n  );",
+          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"scatter_data/${agg_days}_${grid}_lsm_${region1}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat1}::real) <= ${grid_size}\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon1}::real) <= ${grid_size}\n  );",
           "refId": "A",
           "sql": {
             "columns": [
@@ -171,7 +171,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"paried_data/${agg_days}_${grid}_lsm_${region2}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat2}::real) <= 1e-4\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon2}::real) <= 1e-4\n  );\n",
+          "rawSql": "SELECT\n  lat, lon, time, ${satellite}_precip, ${station}_precip\nFROM \"scatter_data/${agg_days}_${grid}_lsm_${region2}\"\nWHERE EXTRACT(MONTH FROM time) IN (${months:csv})\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lat - ${lat2}::real) <= 1e-4\n  )\n  AND (\n    NOT ${filter_space:raw}\n    OR ABS(lon - ${lon2}::real) <= 1e-4\n  );\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -308,7 +308,7 @@ local station_codes_sql = importstr './assets/station_codes.sql';
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT lat, lon\nFROM (\n  SELECT lat, lon FROM \"paried_data/${agg_days}_${grid}_lsm_${region1}\"\n  UNION\n  SELECT lat, lon FROM \"paried_data/${agg_days}_${grid}_lsm_${region2}\"\n) p",
+          "rawSql": "SELECT DISTINCT lat, lon\nFROM (\n  SELECT lat, lon FROM \"scatter_data/${agg_days}_${grid}_lsm_${region1}\"\n  UNION\n  SELECT lat, lon FROM \"scatter_data/${agg_days}_${grid}_lsm_${region2}\"\n) p",
           "refId": "A",
           "sql": {
             "columns": [
