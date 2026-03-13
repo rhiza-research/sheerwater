@@ -257,42 +257,40 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
     if grid != 'global0_25':
         raise ValueError("Only ERA5 native 0.25 degree grid is implemented.")
 
+    if variable == 'rh2m':
+        ds1 = era5_raw(start_time, end_time, 'd2m', grid='global0_25')
+        ds2 = era5_raw(start_time, end_time, 'tmp2m', grid='global0_25')
+        ds = xr.merge([ds1, ds2])
+    else:
+        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
+
     K_const = 273.15
     if variable == 'tmp2m':
-        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').mean(dim='time')
     elif variable == 'tmax2m':
-        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').max(dim='time')
     elif variable == 'tmin2m':
-        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] - K_const
         ds.attrs.update(units='C')
         ds = ds.resample(time='D').min(dim='time')
     elif variable == 'precip':
-        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
         ds = ds.resample(time='D').sum(dim='time')
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
     elif variable == 'tcwv':
-        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds.attrs.update(units='kg/m^2')
         ds = ds.resample(time='D').sum(dim='time')
     elif variable == 'ssrd':
-        ds = era5_raw(start_time, end_time, variable, grid='global0_25')
         ds = ds.resample(time='D').sum(dim='time')
         ds = np.maximum(ds, 0)
     elif variable == 'rh2m':
         # Read and combine all the data into an array
-        ds1 = era5_raw(start_time, end_time, 'd2m', grid='global0_25')
-        ds2 = era5_raw(start_time, end_time, 'tmp2m', grid='global0_25')
-        ds = xr.merge([ds1, ds2])
         # Convert to Celsius
         ds['tmp2m'] = ds['tmp2m'] - K_const
         ds['d2m'] = ds['d2m'] - K_const
