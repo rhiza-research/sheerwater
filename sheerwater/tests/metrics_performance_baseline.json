@@ -10,14 +10,14 @@
     "warm_metric_only_sec": 21.060693
   },
   "3_seeps": {
-    "cold_sec": 29.668014,
-    "warm_full_sec": 29.725021,
-    "warm_metric_only_sec": 14.518196
+    "cold_sec": 30.340376,
+    "warm_full_sec": 29.48078,
+    "warm_metric_only_sec": 14.603893
   },
   "4_heidke": {
-    "cold_sec": 10.047499,
-    "warm_full_sec": 10.570942,
-    "warm_metric_only_sec": 10.019391
+    "cold_sec": 10.063079,
+    "warm_full_sec": 10.139251,
+    "warm_metric_only_sec": 9.773507
   },
   "5_acc": {
     "cold_sec": 12.609963,

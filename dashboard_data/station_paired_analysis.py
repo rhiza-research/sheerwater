@@ -58,7 +58,9 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
             # Set the index for lat and lon in a nonuniform grid
             ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
-        # Get the grid size to ensure that only one nearest neigthbor
+        # We want to get the nearest grid point to the station, so we set tolerance
+        # in the sel to the half width of the grid wel. For nonuniform grids like
+        # SMAP, we use a fixed tolerance that's bigger than the smap size.
         try:
             _, _, grid_size, _ = get_grid(grid)
         except NotImplementedError:
