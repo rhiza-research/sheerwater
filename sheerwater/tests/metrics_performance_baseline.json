@@ -1,13 +1,13 @@
 {
   "1_mae_global": {
-    "cold_sec": 14.262865,
-    "warm_full_sec": 9.515274,
-    "warm_metric_only_sec": 9.689321
+    "cold_sec": 20.93243,
+    "warm_full_sec": 10.4133,
+    "warm_metric_only_sec": 10.319739
   },
   "2_mae_spatial": {
-    "cold_sec": 25.594189,
-    "warm_full_sec": 18.852913,
-    "warm_metric_only_sec": 19.671722
+    "cold_sec": 26.540855,
+    "warm_full_sec": 19.375198,
+    "warm_metric_only_sec": 21.060693
   },
   "3_seeps": {
     "cold_sec": 29.668014,

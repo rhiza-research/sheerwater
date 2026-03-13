@@ -4,7 +4,7 @@ import numpy as np
 from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote
+from sheerwater.utils import dask_remote, get_grid
 from sheerwater.spatial_subdivisions import nonuniform_grid, is_station_grid
 from sheerwater.interfaces import get_data
 
@@ -59,11 +59,16 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
             ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
         # Get the grid size to ensure that only one nearest neigthbor
+        try:
+            _, _, grid_size, _ = get_grid(grid)
+        except NotImplementedError:
+            grid_size = 0.1
+
         ds = ds.sel(
             lat=station_df["lat"],
             lon=station_df["lon"],
             method="nearest",
-            tolerance=2.0
+            tolerance=grid_size/2 + 1e-6
         )
 
     # Select those grid points from the satellite data
