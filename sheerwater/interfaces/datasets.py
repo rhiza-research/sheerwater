@@ -131,7 +131,7 @@ class data(SheerwaterDataset):
         # Implment masking and region clipping and timeseries postprocessing
         ds = super().post_process(ds)
         # Remove all unneeded dimensions
-        ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon']])
+        ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon', 'member', 'station_id']])
         return ds
 
 

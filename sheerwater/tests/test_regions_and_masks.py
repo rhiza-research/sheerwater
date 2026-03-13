@@ -314,8 +314,12 @@ def test_get_grid():
     with pytest.raises(NotImplementedError, match="Grid chirps has not been implemented"):
         get_grid("chirps")
 
+    # Test chirps grid raises NotImplementedError
+    with pytest.raises(NotImplementedError, match="Grid imerg has not been implemented"):
+        get_grid("imerg")
+
     # Test imerg grid
-    lons, lats, grid_size, _ = get_grid("imerg")
+    lons, lats, grid_size, _ = get_grid("global0_1")
     assert pytest.approx(lons[0], abs=1e-10) == -180.0 + 0.05
     assert pytest.approx(lons[-1], abs=1e-10) == 180.0 - 0.05
     assert pytest.approx(lats[0], abs=1e-10) == -90.0 + 0.05
