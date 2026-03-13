@@ -29,6 +29,9 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
                      station='tahmo', grid='global0_1'):
     """Get a gridded data product at grid cells containing stations in tabular form.
 
+    If a station dataset is provided in the data argument, the station data is converted
+    to a dataframe and returned directly and the station argument is not used.
+
     Args:
         start_time (str): The start time of the data.
         end_time (str): The end time of the data.
@@ -55,17 +58,12 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
             # Set the index for lat and lon in a nonuniform grid
             ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
-        # Calculate which grid points the stations are on, requires a uniform grid
-        try:
-            _, _, grid_size, _ = get_grid(grid)
-        except NotImplementedError:
-            grid_size = 0.05
-
+        # Get the grid size to ensure that only one nearest neigthbor 
         ds = ds.sel(
             lat=station_df["lat"],
             lon=station_df["lon"],
             method="nearest",
-            tolerance=grid_size/2 + 1e-6
+            tolerance=1.0
         )
 
     # Select those grid points from the satellite data

@@ -1,4 +1,4 @@
-local grid_size_sql = importstr '../assets/grid_size.sql';
+local grid_size_sql = importstr './assets/grid_size.sql';
 
 {
   "annotations": {
@@ -139,87 +139,6 @@ local grid_size_sql = importstr '../assets/grid_size.sql';
     }
   ],
   "panels": [
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "bdz3m3xs99p1cf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 0,
-        "y": 0
-      },
-      "id": 14,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.5.0-pre",
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(DISTINCT station_id) AS unique_stations\nFROM \"data_at_stations/1_tahmo_source_stations_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "Panel Title",
-      "type": "stat"
-    },
     {
       "datasource": {
         "type": "datasource",
@@ -477,10 +396,10 @@ local grid_size_sql = importstr '../assets/grid_size.sql';
         ]
       },
       "gridPos": {
-        "h": 21,
-        "w": 24,
+        "h": 24,
+        "w": 18,
         "x": 0,
-        "y": 2
+        "y": 0
       },
       "id": 13,
       "options": {
@@ -713,6 +632,224 @@ local grid_size_sql = importstr '../assets/grid_size.sql';
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0-pre",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT station_id) AS unique_stations\nFROM \"data_at_stations/1_tahmo_source_stations_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Number of TAHMO Stations ",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "last_quality_flag"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 20,
+        "w": 6,
+        "x": 18,
+        "y": 4
+      },
+      "id": 15,
+      "options": {
+        "allData": {},
+        "config": {
+          "config": {
+            "displayModeBar": true,
+            "responsive": true,
+            "scrollZoom": true
+          },
+          "displayModeBar": "true,         // ⬅️ shows zoom tools",
+          "responsive": "true,",
+          "scrollZoom": "true              // ⬅️ enables mouse wheel zoom"
+        },
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 0
+          },
+          "options": {
+            "config": {
+              "displayModeBar": true,
+              "responsive": true,
+              "scrollZoom": true
+            },
+            "layout": {
+              "mapbox": {
+                "center": {
+                  "lat": 0,
+                  "lon": 20
+                },
+                "dragmode": "zoom",
+                "scrollZoom": false,
+                "style": "open-street-map",
+                "zoom": 2
+              },
+              "margin": {
+                "b": 0,
+                "l": 0,
+                "r": 0,
+                "t": 0
+              },
+              "paper_bgcolor": "rgba(0,0,0,0)",
+              "plot_bgcolor": "rgba(0,0,0,0)",
+              "showlegend": false
+            }
+          },
+          "title": {
+            "automargin": true
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "try {\n  const { type: eventType, data: eventData } = event;\n\n  if (eventType === 'click') {\n    const clickedPoint = eventData?.points?.[0];\n\n    if (clickedPoint) {\n      const currentUrl = new URL(window.location.href);\n\n      currentUrl.searchParams.set('var-lat', clickedPoint.lat);\n      currentUrl.searchParams.set('var-lon', clickedPoint.lon);\n\n      currentUrl.searchParams.set('var-filter_space', true);\n\n      const plots = document.querySelectorAll('.js-plotly-plot');\n      const plotEl = Array.from(plots).find(p => p._fullLayout?.mapbox);\n      const mapSubplot = plotEl._fullLayout.mapbox._subplot;\n\n      console.log(plotEl._fullLayout.mapbox);\n\n      \n      const center = mapSubplot.map.getCenter();\n      const zoom = mapSubplot.map.getZoom();\n\n      currentUrl.searchParams.set('var-map_zoom', zoom.toFixed(2));\n      currentUrl.searchParams.set('var-map_center_lat', center.lat.toFixed(4));\n      currentUrl.searchParams.set('var-map_center_lon', center.lng.toFixed(4));\n\n      window.location.href = currentUrl.toString();\n    }\n  }\n} catch (error) {\n  console.error('Error in map click handler:', error);\n}",
+        "resScale": 2,
+        "script": "const fields = data.series[0].fields;\n\nconst lats = fields[0].values.toArray();\nconst lons = fields[1].values.toArray();\nconsole.log(\"lats\", lats);\n\nconst lat1 = parseFloat(variables.lat.query);\nconst lon1 = parseFloat(variables.lon.query);\n\nconst mapZoom = parseFloat(variables.map_zoom.query);\nconst mapCenterLat = parseFloat(variables.map_center_lat.query);\nconst mapCenterLon = parseFloat(variables.map_center_lon.query);\n\nconst traces = [{\n  type: 'scattermapbox',\n  lat: lats,\n  lon: lons,\n  mode: 'markers',\n  marker: {\n    size: 7,\n    color: '#4A90D9',\n    opacity: 0.85,\n  },\n  hoverinfo: 'lat+lon',\n  hoverlabel: { bgcolor: '#333333' }\n}];\n\nif (!isNaN(lat1) && !isNaN(lon1)) {\n  traces.push({\n    type: 'scattermapbox',\n    lat: [lat1],\n    lon: [lon1],\n    mode: 'markers',\n    marker: { size: 10, color: 'gold' },\n    text: [`Point 1: ${lat1}, ${lon1}`],\n    hoverinfo: 'text',\n    hoverlabel: { bgcolor: '#333333' }\n  });\n}\n\nreturn {\n  data: traces,\n  layout: {\n    mapbox: {\n      style: 'open-street-map',\n      center: { lat: mapCenterLat, lon: mapCenterLon },\n      zoom: mapZoom,\n      dragmode: 'zoom'\n    },\n    margin: { t: 0, b: 0, l: 0, r: 0 },\n    paper_bgcolor: 'rgba(0,0,0,0)',\n    plot_bgcolor: 'rgba(0,0,0,0)',\n    showlegend: false\n  },\n  config: {\n    responsive: true,\n    displayModeBar: true,\n    scrollZoom: true\n  }\n};",
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "cegueq2crd3wge"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT lat, lon\nFROM \"data_at_stations/1_imerg_final_${grid}_tahmo_precip\"",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Sensor Status Map",
+      "type": "nline-plotlyjs-panel"
     }
   ],
   "preload": false,
@@ -843,6 +980,58 @@ local grid_size_sql = importstr '../assets/grid_size.sql';
           }
         ],
         "query": "20",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "2.27",
+          "value": "2.27"
+        },
+        "hide": 2,
+        "name": "map_zoom",
+        "options": [
+          {
+            "selected": true,
+            "text": "2.27",
+            "value": "2.27"
+          }
+        ],
+        "query": "2.27",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "-10.3586",
+          "value": "-10.3586"
+        },
+        "hide": 2,
+        "name": "map_center_lat",
+        "options": [
+          {
+            "selected": true,
+            "text": "-10.3586",
+            "value": "-10.3586"
+          }
+        ],
+        "query": "-10.3586",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "16.0592",
+          "value": "16.0592"
+        },
+        "description": "",
+        "hide": 2,
+        "name": "map_center_lon",
+        "options": [
+          {
+            "selected": true,
+            "text": "16.0592",
+            "value": "16.0592"
+          }
+        ],
+        "query": "16.0592",
         "type": "textbox"
       }
     ]
