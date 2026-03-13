@@ -1,8 +1,8 @@
-local click_precip_pt_js = importstr './assets/click_precip_pt.js';
-local grid_size_sql = importstr './assets/grid_size.sql';
-local precip_event_pie_js = importstr './assets/precip_event_pie.js';
-local precip_scatter_js = importstr './assets/precip_scatter.js';
-local station_codes_sql = importstr './assets/station_codes.sql';
+local click_precip_pt_js = importstr '../assets/click_precip_pt.js';
+local grid_size_sql = importstr '../assets/grid_size.sql';
+local precip_event_pie_js = importstr '../assets/precip_event_pie.js';
+local precip_scatter_js = importstr '../assets/precip_scatter.js';
+local station_codes_sql = importstr '../assets/station_codes.sql';
 
 {
   "annotations": {
