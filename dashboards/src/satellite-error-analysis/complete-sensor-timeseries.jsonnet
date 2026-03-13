@@ -189,7 +189,7 @@ local grid_size_sql = importstr './assets/grid_size.sql';
             }
           },
           "mappings": [],
-          "max": 150,
+          "max": 50,
           "min": -2,
           "thresholds": {
             "mode": "absolute",
@@ -392,12 +392,38 @@ local grid_size_sql = importstr './assets/grid_size.sql';
                 }
               }
             ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "TAHMO",
+                  "Soil Moisture",
+                  "IMERG"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 24,
-        "w": 18,
+        "h": 14,
+        "w": 14,
         "x": 0,
         "y": 0
       },
@@ -639,87 +665,6 @@ local grid_size_sql = importstr './assets/grid_size.sql';
         "uid": "bdz3m3xs99p1cf"
       },
       "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 14,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.5.0-pre",
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(DISTINCT station_id) AS unique_stations\nFROM \"data_at_stations/1_tahmo_source_stations_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "Number of TAHMO Stations ",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "bdz3m3xs99p1cf"
-      },
-      "fieldConfig": {
         "defaults": {},
         "overrides": [
           {
@@ -739,10 +684,10 @@ local grid_size_sql = importstr './assets/grid_size.sql';
         ]
       },
       "gridPos": {
-        "h": 20,
-        "w": 6,
-        "x": 18,
-        "y": 4
+        "h": 14,
+        "w": 10,
+        "x": 14,
+        "y": 0
       },
       "id": 15,
       "options": {
@@ -850,6 +795,87 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       ],
       "title": "Sensor Status Map",
       "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 14
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.5.0-pre",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT station_id) AS unique_stations\nFROM \"data_at_stations/1_tahmo_source_stations_precip\"\nWHERE time $__timeFilter()\n  AND ABS(lat - (${lat:raw})::real) <= ${grid_size}\n  AND ABS(lon - (${lon:raw})::real) <= ${grid_size}",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Number of TAHMO Stations ",
+      "type": "stat"
     }
   ],
   "preload": false,
@@ -860,36 +886,36 @@ local grid_size_sql = importstr './assets/grid_size.sql';
     "list": [
       {
         "current": {
-          "text": "5.75",
-          "value": "5.75"
+          "text": "8.5",
+          "value": "8.5"
         },
         "label": "Latitude",
         "name": "lat",
         "options": [
           {
             "selected": true,
-            "text": "5.75",
-            "value": "5.75"
+            "text": "8.5",
+            "value": "8.5"
           }
         ],
-        "query": "5.75",
+        "query": "8.5",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-0.25",
-          "value": "-0.25"
+          "text": "1",
+          "value": "1"
         },
         "label": "Longitude",
         "name": "lon",
         "options": [
           {
             "selected": true,
-            "text": "-0.25",
-            "value": "-0.25"
+            "text": "1",
+            "value": "1"
           }
         ],
-        "query": "-0.25",
+        "query": "1",
         "type": "textbox"
       },
       {
@@ -908,19 +934,19 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "global1_5",
-          "value": "global1_5"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           },
@@ -935,8 +961,8 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "0.750001",
-          "value": "0.750001"
+          "text": "0.125001",
+          "value": "0.125001"
         },
         "definition": grid_size_sql,
         "description": "",
@@ -984,42 +1010,42 @@ local grid_size_sql = importstr './assets/grid_size.sql';
       },
       {
         "current": {
-          "text": "2.27",
-          "value": "2.27"
+          "text": "5.26",
+          "value": "5.26"
         },
         "hide": 2,
         "name": "map_zoom",
         "options": [
           {
             "selected": true,
-            "text": "2.27",
-            "value": "2.27"
+            "text": "5.26",
+            "value": "5.26"
           }
         ],
-        "query": "2.27",
+        "query": "5.26",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-10.3586",
-          "value": "-10.3586"
+          "text": "5.9461",
+          "value": "5.9461"
         },
         "hide": 2,
         "name": "map_center_lat",
         "options": [
           {
             "selected": true,
-            "text": "-10.3586",
-            "value": "-10.3586"
+            "text": "5.9461",
+            "value": "5.9461"
           }
         ],
-        "query": "-10.3586",
+        "query": "5.9461",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "16.0592",
-          "value": "16.0592"
+          "text": "-1.4000",
+          "value": "-1.4000"
         },
         "description": "",
         "hide": 2,
@@ -1027,18 +1053,18 @@ local grid_size_sql = importstr './assets/grid_size.sql';
         "options": [
           {
             "selected": true,
-            "text": "16.0592",
-            "value": "16.0592"
+            "text": "-1.4000",
+            "value": "-1.4000"
           }
         ],
-        "query": "16.0592",
+        "query": "-1.4000",
         "type": "textbox"
       }
     ]
   },
   "time": {
-    "from": "2013-09-11T23:39:20.768Z",
-    "to": "2033-09-10T23:39:20.768Z"
+    "from": "2015-09-19T21:50:45.267Z",
+    "to": "2029-09-06T03:28:00.631Z"
   },
   "timepicker": {},
   "timezone": "utc",
