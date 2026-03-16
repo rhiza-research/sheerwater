@@ -117,15 +117,12 @@ def get_grid(grid, base="base180"):
     elif grid == "global0_05":
         grid_size = 0.05
         offset = 0.025
-    elif grid == "imerg":
-        grid_size = 0.1
-        offset = 0.05
     elif grid == "global0_25":
         grid_size = 0.25
         offset = 0.0
     elif grid == "global0_1":
         grid_size = 0.1
-        offset = 0.0
+        offset = 0.05
     elif grid == "salient0_25":
         grid_size = 0.25
         offset = 0.125

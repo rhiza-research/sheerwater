@@ -58,8 +58,8 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
     ds = ds['precipitation'].to_dataset()
     ds = ds.rename({'precipitation': 'precip'})
 
-    # Regrid if not on the native grid
-    if grid != 'source':
+    # Regrid if not on the native grid (global0_1 is the source grid)
+    if grid != 'source' and grid != 'global0_1':
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
 
     return ds
@@ -70,6 +70,8 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask
     """A unified imerg caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by IMERG.")
+    if grid == 'source':  # Call IMERG on the global0_1 grid because it is the source grid
+        grid = 'global0_1'
     ds = imerg_gridded(start_time, end_time, grid, version, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
