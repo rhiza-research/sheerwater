@@ -52,7 +52,8 @@ dependencies = [
     "properscoring",
     "nuthatch",
     "xesmf",
-    "earthaccess"
+    "earthaccess",
+    "xee",
 ]
 
 [dependency-groups]
@@ -76,6 +77,9 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 managed = true
+
+[tool.uv.sources]
+xee = { git = "https://github.com/rhiza-research/Xee.git" }
 
 [tool.hatch.version]
 source = "vcs"
