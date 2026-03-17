@@ -6,6 +6,7 @@ from nuthatch.processor import NuthatchProcessor
 from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
+from .events import get_event_fn
 import logging
 logger = logging.getLogger(__name__)
 
@@ -17,11 +18,9 @@ FORECAST_REGISTRY = {}
 class SheerwaterDataset(NuthatchProcessor):
     """Processor for a Sheerwater dataset, either forecast or data of a standard format.
 
-    This processor is used to convert forecast with init time and prediction timedelta to a valid time coordinate.
-
     It also implements spatial clipping and masking, and timeseries filtering.
 
-    It supports xarray datasets.
+    It only supports xarray datasets.
     """
 
     def __init__(self, region_dim=None, **kwargs):
@@ -44,41 +43,73 @@ class SheerwaterDataset(NuthatchProcessor):
         # Default to global region and no masking if not passed
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
+        self.event = bound_args.arguments.get('event', None)
+        self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
+        self.variable = bound_args.arguments.get('variable', None)
+        if self.variable is None:
+            if self.event is None:
+                raise ValueError("Dataset decorator requires variable to be passed.")
+            else:
+                # Get the default variable for the event
+                func = get_event_fn(self.event)
+                self.variable = func.variable
+                # Modify the input args, kwargs to use the default variable
+                if 'variable' in bound_args.arguments:
+                    idx = list(bound_args.signature.parameters).index('variable')
+                    if idx < len(args):
+                        args = list(args)
+                        args[idx] = self.variable
+                        args = tuple(args)
+                    elif 'variable' in kwargs:
+                        kwargs = dict(kwargs)
+                        kwargs['variable'] = self.variable
         try:
             self.grid = bound_args.arguments['grid']
             self.agg_days = bound_args.arguments['agg_days']
-            self.variable = bound_args.arguments['variable']
         except KeyError:
             raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
+        if self.event is not None and self.agg_days != 1:
+            raise ValueError("Event decorators cannot be used with aggregation days other than 1.")
+
+        # Units
         if self.variable == 'precip':
             self.units = 'mm / day'
         elif self.variable == 'tmp2m':
             self.units = 'avg. daily C'
         else:
             self.units = None
+
         return args, kwargs
 
     def post_process(self, ds):
         """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
-        if isinstance(ds, xr.Dataset):
-            # Clip to specified region
-            if not check_spatial_attr(ds, region=self.region):
-                # Only clip region if the dataframe hasn't already been clipped
-                ds = clip_region(ds, grid=self.grid, region=self.region)
-            if not check_spatial_attr(ds, mask=self.mask):
-                # Only apply mask if this dataframe has not already been masked
-                ds = apply_mask(ds, self.mask, grid=self.grid)
-            attrs = {
-                'agg_days': float(self.agg_days),
-                'variable': self.variable,
-            }
-            if self.units is not None:
-                attrs['units'] = self.units
-            ds = ds.assign_attrs(attrs)
-            ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
-        else:
-            raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")
+        if not isinstance(ds, xr.Dataset):
+            raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
+
+        if self.event is not None:
+            # Apply the event postprocessing to the dataset
+            if f"{self.variable}_{self.event}" not in ds.variables:  # TODO: delete once we're not calling twice
+                ds = get_event_fn(self.event)(ds, **self.event_kwargs)
+                ds = ds.rename({self.variable: f"{self.variable}_{self.event}"})
+
+        # Clip to specified region
+        if not check_spatial_attr(ds, region=self.region):
+            # Only clip region if the dataframe hasn't already been clipped
+            ds = clip_region(ds, grid=self.grid, region=self.region)
+        if not check_spatial_attr(ds, mask=self.mask):
+            # Only apply mask if this dataframe has not already been masked
+            ds = apply_mask(ds, self.mask, grid=self.grid)
+
+        # Assign attributes
+        attrs = {
+            'agg_days': float(self.agg_days),
+            'variable': self.variable,
+        }
+        if self.units is not None:
+            attrs['units'] = self.units
+        ds = ds.assign_attrs(attrs)
+        ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
         return ds
 
     def validate(self, ds):
@@ -146,13 +177,22 @@ class forecast(SheerwaterDataset):
 
     def post_process(self, ds):
         """Convert the init time and prediction timedelta to a valid time coordinate labeled 'time'."""
+        # TODO: remove extra check once we're not calling twice
+        if self.event is not None and f"{self.variable}_{self.event}" not in ds.variables:
+            # Rename prediction timedelta event_time for event postprocessing
+            ds = ds.rename({'prediction_timedelta': 'time'})
+
+        ds = super().post_process(ds)
+
+        # TODO: remove extra checks once we're not calling twice
+        # Rename event_time back to prediction_timedelta
+        if self.event is not None and 'prediction_timedelta' not in ds.coords and 'init_time' in ds.coords:
+            ds = ds.rename({'time': 'prediction_timedelta'})
+
         # # Convert the init time and prediction timedelta to a valid time coordinate labeled 'time'
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             # If we haven't converted from init time to valid times, do so now
             ds = convert_init_time_to_pred_time(ds)
-
-        # Implment masking and region clipping and timeseries postprocessing
-        ds = super().post_process(ds)
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
