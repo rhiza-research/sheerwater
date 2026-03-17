@@ -8,6 +8,10 @@ const MULTIMAP_PRODUCTS = [
     { key: "rain", label: "Precipitation", product: "era5_precip" },
     { key: "temp", label: "Temperature", product: "era5_tmp2m" },
 ];
+const DEFAULT_REGION = "global";
+const FORECAST_REGION_OVERRIDES = {
+    salient: "africa",
+};
 
 const readVars = () => ({
     forecast: readVar("forecast"),
@@ -22,7 +26,7 @@ const readVars = () => ({
 });
 
 function resolveRegion(forecast) {
-    return forecast === "salient" ? "africa" : "global";
+    return FORECAST_REGION_OVERRIDES[forecast] || DEFAULT_REGION;
 }
 
 function getLeadWeeks(maxLead) {

@@ -14,6 +14,30 @@ function resolveRegionForForecastValue(forecast, fallbackRegion = "global") {
     return forecast === "salient" ? "africa" : fallbackRegion;
 }
 
+function resolveSharedComputeRegion(params, referenceParams = null) {
+    const baseRegion = params?.region || "global";
+    const primaryRegion = resolveRegionForForecastValue(
+        params?.forecast,
+        baseRegion
+    );
+    if (!referenceParams) {
+        return primaryRegion || "global";
+    }
+
+    const referenceRegion = resolveRegionForForecastValue(
+        referenceParams?.forecast,
+        baseRegion
+    );
+
+    if (primaryRegion === "global") {
+        return referenceRegion || "global";
+    }
+    if (referenceRegion === "global") {
+        return primaryRegion;
+    }
+    return primaryRegion || referenceRegion || "global";
+}
+
 function buildReferenceParams(params) {
     const referenceVarMap = params?.referenceVarMap;
     if (!referenceVarMap || typeof referenceVarMap !== "object") {
@@ -54,8 +78,10 @@ function buildReferenceParams(params) {
 }
 
 function resolveTerracottaTileRequest(params) {
-    const datasetId = buildDatasetId(params);
     const referenceParams = buildReferenceParams(params);
+    const sharedComputeRegion = resolveSharedComputeRegion(params, referenceParams);
+    const primaryParams = { ...params, region: sharedComputeRegion };
+    const datasetId = buildDatasetId(primaryParams);
 
     if (!referenceParams) {
         return {
@@ -76,7 +102,10 @@ function resolveTerracottaTileRequest(params) {
     return {
         datasetId,
         computeMode: "skill_score",
-        computeDatasetId2: buildDatasetId(referenceParams),
+        computeDatasetId2: buildDatasetId({
+            ...referenceParams,
+            region: sharedComputeRegion,
+        }),
     };
 }
 
