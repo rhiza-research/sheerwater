@@ -46,9 +46,14 @@ def oya_daily(day):
     # This is how you get the data at its native projection
     day1 = pd.to_datetime(day) + pd.Timedelta(days=1)
     ic = ee.ImageCollection('projects/global-precipitation-nowcast/assets/global_estimation').filterDate(day, day1.strftime('%Y-%m-%d'))
-    ds = xr.open_dataset(ic,
-                         engine='ee', projection=ic.first().select(0).projection(), chunks={'time': 48, 'lat': 512, 'lon': 512},
-                         getitem_kwargs={'max_retries': 10, 'initial_delay': 20000})
+    ds = None
+    if ic.size().getInfo() > 0:
+        ds = xr.open_dataset(ic,
+                             engine='ee', projection=ic.first().select(0).projection(), chunks={'time': 48, 'lat': 512, 'lon': 512},
+                             getitem_kwargs={'max_retries': 10, 'initial_delay': 20000})
+    else:
+        print(f"No data in collection for day {day}")
+        return None
 
     # Note: we could use the Xee auto init functionality, but that makes a read call to the earth engine API on every read
     # which triggers an error that doesn't get caught by the robust read functionality set above
@@ -106,10 +111,10 @@ def oya_raw(start_time, end_time, delayed=False):
 @spatial()
 @cache(cache_args=['grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def oya_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG001
+def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
                   region='global'):
-    """Regridded version of whole imerg dataset."""
-    ds = oya_t0_raw(start_time, end_time)
+    """Regridded version of whole oya dataset."""
+    ds = oya_raw(start_time, end_time)
 
     # Regrid if not on the native grid
     if grid != 'source':
@@ -120,10 +125,10 @@ def oya_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG001
 
 @dask_remote
 @sheerwater_data()
-def oya(start_time, end_time, variable, agg_days, grid, version, mask=None, region='global'):
-    """A unified imerg caller."""
+def oya(start_time, end_time, variable, agg_days, grid, mask=None, region='global'):
+    """A unified oya caller."""
     if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
-    ds = imerg_gridded(start_time, end_time, grid, version, mask=mask, region=region)
+        raise NotImplementedError("Only precip and derived variables provided by oya.")
+    ds = oya_gridded(start_time, end_time, grid, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
