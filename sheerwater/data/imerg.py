@@ -1,5 +1,4 @@
 """Imerg data product."""
-import pandas as pd
 import gcsfs
 import xarray as xr
 from dateutil import parser
@@ -8,6 +7,7 @@ from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
 from sheerwater.interfaces import data as sheerwater_data, spatial
+
 from .earthaccess_generic import earthaccess_dataset
 
 
@@ -67,7 +67,6 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
     """Regridded version of whole imerg dataset."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
     years = [yy for yy in years if yy < 2025]
-    import pdb; pdb.set_trace()
 
     datasets = []
     for year in years:
