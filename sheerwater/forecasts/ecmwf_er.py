@@ -126,13 +126,13 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
             # Perform unit conversions if a specific variable is requested
             if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
                 ds[variable] = ds[variable] - 273.15
-                ds.attrs.update(units='C')
+                ds[variable].attrs.update(units='C')
             elif variable == 'precip':
                 ds[variable] = ds[variable] * 1000.0
-                ds.attrs.update(units='mm')
+                ds[variable].attrs.update(units='mm')
                 ds = np.maximum(ds, 0)
             elif variable == 'ssrd':
-                ds.attrs.update(units='Joules/m^2')
+                ds[variable].attrs.update(units='Joules/m^2')
                 ds = np.maximum(ds, 0)
         except ValueError:
             # Don't rename variables we haven't registered/don't use
