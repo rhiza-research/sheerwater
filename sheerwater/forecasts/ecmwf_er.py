@@ -18,7 +18,7 @@ from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
                                     "start_date": 29, "start_year": 29,
                                     "model_issuance_date": 1}})
-def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noqa ARG001
+def ifs_extended_range_raw(start_time, end_time, variable=None, forecast_type='forecast',  # noqa ARG001
                            run_type='average', time_group='weekly', grid="global1_5"):
     """Fetches IFS extended range forecast data from the WeatherBench2 dataset.
 
@@ -49,9 +49,10 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
     ds = xr.open_zarr(filepath, decode_timedelta=True)
 
     # Select the right variable
-    var = get_variable(variable, 'ecmwf_ifs_er')
-    ds = ds[var].to_dataset()
-    ds = ds.rename_vars(name_dict={var: variable})
+    if variable:
+        var = get_variable(variable, 'ecmwf_ifs_er')
+        ds = ds[var].to_dataset()
+        ds = ds.rename_vars(name_dict={var: variable})
 
     # Convert local dataset naming and units
     ds = ds.rename({'latitude': 'lat', 'longitude': 'lon', 'prediction_timedelta': 'lead_time'})
