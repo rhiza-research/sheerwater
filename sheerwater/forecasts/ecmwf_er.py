@@ -118,24 +118,10 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
     ds = lon_base_change(ds, to_base="base180")
 
     # Perform variable renaming if a variable is reuqested
-    variables = []
-    if variable:
-        var_basis = 'ecmwf_ifs_er'
-        variables = [variable]
-    else:
-        var_basis = 'sheerwater'
-        variables = ds.variables
-
-
-    for var in variables:
+    for var in ds.variables:
         try:
-            if var_basis == 'ecmwf_ifs_er':
-                variable = get_variable(var, var_basis)
-                ds = ds.rename_vars(name_dict={variable: var})
-                variable = var
-            else:
-                variable = get_variable(var, var_basis)
-                ds = ds.rename_vars(name_dict={var: variable})
+            variable = get_variable(var, 'sheerwater')
+            ds = ds.rename_vars(name_dict={var: variable})
 
             # Perform unit conversions if a specific variable is requested
             if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
