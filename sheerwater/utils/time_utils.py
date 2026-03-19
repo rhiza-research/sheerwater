@@ -76,6 +76,10 @@ def assign_grouping_coordinates(ds, group, time_dim='time'):
             coords.append([month_to_period(x) for x in ds[time_dim].dt.month.values])
         elif grp == 'year':
             coords.append(ds[time_dim].dt.year.values)
+        elif grp == 'month_of_year':
+            coords.append([f'M{x:02d}' for x in ds[time_dim].dt.month.values])
+        elif grp == 'quarter_of_year':
+            coords.append([f'Q{x:02d}' for x in ds[time_dim].dt.quarter.values])
         else:
             raise ValueError(f"Invalid time grouping {grp}")
 

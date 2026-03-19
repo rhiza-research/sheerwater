@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from nuthatch import cache
 
 def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
     """A light wrapper around standard groupby aggregation functions."""

@@ -2,11 +2,16 @@
 import xarray as xr
 import numpy as np
 from google.cloud import secretmanager
+import pandas as pd
+import dask
 
 from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote, get_grid
 from sheerwater.spatial_subdivisions import nonuniform_grid, is_station_grid
 from sheerwater.interfaces import get_data
+from sheerwater.masks import spatial_mask
+from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region, spacegrouping_category_codes
+from sheerwater.utils.time_utils import assign_grouping_coordinates
 
 
 # Add the postgres write password to the config parameter, so that this code
@@ -85,7 +90,7 @@ def scatter_data(start_time, end_time,
                  sources=[('rain_over_africa', 'precip'), ('chirps_v3', 'precip'), ('imerg_final', 'precip'),
                           ('tahmo_avg', 'precip'), ('era5', 'tmp2m'), ('era5', 'rh2m')],
                  agg_days=1,
-                 grid='global0_25', mask='lsm', region='global'):
+                 grid='global0_25', mask='lsm', region='global', dropifnan=['tahmo_avg']):
     """Generate paired data at stations data for scatter plots."""
     datasets = [get_data(source)(start_time, end_time, variable=variable, agg_days=agg_days,
                                  grid=grid if 'smap' not in source else 'source',
@@ -106,10 +111,146 @@ def scatter_data(start_time, end_time,
 
     # stack into a table
     ds = ds.stack(points=("time", "lat", "lon"))
-    # drop rows where 'tahmo_avg_precip' is NaN, so that we only have data where both TAHMO and the truth are available
-    ds = ds.dropna("points", subset=["tahmo_avg_precip"])
+    # drop rows where any of the dropifnan variables are NaN, so that we only have data where both TAHMO and the truth are available
+    cols = []
+    for source in dropifnan:
+        variable = [variable for s, variable in sources if s == source]
+        cols.append(f'{source}_{variable}')
+    ds = ds.dropna("points", subset=dropifnan)
 
     # convert to dataframe
     df = ds.to_dataframe()
     df = df.drop(columns=['time', 'lat', 'lon']).reset_index()
     return df
+
+@cache(cache_args=["region", "space_grouping", "grid"], backend="sql")
+def region_codes(start_time, end_time, estimate, truth, agg_days, grid, region="global", time_grouping="month_of_year", space_grouping="country"):
+    bins = np.arange(0, 50, 1)
+    hist2d = paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
+                              time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask='lsm', region=region, bins=bins, recompute=False)
+    # get categories
+    categories = hist2d.region.to_dask_dataframe().cat.categories
+    # create pandas dataframe with region names and categories
+    df = pd.DataFrame({"region": hist2d.region, "region_id": range(len(categories))})
+    import pdb; pdb.set_trace()
+    return df
+
+
+@cache(cache_args=['estimate', 'truth', 'agg_days', 'grid', 'region'], backend='sql', backend_kwargs={'hash_table_name': False})
+def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="global", time_grouping="month_of_year", space_grouping="country"):
+    """Get a dataframe of the histogram data."""
+    if agg_days <= 4:
+        bins = np.arange(0, 100, 1)
+    elif agg_days <= 7:
+        bins = np.arange(0, 50, 1)
+    else:
+        bins = np.arange(0, 30, 1)
+    hist2d = paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
+                              time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask='lsm', region=region, bins=bins)
+    # making this small enough to produce a pandas dataframe
+    # drop zero bins
+    ddf = hist2d.to_dask_dataframe()
+    ddf_sparse = ddf[ddf["precip"] > 0]
+
+    # make space grouping categorical
+    region_codes = spacegrouping_category_codes(grid=grid, space_grouping=space_grouping, region=region)
+    region_codes_ddf = dask.dataframe.from_pandas(region_codes, npartitions=1)
+    ddf_sparse = ddf_sparse.merge(region_codes_ddf, on="region", how="left")
+    # make time grouping categorical
+    ddf_sparse = ddf_sparse.astype({"group": "category"}).categorize()
+    ddf_sparse["group_id"] = ddf_sparse.group.cat.codes
+    ddf_final = ddf_sparse.drop(columns=["group", "region"]).reset_index()
+    
+    # convert to pandas
+    df = ddf_final.compute()
+    df = df.drop(columns=['index'])
+    return df
+
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'time_grouping', 'space_grouping', 'estimate', 'truth', 'agg_days', 'grid'])
+def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
+                     time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', region='global', spatial=False, bins=None):
+    """Compute a paired histogram of two variables."""
+    estimate_ds = get_data(estimate)(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    truth_ds = get_data(truth)(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    
+    # align datasets
+    estimate_ds, truth_ds = xr.align(estimate_ds, truth_ds, join='inner')
+    # rename precip variables
+    estimate_ds = estimate_ds.rename({'precip': 'estimate_precip'})
+    truth_ds = truth_ds.rename({'precip': 'truth_precip'})
+    # merge datasets on time and space
+    merged_data = xr.merge([estimate_ds, truth_ds])
+
+    # get bins of histogram
+    if bins is None:
+        max_value = 50
+        step = 1
+        bins = np.arange(0, max_value + step, step)
+    
+    hist2d = hist_grouping(merged_data, time_grouping, space_grouping, grid, mask, region, spatial,
+    bins, variables=['estimate_precip', 'truth_precip'])
+    # rename bin1 to estimate and bin2 to truth
+    hist2d = hist2d.rename({'bin1': "estimate", 'bin2': "truth"})
+    return hist2d
+
+
+def hist_grouping(ds, time_grouping, space_grouping, grid, mask, region, spatial, bins, time_dim='time', **kwargs):
+    """Group data into a histogram with optional time and space grouping."""
+    def paired_hist(values1, values2, bins):
+        mask = ~np.isnan(values1) & ~np.isnan(values2)
+        values1 = values1[mask]
+        values2 = values2[mask]
+
+        hist2d, xedges, yedges = np.histogram2d(values1, values2, bins=bins)
+        return hist2d
+
+    # variables
+    vars = kwargs.get("variables")
+    # mask the data first
+    mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
+    if region != 'global':
+        mask_ds = clip_region(mask_ds, grid=grid, region=region)
+
+    ds = ds.where(mask_ds.mask, drop=False)
+    
+    if time_grouping is None and space_grouping is None:
+        ds = xr.apply_ufunc(paired_hist, ds[vars[0]], ds[vars[1]],
+            input_core_dims=[[time_dim], [time_dim]], output_core_dims=[["bin1", "bin2"]],
+            vectorize=True, dask="parallelized",
+            output_dtypes=[int],
+            dask_gufunc_kwargs={"allow_rechunk": True,
+               "output_sizes": {"bin1": len(bins)-1, "bin2": len(bins)-1}},
+            kwargs={"bins": bins},
+        )
+        ds = ds.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
+        ds = ds.to_dataset(name="precip")
+    else:
+        if time_grouping is not None:
+        # add time and space grouping coordinates
+            ds = assign_grouping_coordinates(ds, time_grouping, time_dim)
+        if space_grouping is not None:
+            space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
+            if region != 'global':
+                space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
+            ds = ds.assign_coords(region=space_grouping_ds.region)
+        time_groups = np.unique(ds.group.values)
+        space_groups = np.unique(ds.region.values)
+        hist_list = []
+        for time_group in time_groups:
+            for space_group in space_groups:
+                ds_group = ds.where((ds.group == time_group) & (ds.region == space_group), drop=True)
+                ds_group = xr.apply_ufunc(paired_hist, ds_group[vars[0]], ds_group[vars[1]],
+                        input_core_dims=[[time_dim, 'lat', 'lon'], [time_dim, 'lat', 'lon']], output_core_dims=[["bin1", "bin2"]],
+                        vectorize=False, dask="parallelized",
+                        output_dtypes=[int],
+                        dask_gufunc_kwargs={"allow_rechunk": True,
+                            "output_sizes": {"bin1": len(bins)-1, "bin2": len(bins)-1}},
+                        kwargs={"bins": bins},
+                )
+                ds_group = ds_group.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
+                ds_group = ds_group.expand_dims(group=[time_group], region=[space_group])
+                ds_group = ds_group.to_dataset(name="precip")
+                hist_list.append(ds_group)
+        ds = xr.combine_by_coords(hist_list)
+    return ds
