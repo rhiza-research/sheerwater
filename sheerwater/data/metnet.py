@@ -1,4 +1,4 @@
-"""oya data product."""
+"""metnet data product."""
 import ee
 import dask
 import xarray as xr
@@ -30,8 +30,8 @@ class Plugin(dask.distributed.diagnostics.plugin.WorkerPlugin):
 @dask_remote
 @cache(cache_args=['day'],
        backend_kwargs={'chunking': {'lat': 4001, 'lon': 8000, 'time': 1}})
-def oya_daily(day):
-    """Get oya from earthengine and cache it."""
+def metnet_daily(day):
+    """Get metnet from earthengine and cache it."""
     # To use EE distributed we must register the worker plugin
     try:
         plugin = Plugin()
@@ -45,7 +45,7 @@ def oya_daily(day):
 
     # This is how you get the data at its native projection
     day1 = pd.to_datetime(day) + pd.Timedelta(days=1)
-    ic = ee.ImageCollection('projects/global-precipitation-nowcast/assets/global_estimation').filterDate(day, day1.strftime('%Y-%m-%d'))
+    ic = ee.ImageCollection('projects/global-precipitation-nowcast/assets/metnet_nowcast').filterDate(day, day1.strftime('%Y-%m-%d'))
     ds = None
     if ic.size().getInfo() > 0:
         ds = xr.open_dataset(ic,
@@ -61,9 +61,10 @@ def oya_daily(day):
 
     # Roll the data up to the daily level. The data is mm/hour every 30 minutes, so the sum (to get it to daily)
     # must be divided by 2
+    print(ds)
     ds = ds.sel(time=slice(day, day))
     resampled_ds = xr.Dataset()
-    resampled_ds['precip'] = ds['precipitation'].resample(time='1D').sum(skipna=True, min_count=48) * 0.5
+    resampled_ds['precip'] = ds['precipitation'].resample(time='1D').sum() * 0.5
 
     return resampled_ds
 
@@ -73,23 +74,23 @@ def oya_daily(day):
 @timeseries()
 @cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def oya_raw(start_time, end_time, delayed=False):
-    """Get oya from earthengine and cache it."""
+def metnet_raw(start_time, end_time, delayed=False):
+    """Get metnet from earthengine and cache it."""
 
     days = pd.date_range(start_time, end_time)
 
     def run_day(day):
-        ds = oya_daily(day.strftime("%Y-%m-%d"), filepath_only=True)
+        ds = metnet_daily(day.strftime("%Y-%m-%d"), filepath_only=True)
         return ds
 
-    run_in_parallel(run_day, days, 20)
+    run_in_parallel(run_day, days, 30)
 
     datasets = []
     for day in days:
         if delayed:
-            ds = dask.delayed(oya_daily)(day.strftime("%Y-%m-%d"), filepath_only=True)
+            ds = dask.delayed(metnet_daily)(day.strftime("%Y-%m-%d"), filepath_only=True)
         else:
-            ds = oya_daily(day.strftime("%Y-%m-%d"), filepath_only=True)
+            ds = metnet_daily(day.strftime("%Y-%m-%d"), filepath_only=True)
 
         datasets.append(ds)
 
@@ -111,10 +112,10 @@ def oya_raw(start_time, end_time, delayed=False):
 @spatial()
 @cache(cache_args=['grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
+def metnet_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
                   region='global'):
-    """Regridded version of whole oya dataset."""
-    ds = oya_raw(start_time, end_time)
+    """Regridded version of whole metnet dataset."""
+    ds = metnet_raw(start_time, end_time)
 
     # Regrid if not on the native grid
     if grid != 'source':
@@ -125,10 +126,10 @@ def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
 
 @dask_remote
 @sheerwater_data()
-def oya(start_time, end_time, variable, agg_days, grid, mask=None, region='global'):
-    """A unified oya caller."""
+def metnet(start_time, end_time, variable, agg_days, grid, mask=None, region='global'):
+    """A unified metnet caller."""
     if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by oya.")
-    ds = oya_gridded(start_time, end_time, grid, mask=mask, region=region)
+        raise NotImplementedError("Only precip and derived variables provided by metnet.")
+    ds = metnet_gridded(start_time, end_time, grid, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
