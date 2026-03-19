@@ -53,7 +53,7 @@ def ifs_extended_range_raw(start_time, end_time, variable=None, forecast_type='f
         var = get_variable(variable, 'ecmwf_ifs_er')
         ds = ds[var].to_dataset()
 
-        # If a specific run, select
+    # If a specific run, select
     if isinstance(run_type, int):
         ds = ds.sel(member=run_type)
     return ds
@@ -118,21 +118,40 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
     ds = lon_base_change(ds, to_base="base180")
 
     # Perform variable renaming if a variable is reuqested
+    variables = []
     if variable:
-        var = get_variable(variable, 'ecmwf_ifs_er')
-        ds = ds.rename_vars(name_dict={var: variable})
+        var_basis = 'ecmwf_ifs_er'
+        variables = [variable]
+    else:
+        var_basis = 'sheerwater'
+        variables = ds.variables
 
-    # Perform unit conversions if a specific variable is requested
-    if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
-        ds[variable] = ds[variable] - 273.15
-        ds.attrs.update(units='C')
-    elif variable == 'precip':
-        ds[variable] = ds[variable] * 1000.0
-        ds.attrs.update(units='mm')
-        ds = np.maximum(ds, 0)
-    elif variable == 'ssrd':
-        ds.attrs.update(units='Joules/m^2')
-        ds = np.maximum(ds, 0)
+
+    for var in variables:
+        try:
+            if var_basis == 'ecmwf_ifs_er':
+                variable = get_variable(var, var_basis)
+                ds = ds.rename_vars(name_dict={variable: var})
+                variable = var
+            else:
+                variable = get_variable(var, var_basis)
+                ds = ds.rename_vars(name_dict={var: variable})
+
+            # Perform unit conversions if a specific variable is requested
+            if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
+                ds[variable] = ds[variable] - 273.15
+                ds.attrs.update(units='C')
+            elif variable == 'precip':
+                ds[variable] = ds[variable] * 1000.0
+                ds.attrs.update(units='mm')
+                ds = np.maximum(ds, 0)
+            elif variable == 'ssrd':
+                ds.attrs.update(units='Joules/m^2')
+                ds = np.maximum(ds, 0)
+        except ValueError:
+            # Don't rename variables we haven't registered/don't use
+            pass
+
 
     if grid == 'global1_5':
         return ds
@@ -163,7 +182,7 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 @cache(cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 200, "member": 50}})
 def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type='average',
-                                time_group='dialy', grid="global1_5", mask=None, region='global'):
+                                time_group='daily', grid="global1_5", mask=None, region='global'):
     """Computes the bias of ECMWF reforecasts for a specific lead."""
     # Fetch the reforecast data; get's the past 20 years associated with each start date
     ds_deb = ifs_extended_range(start_time, end_time, variable, forecast_type="reforecast",
