@@ -66,23 +66,12 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
                   region='global'):
     """Regridded version of whole imerg dataset."""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
-    years = [yy for yy in years if yy < 2025]
 
     datasets = []
     for year in years:
         ds = imerg_raw(year, version, filepath_only=True)
         datasets.append(ds)
 
-    if parser.parse(start_time).year >= 2025 or parser.parse(end_time).year >= 2025:
-        # If we have requested recent data, get the live data
-        if parser.parse(start_time).year >= 2025:
-            live_start = start_time
-        else:
-            live_start = "2025-01-01"
-        ds = imerg_raw_live(live_start, end_time, version, filepath_only=True)
-        datasets.append(ds)
-
-    # Get archive data
     ds = xr.open_mfdataset(datasets,
                            engine='zarr',
                            parallel=True,
