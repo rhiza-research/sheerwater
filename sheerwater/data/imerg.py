@@ -1,4 +1,5 @@
 """Imerg data product."""
+import pandas as pd
 import gcsfs
 import xarray as xr
 from dateutil import parser
@@ -6,8 +7,29 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
-
 from sheerwater.interfaces import data as sheerwater_data, spatial
+from .earthaccess_generic import earthaccess_dataset
+
+
+@dask_remote
+@timeseries()
+@cache(cache_args=["version"], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+def imerg_raw_live(start_time, end_time, version='late', delayed=False):
+    """GPM IMERG Final / Late Precipitation L3 1 day 0.1 degree x 0.1 degree V07 (GPM_3IMERGDF / GPM_3IMERGDL)."""
+    def imerg_preprocessor(dt):
+        ds = dt['precipitation'].to_dataset()
+        ds = ds.drop_attrs()
+        return ds
+
+    if version == 'late':
+        shortname = "GPM_3IMERGDL"
+    elif version == 'final':
+        shortname = "GPM_3IMERGDF"
+    else:
+        raise ValueError(f"Invalid version: {version}")
+
+    ds = earthaccess_dataset(start_time, end_time, shortname, preprocessor=imerg_preprocessor, delayed=delayed)
+    return ds
 
 
 @dask_remote
