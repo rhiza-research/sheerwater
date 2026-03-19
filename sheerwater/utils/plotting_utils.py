@@ -88,12 +88,13 @@ def bounds(variable):
         return (None, None)
 
 
-def plot_by_region(ds, region, variable, file_string='none', title='Regional Map'):
+def plot_by_region(ds, space_grouping, variable, region='global', file_string='none', title='Regional Map'):
     """Plot a variable from an xarray dataset by region.
 
     Args:
         ds: xarray DataArray or Dataset with a 'region' coordinate
         region: Region level or specific region name to plot
+        space_grouping: Space grouping level or specific space grouping name to plot
         variable: Variable name if ds is a Dataset (optional)
         file_string: File path string for saving the plot
         title: Title for the plot
@@ -102,8 +103,8 @@ def plot_by_region(ds, region, variable, file_string='none', title='Regional Map
         matplotlib axes object
     """
     # Get the region GeoDataFrame and metric bounds
-    from sheerwater.spatial_subdivisions import political_subdivision_geodataframe
-    gdf = political_subdivision_geodataframe(region)
+    from sheerwater.spatial_subdivisions import polygon_subdivision_geodataframe
+    gdf = polygon_subdivision_geodataframe(space_grouping)
     # Extract the data values
     try:
         data = ds[variable]
@@ -116,7 +117,9 @@ def plot_by_region(ds, region, variable, file_string='none', title='Regional Map
 
     # Extract values for each region in the GeoDataFrame
     values = []
-    for region_name in gdf.region_name:
+    regions = [rn for rn in gdf.region_name if region in rn]
+    gdf = gdf[gdf.region_name.isin(regions)]
+    for region_name in regions:
         try:
             # Select the region and extract the scalar value
             region_value = data.sel(region=region_name)
