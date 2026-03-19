@@ -78,7 +78,7 @@ def ifs_extended_range_raw(start_time, end_time, variable=None, forecast_type='f
            }
 })
 def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forecast',
-                       run_type='average', time_group='weekly',
+                       run_type='average', time_group='daily',
                        grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Fetches IFS extended range forecast and reforecast data from the WeatherBench2 dataset.
 
@@ -163,7 +163,7 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 @cache(cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 200, "member": 50}})
 def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type='average',
-                                time_group='weekly', grid="global1_5", mask=None, region='global'):
+                                time_group='dialy', grid="global1_5", mask=None, region='global'):
     """Computes the bias of ECMWF reforecasts for a specific lead."""
     # Fetch the reforecast data; get's the past 20 years associated with each start date
     ds_deb = ifs_extended_range(start_time, end_time, variable, forecast_type="reforecast",
