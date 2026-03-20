@@ -132,7 +132,6 @@ def region_codes(start_time, end_time, estimate, truth, agg_days, grid, region="
     categories = hist2d.region.to_dask_dataframe().cat.categories
     # create pandas dataframe with region names and categories
     df = pd.DataFrame({"region": hist2d.region, "region_id": range(len(categories))})
-    import pdb; pdb.set_trace()
     return df
 
 
@@ -148,22 +147,23 @@ def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="globa
     hist2d = paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
                               time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask='lsm', region=region, bins=bins)
     # making this small enough to produce a pandas dataframe
-    # drop zero bins
-    ddf = hist2d.to_dask_dataframe()
-    ddf_sparse = ddf[ddf["precip"] > 0]
-
     # make space grouping categorical
     region_codes = spacegrouping_category_codes(grid=grid, space_grouping=space_grouping, region=region)
-    region_codes_ddf = dask.dataframe.from_pandas(region_codes, npartitions=1)
-    ddf_sparse = ddf_sparse.merge(region_codes_ddf, on="region", how="left")
+    region_map = dict(zip(region_codes["region"], region_codes["region_id"]))
+    hist2d = hist2d.assign_coords(region_id=("region", [region_map[r] for r in hist2d.region.values]))
+    # swap region and region_id so we can drop region
+    hist2d = hist2d.swap_dims({"region": "region_id"}).drop_vars("region")
+    ddf = hist2d.to_dask_dataframe().reset_index()
+    # drop zero bins
+    ddf_sparse = ddf[ddf["precip"] > 0]
     # make time grouping categorical
-    ddf_sparse = ddf_sparse.astype({"group": "category"}).categorize()
-    ddf_sparse["group_id"] = ddf_sparse.group.cat.codes
-    ddf_final = ddf_sparse.drop(columns=["group", "region"]).reset_index()
-    
+    ddf_sparse["group"] = ddf_sparse["group"].astype("category")
+    ddf_sparse = ddf_sparse.categorize(columns=["group"])
+    ddf_sparse["group_id"] = ddf_sparse["group"].cat.codes
+    ddf_sparse = ddf_sparse.drop(columns=["group"])
     # convert to pandas
-    df = ddf_final.compute()
-    df = df.drop(columns=['index'])
+    df = ddf_sparse.compute()
+    df = df.drop(columns=['index'], errors='ignore')
     return df
 
 @dask_remote
