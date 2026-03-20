@@ -19,13 +19,14 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
 })
-def chirps_live(start_time=None, end_time=None, mask=None, region='global'):  # noqa: ARG001
+def chirps_raw_live(start_time=None, end_time=None, grid='source', mask=None, region='global'):  # noqa: ARG001
     """CHIRPS live from this year."""
     year = datetime.datetime.now().year
     prelim_url = f'https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/prelim/sat/netcdf/byYear/chirps-v3.0.sat.{year}.days_p05.nc'
     fs = fsspec.filesystem("https", timeout=7200)
     fprelim = fs.open(prelim_url)
     ds = xr.open_dataset(fprelim, chunks={})
+    ds = ds.sortby('lat', ascending=True)
     return ds
 
 
