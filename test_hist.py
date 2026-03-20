@@ -14,12 +14,12 @@ if __name__ == "__main__":
     start_time = "2015-01-01"
     end_time = "2024-12-31"
     grid = "global1_5"
-    agg_days = 5
+    agg_days = 10
 
     # test category codes
-    df = spacegrouping_category_codes(grid=grid, space_grouping="country", region="global")
-    import pdb; pdb.set_trace()
+    #df = spacegrouping_category_codes(grid=grid, space_grouping="country", region="global")
+    #import pdb; pdb.set_trace()
 
     #region_codes = region_codes(start_time, end_time, estimate="imerg_late", truth="stations", agg_days=agg_days, grid=grid, recompute=["region_codes"])
-    hdf = hist_df(start_time, end_time, estimate="imerg_late", truth="stations", agg_days=agg_days, grid=grid)
+    hdf = hist_df(start_time, end_time, estimate="chirps_v3", truth="stations", agg_days=agg_days, grid=grid)
     import pdb; pdb.set_trace()
