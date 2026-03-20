@@ -136,7 +136,6 @@ class Metric(ABC):
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
 
-
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
@@ -314,9 +313,9 @@ class Metric(ABC):
                 ds[stat] = ds[stat] * ds['weights']
 
             if self.space_grouping is None:
-                ds = ds.sum(dim=['lat', 'lon'], skipna=True)
+                ds = ds.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
             elif ds.space_grouping.size > 0:
-                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
                 # If we've passed a global region and clipped, drop any null groups
                 # Currently commenting out because it was hurting performance

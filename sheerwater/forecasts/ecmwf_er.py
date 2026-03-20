@@ -12,13 +12,13 @@ from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
 @dask_remote
-@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@timeseries(timeseries=['time', 'forecast_time'])
 @cache(cache=False,
        cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
                                     "start_date": 29, "start_year": 29,
                                     "model_issuance_date": 1}})
-def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noqa ARG001
+def ifs_extended_range_raw(start_time, end_time, variable=None, forecast_type='forecast',  # noqa ARG001
                            run_type='average', time_group='weekly', grid="global1_5"):
     """Fetches IFS extended range forecast data from the WeatherBench2 dataset.
 
@@ -49,22 +49,9 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
     ds = xr.open_zarr(filepath, decode_timedelta=True)
 
     # Select the right variable
-    var = get_variable(variable, 'ecmwf_ifs_er')
-    ds = ds[var].to_dataset()
-    ds = ds.rename_vars(name_dict={var: variable})
-
-    # Convert local dataset naming and units
-    ds = ds.rename({'latitude': 'lat', 'longitude': 'lon', 'prediction_timedelta': 'lead_time'})
-    if run_type != 'average':
-        ds = ds.rename({'number': 'member'})
-    if forecast_type == 'reforecast':
-        ds = ds.rename({'hindcast_year': 'start_year'})
-        ds = ds.rename({'forecast_time': 'model_issuance_date'})
-        ds = ds.drop('time')
-    else:
-        ds = ds.rename({'time': 'start_date'})
-
-    ds = ds.drop_vars('valid_time')
+    if variable:
+        var = get_variable(variable, 'ecmwf_ifs_er')
+        ds = ds[var].to_dataset()
 
     # If a specific run, select
     if isinstance(run_type, int):
@@ -90,8 +77,8 @@ def ifs_extended_range_raw(start_time, end_time, variable, forecast_type,  # noq
                },
            }
 })
-def ifs_extended_range(start_time, end_time, variable, forecast_type,
-                       run_type='average', time_group='weekly',
+def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forecast',
+                       run_type='average', time_group='daily',
                        grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Fetches IFS extended range forecast and reforecast data from the WeatherBench2 dataset.
 
@@ -113,19 +100,45 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
     """IRI ECMWF average forecast with regridding."""
     ds = ifs_extended_range_raw(start_time, end_time, variable, forecast_type,
                                 run_type, time_group=time_group, grid='global1_5')
+
+    # Convert local dataset naming and units
+    ds = ds.rename({'latitude': 'lat', 'longitude': 'lon', 'prediction_timedelta': 'lead_time'})
+    if run_type != 'average':
+        ds = ds.rename({'number': 'member'})
+    if forecast_type == 'reforecast':
+        ds = ds.rename({'hindcast_year': 'start_year'})
+        ds = ds.rename({'forecast_time': 'model_issuance_date'})
+        ds = ds.drop('time')
+    else:
+        ds = ds.rename({'time': 'start_date'})
+
+    ds = ds.drop_vars('valid_time')
+
     # Convert to base180 longitude
     ds = lon_base_change(ds, to_base="base180")
 
-    if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
-        ds[variable] = ds[variable] - 273.15
-        ds.attrs.update(units='C')
-    elif variable == 'precip':
-        ds[variable] = ds[variable] * 1000.0
-        ds.attrs.update(units='mm')
-        ds = np.maximum(ds, 0)
-    elif variable == 'ssrd':
-        ds.attrs.update(units='Joules/m^2')
-        ds = np.maximum(ds, 0)
+    # Perform variable renaming if a variable is reuqested
+    for var in ds.variables:
+        try:
+            variable = get_variable(var, 'sheerwater')
+            ds = ds.rename_vars(name_dict={var: variable})
+
+            # Perform unit conversions if a specific variable is requested
+            if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
+                ds[variable] = ds[variable] - 273.15
+                ds[variable].attrs.update(units='C')
+            elif variable == 'precip':
+                ds[variable] = ds[variable] * 1000.0
+                ds[variable].attrs.update(units='mm')
+                ds = np.maximum(ds, 0)
+            elif variable == 'ssrd':
+                ds[variable].attrs.update(units='Joules/m^2')
+                ds = np.maximum(ds, 0)
+        except ValueError:
+            # Don't rename variables we haven't registered/don't use
+            pass
+
+
     if grid == 'global1_5':
         return ds
 
@@ -155,7 +168,7 @@ def ifs_extended_range(start_time, end_time, variable, forecast_type,
 @cache(cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 1, "model_issuance_date": 200, "member": 50}})
 def ifs_er_reforecast_lead_bias(start_time, end_time, variable, lead=0, run_type='average',
-                                time_group='weekly', grid="global1_5", mask=None, region='global'):
+                                time_group='daily', grid="global1_5", mask=None, region='global'):
     """Computes the bias of ECMWF reforecasts for a specific lead."""
     # Fetch the reforecast data; get's the past 20 years associated with each start date
     ds_deb = ifs_extended_range(start_time, end_time, variable, forecast_type="reforecast",
