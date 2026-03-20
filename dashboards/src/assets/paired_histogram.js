@@ -83,14 +83,14 @@ return {
             color: FONT_COLOR
         },
         xaxis: {
-            title: { text: stations, standoff: 14 },
+            title: { text: stations + " (mm/day)", standoff: 14 },
             type: "linear",
             gridcolor: "rgba(255,255,255,0.08)",
             zerolinecolor: "rgba(255,255,255,0.15)",
             tickfont: { size: 12 }
         },
         yaxis: {
-            title: { text: satellite, standoff: 14 },
+            title: { text: satellite + " (mm/day)", standoff: 14 },
             type: "linear",
             gridcolor: "rgba(255,255,255,0.08)",
             zerolinecolor: "rgba(255,255,255,0.15)",

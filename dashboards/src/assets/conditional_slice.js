@@ -54,8 +54,8 @@ for (let bin = minBin; bin <= maxBin; bin++) {
 
 // x axis labels
 let xlabel = conditionOn === "satellite"
-    ? `${stations} (mm/day) | given ${sliceValue} mm/day ${satellite}`
-    : `${satellite} (mm/day) | given ${sliceValue} mm/day ${stations}`;
+    ? `${stations} when ${satellite} = ${sliceValue} mm/day`
+    : `${satellite} when ${stations} = ${sliceValue} mm/day`;
 
 // plot aesthetics
 const FILL_COLOR   = "rgba(99, 179, 237, 0.25)";  // soft sky blue fill
@@ -121,7 +121,7 @@ return {
                 x: sliceValue,
                 y: 1,
                 yref: "paper",
-                text: `slice: ${sliceValue}`,
+                text: `${conditionOn} = ${sliceValue} mm/day`,
                 showarrow: false,
                 xanchor: "left",
                 yanchor: "bottom",
