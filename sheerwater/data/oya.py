@@ -3,6 +3,7 @@ import ee
 import dask
 import xarray as xr
 import pandas as pd
+import numpy as np
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
@@ -110,11 +111,18 @@ def oya_raw(start_time, end_time, delayed=False):
 @timeseries()
 @spatial()
 @cache(cache_args=['grid'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
+       cache_disable_if={
+           'grid': 'source'
+       })
 def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
                   region='global'):
     """Regridded version of whole oya dataset."""
     ds = oya_raw(start_time, end_time)
+
+    # There are both infs and really large numbers in the dataset
+    ds = ds.where(ds != np.inf)
+    ds = ds.where(ds < 1000)
 
     # Regrid if not on the native grid
     if grid != 'source':
