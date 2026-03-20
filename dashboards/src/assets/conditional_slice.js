@@ -1,53 +1,66 @@
 // EXTERNAL:conditional_slice.js
-// Assume `data.series[0]` comes from your SQL query
-let series = data.series[0];
 
-// Get fields by name
+
+let series = data.series[0];
+// get fields by name
 let estimateField = series.fields.find(f => f.name === "estimate");
 let truthField    = series.fields.find(f => f.name === "truth");
 let precipField   = series.fields.find(f => f.name === "precip");
-
-// Extract values
+// get values
 let estimate = estimateField.values || estimateField.values.buffer;
 let truth    = truthField.values || truthField.values.buffer;
 let precip   = precipField.values || precipField.values.buffer;
 
-// Get user-selected slice value from Grafana variable
-let sliceValue = parseFloat(variables.slice.current.value); // allow decimal slices
-let satellite = variables.satellite.current.text || variables.satellite.current.value;
+// get grafana dashboard variables
+let sliceValue    = parseFloat(variables.slice.current.value);
+let conditionOn   = variables.condition_on.current.value; // "satellite" or "stations"
+let satellite     = variables.satellite.current.text || variables.satellite.current.value;
+let stations      = variables.stations.current.text || variables.stations.current.value;
 
-// --------------------
-// Filter to the truth bin containing the slice
-// --------------------
-let filteredEstimate = [];
-let filteredPrecip   = [];
+
+let xValues = []; // plotted variable; not the condition variable
+let counts  = []; // count of precipitation in the bin
 
 for (let i = 0; i < estimate.length; i++) {
+    let e = Number(estimate[i]);
     let t = Number(truth[i]);
-    if (sliceValue >= t && sliceValue < t + 1) {
-        filteredEstimate.push(Number(estimate[i]));
-        filteredPrecip.push(Number(precip[i]));
+    let p = Number(precip[i]);
+
+    if (conditionOn === "satellite") {
+        // condition on satellite (estimate), plot stations (truth)
+        if (sliceValue >= e && sliceValue < e + 1) {
+            xValues.push(t);
+            counts.push(p);
+        }
+    } else if (conditionOn === "stations") {
+        // condition on stations (truth), plot satellite (estimate)
+        if (sliceValue >= t && sliceValue < t + 1) {
+            xValues.push(e);
+            counts.push(p);
+        }
     }
 }
 
-// --------------------
-// Fill missing estimate bins with 0
-// --------------------
-let minBin = Math.min(...filteredEstimate);
-let maxBin = Math.max(...filteredEstimate);
+// fill missing bins with 0
+let minBin = Math.min(...xValues);
+let maxBin = Math.max(...xValues);
 
 let fullBins = [];
 let fullCounts = [];
 
-for (let e = minBin; e <= maxBin; e++) {
-    let idx = filteredEstimate.indexOf(e);
-    fullBins.push(e);
-    fullCounts.push(idx >= 0 ? filteredPrecip[idx] : 0);
+for (let bin = minBin; bin <= maxBin; bin++) {
+    fullBins.push(bin);
+    // get the count of precipitation in the bin if it exists, otherwise 0
+    let idx = xValues.indexOf(bin);
+    fullCounts.push(idx >= 0 ? counts[idx] : 0);
 }
 
-// --------------------
-// Plotly line plot with grey fill
-// --------------------
+
+// x axis labels
+let xlabel = conditionOn === "satellite"
+    ? `${stations} (mm/day) given ${sliceValue} mm/day ${satellite}`
+    : `${satellite} (mm/day) given ${sliceValue} mm/day ${stations}`;
+
 return {
     data: [
         {
@@ -57,20 +70,12 @@ return {
             mode: "lines",
             fill: "tozeroy",
             line: { color: "grey" },
-            hovertemplate: "Estimate: %{x}<br>Count: %{y}<extra></extra>"
+            hovertemplate: "%{x} mm/day<br>Count: %{y}<extra></extra>"
         }
     ],
     layout: {
-        xaxis: { 
-            title: `${satellite} mm/day given ${sliceValue} mm/day`, 
-            type: "linear",
-            autorange: true
-        },
-        yaxis: { 
-            title: "Counts", 
-            type: "linear", 
-            autorange: true 
-        },
+        xaxis: { title: xlabel, type: "linear", autorange: true },
+        yaxis: { title: "number of observations", type: "linear", autorange: true },
         margin: { t: 30, b: 50 }
     }
 };
