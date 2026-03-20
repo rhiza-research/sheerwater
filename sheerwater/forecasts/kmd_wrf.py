@@ -13,7 +13,7 @@ from sheerwater.utils import dask_remote, get_dates, regrid, roll_and_agg, shift
 
 
 @dask_remote
-@cache(cache_args=['date', 'forecast_type'],
+@cache(cache_args=['date', 'forecast_type'], backend='zarr',
        backend_kwargs={'chunking': {'lat': 350, 'lon': 300, 'lead_time': 60, 'time': 1}})
 def kmd_wrf_raw(date, forecast_type='weekly'):
     """KMD WRF forecast."""
@@ -57,7 +57,7 @@ def kmd_wrf_raw(date, forecast_type='weekly'):
     ds['tmp2m'] = ds['tmp2m'] - K_const
 
     # Rain is accumulated in mm; return the difference between each subsequent time
-    ds['precip'] = ds['precip'].diff('time')
+    ds['precip'] = ds['precip'].diff('lead_time')
 
     # Expand the dataset to add a time dimension corresponding to the first lead_time (lead_time==0)
     first_time_val = ds['lead_time'].values[0]
@@ -75,14 +75,18 @@ def kmd_wrf_raw(date, forecast_type='weekly'):
 @spatial()
 @cache(cache_args=['variable', 'grid', 'forecast_type'],
        backend_kwargs={'chunking': {'lat': 350, 'lon': 300, 'time': 60, 'prediction_timedelta': 60}})
-def kmd_wrf_daily(start_time, end_time, variable, grid='kmd', forecast_type='weekly', mask=None, region='kenya'):  # noqa: ARG001
+def kmd_wrf_daily(start_time, end_time, variable, grid='source', forecast_type='weekly', mask=None, region='kenya'):  # noqa: ARG001
     """KMD WRF forecast aggregated into daily data."""
     # Read and combine all the data into an array
     target_dates = get_dates(start_time, end_time, stride="day", return_string=True)
 
+    delayed = True
     datasets = []
     for date in target_dates:
-        ds = dask.delayed(kmd_wrf_raw)(date, forecast_type=forecast_type, filepath_only=True)
+        if delayed:
+            ds = dask.delayed(kmd_wrf_raw)(date, forecast_type=forecast_type, filepath_only=True)
+        else:
+            ds = kmd_wrf_raw(date, forecast_type=forecast_type, filepath_only=False, recompute=True)
         datasets.append(ds)
     datasets = dask.compute(*datasets)
     data = [d for d in datasets if d is not None]
@@ -128,7 +132,7 @@ def kmd_wrf_daily(start_time, end_time, variable, grid='kmd', forecast_type='wee
         ds = ds.drop_vars('number')
 
     # Regrid the output
-    if grid != 'kmd':
+    if grid != 'source':
         ds = regrid(ds, grid, base='base180', method='conservative')
     return ds
 

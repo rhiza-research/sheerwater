@@ -65,18 +65,19 @@ def imerg_raw(year, version='final'):
 def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG001
                   region='global'):
     """Regridded version of whole imerg dataset."""
-    years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
+    if False:
+        years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
-    datasets = []
-    for year in years:
-        ds = imerg_raw(year, version, filepath_only=True)
-        datasets.append(ds)
+        datasets = []
+        for year in years:
+            ds = imerg_raw(year, version, filepath_only=True)
+            datasets.append(ds)
 
-    ds = xr.open_mfdataset(datasets,
-                           engine='zarr',
-                           parallel=True,
-                           chunks={'lat': 300, 'lon': 300, 'time': 365})
-
+        ds = xr.open_mfdataset(datasets,
+                               engine='zarr',
+                               parallel=True,
+                               chunks={'lat': 300, 'lon': 300, 'time': 365})
+    ds = imerg_raw_live(start_time, end_time, version)
     ds = ds['precipitation'].to_dataset()
     ds = ds.rename({'precipitation': 'precip'})
 
