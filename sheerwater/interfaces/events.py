@@ -46,8 +46,6 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     # Chop off the last  days for wet spell, which won't have a matching dry spell
     wet_spell = wet_spell.isel(time=slice(None, -wet_spell_agg_days))
     # Floatwise "and-ing" of the two spells together to get the planting suitability
-    import matplotlib.pyplot as plt
-    import pdb; pdb.set_trace()
     return (wet_spell * not_dry_spell)
 
 

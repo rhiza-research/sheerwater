@@ -1,7 +1,7 @@
 """A decorator for identifying data sources."""
 
 import xarray as xr
-
+import pandas as pd
 from nuthatch.processor import NuthatchProcessor
 from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
@@ -32,7 +32,7 @@ class SheerwaterDataset(NuthatchProcessor):
                 before clipping.
             kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
-        super().__init__(**kwargs)
+        NuthatchProcessor.__init__(self, **kwargs)
         self.region_dim = region_dim
 
     def process_arguments(self, sig, *args, **kwargs):
@@ -41,11 +41,17 @@ class SheerwaterDataset(NuthatchProcessor):
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
         # Default to global region and no masking if not passed
+        self.start_time = bound_args.arguments.get('start_time', None)
+        self.end_time = bound_args.arguments.get('end_time', None)
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
-        self.event = bound_args.arguments.get('event', None)
-        self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
         self.variable = bound_args.arguments.get('variable', None)
+        self.event = kwargs.get('event', None)
+        self.event_kwargs = kwargs.get('event_kwargs', {})
+        if 'event' in kwargs:
+            del kwargs['event']
+        if 'event_kwargs' in kwargs:
+            del kwargs['event_kwargs']
         if self.variable is None:
             if self.event is None:
                 raise ValueError("Dataset decorator requires variable to be passed.")
@@ -132,13 +138,13 @@ class data(SheerwaterDataset):
 
     def __call__(self, func):
         """Call the parent class and register the data in the global data registry."""
-        wrapped = super().__call__(func)
+        wrapped = SheerwaterDataset.__call__(self, func)
         DATA_REGISTRY[func.__name__] = wrapped
         return wrapped
 
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the data decorator."""
-        args, kwargs = super().process_arguments(sig, *args, **kwargs)
+        args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
         # Adjust the end_time to account for the aggregation days, so that
@@ -160,7 +166,7 @@ class data(SheerwaterDataset):
     def post_process(self, ds):
         """Post-processor for a Sheerwater data. It supports xarray datasets."""
         # Implment masking and region clipping and timeseries postprocessing
-        ds = super().post_process(ds)
+        ds = SheerwaterDataset.post_process(self, ds)
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon', 'member', 'station_id']])
         return ds
@@ -171,18 +177,76 @@ class forecast(SheerwaterDataset):
 
     def __call__(self, func):
         """Call the forecast decorator and register it in the global forecast registry."""
-        wrapped = super().__call__(func)
+        wrapped = SheerwaterDataset.__call__(self, func)
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
+    def process_arguments(self, sig, *args, **kwargs):
+        """Process the arguments for the data decorator."""
+        self.lookback_days = kwargs.get('lookback_days', None)
+        self.lookback_data_source = kwargs.get('lookback_data_source', None)
+        if 'lookback_days' in kwargs: # TODO: remove extra check once we're not calling twice
+            del kwargs['lookback_days']
+        if 'lookback_data_source' in kwargs:
+            del kwargs['lookback_data_source']
+        args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
+        return args, kwargs
+
+
+    def blend_fcst_and_obs(self, fcst, obs, lookback_days=30):
+        """Blend the forecast and observations.
+
+        Args:
+            fcst (xr.Dataset): The forecast dataset, indexed by init_time and prediction_timedelta.
+            obs (xr.Dataset): The observations dataset, indexed by time.
+            lookback_days (int): The number of days to look back, integer.
+
+        Returns:
+            xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast.
+        """
+        # Get the lookback periods for the observations
+        lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
+
+        # Build a 2D DataArray of valid times
+        lookback_times = xr.DataArray(
+            fcst.init_time.values[:, None] + lookbacks.values[None, :],
+            dims=["init_time", "prediction_timedelta"],
+            coords={
+                "init_time": fcst.init_time.values,
+                "prediction_timedelta": lookbacks.values,
+            }
+        )
+        # Select the observations
+        obs_lookback = obs.sel(time=lookback_times)
+        obs_lookback = obs_lookback.drop_vars('time')
+
+        # Concat the observations and forecast
+        combined = xr.concat([obs_lookback, fcst], dim="prediction_timedelta")
+        return combined
+
     def post_process(self, ds):
-        """Convert the init time and prediction timedelta to a valid time coordinate labeled 'time'."""
+        """Post process the forecast.
+
+        Enables blending the forecast and observations, event definition, conversion of init time to valid time, 
+        and general spatial postprocessing, including region clipping and masking.
+        """
+        if not bool((ds.prediction_timedelta < 0).any()): # TODO: remove extra check once we're not calling twice
+            if self.lookback_days is not None and self.lookback_data_source is not None \
+                and isinstance(self.lookback_days, int):
+                # Get the observations for forecast period + the lookback period
+                new_start = shift_by_days(ds.init_time.values.min(), -self.lookback_days)
+                new_end = ds.init_time.values.max()
+                obs = get_data(self.lookback_data_source)(start_time=new_start, end_time=new_end,
+                        variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
+                ds = self.blend_fcst_and_obs(ds, obs, self.lookback_days)
+                ds = ds.assign_attrs(lookback_days=self.lookback_days)
+
         # TODO: remove extra check once we're not calling twice
         if self.event is not None and f"{self.variable}_{self.event}" not in ds.variables:
             # Rename prediction timedelta event_time for event postprocessing
             ds = ds.rename({'prediction_timedelta': 'time'})
 
-        ds = super().post_process(ds)
+        ds = SheerwaterDataset.post_process(self, ds)
 
         # TODO: remove extra checks once we're not calling twice
         # Rename event_time back to prediction_timedelta

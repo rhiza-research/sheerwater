@@ -18,6 +18,7 @@ SHEERWATER_STATISTIC_REGISTRY = {}
 def statistic(cache=False, name=None,
               timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
+                          'event', 'event_kwargs',
                           'data_key', 'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
               chunk_by_arg={
@@ -47,6 +48,7 @@ def statistic(cache=False, name=None,
             data, data_key,
             start_time, end_time,
             variable, agg_days, forecast, truth,
+            event, event_kwargs,
             statistic, grid,
             mask=None, region='global',
             **cache_kwargs
@@ -56,6 +58,7 @@ def statistic(cache=False, name=None,
                 'data_key': data_key,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
+                'event': event, 'event_kwargs': event_kwargs,
                 'grid': grid, 'mask': mask, 'region': region,
                 'statistic': statistic,
             }
@@ -80,7 +83,6 @@ def statistic(cache=False, name=None,
         ):
             # Set the statistic to the function name in lowercase
             cache_kwargs['statistic'] = name
-
             # Call the global statistic function
             ds = global_statistic(
                 data=data, memoize=True,
@@ -190,31 +192,27 @@ def fn_fcst_digitized(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # "Positive events" are 2 (above threshold); negative are 1
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 1) & (fcst_dig == 2)
+    # "Positive events" are 1.0, "Negative events" are 0.0
+    thresh = 1.0
+    return (data['obs'] < thresh)  & (data['fcst'] >= thresh)
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 2) & (fcst_dig == 1)
+    thresh = 1.0
+    return (data['obs'] >= thresh)  & (data['fcst'] < thresh)
 
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 2) & (fcst_dig == 2)
+    thresh = 1.0
+    return (data['obs'] >= thresh)  & (data['fcst'] >= thresh)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 1) & (fcst_dig == 1)
+    thresh = 1.0
+    return (data['obs'] < thresh)  & (data['fcst'] < thresh)
 
 
 @statistic(cache=False, name='n_correct')

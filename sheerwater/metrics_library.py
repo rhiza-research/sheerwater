@@ -48,13 +48,17 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
+                 event=None, event_kwargs={},
                  mask='lsm', space_grouping='country', region='global', data_key='none',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
         self.end_time = end_time
+
         self.variable = variable
+        self.event = event
+        self.event_kwargs = event_kwargs
         self.agg_days = agg_days
         self.forecast = forecast
         self.truth = truth
@@ -78,8 +82,13 @@ class Metric(ABC):
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
         # Arguments for calling the data and forecast functions.
+        if self.event is None:
+            self.event = self.event_default
+        if self.event_kwargs is None:
+            self.event_kwargs = {}
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
+                             'event': self.event, 'event_kwargs': self.event_kwargs,
                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
@@ -127,12 +136,12 @@ class Metric(ABC):
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
-        # Select the variable of interest
-        obs = obs[[self.variable]]
-        fcst = fcst[[self.variable]]
-
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         # Select the variable of interest
+        if self.event is not None:
+            # Adjust the variable to the event variable
+            self.variable = f"{self.variable}_{self.event}"
+
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
 
@@ -186,15 +195,6 @@ class Metric(ABC):
         self.metric_data['data']['no_null'] = no_null
         self.metric_data['data']['valid_times'] = valid_times
 
-        # If categorical, populate the data with the bin information
-        if self.categorical:
-            if self.metric_data['key'] == 'none':
-                raise ValueError("A categorical metric must have a key that specifies the bins.")
-            # Get the bins
-            bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
-            if len(bins) > 10:
-                raise ValueError("Categorical metrics can only have up to 10 bins.")
-            self.metric_data['data']['bins'] = bins
 
     @property
     @abstractmethod
@@ -241,6 +241,8 @@ class Metric(ABC):
                          start_time=self.start_time,
                          end_time=self.end_time,
                          variable=self.variable,
+                         event=self.event, 
+                         event_kwargs=self.event_kwargs,
                          agg_days=self.agg_days,
                          forecast=self.forecast,
                          truth=self.truth,
@@ -365,6 +367,46 @@ class Metric(ABC):
         ds = da.to_dataset(name=self.name)
         return ds
 
+class CategoricalMetric(Metric):
+    """Base class for categorical metrics."""
+    def prepare_data(self):
+        # Populate the data with the bin information
+        if self.metric_data['key'] == 'none':
+            raise ValueError("A categorical metric must have a key that specifies the bins.")
+        # Get the bins
+        bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
+        if len(bins) > 10:
+            raise ValueError("Categorical metrics can only have up to 10 bins.")
+        self.metric_data['data']['bins'] = bins
+        Metric.prepare_data(self)
+
+
+class ContingencyMetric(Metric):
+    """True Positive, False Positive, False Negative, True Negative metric."""
+    def prepare_data(self):
+        import os
+        if os.environ.get("SHEERWATER_DEBUG_CONTINGENCY_PREPARE") == "1":
+            import pdb; pdb.set_trace()
+
+        if self.metric_data['key'] == 'none' and (
+            self.event_default is None or \
+            self.event_default == 'above_threshold' and self.event_kwargs['threshold'] is None
+        ):
+            raise ValueError("A TP/FP/FN/TN metric must specify a threshhold.")
+
+        # Set up the default event based on the passed arguments
+        if self.event_kwargs is None:
+            self.event_kwargs = {}
+
+        if self.event == 'above_threshold' or (self.event is None and self.event_default == 'above_threshold'):
+            # If we're handling the above threshold event, set up the threshold and agg_days
+            if 'threshold' not in self.event_kwargs:
+                self.event_kwargs['threshold'] = float(self.metric_data['key'])
+            if 'agg_days' not in self.event_kwargs:
+                self.event_kwargs['agg_days'] = self.agg_days
+
+        # Call the parent prepare_data method to get the forecast and observation:w
+        Metric.prepare_data(self)
 
 class MAE(Metric):
     """Mean Absolute Error metric."""
@@ -372,6 +414,7 @@ class MAE(Metric):
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
     categorical = False
+    event_default = None
     statistics = ['mae']
 
 
@@ -381,6 +424,7 @@ class MSE(Metric):
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
     categorical = False
+    event_default = None
     statistics = ['mse']
 
 
@@ -390,6 +434,7 @@ class RMSE(Metric):
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
     categorical = False
+    event_default = None
     statistics = ['mse']
 
     def compute_metric(self):
@@ -402,6 +447,7 @@ class Bias(Metric):
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
     categorical = False
+    event_default = None
     statistics = ['bias']
 
 
@@ -411,6 +457,7 @@ class CRPS(Metric):
     prob_type = 'probabilistic'
     valid_variables = None  # all variables are valid
     categorical = False
+    event_default = None
     statistics = ['crps']
 
 
@@ -420,6 +467,7 @@ class Brier(Metric):
     prob_type = 'probabilistic'
     valid_variables = ['precip']
     categorical = True
+    event_default = 'above_threshold'
     statistics = ['brier']
 
 
@@ -429,6 +477,7 @@ class SMAPE(Metric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = False
+    event_default = None
     statistics = ['smape']
 
 
@@ -438,6 +487,7 @@ class MAPE(Metric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = False
+    event_default = None
     statistics = ['mape']
 
 
@@ -447,6 +497,7 @@ class SEEPS(Metric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = False
+    event_default = None
     statistics = ['seeps']
 
     def prepare_data(self):
@@ -474,12 +525,13 @@ class ACC(Metric):
     prob_type = 'deterministic'
     valid_variables = None
     categorical = False
+    event_default = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
 
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
         # Call the parent prepare_data method to get the forecast and observation
-        super().prepare_data()
+        Metric.prepare_data()
 
         # Get the appropriate climatology dataframe for metric calculation
         first_year = 1990
@@ -526,6 +578,7 @@ class Pearson(Metric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = False
+    event_default = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
 
     def compute_metric(self):
@@ -535,12 +588,13 @@ class Pearson(Metric):
         return numerator / denominator
 
 
-class Heidke(Metric):
+class Heidke(CategoricalMetric):
     """Heidke Skill Score metric for streaming data."""
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = True
+    event_default = None
 
     @property
     def statistics(self):
@@ -560,12 +614,13 @@ class Heidke(Metric):
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
 
 
-class POD(Metric):
+class POD(ContingencyMetric):
     """Probability of Detection metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = True
+    event_default = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -574,12 +629,13 @@ class POD(Metric):
         return tp / (tp + fn)
 
 
-class FAR(Metric):
+class FAR(ContingencyMetric):
     """False Alarm Rate metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = True
+    event_default = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
 
     def compute_metric(self):
@@ -588,12 +644,13 @@ class FAR(Metric):
         return fp / (fp + tn)
 
 
-class ETS(Metric):
+class ETS(ContingencyMetric):
     """Equitable Threat Score metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = True
+    event_default = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
 
     def compute_metric(self):
@@ -606,12 +663,13 @@ class ETS(Metric):
         return (tp - chance) / (tp + fp + fn - chance)
 
 
-class CSI(Metric):
+class CSI(ContingencyMetric):
     """Critical Success Index metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = True
+    event_default = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -621,12 +679,13 @@ class CSI(Metric):
         return tp / (tp + fp + fn)
 
 
-class FrequencyBias(Metric):
+class FrequencyBias(ContingencyMetric):
     """Frequency Bias metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
     categorical = True
+    event_default = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
