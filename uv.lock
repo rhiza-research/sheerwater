@@ -5213,7 +5213,7 @@ requires-dist = [
     { name = "tqdm" },
     { name = "xarray", specifier = "==2025.1.0" },
     { name = "xarray-regrid" },
-    { name = "xee", git = "https://github.com/rhiza-research/Xee.git" },
+    { name = "xee" },
     { name = "xesmf" },
     { name = "zarr", specifier = "==2.18.3" },
 ]
@@ -5736,13 +5736,17 @@ wheels = [
 
 [[package]]
 name = "xee"
-version = "10000.dev290+g380c8ead3"
-source = { git = "https://github.com/rhiza-research/Xee.git#380c8ead34ca5f075a8016fd638c475a777bf4ea" }
+version = "0.0.24"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "affine" },
     { name = "earthengine-api" },
     { name = "pyproj" },
     { name = "xarray", extra = ["parallel"] },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/d8/7b2a591bda24e3b734ed50605c188f7b7eeb1b17d8d58c8a0b6ae6a0dc9e/xee-0.0.24.tar.gz", hash = "sha256:93ff9719527a5a9fea43b6e8ee439ebc6172edbcec7d2c1f677a7deecc0e90de", size = 421922, upload-time = "2026-01-16T18:45:03.273Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/66/e8db0175e49b8d34d02e04ec57c36731ac4c126a1eb421f7e93aa1b1f4a8/xee-0.0.24-py3-none-any.whl", hash = "sha256:8f6fe58f04f22990e029291caa132a8836df8eeb047a6b636bb4b2cce35f413a", size = 31197, upload-time = "2026-01-16T18:45:01.793Z" },
 ]
 
 [[package]]
