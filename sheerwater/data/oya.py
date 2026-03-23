@@ -1,16 +1,15 @@
 """oya data product."""
 import ee
 import dask
+from dask.distributed import get_client
 import xarray as xr
 import pandas as pd
 import numpy as np
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg, run_in_parallel
-
 from sheerwater.interfaces import data as sheerwater_data, spatial
-from dask.distributed import get_client
+from sheerwater.utils import dask_remote, regrid, roll_and_agg, run_in_parallel
 
 
 class Plugin(dask.distributed.diagnostics.plugin.WorkerPlugin):
