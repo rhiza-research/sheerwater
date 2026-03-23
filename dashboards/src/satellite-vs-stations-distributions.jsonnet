@@ -350,8 +350,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "imerg_late",
-          "value": "imerg_late"
+          "text": "chirps_v3",
+          "value": "chirps_v3"
         },
         "description": "precip satellite data source",
         "label": "Satellite Product",
@@ -363,12 +363,12 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "imerg_final"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "IMERG Late",
             "value": "imerg_late"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "CHIRPS",
             "value": "chirps_v3"
           },
@@ -521,8 +521,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "10",
-          "value": "10"
+          "text": "5",
+          "value": "5"
         },
         "label": "agg_days",
         "name": "agg_days",
@@ -533,12 +533,12 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "1"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "5",
             "value": "5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "10",
             "value": "10"
           }
@@ -576,8 +576,31 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
         },
         "label": "slice",
         "name": "slice",
-        "options": [],
-        "query": "",
+        "options": [
+          {
+            "selected": true,
+            "text": "5",
+            "value": "5"
+          }
+        ],
+        "query": "5",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "10",
+          "value": "10"
+        },
+        "label": "confidence",
+        "name": "confidence",
+        "options": [
+          {
+            "selected": true,
+            "text": "10",
+            "value": "10"
+          }
+        ],
+        "query": "10",
         "type": "custom"
       }
     ]
