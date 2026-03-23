@@ -164,7 +164,20 @@ return {
         hovertemplate: conditionOn === "stations"
             ? "<b>stations slice: %{x} mm/day</b><extra></extra>"
             : "<b>satellite slice: %{y} mm/day</b><extra></extra>"
-    }
+    },
+    // x = y line
+    {
+      type: "scatter",
+      mode: "lines",
+      x: [min, max],
+      y: [min, max],
+      showlegend: false,
+      line: {
+          color: "rgba(255, 255, 255, 0.25)",
+          width: 1.5,
+      },
+      hoverinfo: "skip"
+  },
   ],
   layout: {
       font:   { family: FONT_FAMILY, size: 13, color: FONT_COLOR },
