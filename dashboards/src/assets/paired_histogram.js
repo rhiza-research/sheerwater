@@ -157,9 +157,8 @@ return {
         x: conditionOn === "stations" ? [sliceValue, sliceValue] : [min, max],
         y: conditionOn === "stations" ? [min, max] : [sliceValue, sliceValue],
         line: {
-            color: "rgba(237, 137, 54, 0.90)",
-            width: 2,
-            dash: "dash"
+            color: "rgba(237, 137, 54, 0.25)",
+            width: 5,
         },
         hovertemplate: conditionOn === "stations"
             ? "<b>stations slice: %{x} mm/day</b><extra></extra>"
