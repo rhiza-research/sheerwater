@@ -14,18 +14,22 @@ from dask.distributed import get_client
 
 
 class Plugin(dask.distributed.diagnostics.plugin.WorkerPlugin):
-      def __init__(self, *args, **kwargs):
-            pass  # the constructor is up to you
-      def setup(self, worker: dask.distributed.Worker):
-          ee.Initialize(project='sheerwater', opt_url='https://earthengine-highvolume.googleapis.com')
-          pass
-      def teardown(self, worker: dask.distributed.Worker):
-          pass
-      def transition(self, key: str, start: str, finish: str,
-                      **kwargs):
-          pass
-      def release_key(self, key: str, state: str, cause: str | None, reason: None, report: bool):
-          pass
+    """Plugin to setup dask distributed.
+
+    We use this instead of the
+    Init args in Xee because it has less chance of API overuse errors (429).
+    """
+    def __init__(self, *args, **kwargs): # noqa: D107
+        pass  # the constructor is up to you
+    def setup(self, worker: dask.distributed.Worker): # noqa: ARG002 D102
+        ee.Initialize(project='sheerwater', opt_url='https://earthengine-highvolume.googleapis.com')
+        pass
+    def teardown(self, worker: dask.distributed.Worker): # noqa: ARG001 D102
+        pass
+    def transition(self, key: str, start: str, finish: str, **kwargs): # noqa: ARG001 D102
+        pass
+    def release_key(self, key: str, state: str, cause: str | None, reason: None, report: bool): # noqa: ARG001 D102
+        pass
 
 
 @dask_remote
@@ -46,17 +50,20 @@ def oya_daily(day):
 
     # This is how you get the data at its native projection
     day1 = pd.to_datetime(day) + pd.Timedelta(days=1)
-    ic = ee.ImageCollection('projects/global-precipitation-nowcast/assets/global_estimation').filterDate(day, day1.strftime('%Y-%m-%d'))
+    ic = ee.ImageCollection('projects/global-precipitation-nowcast/assets/global_estimation').filterDate(day,
+                                                                                              day1.strftime('%Y-%m-%d'))
     ds = None
     if ic.size().getInfo() > 0:
         ds = xr.open_dataset(ic,
-                             engine='ee', projection=ic.first().select(0).projection(), chunks={'time': 48, 'lat': 512, 'lon': 512},
+                             engine='ee', projection=ic.first().select(0).projection(),
+                             chunks={'time': 48, 'lat': 512, 'lon': 512},
                              getitem_kwargs={'max_retries': 10, 'initial_delay': 20000})
     else:
         print(f"No data in collection for day {day}")
         return None
 
-    # Note: we could use the Xee auto init functionality, but that makes a read call to the earth engine API on every read
+    # Note: we could use the Xee auto init functionality, but that makes a read call
+    # to the earth engine API on every read
     # which triggers an error that doesn't get caught by the robust read functionality set above
     # so it's better to init via plugin
 
@@ -76,7 +83,6 @@ def oya_daily(day):
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def oya_raw(start_time, end_time, delayed=False):
     """Get oya from earthengine and cache it."""
-
     days = pd.date_range(start_time, end_time)
 
     def run_day(day):
