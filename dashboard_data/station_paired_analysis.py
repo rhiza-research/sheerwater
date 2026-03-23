@@ -187,9 +187,10 @@ def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='
         max_value = 50
         step = 1
         bins = np.arange(0, max_value + step, step)
-    
+
     hist2d = hist_grouping(merged_data, time_grouping, space_grouping, grid, mask, region, spatial,
     bins, variables=['estimate_precip', 'truth_precip'])
+    import pdb; pdb.set_trace()
     # rename bin1 to estimate and bin2 to truth
     hist2d = hist2d.rename({'bin1': "estimate", 'bin2': "truth"})
     return hist2d
@@ -213,9 +214,18 @@ def hist_grouping(ds, time_grouping, space_grouping, grid, mask, region, spatial
         mask_ds = clip_region(mask_ds, grid=grid, region=region)
 
     ds = ds.where(mask_ds.mask, drop=False)
-    
-    if time_grouping is None and space_grouping is None:
-        ds = xr.apply_ufunc(paired_hist, ds[vars[0]], ds[vars[1]],
+
+    # group over time, grid cells
+    if time_grouping is None:
+        ds = ds.assign_coords(group = "all")
+    else:
+        ds = assign_grouping_coordinates(ds, time_grouping, time_dim)
+    time_groups = np.unique(ds.group.values)
+    hist_list = []
+
+    for time_group in time_groups:
+        ds_group = ds.where(ds.group == time_group, drop=True)
+        ds_group = xr.apply_ufunc(paired_hist, ds_group[vars[0]], ds_group[vars[1]],
             input_core_dims=[[time_dim], [time_dim]], output_core_dims=[["bin1", "bin2"]],
             vectorize=True, dask="parallelized",
             output_dtypes=[int],
@@ -223,34 +233,28 @@ def hist_grouping(ds, time_grouping, space_grouping, grid, mask, region, spatial
                "output_sizes": {"bin1": len(bins)-1, "bin2": len(bins)-1}},
             kwargs={"bins": bins},
         )
-        ds = ds.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
-        ds = ds.to_dataset(name="precip")
-    else:
-        if time_grouping is not None:
-        # add time and space grouping coordinates
-            ds = assign_grouping_coordinates(ds, time_grouping, time_dim)
+        ds_group = ds_group.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
+        ds_group = ds_group.expand_dims(group=[time_group])
+        ds_group = ds_group.to_dataset(name="precip")
+        hist_list.append(ds_group)
+    ds = xr.combine_by_coords(hist_list)
+
+    if not spatial:
+    # group over space
         if space_grouping is not None:
             space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region).compute()
             if region != 'global':
                 space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
             ds = ds.assign_coords(region=space_grouping_ds.region)
-        time_groups = np.unique(ds.group.values)
-        space_groups = np.unique(ds.region.values)
-        hist_list = []
-        for time_group in time_groups:
-            for space_group in space_groups:
-                ds_group = ds.where((ds.group == time_group) & (ds.region == space_group), drop=True)
-                ds_group = xr.apply_ufunc(paired_hist, ds_group[vars[0]], ds_group[vars[1]],
-                        input_core_dims=[[time_dim, 'lat', 'lon'], [time_dim, 'lat', 'lon']], output_core_dims=[["bin1", "bin2"]],
-                        vectorize=False, dask="parallelized",
-                        output_dtypes=[int],
-                        dask_gufunc_kwargs={"allow_rechunk": True,
-                            "output_sizes": {"bin1": len(bins)-1, "bin2": len(bins)-1}},
-                        kwargs={"bins": bins},
-                )
-                ds_group = ds_group.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
-                ds_group = ds_group.expand_dims(group=[time_group], region=[space_group])
-                ds_group = ds_group.to_dataset(name="precip")
-                hist_list.append(ds_group)
-        ds = xr.combine_by_coords(hist_list)
+        else:
+            space_grouping_ds = xr.DataArray(
+                np.full((len(ds.lat), len(ds.lon)), region),
+                dims=["lat", "lon"],
+                coords={"lat": ds.lat, "lon": ds.lon}
+            )
+            ds = ds.assign_coords(region=space_grouping_ds)
+        # sum over region groups
+        ds = ds.groupby("region").sum(dim=["lat", "lon"], skipna=True, min_count=1)
+    # drop unnecessary coordinates
+    ds = ds.squeeze(drop=True)
     return ds
