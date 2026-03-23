@@ -48,6 +48,8 @@ class SheerwaterDataset(NuthatchProcessor):
         self.variable = bound_args.arguments.get('variable', None)
         self.event = kwargs.get('event', None)
         self.event_kwargs = kwargs.get('event_kwargs', {})
+        self.lookback_days = kwargs.get('lookback_days', None)
+        self.lookback_data_source = kwargs.get('lookback_data_source', None)
         if 'event' in kwargs:
             del kwargs['event']
         if 'event_kwargs' in kwargs:
@@ -86,6 +88,11 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             self.units = None
 
+        if 'lookback_days' in kwargs:
+            del kwargs['lookback_days']
+        if 'lookback_data_source' in kwargs:
+            del kwargs['lookback_data_source']
+
         return args, kwargs
 
     def post_process(self, ds):
@@ -107,11 +114,12 @@ class SheerwaterDataset(NuthatchProcessor):
             # Only apply mask if this dataframe has not already been masked
             ds = apply_mask(ds, self.mask, grid=self.grid)
 
-        # Assign attributes
-        attrs = {
+        # Assign attributes, preserving any existing ones (especially 'prob_type')
+        attrs = dict(ds.attrs) if hasattr(ds, "attrs") else {}
+        attrs.update({
             'agg_days': float(self.agg_days),
             'variable': self.variable,
-        }
+        })
         if self.units is not None:
             attrs['units'] = self.units
         ds = ds.assign_attrs(attrs)
@@ -181,18 +189,6 @@ class forecast(SheerwaterDataset):
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
-    def process_arguments(self, sig, *args, **kwargs):
-        """Process the arguments for the data decorator."""
-        self.lookback_days = kwargs.get('lookback_days', None)
-        self.lookback_data_source = kwargs.get('lookback_data_source', None)
-        if 'lookback_days' in kwargs: # TODO: remove extra check once we're not calling twice
-            del kwargs['lookback_days']
-        if 'lookback_data_source' in kwargs:
-            del kwargs['lookback_data_source']
-        args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
-        return args, kwargs
-
-
     def blend_fcst_and_obs(self, fcst, obs, lookback_days=30):
         """Blend the forecast and observations.
 
@@ -221,7 +217,8 @@ class forecast(SheerwaterDataset):
         obs_lookback = obs_lookback.drop_vars('time')
 
         # Concat the observations and forecast
-        combined = xr.concat([obs_lookback, fcst], dim="prediction_timedelta")
+        combined = xr.concat([fcst, obs_lookback], dim="prediction_timedelta")
+        combined = combined.sortby('prediction_timedelta')
         return combined
 
     def post_process(self, ds):
@@ -239,7 +236,12 @@ class forecast(SheerwaterDataset):
                 obs = get_data(self.lookback_data_source)(start_time=new_start, end_time=new_end,
                         variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
                 ds = self.blend_fcst_and_obs(ds, obs, self.lookback_days)
-                ds = ds.assign_attrs(lookback_days=self.lookback_days)
+                attrs = dict(ds.attrs) if hasattr(ds, "attrs") else {}
+                attrs.update({
+                    'lookback_days': self.lookback_days,
+                    'lookback_data_source': self.lookback_data_source,
+                })
+                ds = ds.assign_attrs(attrs)
 
         # TODO: remove extra check once we're not calling twice
         if self.event is not None and f"{self.variable}_{self.event}" not in ds.variables:

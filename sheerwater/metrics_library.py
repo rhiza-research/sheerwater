@@ -48,7 +48,8 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 event=None, event_kwargs={},
+                 event=None, event_kwargs=None,
+                 lookback_days=None, lookback_data_source=None,
                  mask='lsm', space_grouping='country', region='global', data_key='none',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
@@ -58,7 +59,9 @@ class Metric(ABC):
 
         self.variable = variable
         self.event = event
-        self.event_kwargs = event_kwargs
+        self.event_kwargs = {} if event_kwargs is None else event_kwargs
+        self.lookback_days = lookback_days
+        self.lookback_data_source = lookback_data_source
         self.agg_days = agg_days
         self.forecast = forecast
         self.truth = truth
@@ -80,15 +83,14 @@ class Metric(ABC):
         self.metric_data = {'key': data_key, 'data': {}}
 
     def prepare_data(self):
-        """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
+        """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
         if self.event is None:
             self.event = self.event_default
-        if self.event_kwargs is None:
-            self.event_kwargs = {}
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
                              'event': self.event, 'event_kwargs': self.event_kwargs,
+                             'lookback_days': self.lookback_days, 'lookback_data_source': self.lookback_data_source,
                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
@@ -100,6 +102,7 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
+                import pdb; pdb.set_trace()
                 fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
@@ -216,8 +219,8 @@ class Metric(ABC):
 
     @property
     @abstractmethod
-    def categorical(self) -> bool:
-        """Is the metric categorical?"""
+    def event_default(self) -> str:
+        """Default event processing for the metric?"""
         pass
 
     @property
@@ -241,8 +244,10 @@ class Metric(ABC):
                          start_time=self.start_time,
                          end_time=self.end_time,
                          variable=self.variable,
-                         event=self.event, 
+                         event=self.event,
                          event_kwargs=self.event_kwargs,
+                         lookback_days=self.lookback_days,
+                         lookback_data_source=self.lookback_data_source,
                          agg_days=self.agg_days,
                          forecast=self.forecast,
                          truth=self.truth,
@@ -384,15 +389,11 @@ class CategoricalMetric(Metric):
 class ContingencyMetric(Metric):
     """True Positive, False Positive, False Negative, True Negative metric."""
     def prepare_data(self):
-        import os
-        if os.environ.get("SHEERWATER_DEBUG_CONTINGENCY_PREPARE") == "1":
-            import pdb; pdb.set_trace()
-
         if self.metric_data['key'] == 'none' and (
             self.event_default is None or \
             self.event_default == 'above_threshold' and self.event_kwargs['threshold'] is None
         ):
-            raise ValueError("A TP/FP/FN/TN metric must specify a threshhold.")
+            raise ValueError("A contingency metric must specify a threshhold.")
 
         # Set up the default event based on the passed arguments
         if self.event_kwargs is None:
@@ -402,6 +403,8 @@ class ContingencyMetric(Metric):
             # If we're handling the above threshold event, set up the threshold and agg_days
             if 'threshold' not in self.event_kwargs:
                 self.event_kwargs['threshold'] = float(self.metric_data['key'])
+            if 'agg_days' in self.event_kwargs and self.agg_days != 1 and self.event_kwargs['agg_days'] != self.agg_days:
+                raise ValueError("The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
             if 'agg_days' not in self.event_kwargs:
                 self.event_kwargs['agg_days'] = self.agg_days
 
@@ -413,7 +416,6 @@ class MAE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
     event_default = None
     statistics = ['mae']
 
@@ -423,7 +425,6 @@ class MSE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
     event_default = None
     statistics = ['mse']
 
@@ -433,7 +434,6 @@ class RMSE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
     event_default = None
     statistics = ['mse']
 
@@ -446,7 +446,6 @@ class Bias(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
     event_default = None
     statistics = ['bias']
 
@@ -456,17 +455,15 @@ class CRPS(Metric):
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = None  # all variables are valid
-    categorical = False
     event_default = None
     statistics = ['crps']
 
 
-class Brier(Metric):
+class Brier(CategoricalMetric):
     """Brier score metric."""
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = ['precip']
-    categorical = True
     event_default = 'above_threshold'
     statistics = ['brier']
 
@@ -476,7 +473,6 @@ class SMAPE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
     event_default = None
     statistics = ['smape']
 
@@ -486,7 +482,6 @@ class MAPE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
     event_default = None
     statistics = ['mape']
 
@@ -496,7 +491,6 @@ class SEEPS(Metric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
     event_default = None
     statistics = ['seeps']
 
@@ -524,7 +518,6 @@ class ACC(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None
-    categorical = False
     event_default = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
 
@@ -577,7 +570,6 @@ class Pearson(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
     event_default = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
 
@@ -593,7 +585,6 @@ class Heidke(CategoricalMetric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
     event_default = None
 
     @property
@@ -619,7 +610,6 @@ class POD(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
     event_default = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
 
@@ -634,7 +624,6 @@ class FAR(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
     event_default = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
 
@@ -649,7 +638,6 @@ class ETS(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
     event_default = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
 
@@ -668,7 +656,6 @@ class CSI(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
     event_default = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
@@ -684,7 +671,6 @@ class FrequencyBias(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
     event_default = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
