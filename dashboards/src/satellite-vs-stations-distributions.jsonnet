@@ -80,7 +80,7 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT estimate, truth, SUM(precip) as precip\nFROM \"hist_df/${agg_days}_${satellite}_${grid}_global_${stations}\"\nWHERE region_id = (\n    SELECT region_id\n    FROM \"spacegrouping_category_codes/global1_5_global_country\"\n    WHERE region = '$country1'\n)\nAND group_id IN (${months:csv})\nGROUP BY estimate, truth\nORDER BY estimate, truth;",
+          "rawSql": "SELECT estimate, truth, SUM(precip) as precip\nFROM \"hist_df/${agg_days}_${satellite}_${grid}_global_${stations}\"\nWHERE region_id = (\n    SELECT region_id\n    FROM \"spacegrouping_category_codes/${grid}_global_country\"\n    WHERE region = '$country1'\n)\nAND group_id IN (${months:csv})\nGROUP BY estimate, truth\nORDER BY estimate, truth;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -224,7 +224,7 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT estimate, truth, SUM(precip) as precip\nFROM \"hist_df/${agg_days}_${satellite}_${grid}_global_${stations}\"\nWHERE region_id = (\n    SELECT region_id\n    FROM \"spacegrouping_category_codes/global1_5_global_country\"\n    WHERE region = '$country2'\n)\nAND group_id IN (${months:csv})\nGROUP BY estimate, truth\nORDER BY estimate, truth;",
+          "rawSql": "SELECT estimate, truth, SUM(precip) as precip\nFROM \"hist_df/${agg_days}_${satellite}_${grid}_global_${stations}\"\nWHERE region_id = (\n    SELECT region_id\n    FROM \"spacegrouping_category_codes/${grid}_global_country\"\n    WHERE region = '$country2'\n)\nAND group_id IN (${months:csv})\nGROUP BY estimate, truth\nORDER BY estimate, truth;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -321,8 +321,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
     "list": [
       {
         "current": {
-          "text": "ghana",
-          "value": "ghana"
+          "text": "kenya",
+          "value": "kenya"
         },
         "definition": "SELECT \n  region\nFROM \n  \"spacegrouping_category_codes/global1_5_global_country\"",
         "label": "country1",
@@ -335,8 +335,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       },
       {
         "current": {
-          "text": "kenya",
-          "value": "kenya"
+          "text": "ghana",
+          "value": "ghana"
         },
         "definition": "SELECT \n  region\nFROM \n  \"spacegrouping_category_codes/global1_5_global_country\"",
         "label": "country2",
@@ -350,8 +350,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "chirps_v3",
-          "value": "chirps_v3"
+          "text": "imerg_late",
+          "value": "imerg_late"
         },
         "description": "precip satellite data source",
         "label": "Satellite Product",
@@ -363,12 +363,12 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "imerg_final"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "IMERG Late",
             "value": "imerg_late"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "CHIRPS",
             "value": "chirps_v3"
           },
@@ -492,20 +492,20 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       },
       {
         "current": {
-          "text": "global1_5",
-          "value": "global1_5"
+          "text": "global0_25",
+          "value": "global0_25"
         },
         "description": "",
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "0.25",
             "value": "global0_25"
           },
@@ -521,8 +521,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "5",
-          "value": "5"
+          "text": "10",
+          "value": "10"
         },
         "label": "agg_days",
         "name": "agg_days",
@@ -533,12 +533,12 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "1"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "5",
             "value": "5"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "10",
             "value": "10"
           }
