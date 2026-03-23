@@ -23,8 +23,11 @@ def earthaccess_single_file(filename, earthaccess_result, preprocessor=None, pre
     preprocessor_key (str): A unique key used to cache result. Necessary for accessing the same file
         with different preprocessors. Most basically the preprocessor function name.
     """
-    os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
-    os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
+    if 'EARTHDATA_USERNAME' not in os.environ:
+        os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
+    if 'EARTHDATA_PASSWORD' not in os.environ:
+        os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
+
     earthaccess.login(strategy="environment", persist=True)
 
     # Takes a single earthaccess result, fetches the file, opens it in xarray, the returns it to be cached
@@ -51,8 +54,11 @@ def earthaccess_dataset(start_time, end_time, shortname, preprocessor=None, open
     Opens data by shortname, and processes each file with the preprocessor before opening with mfdataset.
     NOT CACHED - make sure you cache the result!
     """
-    os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
-    os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
+    if 'EARTHDATA_USERNAME' not in os.environ:
+        os.environ["EARTHDATA_USERNAME"] = earthaccess_username()
+    if 'EARTHDATA_PASSWORD' not in os.environ:
+        os.environ["EARTHDATA_PASSWORD"] = earthaccess_password()
+
     earthaccess.login(strategy="environment", persist=True)
 
     results = earthaccess.search_data(short_name=shortname, cloud_hosted=True, temporal=(start_time, end_time))
