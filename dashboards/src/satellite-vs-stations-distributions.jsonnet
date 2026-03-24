@@ -335,8 +335,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       },
       {
         "current": {
-          "text": "ghana",
-          "value": "ghana"
+          "text": "brazil",
+          "value": "brazil"
         },
         "definition": "SELECT \n  region\nFROM \n  \"spacegrouping_category_codes/global1_5_global_country\"",
         "label": "country2",
@@ -601,6 +601,29 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
           }
         ],
         "query": "10",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "50",
+          "value": "50"
+        },
+        "description": "",
+        "label": "set axis lims",
+        "name": "fix_limits",
+        "options": [
+          {
+            "selected": true,
+            "text": "50",
+            "value": "50"
+          },
+          {
+            "selected": false,
+            "text": "None",
+            "value": "None"
+          }
+        ],
+        "query": "50, None",
         "type": "custom"
       }
     ]

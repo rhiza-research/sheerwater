@@ -17,6 +17,8 @@ let conditionOn = variables.condition_on.current.value;
 let satellite   = String(variables.satellite.current.value).trim();
 let stations    = String(variables.stations.current.value).trim();
 let confidence  = parseFloat(variables.confidence.current.value); // e.g. 10 → 10th/90th
+let fixLimits = variables.fix_limits.current.value;
+let fixedMax = (fixLimits !== "" && fixLimits !== "None") ? parseInt(fixLimits, 10) : null
 
 let xValues = [];
 let counts  = [];
@@ -102,7 +104,8 @@ return {
         xaxis: {
             title: { text: xlabel, standoff: 14 },
             type: "linear",
-            autorange: true,
+            autorange: fixedMax === null,
+            range: fixedMax !== null ? [0, fixedMax] : undefined,
             gridcolor: "rgba(255,255,255,0.08)",
             zerolinecolor: "rgba(255,255,255,0.15)",
             tickfont: { size: 12 }

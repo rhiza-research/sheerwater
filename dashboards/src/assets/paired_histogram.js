@@ -16,9 +16,16 @@ let precip = precipField.values || precipField.values.buffer;
 let conditionOn = variables.condition_on.current.value;
 let sliceValue = parseFloat(variables.slice.current.value);
 
+// get fix_limits variable (empty string if not set)
+let fixLimits = variables.fix_limits.current.value;
+let fixedMax = (fixLimits !== "" && fixLimits !== "None") ? parseInt(fixLimits, 10) : null;
+
 // get min and max across both estimate and truth
-let min = Math.min(Math.min(...estimate), Math.min(...truth));
-let max = Math.max(Math.max(...estimate), Math.max(...truth));
+let dataMin = Math.min(Math.min(...estimate), Math.min(...truth));
+let dataMax = Math.max(Math.max(...estimate), Math.max(...truth));
+
+let min = 0;
+let max = fixedMax !== null ? fixedMax : dataMax;
 // create range from min to max in steps of 1
 let range = [];
 for (let v = min; v <= max; v += 1) {
@@ -38,6 +45,7 @@ let bin_counts = Array.from({ length: estimate_Vals.length }, () =>
 for (let i = 0; i < estimate.length; i++) {
     let estimate_i = estimate_Index.get(estimate[i]);
     let truth_i = truth_Index.get(truth[i]);
+    if (estimate_i === undefined || truth_i === undefined) continue;
     bin_counts[estimate_i][truth_i] = precip[i];
 }
 // take log of counts
