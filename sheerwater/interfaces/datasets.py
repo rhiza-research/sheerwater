@@ -3,6 +3,7 @@
 import xarray as xr
 
 from nuthatch.processor import NuthatchProcessor
+from nuthatch import cache
 from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
@@ -24,61 +25,111 @@ class SheerwaterDataset(NuthatchProcessor):
     It supports xarray datasets.
     """
 
-    def __init__(self, region_dim=None, **kwargs):
+    def __call__(self, func):
+        """Call the parent class and register the data in the global data registry."""
+        wrapped = super().__call__(func)
+        self.fname = func.__name__
+        return wrapped
+
+
+    def __init__(self,  **kwargs):
         """Initialize the spatial processor.
 
         Args:
-            region_dim (str): The name of the region dimension. If None, the returned dataset will not be
-                assumed to have a region dimesion and region data will be fetched from the region registry
-                before clipping.
             kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
         super().__init__(**kwargs)
-        self.region_dim = region_dim
 
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the datasets decorator."""
         # Get default values for the function signature
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
-        # Default to global region and no masking if not passed
+        # Default arguments if they aren't passed or present in the default of the signature
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
-        try:
-            self.grid = bound_args.arguments['grid']
-            self.agg_days = bound_args.arguments['agg_days']
-            self.variable = bound_args.arguments['variable']
-        except KeyError:
-            raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
+        self.grid = bound_args.arguments.get('grid', 'global0_25')
+        self.agg_days = bound_args.arguments.get('agg_days', 1)
 
-        if self.variable == 'precip':
-            self.units = 'mm / day'
-        elif self.variable == 'tmp2m':
-            self.units = 'avg. daily C'
-        else:
-            self.units = None
-        return args, kwargs
+        # If the arguments aren't in the signature we shouldn't pass them through as kwargs
+        filtered_kwargs = kwargs.copy()
+        for k, v in kwargs.items():
+            if k in ['region', 'mask', 'grid', 'agg_days']:
+                if k not in sig.parameters:
+                    del filtered_kwargs[k]
+
+        self.unique_key_args = {}
+        for k, v in bound_args.arguments.items():
+            if k not in ['start_time', 'end_time', 'region', 'mask', 'grid', 'agg_days']:
+                self.unique_key_args[k] = v
+
+
+        return args, filtered_kwargs
 
     def post_process(self, ds):
         """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
-        if isinstance(ds, xr.Dataset):
-            # Clip to specified region
-            if not check_spatial_attr(ds, region=self.region):
-                # Only clip region if the dataframe hasn't already been clipped
-                ds = clip_region(ds, grid=self.grid, region=self.region)
-            if not check_spatial_attr(ds, mask=self.mask):
-                # Only apply mask if this dataframe has not already been masked
-                ds = apply_mask(ds, self.mask, grid=self.grid)
-            attrs = {
-                'agg_days': float(self.agg_days),
-                'variable': self.variable,
-            }
-            if self.units is not None:
-                attrs['units'] = self.units
-            ds = ds.assign_attrs(attrs)
-            ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+        if not isinstance(ds, xr.Dataset) and ds is not None:
+            raise RuntimeError(f"Sheerwater cannot post process data type {type(ds)}")
+
+        if 'time' not in ds.dims:
+            raise RuntimeError("All sheerwater datasets and forecasts must have a time dimension.")
+
+        @cache(cache_args=['grid', 'regirdder_cache_key'],
+               backend_kwargs={
+                    'chunking': {'lat': 300, 'lon': 300, 'time': 365}
+               })
+        def internal_regrid(ds, grid, regridder_cache_key):
+            ds = regrid(ds, grid, base='base180', method='conservative')
+
+        # First we need to regrid to the requested grid if it is not on that grid already. This should be cached
+        if 'grid' in ds.attrs and ds.attrs['grid'] == self.grid:
+            # We are already on the right grid
+            pass
+        elif ('source_grid' in ds.attrs and ds.attrs['source_grid'] == self.grid) or self.grid == 'source':
+            # We are on the source grid or the source grid has been requested
+            pass
         else:
-            raise RuntimeError(f"Cannot clip by region and mask for data type {type(ds)}")
+            # We need to regrid
+            if 'lat' not in ds.dims or 'lon' not in ds.dims:
+                raise RuntimeError("Only datasets with lat and lon dimensions can be regridded. For curved grids you can get the data on the 'source' grid only.")
+
+            self.unique_key_args['function_name'] = self.fname
+            ds = internal_regrid(ds, self.grid, unique_cache_key=self.unique_key_args)
+            ds = ds.attrs.update({'grid': self.grid})
+
+        # Then we need to aggregate to the requested agg days if it isn't aggregated already
+        if 'agg_days' in ds.attrs and ds.attrs['agg_days'] == self.agg_days:
+            # we are already at appropriate aggregation
+            pass
+        else:
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean')
+            ds = ds.attrs.update({'agg_days': self.agg_days})
+
+        # Then we need to mask and clip
+        # Clip to specified region
+        if not check_spatial_attr(ds, region=self.region):
+            # Only clip region if the dataframe hasn't already been clipped
+            ds = clip_region(ds, grid=self.grid, region=self.region)
+        if not check_spatial_attr(ds, mask=self.mask):
+            # Only apply mask if this dataframe has not already been masked
+            ds = apply_mask(ds, self.mask, grid=self.grid)
+        attrs = {
+            'variable': self.variable,
+        }
+
+        #if self.units is not None:
+        #    attrs['units'] = self.units
+        ds = ds.assign_attrs(attrs)
+        ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+
+        # Then we can add units to variables as appropriate
+        #if self.variable == 'precip':
+        #    self.units = 'mm / day'
+        #elif self.variable == 'tmp2m':
+        #    self.units = 'avg. daily C'
+        #else:
+        #    self.units = None
+
         return ds
 
     def validate(self, ds):

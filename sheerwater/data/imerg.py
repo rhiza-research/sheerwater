@@ -3,10 +3,9 @@ import gcsfs
 import xarray as xr
 from dateutil import parser
 from nuthatch import cache
-from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg
-from sheerwater.interfaces import data as sheerwater_data, spatial
+from sheerwater.utils import dask_remote
+from sheerwater.interfaces import data as sheerwater_data
 
 from .earthaccess_generic import earthaccess_dataset
 
@@ -36,7 +35,7 @@ def imerg_raw_live(start_time, end_time, version='late', delayed=False, grid='so
 @dask_remote
 @cache(cache_args=['year', 'version'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg_raw(year, version='final'):
+def imerg_year(year, version='final'):
     """Concatenated IMERG netcdf files by year.
 
     We manually download the IMERG netcdfs by going to this website
@@ -59,18 +58,16 @@ def imerg_raw(year, version='final'):
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['grid', 'version'],
+@sheerwater_data(register=False)
+@cache(cache_args=['version'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG001
-                  region='global'):
-    """Regridded version of whole imerg dataset."""
+def imerg_raw(start_time, end_time, version):
+    """IMERG combined into years"""
     years = range(parser.parse(start_time).year, parser.parse(end_time).year + 1)
 
     datasets = []
     for year in years:
-        ds = imerg_raw(year, version, filepath_only=True)
+        ds = imerg_year(year, version, filepath_only=True)
         datasets.append(ds)
 
     ds = xr.open_mfdataset(datasets,
@@ -81,22 +78,8 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
     ds = ds['precipitation'].to_dataset()
     ds = ds.rename({'precipitation': 'precip'})
 
-    # Regrid if not on the native grid (global0_1 is the source grid)
-    if grid != 'source' and grid != 'global0_1':
-        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
+    ds.attrs.update(source_grid='global0_1')
 
-    return ds
-
-
-@dask_remote
-def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask=None, region='global'):
-    """A unified imerg caller."""
-    if variable not in ['precip']:
-        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
-    if grid == 'source':  # Call IMERG on the global0_1 grid because it is the source grid
-        grid = 'global0_1'
-    ds = imerg_gridded(start_time, end_time, grid, version, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
 
@@ -107,7 +90,10 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask
 def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
                 grid='global0_25', mask='lsm', region='global'):
     """IMERG Final."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='final', mask=mask, region=region)
+    if variable not in ['precip']:
+        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
+
+    return imerg_raw(start_time, end_time, agg_days=agg_days, grid=grid, version='final', mask=mask, region=region)
 
 
 @dask_remote
@@ -117,7 +103,10 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
 def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
                grid='global0_25', mask='lsm', region='global'):
     """IMERG late."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='late', mask=mask, region=region)
+    if variable not in ['precip']:
+        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
+
+    return imerge_raw(start_time, end_time, agg_days=agg_days, grid=grid, version='late', mask=mask, region=region)
 
 
 @dask_remote
@@ -127,4 +116,7 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
 def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,
           grid='global0_25', mask='lsm', region='global'):
     """Alias for IMERG final."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='final', mask=mask, region=region)
+    if variable not in ['precip']:
+        raise NotImplementedError("Only precip and derived variables provided by IMERG.")
+
+    return imerg_raw(start_time, end_time, agg_days=agg_days, grid=grid, version='final', mask=mask, region=region)

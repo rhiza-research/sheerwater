@@ -3,14 +3,14 @@ from nuthatch import cache
 import pandas as pd
 from nuthatch.processors import timeseries
 
-from sheerwater.interfaces import data as sheerwater_data, spatial
-from sheerwater.utils import dask_remote, roll_and_agg
+from sheerwater.interfaces import data as sheerwater_data
+from sheerwater.utils import dask_remote
 
 from .earthaccess_generic import earthaccess_dataset
 
 
 @dask_remote
-@timeseries()
+@sheerwater_data(register=False)
 @cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
 def smap_l4_raw(start_time, end_time, delayed=False):
     """Lr raw concatenated."""
@@ -40,7 +40,7 @@ def smap_l4_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
-@timeseries()
+@sheerwater_data(register=False)
 @cache(cache_args=[], backend_kwargs={'chunking': {'y': 300, 'x': 300, 'time': 365}})
 def smap_l3_raw(start_time, end_time, delayed=False):
     """L3 raw concatenated."""
@@ -95,38 +95,6 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
-@spatial()
-@timeseries()
-@cache(cache_args=['grid', 'version'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
-       cache_disable_if={
-           'grid': 'source'
-       })
-def smap_gridded(start_time, end_time, grid='source', version='L3'):
-    """SMAP Gridded product."""
-    if version == 'L3':
-        ds = smap_l3_raw(start_time, end_time)
-    elif version == 'L4':
-        ds = smap_l4_raw(start_time, end_time)
-    else:
-        raise ValueError("Invalid smap version")
-
-    # This must be run in a coiled run machine with 'package_sync_conda_extras' set to 'esmpy'
-    # Can't do normal regirdding because the EASE grid is curved
-    if grid != 'source':
-        # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
-        raise ValueError("Currently SMAP only supports the SMAP grid")
-        #import xesmf as xe
-        #ds_out = get_grid_ds(grid)
-        #ds_out = ds_out.rename({'lat': 'latitude', 'lon': 'longitude'})
-        #ds = ds.rename({'lat': 'latitude', 'lon': 'longitude'})
-        #regridder = xe.Regridder(ds, ds_out, "conservative")
-        #ds = regridder(ds)
-        #ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
-
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
@@ -136,9 +104,7 @@ def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
 
-    ds = smap_gridded(start_time, end_time, grid=grid, version="L3")
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
-    return ds
+    return smap_l3_raw(start_time, end_time, agg_days=agg_days, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
@@ -151,6 +117,4 @@ def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
 
-    ds = smap_gridded(start_time, end_time, grid=grid, version="L4")
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
-    return ds
+    return smap_l4_raw(start_time, end_time, agg_days=agg_days, grid=grid, mask=mask, region=region)
