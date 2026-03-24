@@ -3,9 +3,11 @@ import gcsfs
 import xarray as xr
 from dateutil import parser
 from nuthatch import cache
+from nuthatch.processors import timeseries
 
 from sheerwater.utils import dask_remote
 from sheerwater.interfaces import data as sheerwater_data
+from sheerwater.interfaces import spatial
 
 from .earthaccess_generic import earthaccess_dataset
 

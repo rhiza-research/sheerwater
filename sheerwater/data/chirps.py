@@ -9,7 +9,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg
+from sheerwater.utils import dask_remote
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 @dask_remote
@@ -189,7 +189,7 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, agg_days=agg_days, grid=grid,
-                           stations=False, version=2, mask=mask, region=region)
+                           station=False, version=2, mask=mask, region=region)
 
 
 @dask_remote

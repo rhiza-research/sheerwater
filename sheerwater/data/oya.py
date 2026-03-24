@@ -77,7 +77,7 @@ def oya_daily(day):
 
 
 @dask_remote
-@timeseries()
+@sheerwater_data()
 @cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def oya_raw(start_time, end_time, delayed=False):
@@ -113,35 +113,15 @@ def oya_raw(start_time, end_time, delayed=False):
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['grid'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
-       cache_disable_if={
-           'grid': 'source'
-       })
-def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
-                  region='global'):
-    """Regridded version of whole oya dataset."""
-    ds = oya_raw(start_time, end_time)
-
-    # There are both infs and really large numbers in the dataset
-    ds = ds.where(ds != np.inf)
-    ds = ds.where(ds < 1000)
-
-    # Regrid if not on the native grid
-    if grid != 'source':
-        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
-
-    return ds
-
-
-@dask_remote
 @sheerwater_data()
-def oya(start_time, end_time, variable, agg_days, grid, mask=None, region='global'):
+def oya(start_time, end_time, variable):
     """A unified oya caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by oya.")
-    ds = oya_gridded(start_time, end_time, grid, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+
+    ds = oya_raw(start_time, end_time)
+
+    ds = ds.where(ds != np.inf)
+    ds = ds.where(ds < 1000)
+
     return ds

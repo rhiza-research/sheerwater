@@ -1,14 +1,24 @@
 """A decorator for identifying data sources."""
 
-import xarray as xr
+import sys
+import functools
 
+import xarray as xr
+from nuthatch.processors import timeseries
 from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
-from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
+from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days, regrid, roll_and_agg
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+stream_handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('Sheerwater dataset processor: %(levelname)s: %(message)s')
+stream_handler.setFormatter(formatter)
+stream_handler.setLevel(logging.INFO)
+logger.addHandler(stream_handler)
+
 
 # Global registry of data sources
 DATA_REGISTRY = {}
@@ -29,7 +39,14 @@ class SheerwaterDataset(NuthatchProcessor):
         """Call the parent class and register the data in the global data registry."""
         wrapped = super().__call__(func)
         self.fname = func.__name__
-        return wrapped
+
+        # Make all sheerwater data timeseries processors
+        @timeseries()
+        @functools.wraps(func)
+        def add_timeseries(*args, **kwargs):
+            return wrapped(*args, **kwargs)
+
+        return add_timeseries
 
 
     def __init__(self,  **kwargs):
@@ -46,10 +63,10 @@ class SheerwaterDataset(NuthatchProcessor):
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
         # Default arguments if they aren't passed or present in the default of the signature
-        self.region = bound_args.arguments.get('region', 'global')
-        self.mask = bound_args.arguments.get('mask', None)
-        self.grid = bound_args.arguments.get('grid', 'global0_25')
-        self.agg_days = bound_args.arguments.get('agg_days', 1)
+        self.region = bound_args.arguments.get('region', kwargs.get('region', 'global'))
+        self.mask = bound_args.arguments.get('mask', kwargs.get('mask', None))
+        self.grid = bound_args.arguments.get('grid', kwargs.get('grid', 'source'))
+        self.agg_days = bound_args.arguments.get('agg_days', kwargs.get('agg_days', 1))
 
         # If the arguments aren't in the signature we shouldn't pass them through as kwargs
         filtered_kwargs = kwargs.copy()
@@ -58,11 +75,13 @@ class SheerwaterDataset(NuthatchProcessor):
                 if k not in sig.parameters:
                     del filtered_kwargs[k]
 
+        # For all arguments that we don't control we need to create a unique key
+        # for the gridded dataset using them. i.e. chirps with/without stations
+        # need to be saved seperately in teh gridded product
         self.unique_key_args = {}
         for k, v in bound_args.arguments.items():
             if k not in ['start_time', 'end_time', 'region', 'mask', 'grid', 'agg_days']:
                 self.unique_key_args[k] = v
-
 
         return args, filtered_kwargs
 
@@ -74,53 +93,60 @@ class SheerwaterDataset(NuthatchProcessor):
         if 'time' not in ds.dims:
             raise RuntimeError("All sheerwater datasets and forecasts must have a time dimension.")
 
-        @cache(cache_args=['grid', 'regirdder_cache_key'],
+        @cache(cache_args=['grid', 'regridder_cache_key'],
                backend_kwargs={
                     'chunking': {'lat': 300, 'lon': 300, 'time': 365}
                })
         def internal_regrid(ds, grid, regridder_cache_key):
+            logger.info(f"Regridding {self.fname} to the {self.grid} grid.")
             ds = regrid(ds, grid, base='base180', method='conservative')
+            return ds
 
         # First we need to regrid to the requested grid if it is not on that grid already. This should be cached
-        if 'grid' in ds.attrs and ds.attrs['grid'] == self.grid:
-            # We are already on the right grid
-            pass
+        if ('grid' in ds.attrs and ds.attrs['grid'] == self.grid):
+            logger.debug(f"Not regridding dataset because dataset is already on the {self.grid} grid.")
         elif ('source_grid' in ds.attrs and ds.attrs['source_grid'] == self.grid) or self.grid == 'source':
-            # We are on the source grid or the source grid has been requested
-            pass
+            logger.debug("Not regridding dataset because source grid was requested.")
         else:
             # We need to regrid
             if 'lat' not in ds.dims or 'lon' not in ds.dims:
                 raise RuntimeError("Only datasets with lat and lon dimensions can be regridded. For curved grids you can get the data on the 'source' grid only.")
 
             self.unique_key_args['function_name'] = self.fname
-            ds = internal_regrid(ds, self.grid, unique_cache_key=self.unique_key_args)
-            ds = ds.attrs.update({'grid': self.grid})
+            ds = internal_regrid(ds, self.grid, regridder_cache_key=self.unique_key_args)
+            ds.attrs.update({'grid': self.grid})
 
         # Then we need to aggregate to the requested agg days if it isn't aggregated already
-        if 'agg_days' in ds.attrs and ds.attrs['agg_days'] == self.agg_days:
-            # we are already at appropriate aggregation
-            pass
+        if ('agg_days' in ds.attrs and ds.attrs['agg_days'] == self.agg_days) or self.agg_days == 1:
+            logger.debug(f"Not aggregating dataset because dataset is already aggregated to {self.agg_days} days.")
         else:
+            logger.info(f"Aggregating {self.fname} with a rolling window of {self.agg_days} days.")
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean')
-            ds = ds.attrs.update({'agg_days': self.agg_days})
+            ds.attrs.update({'agg_days': self.agg_days})
 
         # Then we need to mask and clip
-        # Clip to specified region
-        if not check_spatial_attr(ds, region=self.region):
-            # Only clip region if the dataframe hasn't already been clipped
+        if ('region' in ds.attrs and ds.attrs['region'] == self.region) or self.region == 'global':
+            logger.debug(f"Not clipping region because region has already been clipped to {self.region}.")
+        else:
+            logger.info(f"Clipping {self.fname} to {self.region}")
             ds = clip_region(ds, grid=self.grid, region=self.region)
-        if not check_spatial_attr(ds, mask=self.mask):
-            # Only apply mask if this dataframe has not already been masked
+            ds.attrs.update({'region': self.region})
+
+        if ('mask' in ds.attrs and ds.attrs['mask'] == self.mask) or self.mask == None:
+            logger.debug(f"Not applying mask because data has already been masked to {self.mask}.")
+        else:
+            logger.info(f"Masking {self.fname} to {self.mask}")
             ds = apply_mask(ds, self.mask, grid=self.grid)
-        attrs = {
-            'variable': self.variable,
-        }
+            ds.attrs.update({'mask': self.mask})
+
+        # Maybe should we enforce all sheerwater datas/forecasts take a variable?
+        #attrs = {
+        #    'variable': self.variable,
+        #}
 
         #if self.units is not None:
         #    attrs['units'] = self.units
-        ds = ds.assign_attrs(attrs)
-        ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+        #ds = ds.assign_attrs(attrs)
 
         # Then we can add units to variables as appropriate
         #if self.variable == 'precip':
