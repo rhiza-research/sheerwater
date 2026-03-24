@@ -335,8 +335,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       },
       {
         "current": {
-          "text": "brazil",
-          "value": "brazil"
+          "text": "ghana",
+          "value": "ghana"
         },
         "definition": "SELECT \n  region\nFROM \n  \"spacegrouping_category_codes/global1_5_global_country\"",
         "label": "country2",

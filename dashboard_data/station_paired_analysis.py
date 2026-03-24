@@ -143,7 +143,7 @@ def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="globa
     elif agg_days <= 7:
         bins = np.arange(0, 50, 1)
     else:
-        bins = np.arange(0, 30, 1)
+        bins = np.arange(0, 50, 1)
     hist2d = paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
                               time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask='lsm', region=region, bins=bins)
     # making this small enough to produce a pandas dataframe
