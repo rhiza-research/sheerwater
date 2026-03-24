@@ -202,6 +202,41 @@ class forecast(SheerwaterDataset):
         """
         # Get the lookback periods for the observations
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
+        max_time = obs.time.max()
+        min_time = obs.time.min() + pd.Timedelta(days=lookback_days)
+        # Broadcast obs across init_time by assigning a dummy init_time coord,
+        # then shift the time coordinate to prediction_timedelta space
+        obs_broadcast = [obs.assign_coords(prediction_timedelta=lookback, time=obs.time - lookback).expand_dims("prediction_timedelta") for lookback in lookbacks.values]
+        combined_obs = xr.concat(obs_broadcast, dim="prediction_timedelta").chunk({'prediction_timedelta': -1})
+
+        # # Ensure we've done the proper selection of the observations
+        # ds1 = obs.sel(time="2018-02-10")
+        # import numpy as np
+        # ds2 = combined.sel(init_time="2018-02-15", prediction_timedelta=np.timedelta64(-5, "D"))
+        # import matplotlib.pyplot as plt
+        # (ds1 - ds2).precip.plot(x='lon')
+
+        combined_obs = combined_obs.sel(time=slice(min_time, max_time))
+        combined_obs = combined_obs.rename({"time": "init_time"})
+        combined_obs = combined_obs.sel(init_time=fcst.init_time)
+
+        combined = xr.concat([fcst, combined_obs], dim="prediction_timedelta")
+        combined = combined.sortby("prediction_timedelta")
+        return combined
+
+    def blend_fcst_and_obs_hold(self, fcst, obs, lookback_days=30):
+        """Blend the forecast and observations.
+
+        Args:
+            fcst (xr.Dataset): The forecast dataset, indexed by init_time and prediction_timedelta.
+            obs (xr.Dataset): The observations dataset, indexed by time.
+            lookback_days (int): The number of days to look back, integer.
+
+        Returns:
+            xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast.
+        """
+        # Get the lookback periods for the observations
+        lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
 
         # Build a 2D DataArray of valid times
         lookback_times = xr.DataArray(
@@ -220,7 +255,6 @@ class forecast(SheerwaterDataset):
         combined = xr.concat([fcst, obs_lookback], dim="prediction_timedelta")
         combined = combined.sortby('prediction_timedelta')
         return combined
-
     def post_process(self, ds):
         """Post process the forecast.
 
