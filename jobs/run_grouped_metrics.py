@@ -29,6 +29,7 @@ def run_grouped(combo):
                       truth=truth, metric_name=metric_name,
                       spatial=False, time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
                       cache_mode='overwrite', filepath_only=True, recompute=recompute, retry_null_cache=True,
+                      memoize_truth=False, memoize_forecast=False,
                       backend_kwargs={'target_read_chunk_size_mb': 1000})
     except KeyboardInterrupt as e:
         raise (e)

@@ -8,6 +8,7 @@ from .stations import stations
 from .rain_over_africa import rain_over_africa
 from .tamsat import tamsat
 from .smap import smap_l3, smap_l4
+from .oya import oya
 
 # Use __all__ to define what is part of the public API.
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "tamsat",
     "smap_l3",
     "smap_l4",
+    "oya"
 ]

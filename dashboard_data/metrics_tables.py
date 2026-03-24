@@ -48,7 +48,7 @@ def _metric_table(start_time, end_time, variable,
                 ds = metric(start_time, end_time, variable,
                             agg_days=agg, forecast=forecast, truth=truth,
                             metric_name=metric_name, time_grouping=time_grouping, spatial=False,
-                            grid=grid, space_grouping=space_grouping, recompute=False, retry_null_cache=True)
+                            grid=grid, space_grouping=space_grouping, recompute=False, retry_null_cache=False)
             except NotImplementedError:
                 ds = None
 
@@ -155,7 +155,7 @@ def ground_truth_metric_table(start_time, end_time, variable,
                               truth, metric_name, time_grouping=None,
                               grid='global1_5', space_grouping=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['era5', 'chirps_v3', 'chirp_v3', 'imerg_final', 'imerg_late', "rain_over_africa", "tamsat"]
+    forecasts = ['era5', 'chirps_v3', 'chirp_v3', 'imerg_final', 'imerg_late', "rain_over_africa", "tamsat", "oya"]
 
     if '-' in metric_name:
         thresh = float(metric_name.split('-')[1])
