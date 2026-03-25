@@ -112,7 +112,7 @@ class Metric(ABC):
             passed_dataset=True
             fcst = self.forecast
             if 'time' not in fcst.dims or 'lat' not in fcst.dims or 'lon' not in fcst.dims:
-                raise ValueError("Forecasts passed as xarray datasets must contain at least 'lat', 'lon', and 'time' dimensions.")
+                raise ValueError("Forecasts passed as xarray datasets must have 'lat', 'lon', and 'time' dimensions.")
 
             if 'prediction_timedelta' in fcst.dims:
                 forecast_or_truth = 'forecast'
@@ -121,13 +121,14 @@ class Metric(ABC):
                 elif 'member' in fcst.dims and 'prob_type' in fcst.attrs:
                     enhanced_prob_type = fcst.attrs['prob_type']
                 elif 'member' in fcst.dims and 'prob_type' not in fcst.attrs:
-                    print("Assuming multi-member forecast is an ensemble forecast. To pass a quantile forecast set the xarray attribute 'prob_type' to 'quantile'.")
+                    print("""Assuming multi-member forecast is an ensemble forecast.
+                          To pass a quantile forecast set the xarray attribute 'prob_type' to 'quantile'.""")
                     enhanced_prob_type = 'ensemble'
             else:
                 enhanced_prob_type = 'deterministic'
                 forecast_or_truth = 'truth'
         else:
-            raise ValueError("Forecast must be either the name of a registered sheerwater forecast/dataset or an xarray dataset.")
+            raise ValueError("Forecast must be the name of a sheerwater forecast/dataset or an xarray dataset.")
 
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
@@ -149,7 +150,7 @@ class Metric(ABC):
             obs = self.truth
 
             if 'time' not in obs.dims or 'lat' not in obs.dims or 'lon' not in obs.dims:
-                raise ValueError("Truth data passed as xarray datasets must contain 'lat', 'lon', and 'time' dimensions.")
+                raise ValueError("Truth passed as xarray datasets must contain 'lat', 'lon', and 'time' dimensions.")
         else:
             raise ValueError("Truth must be either the name of a registered sheerwater dataset or an xarray dataset.")
 
@@ -159,18 +160,19 @@ class Metric(ABC):
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
         if passed_dataset:
-            if self.variable
+            if self.variable:
                 # Select the variable of interest
                 obs = obs[[self.variable]]
                 fcst = fcst[[self.variable]]
             else:
                 if obs.data_vars.keys() != fcst.data_vars.keys():
-                    raise ValueError(f"If xarrays are passed as forecast and/or truth datasets, their data variables must match.
-                                     Got a forecast with data vars of {fcst.data_vars.keys()} and a truth with {obs.data_vars.keys()}")
+                    raise ValueError(f"""If xarrays are passed as forecast and/or truth datasets,
+                                      their data variables must match. Forecast contains {fcst.data_vars.keys()}
+                                      and truth contains {obs.data_vars.keys()}""")
 
             if fcst.lats != obs.lats or fcst.lons != obs.lons:
-                print("Warning: Latitudes and longitudes of passed datasets do not exactly match between forecast and truth.
-                      Only matching latitudes and longitudes will be evaluated.")
+                print("""Warning: Latitudes and longitudes of passed datasets do not exactly match between
+                      forecast and truth. Only matching latitudes and longitudes will be evaluated.""")
 
         else:
             # Select the variable of interest

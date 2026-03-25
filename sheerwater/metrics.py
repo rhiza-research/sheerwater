@@ -26,8 +26,8 @@ def metric(forecast, truth, metric_name, start_time=None, end_time=None, variabl
            spatial=False,  mask='lsm', region='global', memoize_forecast=True, memoize_truth=True):
     """Compute a grouped metric for a forecast at a specific lead."""
     # Use the metric registry to get the metric class
-    metric_obj = metric_factory(metric_name, forecast=forecast, truth=truth, start_time=start_time, end_time=end_time, variable=variable,
-                                agg_days=agg_days, grid=grid, time_grouping=time_grouping,
+    metric_obj = metric_factory(metric_name, forecast=forecast, truth=truth, start_time=start_time, end_time=end_time,
+                                variable=variable, agg_days=agg_days, grid=grid, time_grouping=time_grouping,
                                 space_grouping=space_grouping, spatial=spatial, mask=mask, region=region,
                                 memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
     return metric_obj.compute()
