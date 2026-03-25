@@ -7,7 +7,7 @@ import dask
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg, run_in_parallel
+from sheerwater.utils import dask_remote, run_in_parallel
 
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
@@ -47,11 +47,10 @@ def roa_raw(date):
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache_args=['grid'],
+@sheerwater_data()
+@cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def roa_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa: ARG001
+def roa_unified(start_time, end_time):
     """Regridded version of whole roa dataset."""
     days = pd.date_range(start_time, end_time)
 
@@ -74,9 +73,10 @@ def roa_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa:
                            parallel=True,
                            chunks={})
 
-    # Regrid if not on the native grid
-    if grid != 'source':
-        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
+    # gridding and rolling, filter out all values great than 350 mm/day.
+    # There seem to be bad values that made it in?
+    ds = ds.where(ds.max(dim=["lat", "lon"]) <= 350, np.nan)
+    ds = ds[['precip']]
 
     return ds
 
@@ -91,10 +91,5 @@ def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by ROA.")
 
-    ds = roa_gridded(start_time, end_time, grid, mask=mask, region=region)
-    ds = ds[[variable]]
-
-    # Before rolling, filter out all values great than 350 mm/day. There seem to be bad values that made it in?
-    ds = ds.where(ds.max(dim=["lat", "lon"]) <= 350, np.nan)
-
-    return roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    ds = roa_unified(start_time, end_time, agg_days=agg_days,  grid=grid, mask=mask, region=region)
+    return ds
