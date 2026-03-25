@@ -49,7 +49,6 @@ class Metric(ABC):
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
                  event=None, event_kwargs=None,
-                 lookback_days=None, lookback_data_source=None,
                  mask='lsm', space_grouping='country', region='global', data_key='none',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
@@ -60,8 +59,6 @@ class Metric(ABC):
         self.variable = variable
         self.event = event
         self.event_kwargs = {} if event_kwargs is None else event_kwargs
-        self.lookback_days = lookback_days
-        self.lookback_data_source = lookback_data_source
         self.agg_days = agg_days
         self.forecast = forecast
         self.truth = truth
@@ -90,7 +87,6 @@ class Metric(ABC):
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
                              'event': self.event, 'event_kwargs': self.event_kwargs,
-                             'lookback_days': self.lookback_days, 'lookback_data_source': self.lookback_data_source,
                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
@@ -102,19 +98,21 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
+                fcst = fcst_fn(**self.cache_kwargs,
+                               lookback_source=self.truth,
+                               prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
+                fcst = fcst_fn(**self.cache_kwargs, lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
+                fcst = data_fn(**self.cache_kwargs, lookback_source=self.truth, memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs)
+                fcst = data_fn(**self.cache_kwargs, lookback_source=self.truth)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -139,11 +137,6 @@ class Metric(ABC):
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
-        # Select the variable of interest
-        if self.event is not None:
-            # Adjust the variable to the event variable
-            self.variable = f"{self.variable}_{self.event}"
-
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
 
@@ -197,7 +190,6 @@ class Metric(ABC):
         self.metric_data['data']['no_null'] = no_null
         self.metric_data['data']['valid_times'] = valid_times
 
-
     @property
     @abstractmethod
     def sparse(self) -> bool:
@@ -245,8 +237,6 @@ class Metric(ABC):
                          variable=self.variable,
                          event=self.event,
                          event_kwargs=self.event_kwargs,
-                         lookback_days=self.lookback_days,
-                         lookback_data_source=self.lookback_data_source,
                          agg_days=self.agg_days,
                          forecast=self.forecast,
                          truth=self.truth,
@@ -371,8 +361,10 @@ class Metric(ABC):
         ds = da.to_dataset(name=self.name)
         return ds
 
+
 class CategoricalMetric(Metric):
     """Base class for categorical metrics."""
+
     def prepare_data(self):
         # Populate the data with the bin information
         if self.metric_data['key'] == 'none':
@@ -387,9 +379,10 @@ class CategoricalMetric(Metric):
 
 class ContingencyMetric(Metric):
     """True Positive, False Positive, False Negative, True Negative metric."""
+
     def prepare_data(self):
         if self.metric_data['key'] == 'none' and (
-            self.event_default is None or \
+            self.event_default is None or
             self.event_default == 'above_threshold' and self.event_kwargs['threshold'] is None
         ):
             raise ValueError("A contingency metric must specify a threshhold.")
@@ -403,12 +396,14 @@ class ContingencyMetric(Metric):
             if 'threshold' not in self.event_kwargs:
                 self.event_kwargs['threshold'] = float(self.metric_data['key'])
             if 'agg_days' in self.event_kwargs and self.agg_days != 1 and self.event_kwargs['agg_days'] != self.agg_days:
-                raise ValueError("The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
+                raise ValueError(
+                    "The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
             if 'agg_days' not in self.event_kwargs:
                 self.event_kwargs['agg_days'] = self.agg_days
 
         # Call the parent prepare_data method to get the forecast and observation:w
         Metric.prepare_data(self)
+
 
 class MAE(Metric):
     """Mean Absolute Error metric."""

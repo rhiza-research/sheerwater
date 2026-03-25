@@ -370,4 +370,5 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
     if variable == 'rh2m':
         ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
+    ds = ds.assign_attrs(agg_days=agg_days)
     return ds

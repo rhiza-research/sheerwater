@@ -46,21 +46,19 @@ class SheerwaterDataset(NuthatchProcessor):
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
+
+        # Forecaster specific arguments
+        self.lookback_source = bound_args.arguments.get('lookback_source', None)
         self.event = kwargs.get('event', None)
         self.event_kwargs = kwargs.get('event_kwargs', {})
-        self.lookback_days = kwargs.get('lookback_days', None)
-        self.lookback_data_source = kwargs.get('lookback_data_source', None)
-        if 'event' in kwargs:
-            del kwargs['event']
-        if 'event_kwargs' in kwargs:
-            del kwargs['event_kwargs']
+        self.event_fn = get_event_fn(self.event)(**self.event_kwargs)
+
         if self.variable is None:
             if self.event is None:
                 raise ValueError("Dataset decorator requires variable to be passed.")
             else:
                 # Get the default variable for the event
-                func = get_event_fn(self.event)
-                self.variable = func.variable
+                self.variable = get_event_fn(self.event)(*self.event_kwargs).default_variable
                 # Modify the input args, kwargs to use the default variable
                 if 'variable' in bound_args.arguments:
                     idx = list(bound_args.signature.parameters).index('variable')
@@ -71,14 +69,21 @@ class SheerwaterDataset(NuthatchProcessor):
                     elif 'variable' in kwargs:
                         kwargs = dict(kwargs)
                         kwargs['variable'] = self.variable
+
+        # Get required arguments
         try:
             self.grid = bound_args.arguments['grid']
             self.agg_days = bound_args.arguments['agg_days']
         except KeyError:
             raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
-        if self.event is not None and self.agg_days != 1:
-            raise ValueError("Event decorators cannot be used with aggregation days other than 1.")
+        # Remove from kwargs so they don't get passed to the underlying function
+        if 'event' in kwargs:
+            del kwargs['event']
+        if 'event_kwargs' in kwargs:
+            del kwargs['event_kwargs']
+        if 'lookback_source' in kwargs:
+            del kwargs['lookback_source']
 
         # Units
         if self.variable == 'precip':
@@ -100,11 +105,8 @@ class SheerwaterDataset(NuthatchProcessor):
         if not isinstance(ds, xr.Dataset):
             raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
 
-        if self.event is not None:
-            # Apply the event postprocessing to the dataset
-            if f"{self.variable}_{self.event}" not in ds.variables:  # TODO: delete once we're not calling twice
-                ds = get_event_fn(self.event)(ds, **self.event_kwargs)
-                ds = ds.rename({self.variable: f"{self.variable}_{self.event}"})
+        if self.event is not None and ds is not None and "event" not in ds.attrs:
+            ds = self.event_fn(ds)
 
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):
@@ -115,14 +117,11 @@ class SheerwaterDataset(NuthatchProcessor):
             ds = apply_mask(ds, self.mask, grid=self.grid)
 
         # Assign attributes, preserving any existing ones (especially 'prob_type')
-        attrs = dict(ds.attrs) if hasattr(ds, "attrs") else {}
-        attrs.update({
+        ds = ds.assign_attrs({
             'agg_days': float(self.agg_days),
             'variable': self.variable,
+            'units': self.units,
         })
-        if self.units is not None:
-            attrs['units'] = self.units
-        ds = ds.assign_attrs(attrs)
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
         return ds
 
@@ -201,12 +200,19 @@ class forecast(SheerwaterDataset):
             xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast.
         """
         # Get the lookback periods for the observations
+        obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
         max_time = obs.time.max()
         min_time = obs.time.min() + pd.Timedelta(days=lookback_days)
+        import pdb
+        pdb.set_trace()
+
+        obs_broadcast = obs.expand_dims(dim="prediction_timedelta", coords=[lookbacks.values])
+
         # Broadcast obs across init_time by assigning a dummy init_time coord,
         # then shift the time coordinate to prediction_timedelta space
-        obs_broadcast = [obs.assign_coords(prediction_timedelta=lookback, time=obs.time - lookback).expand_dims("prediction_timedelta") for lookback in lookbacks.values]
+        obs_broadcast = [obs.assign_coords(prediction_timedelta=lookback, time=obs.time -
+                                           lookback).expand_dims("prediction_timedelta") for lookback in lookbacks.values]
         combined_obs = xr.concat(obs_broadcast, dim="prediction_timedelta").chunk({'prediction_timedelta': -1})
 
         # # Ensure we've done the proper selection of the observations
@@ -255,33 +261,33 @@ class forecast(SheerwaterDataset):
         combined = xr.concat([fcst, obs_lookback], dim="prediction_timedelta")
         combined = combined.sortby('prediction_timedelta')
         return combined
+
     def post_process(self, ds):
         """Post process the forecast.
 
         Enables blending the forecast and observations, event definition, conversion of init time to valid time, 
         and general spatial postprocessing, including region clipping and masking.
         """
-        if not bool((ds.prediction_timedelta < 0).any()): # TODO: remove extra check once we're not calling twice
-            if self.lookback_days is not None and self.lookback_data_source is not None \
-                and isinstance(self.lookback_days, int):
-                # Get the observations for forecast period + the lookback period
-                new_start = shift_by_days(ds.init_time.values.min(), -self.lookback_days)
-                new_end = ds.init_time.values.max()
-                obs = get_data(self.lookback_data_source)(start_time=new_start, end_time=new_end,
-                        variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
-                ds = self.blend_fcst_and_obs(ds, obs, self.lookback_days)
-                attrs = dict(ds.attrs) if hasattr(ds, "attrs") else {}
-                attrs.update({
-                    'lookback_days': self.lookback_days,
-                    'lookback_data_source': self.lookback_data_source,
-                })
-                ds = ds.assign_attrs(attrs)
+        if 'lookback_source' not in ds.attrs and self.lookback_source is not None:
+            if self.event is not None:
+                lookback_days = self.event_fn.duration
+            else:
+                lookback_days = self.agg_days
 
-        # TODO: remove extra check once we're not calling twice
-        if self.event is not None and f"{self.variable}_{self.event}" not in ds.variables:
+            # Get the observations for forecast period + the lookback period
+            new_start = shift_by_days(ds.init_time.values.min(), -lookback_days)
+            new_end = ds.init_time.values.max()
+            obs = get_data(self.lookback_source)(start_time=new_start, end_time=new_end,
+                                                 variable=self.variable, grid=self.grid,
+                                                 mask=self.mask, region=self.region)
+            ds = self.blend_fcst_and_obs(ds, obs, lookback_days)
+            ds = ds.assign_attrs({'lookback_source': self.truth})
+
+        if 'event' not in ds.attrs:
             # Rename prediction timedelta event_time for event postprocessing
             ds = ds.rename({'prediction_timedelta': 'time'})
 
+        # Parent class postprocessing, will apply event postprocessing if it exists
         ds = SheerwaterDataset.post_process(self, ds)
 
         # TODO: remove extra checks once we're not calling twice
