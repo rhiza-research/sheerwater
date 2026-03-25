@@ -54,7 +54,7 @@ let bin_log_counts = Array.from({ length: estimate_Vals.length }, () =>
 );
 for (let i = 0; i < bin_counts.length; i++) {
     for (let j = 0; j < bin_counts[i].length; j++) {
-        bin_log_counts[i][j] = Math.log10(bin_counts[i][j] + 1);
+       bin_log_counts[i][j] = Math.log10(bin_counts[i][j] + 1);
     }
 }
 // determine the 50% bin conditioned on either estimate (satellite) or truth (stations)
@@ -113,12 +113,12 @@ const FONT_COLOR  = "#777777";
 
 // heatmap color scale
 const COLORSCALE = [
-    [0.00, "rgba(10,  20,  50,  1.0)"],   // deep navy
-    [0.15, "rgba(30,  80,  140, 1.0)"],   // ocean blue
-    [0.35, "rgba(49,  130, 206, 1.0)"],   // sky blue
-    [0.55, "rgba(56,  178, 172, 1.0)"],   // teal
-    [0.75, "rgba(154, 205, 100, 1.0)"],   // yellow-green
-    [1.00, "rgba(237, 137, 54,  1.0)"],   // amber
+    [0.00, "rgba(255, 255, 255, 1.0)"],   // white — zero counts
+    [0.20, "rgba(252, 220, 220, 1.0)"],   // blush
+    [0.40, "rgba(240, 150, 150, 1.0)"],   // light red
+    [0.60, "rgba(214,  60,  60, 1.0)"],   // mid red
+    [0.80, "rgba(160,  16,  16, 1.0)"],   // dark red
+    [1.00, "rgba( 96,   0,   0, 1.0)"],   // near-black red — max density
 ];
 
 return {

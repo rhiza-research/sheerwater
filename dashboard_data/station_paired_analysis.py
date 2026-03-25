@@ -190,7 +190,6 @@ def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='
 
     hist2d = hist_grouping(merged_data, time_grouping, space_grouping, grid, mask, region, spatial,
     bins, variables=['estimate_precip', 'truth_precip'])
-    import pdb; pdb.set_trace()
     # rename bin1 to estimate and bin2 to truth
     hist2d = hist2d.rename({'bin1': "estimate", 'bin2': "truth"})
     return hist2d
