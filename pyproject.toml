@@ -52,7 +52,8 @@ dependencies = [
     "properscoring",
     "nuthatch",
     "xesmf",
-    "earthaccess"
+    "earthaccess",
+    "xee",
 ]
 
 [dependency-groups]

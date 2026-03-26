@@ -46,7 +46,7 @@ def parse_args():
         station_eval = True
 
     if args.station_evaluation:
-        forecasts = ["chirps_v3", "imerg_late", "imerg_final", "era5", "chirp_v3", "rain_over_africa", "tamsat"]
+        forecasts = ["chirps_v3", "imerg_late", "imerg_final", "era5", "chirp_v3", "rain_over_africa", "tamsat", "oya"]
     elif args.seasonal:
         forecasts = ["salient", "climatology_2015"]
     else:
@@ -115,7 +115,7 @@ def parse_args():
     if args.grid:
         grids = args.grid
 
-    space_groupings = ["continent", "subregion", "global", "country"]
+    space_groupings = ["subregion", "country"]
     if args.space_grouping:
         space_groupings = args.space_grouping
 
