@@ -2,7 +2,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from sheerwater.utils import roll_and_agg
+from sheerwater.utils import roll_and_agg, shift_by_days
 
 EVENT_REGISTRY = {}
 
@@ -32,19 +32,19 @@ class Event(ABC):
     @property
     @abstractmethod
     def duration(self) -> int:
-        """The duration of the event."""
+        """The duration of the event, in days. This determines the lookback period for blending observations."""
         pass
 
     @property
     @abstractmethod
     def valid_variables(self) -> list[str]:
-        """What variables is the metric valid for?"""
+        """What variables is the metric valid for? None means any variable is valid."""
         pass
 
     @property
     @abstractmethod
     def default_variable(self) -> str:
-        """The default variable for the event."""
+        """The default variable for the event, enabling the event to be called without a variable."""
         pass
 
 
@@ -92,16 +92,18 @@ class planting_suitability(Event):
 
     def apply(self, ds):
         """A function to calculate the above threshold of a dataset."""
-        wet_spell = above_threshold(ds, agg_days=self.wet_spell_agg_days,
-                                    threshold=self.wet_spell_threshold / self.wet_spell_agg_days)
-        dry_spell = above_threshold(ds, agg_days=self.dry_spell_agg_days,
-                                    threshold=self.dry_spell_threshold / self.dry_spell_agg_days)
+        wet_spell = above_threshold(agg_days=self.wet_spell_agg_days,
+                                    threshold=self.wet_spell_threshold / self.wet_spell_agg_days)(ds)
+        dry_spell = above_threshold(agg_days=self.dry_spell_agg_days,
+                                    threshold=self.dry_spell_threshold / self.dry_spell_agg_days)(ds)
         # Shift to get wet spell followed by dry spell
         dry_spell = dry_spell.shift(time=self.wet_spell_agg_days)
         # Chop off the last  days for wet spell, which won't have a matching dry spell
         wet_spell = wet_spell.isel(time=slice(None, -self.wet_spell_agg_days))
         # Floatwise "and-ing" of the two spells together to get the planting suitability
-        return (wet_spell * dry_spell)
+        # Ensure that attributes pass through
+        attrs = ds.attrs.copy()
+        return (wet_spell * dry_spell).assign_attrs(attrs)
 
     @property
     def duration(self) -> int:

@@ -378,13 +378,14 @@ class CategoricalMetric(Metric):
 
 
 class ContingencyMetric(Metric):
-    """True Positive, False Positive, False Negative, True Negative metric."""
+    """True Positive, False Positive, False Negative, True Negative metrics."""
 
     def prepare_data(self):
-        if self.metric_data['key'] == 'none' and (
+        if self.metric_data['key'] == 'none' and self.event is None and (
             self.event_default is None or
             self.event_default == 'above_threshold' and self.event_kwargs['threshold'] is None
         ):
+            # No key was passed and no event was passed, so we can't compute the metric
             raise ValueError("A contingency metric must specify a threshhold.")
 
         # Set up the default event based on the passed arguments
@@ -673,6 +674,21 @@ class FrequencyBias(ContingencyMetric):
         fp = self.grouped_statistics['false_positives']
         fn = self.grouped_statistics['false_negatives']
         return (tp + fp) / (tp + fn)
+
+class FirstHit(Metric):
+    """First Hit metric, error in days."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = ['precip']
+    event_default = 'planting_suitability'
+    statistics = ['true_positives', 'false_positives', 'false_negatives']
+
+    def compute_metric(self):
+        tp = self.grouped_statistics['true_positives']
+        fp = self.grouped_statistics['false_positives']
+        fn = self.grouped_statistics['false_negatives']
+        return (tp + fp) / (tp + fn)
+
 
 
 def metric_factory(metric_name: str, **init_kwargs) -> Metric:
