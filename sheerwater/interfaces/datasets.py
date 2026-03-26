@@ -230,11 +230,8 @@ class forecast(SheerwaterDataset):
         and general spatial postprocessing, including region clipping and masking.
         """
         # Check for negative pred
-        if all(ds.prediction_timedelta >= 0):  # TODO: could remove this if we fix double blending
-            if self.event is not None:
-                lookback_days = self.event_fn.duration
-            else:
-                lookback_days = self.agg_days
+        if self.event is not None and all(ds.prediction_timedelta >= 0):  # TODO: could remove this if we fix double blending
+            lookback_days = self.event_fn.duration
 
             # Get the observations for forecast period + the lookback period
             new_start = shift_by_days(ds.init_time.values.min(), -lookback_days)
