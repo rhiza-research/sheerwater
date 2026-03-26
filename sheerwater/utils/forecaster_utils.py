@@ -15,6 +15,18 @@ def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
     return ds
 
 
+def convert_pred_time_to_init_time(ds, time_dim='time',
+                                   lead_time_dim='prediction_timedelta', init_time_dim='init_time'):
+    """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
+    ds = ds.assign_coords({init_time_dim: ds[time_dim] - ds[lead_time_dim]})
+    tmp = ds.stack(z=(time_dim, lead_time_dim))
+    tmp = tmp.set_index(z=(init_time_dim, lead_time_dim))
+    ds = tmp.unstack('z')
+    ds = ds.rename({lead_time_dim: 'prediction_timedelta'})
+    ds = ds.drop_vars(time_dim)
+    return ds
+
+
 def get_variable(variable_name, variable_type='era5'):
     """Converts a variable in any other type to a variable name of the requested type."""
     variable_ordering = ['sheerwater', 'era5', 'ecmwf_hres', 'ecmwf_ifs_er', 'salient', 'abc', 'ghcn', 'era5_land']

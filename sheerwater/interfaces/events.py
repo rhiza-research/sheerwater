@@ -61,15 +61,9 @@ class above_threshold(Event):
     def apply(self, ds):
         """A function to calculate the above threshold of a dataset."""
         # Check agg days and roll if necessary
-        if 'agg_days' in ds.attrs and ds.attrs['agg_days'] == 1 or 'agg_days' not in ds.attrs:
-            # Assume daily data and roll ourselves
-            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean')
-        elif 'agg_days' in ds.attrs and ds.attrs['agg_days'] != self.agg_days:
-            # If the data has already been rolled, check that the agg days match
-            raise ValueError(f"Event {self.name} requires agg_days to be {self.agg_days}.")
-        else:
-            # The data is already rolled, so we don't need to roll ourselves
-            pass
+        if 'agg_days' in ds.attrs and ds.attrs['agg_days'] != 1:
+            raise ValueError(f"Event {self.name} requires agg_days to be 1.")
+        ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean')
         # Save and restore the null pattern, which is removed by the boolean operations
         null_mask = ds.isnull()
         ds = (ds >= self.threshold).astype(np.float32)

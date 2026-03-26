@@ -3,9 +3,9 @@
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time, add_spatial_attrs, check_spatial_attr, shift_by_days
+from sheerwater.utils import convert_init_time_to_pred_time, convert_pred_time_to_init_time, add_spatial_attrs, check_spatial_attr, shift_by_days
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
-
+import numpy as np
 from .events import get_event_fn
 import logging
 logger = logging.getLogger(__name__)
@@ -48,10 +48,11 @@ class SheerwaterDataset(NuthatchProcessor):
         self.variable = bound_args.arguments.get('variable', None)
 
         # Forecaster specific arguments
-        self.lookback_source = bound_args.arguments.get('lookback_source', None)
+        self.lookback_source = kwargs.get('lookback_source', None)
         self.event = kwargs.get('event', None)
         self.event_kwargs = kwargs.get('event_kwargs', {})
-        self.event_fn = get_event_fn(self.event)(**self.event_kwargs)
+        if self.event is not None:
+            self.event_fn = get_event_fn(self.event)(**self.event_kwargs)
 
         if self.variable is None:
             if self.event is None:
@@ -74,6 +75,8 @@ class SheerwaterDataset(NuthatchProcessor):
         try:
             self.grid = bound_args.arguments['grid']
             self.agg_days = bound_args.arguments['agg_days']
+            if self.event:
+                self.agg_days = 1  # All events must be called with an agg days of 1
         except KeyError:
             raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
@@ -202,64 +205,22 @@ class forecast(SheerwaterDataset):
         # Get the lookback periods for the observations
         obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
-        max_time = obs.time.max()
-        min_time = obs.time.min() + pd.Timedelta(days=lookback_days)
-        import pdb
-        pdb.set_trace()
+        obs_broadcast = obs.expand_dims({"prediction_timedelta": lookbacks.values})
+        obs_broadcast = convert_pred_time_to_init_time(obs_broadcast)
+        obs_broadcast = obs_broadcast.sel(init_time=fcst.init_time)
 
-        obs_broadcast = obs.expand_dims(dim="prediction_timedelta", coords=[lookbacks.values])
-
-        # Broadcast obs across init_time by assigning a dummy init_time coord,
-        # then shift the time coordinate to prediction_timedelta space
-        obs_broadcast = [obs.assign_coords(prediction_timedelta=lookback, time=obs.time -
-                                           lookback).expand_dims("prediction_timedelta") for lookback in lookbacks.values]
-        combined_obs = xr.concat(obs_broadcast, dim="prediction_timedelta").chunk({'prediction_timedelta': -1})
+        # Concat with forecast on prediction_timedelta
+        combined = xr.concat([fcst, obs_broadcast], dim="prediction_timedelta")
+        combined = combined.sortby("prediction_timedelta")
 
         # # Ensure we've done the proper selection of the observations
-        # ds1 = obs.sel(time="2018-02-10")
+        # ds1 = obs.sel(time="2016-02-10")
         # import numpy as np
-        # ds2 = combined.sel(init_time="2018-02-15", prediction_timedelta=np.timedelta64(-5, "D"))
+        # ds2 = combined.sel(init_time="2016-02-15", prediction_timedelta=np.timedelta64(-5, "D"))
         # import matplotlib.pyplot as plt
         # (ds1 - ds2).precip.plot(x='lon')
+        # plt.show()
 
-        combined_obs = combined_obs.sel(time=slice(min_time, max_time))
-        combined_obs = combined_obs.rename({"time": "init_time"})
-        combined_obs = combined_obs.sel(init_time=fcst.init_time)
-
-        combined = xr.concat([fcst, combined_obs], dim="prediction_timedelta")
-        combined = combined.sortby("prediction_timedelta")
-        return combined
-
-    def blend_fcst_and_obs_hold(self, fcst, obs, lookback_days=30):
-        """Blend the forecast and observations.
-
-        Args:
-            fcst (xr.Dataset): The forecast dataset, indexed by init_time and prediction_timedelta.
-            obs (xr.Dataset): The observations dataset, indexed by time.
-            lookback_days (int): The number of days to look back, integer.
-
-        Returns:
-            xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast.
-        """
-        # Get the lookback periods for the observations
-        lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
-
-        # Build a 2D DataArray of valid times
-        lookback_times = xr.DataArray(
-            fcst.init_time.values[:, None] + lookbacks.values[None, :],
-            dims=["init_time", "prediction_timedelta"],
-            coords={
-                "init_time": fcst.init_time.values,
-                "prediction_timedelta": lookbacks.values,
-            }
-        )
-        # Select the observations
-        obs_lookback = obs.sel(time=lookback_times)
-        obs_lookback = obs_lookback.drop_vars('time')
-
-        # Concat the observations and forecast
-        combined = xr.concat([fcst, obs_lookback], dim="prediction_timedelta")
-        combined = combined.sortby('prediction_timedelta')
         return combined
 
     def post_process(self, ds):
@@ -268,7 +229,8 @@ class forecast(SheerwaterDataset):
         Enables blending the forecast and observations, event definition, conversion of init time to valid time, 
         and general spatial postprocessing, including region clipping and masking.
         """
-        if 'lookback_source' not in ds.attrs and self.lookback_source is not None:
+        # Check for negative pred
+        if all(ds.prediction_timedelta >= 0):  # TODO: could remove this if we fix double blending
             if self.event is not None:
                 lookback_days = self.event_fn.duration
             else:
@@ -279,9 +241,10 @@ class forecast(SheerwaterDataset):
             new_end = ds.init_time.values.max()
             obs = get_data(self.lookback_source)(start_time=new_start, end_time=new_end,
                                                  variable=self.variable, grid=self.grid,
+                                                 agg_days=1,
                                                  mask=self.mask, region=self.region)
             ds = self.blend_fcst_and_obs(ds, obs, lookback_days)
-            ds = ds.assign_attrs({'lookback_source': self.truth})
+            ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
         if 'event' not in ds.attrs:
             # Rename prediction timedelta event_time for event postprocessing
