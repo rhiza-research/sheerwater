@@ -41,6 +41,23 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
 
         if agg_fn == 'mean':
             ds = ds.groupby("group").mean(dim="time", skipna=True)
+        elif agg_fn == 'rank':
+            def per_group(x):
+                # set nans to -1 so they all get ranked
+                x = x.where(x.notnull(), -1)
+                x = x.chunk({"time": -1})
+                ranks = x.rank(dim="time")
+                # get rank of the final -1 value
+                nanrank = ranks.where(x == -1).min(dim="time")
+                # set ranks above the nanrank to nan
+                ranks = ranks.where(ranks <= nanrank, np.nan)
+                # divide by number of time steps in this group
+                # where nanrank is nan, set it to 0
+                nanrank = nanrank.where(nanrank.notnull(), 0)
+                return ranks / (ranks.count(dim="time"))
+    
+            ds = ds.groupby("group").apply(per_group)
+            return ds
         else:
             # min_count ensures that all nan groups return nan
             ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
