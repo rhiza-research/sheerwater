@@ -1,8 +1,9 @@
 """A decorator for event definitions."""
 import numpy as np
+import xarray as xr
 from abc import ABC, abstractmethod
 
-from sheerwater.utils import roll_and_agg, shift_by_days
+from sheerwater.utils import roll_and_agg, shift_by_days, groupby_time, groupby_time, groupby_time, groupby_time
 
 EVENT_REGISTRY = {}
 
@@ -19,14 +20,18 @@ class Event(ABC):
     def __call__(self, ds):
         """Apply the event to the dataset."""
         if self.valid_variables is not None and self.valid_variables != []:
-            for v in ds.data_vars:
-                if v not in self.valid_variables:
-                    raise ValueError(f"Event {self.name} is not valid for variable {v}.")
+            valid = [v in self.valid_variables for v in ds.data_vars]
+            if not any(valid):
+                raise ValueError(f"Event {self.name} is not valid for any variables in the dataset.")
         ds = self.apply(ds)
         # Add an attribute to the dataset to indicate the event name
-        ds = ds.assign_attrs({'event': self.name})
+        if 'event' in ds.attrs:
+            # Concat the event name to the existing event list
+            ds = ds.assign_attrs({'event': "-".join([ds.attrs['event'], self.name])})
+        else:
+            ds = ds.assign_attrs({'event': self.name})
         if 'member' in ds.dims:
-            ds = ds.mean(dim='member')
+            ds.mean(dim='member')
         return ds
 
     @property
@@ -111,8 +116,45 @@ class planting_suitability(Event):
         return self.wet_spell_agg_days + self.dry_spell_agg_days
 
 
+class first_hit(Event):
+    """An event to calculate the first hit of a dataset above a threshold."""
+    valid_variables = None  # valid for any variable
+    default_variable = "precip"
+
+    def __init__(self, hit_threshold=0.5, time_grouping=None):
+        """Initialize the event."""
+        self.hit_threshold = hit_threshold
+        self.time_grouping = time_grouping
+
+    def apply(self, ds):
+        """A function to calculate the above threshold of a dataset."""
+        nanmask = ds.isnull()
+        ds = ds.where(ds >= self.hit_threshold, 0.0)
+        # Add the grouping coordinates but perform no aggregation
+        ds = groupby_time(ds, self.time_grouping, agg_fn=None)
+
+        def first_hit(x):
+            cumsum = x.cumsum(dim="time")
+            return (cumsum == 1) & (x == 1)
+        # Ensure that the timedimension is sorted
+        ds = ds.sortby("time")
+        first_hit = ds.groupby("group").map(first_hit)
+
+        # Restore the null pattern and attributes
+        first_hit = first_hit.where(~nanmask, other=np.nan)
+        first_hit = first_hit.assign_attrs(ds.attrs)
+        return first_hit
+
+    @property
+    def duration(self) -> int:
+        """The duration of the event."""
+        return 0  # No duration for this event
+
+
 def get_event_fn(name):
     """Get an event function from the registry."""
+    if name is None:
+        return None
     if name not in EVENT_REGISTRY:
         raise ValueError(f"Event {name!r} not found.")
     return EVENT_REGISTRY[name]

@@ -1,12 +1,15 @@
 """A decorator for identifying data sources."""
 
+import warnings
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
-from sheerwater.utils import convert_init_time_to_pred_time, convert_pred_time_to_init_time, add_spatial_attrs, check_spatial_attr, shift_by_days
+from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
+                              add_spatial_attrs, check_spatial_attr, shift_by_days)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
-import numpy as np
+
 from .events import get_event_fn
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,13 @@ class SheerwaterDataset(NuthatchProcessor):
         # Get default values for the function signature
         bound_args = self.bind_signature(sig, *args, **kwargs)
 
+        # Get required arguments, these are required for all datasets
+        try:
+            self.grid = bound_args.arguments['grid']
+            self.agg_days = bound_args.arguments['agg_days']
+        except KeyError:
+            raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
+
         # Default to global region and no masking if not passed
         self.start_time = bound_args.arguments.get('start_time', None)
         self.end_time = bound_args.arguments.get('end_time', None)
@@ -47,46 +57,32 @@ class SheerwaterDataset(NuthatchProcessor):
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
 
-        # Forecaster specific arguments
+        # Event and lookback handling
         self.lookback_source = kwargs.get('lookback_source', None)
         self.event = kwargs.get('event', None)
+        if self.event:
+            if self.agg_days != 1:
+                warnings.warn(f"Event {self.event} requires agg_days to be 1, setting to 1.")
+            self.agg_days = 1  # All events must be called with an agg days of 1
         self.event_kwargs = kwargs.get('event_kwargs', {})
-        if self.event is not None:
-            self.event_fn = get_event_fn(self.event)(**self.event_kwargs)
-
-        if self.variable is None:
-            if self.event is None:
-                raise ValueError("Dataset decorator requires variable to be passed.")
-            else:
-                # Get the default variable for the event
-                self.variable = get_event_fn(self.event)(*self.event_kwargs).default_variable
-                # Modify the input args, kwargs to use the default variable
-                if 'variable' in bound_args.arguments:
-                    idx = list(bound_args.signature.parameters).index('variable')
-                    if idx < len(args):
-                        args = list(args)
-                        args[idx] = self.variable
-                        args = tuple(args)
-                    elif 'variable' in kwargs:
-                        kwargs = dict(kwargs)
-                        kwargs['variable'] = self.variable
-
-        # Get required arguments
-        try:
-            self.grid = bound_args.arguments['grid']
-            self.agg_days = bound_args.arguments['agg_days']
-            if self.event:
-                self.agg_days = 1  # All events must be called with an agg days of 1
-        except KeyError:
-            raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
-
         # Remove from kwargs so they don't get passed to the underlying function
-        if 'event' in kwargs:
-            del kwargs['event']
-        if 'event_kwargs' in kwargs:
-            del kwargs['event_kwargs']
-        if 'lookback_source' in kwargs:
-            del kwargs['lookback_source']
+        for kwarg in ['event', 'event_kwargs', 'lookback_source']:
+            if kwarg in kwargs:
+                del kwargs[kwarg]
+
+        if self.event is not None and not isinstance(self.event, list):
+            self.event = [self.event]
+        if not isinstance(self.event_kwargs, list):
+            self.event_kwargs = [self.event_kwargs]
+        if self.event is not None:
+            self.event_fns = [get_event_fn(event)(**event_kwargs)
+                              for event, event_kwargs in zip(self.event, self.event_kwargs)]
+        else:
+            self.event_fns = []
+
+        # If variable is not passed, attempt to set it by the first event in the chain
+        if self.variable is None:
+            args, kwargs = self.set_variable_by_event(args, kwargs, bound_args)
 
         # Units
         if self.variable == 'precip':
@@ -96,21 +92,30 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             self.units = None
 
-        if 'lookback_days' in kwargs:
-            del kwargs['lookback_days']
-        if 'lookback_data_source' in kwargs:
-            del kwargs['lookback_data_source']
-
         return args, kwargs
 
-    def post_process(self, ds):
-        """Post-process the dataset to implement masking and region clipping and timeseries postprocessing."""
-        if not isinstance(ds, xr.Dataset):
-            raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
+    def set_variable_by_event(self, args, kwargs, bound_args):
+        """Update the args and kwargs to use the default variable for the first event in the chain."""
+        if self.event is None:
+            raise ValueError("Dataset decorator requires variable to be passed if no event is specified.")
 
-        if self.event is not None and ds is not None and "event" not in ds.attrs:
-            ds = self.event_fn(ds)
+        # Get the default variable for the first event in the chain
+        self.variable = get_event_fn(self.event[0])(**self.event_kwargs[0]).default_variable
 
+        # Modify the input args, kwargs to use the default variable
+        if 'variable' in bound_args.arguments:
+            idx = list(bound_args.signature.parameters).index('variable')
+            if idx < len(args):
+                args = list(args)
+                args[idx] = self.variable
+                args = tuple(args)
+            elif 'variable' in kwargs:
+                kwargs = dict(kwargs)
+                kwargs['variable'] = self.variable
+        return args, kwargs
+
+    def clip_and_mask(self, ds):
+        """Clip and mask the dataset."""
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):
             # Only clip region if the dataframe hasn't already been clipped
@@ -175,10 +180,23 @@ class data(SheerwaterDataset):
 
     def post_process(self, ds):
         """Post-processor for a Sheerwater data. It supports xarray datasets."""
-        # Implment masking and region clipping and timeseries postprocessing
-        ds = SheerwaterDataset.post_process(self, ds)
+        if not isinstance(ds, xr.Dataset):
+            raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
+        # Clip and mask the dataset
+        ds = self.clip_and_mask(ds)
+
+        # Run the events on the dataset
+        if 'processed' not in ds.attrs:
+            for event_fn in self.event_fns:
+                # Run each event in the chain in order
+                ds = event_fn(ds)
+
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon', 'member', 'station_id']])
+
+        # Add a flag to the dataset to indicate that it has been processed
+        ds = ds.assign_attrs({'processed': True})
+
         return ds
 
 
@@ -191,7 +209,7 @@ class forecast(SheerwaterDataset):
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
-    def blend_fcst_and_obs(self, fcst, obs, lookback_days=30):
+    def blend_fcst_and_obs(self, fcst, obs, lookback_days=0):
         """Blend the forecast and observations.
 
         Args:
@@ -202,6 +220,9 @@ class forecast(SheerwaterDataset):
         Returns:
             xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast.
         """
+        if lookback_days == 0:
+            return fcst
+
         # Get the lookback periods for the observations
         obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
@@ -229,9 +250,13 @@ class forecast(SheerwaterDataset):
         Enables blending the forecast and observations, event definition, conversion of init time to valid time, 
         and general spatial postprocessing, including region clipping and masking.
         """
-        # Check for negative pred
-        if self.event is not None and all(ds.prediction_timedelta >= 0):  # TODO: could remove this if we fix double blending
-            lookback_days = self.event_fn.duration
+        if not isinstance(ds, xr.Dataset):
+            raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
+
+        # Run the events on the forecast: requires blending in lookback obs and renaming time labels
+        if self.event is not None and 'processed' not in ds.attrs:
+            # If the first event has a lookback period, blend in the lookback observations
+            lookback_days = self.event_fns[0].duration
 
             # Get the observations for forecast period + the lookback period
             new_start = shift_by_days(ds.init_time.values.min(), -lookback_days)
@@ -242,27 +267,24 @@ class forecast(SheerwaterDataset):
                                                  mask=self.mask, region=self.region)
             ds = self.blend_fcst_and_obs(ds, obs, lookback_days)
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
+            import pdb; pdb.set_trace()
 
-        if 'event' not in ds.attrs:
-            # Rename prediction timedelta event_time for event postprocessing
+            # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
-
-        # Parent class postprocessing, will apply event postprocessing if it exists
-        ds = SheerwaterDataset.post_process(self, ds)
-
-        # TODO: remove extra checks once we're not calling twice
-        # Rename event_time back to prediction_timedelta
-        if self.event is not None and 'prediction_timedelta' not in ds.coords and 'init_time' in ds.coords:
+            ds = self.event_fns[0](ds)
             ds = ds.rename({'time': 'prediction_timedelta'})
+            if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
+                ds = convert_init_time_to_pred_time(ds)
 
-        # # Convert the init time and prediction timedelta to a valid time coordinate labeled 'time'
-        if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
-            # If we haven't converted from init time to valid times, do so now
-            ds = convert_init_time_to_pred_time(ds)
+            for event_fn in self.event_fns[1:]:
+                # Run each event in the chain after the first
+                ds = event_fn(ds)
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
                            var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+
+        ds = ds.assign_attrs({'processed': True})
         return ds
 
 

@@ -57,8 +57,6 @@ class Metric(ABC):
         self.end_time = end_time
 
         self.variable = variable
-        self.event = event
-        self.event_kwargs = {} if event_kwargs is None else event_kwargs
         self.agg_days = agg_days
         self.forecast = forecast
         self.truth = truth
@@ -68,6 +66,10 @@ class Metric(ABC):
         self.region = region
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
+
+        self.event = event
+        self.event_kwargs = {} if event_kwargs is None else event_kwargs
+
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
@@ -280,7 +282,7 @@ class Metric(ABC):
 
         # Create a non_null indicator and add it to the statistic
         # Group by time
-        ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
+        ds = groupby_time(ds, self.time_grouping)
 
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
@@ -675,6 +677,7 @@ class FrequencyBias(ContingencyMetric):
         fn = self.grouped_statistics['false_negatives']
         return (tp + fp) / (tp + fn)
 
+
 class FirstHit(Metric):
     """First Hit metric, error in days."""
     sparse = True
@@ -688,7 +691,6 @@ class FirstHit(Metric):
         fp = self.grouped_statistics['false_positives']
         fn = self.grouped_statistics['false_negatives']
         return (tp + fp) / (tp + fn)
-
 
 
 def metric_factory(metric_name: str, **init_kwargs) -> Metric:
