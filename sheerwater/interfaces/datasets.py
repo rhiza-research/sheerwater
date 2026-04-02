@@ -267,7 +267,6 @@ class forecast(SheerwaterDataset):
                                                  mask=self.mask, region=self.region)
             ds = self.blend_fcst_and_obs(ds, obs, lookback_days)
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
-            import pdb; pdb.set_trace()
 
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
