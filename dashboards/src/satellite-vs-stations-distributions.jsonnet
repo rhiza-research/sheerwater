@@ -350,8 +350,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "imerg_late",
-          "value": "imerg_late"
+          "text": "oya",
+          "value": "oya"
         },
         "description": "precip satellite data source",
         "label": "Satellite Product",
@@ -363,7 +363,7 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "imerg_final"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "IMERG Late",
             "value": "imerg_late"
           },
@@ -376,9 +376,14 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "selected": false,
             "text": "Rain over Africa",
             "value": "rain_over_africa"
+          },
+          {
+            "selected": true,
+            "text": "OYA",
+            "value": "oya"
           }
         ],
-        "query": "IMERG Final : imerg_final, IMERG Late : imerg_late, CHIRPS : chirps_v3, Rain over Africa : rain_over_africa",
+        "query": "IMERG Final : imerg_final, IMERG Late : imerg_late, CHIRPS : chirps_v3, Rain over Africa : rain_over_africa, OYA : oya",
         "type": "custom"
       },
       {
@@ -492,20 +497,20 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       },
       {
         "current": {
-          "text": "global0_25",
-          "value": "global0_25"
+          "text": "global1_5",
+          "value": "global1_5"
         },
         "description": "",
         "label": "Grid",
         "name": "grid",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1.5",
             "value": "global1_5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "0.25",
             "value": "global0_25"
           },
