@@ -130,6 +130,8 @@ class Metric(ABC):
         else:
             raise ValueError("Forecast must be the name of a sheerwater forecast/dataset or an xarray dataset.")
 
+        self.passed_dataset = passed_dataset
+
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
             raise ValueError("Cannot run probabilistic metric on deterministic forecasts.")
@@ -162,22 +164,33 @@ class Metric(ABC):
         if passed_dataset:
             if self.variable:
                 # Select the variable of interest
-                obs = obs[[self.variable]]
-                fcst = fcst[[self.variable]]
-            else:
-                if obs.data_vars.keys() != fcst.data_vars.keys():
-                    raise ValueError(f"""If xarrays are passed as forecast and/or truth datasets,
-                                      their data variables must match. Forecast contains {fcst.data_vars.keys()}
-                                      and truth contains {obs.data_vars.keys()}""")
+                if self.variable not in obs.data_vars.keys() or self.variable not in fcst.data_vars.keys():
+                    raise ValueError("Requested variable not present in passed forecast or truth data.")
 
-            if fcst.lats != obs.lats or fcst.lons != obs.lons:
+            else:
+                if len(fcst.data_vars.keys()) > 1 and len(obs.data_vars.keys()) > 1:
+                    self.variable = list(fcst.data_vars.keys())[0]
+                    print(f"""Warning: More than one variable passed to both the forecast and truth
+                          datasets and no variable specified.
+                          Using the first forecast variable {self.variable}""")
+                elif len(fcst.data_vars.keys()) > 1 and len(obs.data_vars.keys()) == 1:
+                    self.variable = list(obs.data_vars.keys())[0]
+                    print("Running metric on only variable in the truth dataset: {self.variable}.")
+                elif len(fcst.data_vars.keys()) == 1 and len(obs.data_vars.keys()) > 1:
+                    self.variable = list(obs.data_vars.keys())[0]
+                    print("Running metric on only variable in the forecast dataset: {self.variable}.")
+                else:
+                    self.variable = list(obs.data_vars.keys())[0]
+
+            if (fcst.lat != obs.lat).all() or (fcst.lon != obs.lon).all():
+                raise ValueError("No latitudes and longitudes match between forecast and truth datasets.")
+            elif (fcst.lat != obs.lat).any() or (fcst.lon != obs.lon).any():
                 print("""Warning: Latitudes and longitudes of passed datasets do not exactly match between
                       forecast and truth. Only matching latitudes and longitudes will be evaluated.""")
 
-        else:
-            # Select the variable of interest
-            obs = obs[[self.variable]]
-            fcst = fcst[[self.variable]]
+        # Select the variable of interest
+        obs = obs[[self.variable]]
+        fcst = fcst[[self.variable]]
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
@@ -393,7 +406,9 @@ class Metric(ABC):
 
     def compute(self) -> xr.DataArray:
         # Check that the variable is valid for the metric
-        if self.valid_variables and self.variable not in self.valid_variables:
+        # If self.variable is None that means a user has passed in their own variables
+        # don't error in that case
+        if self.valid_variables and not self.passed_dataset and self.variable not in self.valid_variables:
             raise ValueError(f"Variable {self.variable} is not valid for metric {self.name}")
 
         # Prepare the forecasting, observation, and auxiliary data for the metric
