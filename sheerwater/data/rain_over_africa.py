@@ -11,7 +11,6 @@ from sheerwater.utils import dask_remote, regrid, roll_and_agg, run_in_parallel
 
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
-
 @dask_remote
 @cache(cache_args=['date'],
        backend_kwargs={'chunking': {'lat': 14000, 'lon': 14000, 'time': 1}})
@@ -21,8 +20,7 @@ def roa_raw(date):
     fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
     dt = pd.to_datetime(date)
 
-    gsf = [fs.open(x) for x in fs.glob(
-        f'gs://sheerwater-datalake/rain_over_africa/{dt.year}/{dt.month:02}/MSG*{dt.year}{dt.month:02}{dt.day:02}-*.nc')]
+    gsf = [fs.open(x) for x in fs.glob(f'gs://sheerwater-datalake/rain_over_africa/{dt.year}/{dt.month:02}/MSG*{dt.year}{dt.month:02}{dt.day:02}-*.nc')]
 
     if len(gsf) == 0:
         return None
@@ -42,8 +40,7 @@ def roa_raw(date):
     resampled_ds = xr.Dataset()
 
     # Units in mm/hour every 15 minutes - multiply by 0.25 to get total mm
-    # Set min count to 96 to ensure that days with NaNs in their 15 minute intervals return NaN
-    resampled_ds['precip'] = ds['posterior_mean'].resample(time='1D').sum(skipna=True, min_count=96) * 0.25
+    resampled_ds['precip'] = ds['posterior_mean'].resample(time='1D').sum() * 0.25
     resampled_ds['max_probability_precip'] = ds['probability_precip'].resample(time='1D').max()
 
     return resampled_ds
@@ -54,7 +51,7 @@ def roa_raw(date):
 @spatial()
 @cache(cache_args=['grid'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def roa_gridded(start_time, end_time, grid, mask=None, region='global'):  # noqa: ARG001
+def roa_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa: ARG001
     """Regridded version of whole roa dataset."""
     days = pd.date_range(start_time, end_time)
 
@@ -89,7 +86,7 @@ def roa_gridded(start_time, end_time, grid, mask=None, region='global'):  # noqa
 @cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days=1,
-                     grid='global0_25', mask='lsm', region='global'):
+                grid='global0_25', mask='lsm', region='global'):
     """Standard data interface for Rain over Africa data."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by ROA.")

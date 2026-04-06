@@ -70,7 +70,7 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
             lat=station_df["lat"],
             lon=station_df["lon"],
             method="nearest",
-            tolerance=grid_size/2 + 1e-3
+            tolerance=grid_size/2 + 1e-6
         )
 
     # Select those grid points from the satellite data
