@@ -30,8 +30,22 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_collection_modifyitems(items):
-    """Only use the nuthatch local override on tests that don't use remote."""
+def pytest_addoption(parser):
+    """Add test options for controlling local-cache monkeypatch behavior."""
+    parser.addoption(
+        "--disable-local-cache",
+        action="store_true",
+        default=False,
+        help="Disable the use of local-cache monkeypatch fixture.",
+    )
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config, items):
+    """Use local-cache override by default for non-remote tests."""
+    if config.getoption("--disable-local-cache"):
+        return
+
     for item in items:
         if 'remote_dask_cluster' not in item.fixturenames:
             item.fixturenames.append('use_local_cache')

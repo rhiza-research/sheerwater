@@ -398,7 +398,8 @@ class ContingencyMetric(Metric):
             # If we're handling the above threshold event, set up the threshold and agg_days
             if 'threshold' not in self.event_kwargs:
                 self.event_kwargs['threshold'] = float(self.metric_data['key'])
-            if 'agg_days' in self.event_kwargs and self.agg_days != 1 and self.event_kwargs['agg_days'] != self.agg_days:
+            if 'agg_days' in self.event_kwargs and self.agg_days != 1 and \
+                    self.event_kwargs['agg_days'] != self.agg_days:
                 raise ValueError(
                     "The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
             if 'agg_days' not in self.event_kwargs:

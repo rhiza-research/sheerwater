@@ -186,7 +186,7 @@ class data(SheerwaterDataset):
         ds = self.clip_and_mask(ds)
 
         # Run the events on the dataset
-        if 'processed' not in ds.attrs:
+        if self.event is not None and 'processed' not in ds.attrs:
             for event_fn in self.event_fns:
                 # Run each event in the chain in order
                 ds = event_fn(ds)
@@ -218,7 +218,7 @@ class forecast(SheerwaterDataset):
             lookback_days (int): The number of days to look back, integer.
 
         Returns:
-            xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast.
+            xr.Dataset: The combined dataset, with -lookback days of observations added to the beginning of the forecast
         """
         if lookback_days == 0:
             return fcst
@@ -247,11 +247,13 @@ class forecast(SheerwaterDataset):
     def post_process(self, ds):
         """Post process the forecast.
 
-        Enables blending the forecast and observations, event definition, conversion of init time to valid time, 
+        Enables blending the forecast and observations, event definition, conversion of init time to valid time,
         and general spatial postprocessing, including region clipping and masking.
         """
         if not isinstance(ds, xr.Dataset):
             raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
+        # Clip and mask the dataset
+        ds = self.clip_and_mask(ds)
 
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
@@ -272,6 +274,7 @@ class forecast(SheerwaterDataset):
             ds = ds.rename({'prediction_timedelta': 'time'})
             ds = self.event_fns[0](ds)
             ds = ds.rename({'time': 'prediction_timedelta'})
+
             if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
                 ds = convert_init_time_to_pred_time(ds)
 

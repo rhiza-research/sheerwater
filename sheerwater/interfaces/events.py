@@ -1,9 +1,8 @@
 """A decorator for event definitions."""
 import numpy as np
-import xarray as xr
 from abc import ABC, abstractmethod
 
-from sheerwater.utils import roll_and_agg, shift_by_days, groupby_time, groupby_time, groupby_time, groupby_time
+from sheerwater.utils import roll_and_agg,  groupby_time
 
 EVENT_REGISTRY = {}
 
@@ -102,7 +101,7 @@ class planting_suitability(Event):
         dry_spell = above_threshold(agg_days=self.dry_spell_agg_days,
                                     threshold=self.dry_spell_threshold / self.dry_spell_agg_days)(ds)
         # Shift to get wet spell followed by dry spell
-        dry_spell = dry_spell.shift(time=self.wet_spell_agg_days)
+        dry_spell = dry_spell.shift(time=-self.wet_spell_agg_days)
         # Chop off the last  days for wet spell, which won't have a matching dry spell
         wet_spell = wet_spell.isel(time=slice(None, -self.wet_spell_agg_days))
         # Floatwise "and-ing" of the two spells together to get the planting suitability
