@@ -113,14 +113,17 @@ const FONT_COLOR  = "#777777";
 
 // heatmap color scale
 const COLORSCALE = [
-    [0.00, "rgba(255, 255, 255, 1.0)"],   // white — zero counts
-    [0.20, "rgba(252, 220, 220, 1.0)"],   // blush
-    [0.40, "rgba(240, 150, 150, 1.0)"],   // light red
-    [0.60, "rgba(214,  60,  60, 1.0)"],   // mid red
-    [0.80, "rgba(160,  16,  16, 1.0)"],   // dark red
-    [1.00, "rgba( 96,   0,   0, 1.0)"],   // near-black red — max density
+    [0.00, "rgba(255,255,255,1.0)"],  // white — low
+    [0.08, "rgba(255,245,200,1.0)"],  // very light yellow
+    [0.18, "rgba(255,220,120,1.0)"],  // yellow
+    [0.30, "rgba(255,170, 60,1.0)"],  // orange
+    [0.42, "rgba(255,110,130,1.0)"],  // pink
+    [0.55, "rgba(200, 80,200,1.0)"],  // purple
+    [0.68, "rgba(120,100,255,1.0)"],  // blue-violet
+    [0.80, "rgba( 60,120,255,1.0)"],  // blue
+    [0.90, "rgba( 20, 60,180,1.0)"],  // dark blue
+    [1.00, "rgba(  0,  0,  0,1.0)"],  // black — max
 ];
-
 return {
   data: [
       {
