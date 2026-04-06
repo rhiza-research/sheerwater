@@ -238,8 +238,14 @@ def histogram_grouping(ds, time_grouping, space_grouping, grid, mask, region, sp
         # assign space grouping coordinate
         if space_grouping is not None:
             space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping)
+            space_grouping_ds = space_grouping_ds.assign_coords(
+                lat=np.round(space_grouping_ds.lat, 5), 
+                lon=np.round(space_grouping_ds.lon, 5))
             if region != 'global':
                 space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
+
+            # round coordinates to ensure match
+            ds = ds.assign_coords(lat=np.round(ds.lat, 5), lon=np.round(ds.lon, 5))
             ds = ds.assign_coords(region=space_grouping_ds.region)
         else:
             ds = ds.assign_coords(region=xr.DataArray(
