@@ -37,9 +37,9 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
     }
     # Apply n-day rolling aggregation
     if agg_fn == "mean":
-        ds_agg = ds.rolling(**agg_kwargs).mean(skipna=True)
+        ds_agg = ds.rolling(**agg_kwargs).mean()
     elif agg_fn == "sum":
-        ds_agg = ds.rolling(**agg_kwargs).sum(skipna=True, min_count=agg_thresh)
+        ds_agg = ds.rolling(**agg_kwargs).sum()
     else:
         raise NotImplementedError(f"Aggregation function {agg_fn} not implemented.")
 

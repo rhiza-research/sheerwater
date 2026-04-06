@@ -85,6 +85,7 @@ class Metric(ABC):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
         if self.event is None:
+            # If event is None and the metric has a default event, use the default event
             self.event = self.event_default
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
@@ -100,6 +101,7 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
+                # Pass lookback separaetly b/c it is not a cachable argument for the data function
                 fcst = fcst_fn(**self.cache_kwargs,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
@@ -138,10 +140,11 @@ class Metric(ABC):
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
 
-        """3. Ensure that the forecast and truth have the same times and null patterns."""
+        # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
 
+        """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
@@ -282,7 +285,7 @@ class Metric(ABC):
 
         # Create a non_null indicator and add it to the statistic
         # Group by time
-        ds = groupby_time(ds, self.time_grouping)
+        ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
 
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
@@ -376,6 +379,8 @@ class CategoricalMetric(Metric):
         if len(bins) > 10:
             raise ValueError("Categorical metrics can only have up to 10 bins.")
         self.metric_data['data']['bins'] = bins
+
+        # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
 
 
@@ -405,7 +410,7 @@ class ContingencyMetric(Metric):
             if 'agg_days' not in self.event_kwargs:
                 self.event_kwargs['agg_days'] = self.agg_days
 
-        # Call the parent prepare_data method to get the forecast and observation:w
+        # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
 
 
@@ -670,21 +675,6 @@ class FrequencyBias(ContingencyMetric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     event_default = 'above_threshold'
-    statistics = ['true_positives', 'false_positives', 'false_negatives']
-
-    def compute_metric(self):
-        tp = self.grouped_statistics['true_positives']
-        fp = self.grouped_statistics['false_positives']
-        fn = self.grouped_statistics['false_negatives']
-        return (tp + fp) / (tp + fn)
-
-
-class FirstHit(Metric):
-    """First Hit metric, error in days."""
-    sparse = True
-    prob_type = 'deterministic'
-    valid_variables = ['precip']
-    event_default = 'planting_suitability'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):

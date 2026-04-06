@@ -17,7 +17,7 @@ def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
 
 def convert_pred_time_to_init_time(ds, time_dim='time',
                                    lead_time_dim='prediction_timedelta', init_time_dim='init_time'):
-    """Convert the start_date and lead_time coordinates to a valid_time coordinate."""
+    """The inverse of the above. Converts a valid time to an init time for a specific prediction timedelta."""
     ds = ds.assign_coords({init_time_dim: ds[time_dim] - ds[lead_time_dim]})
     tmp = ds.stack(z=(time_dim, lead_time_dim))
     tmp = tmp.set_index(z=(init_time_dim, lead_time_dim))
