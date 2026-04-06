@@ -175,10 +175,10 @@ class Metric(ABC):
                           Using the first forecast variable {self.variable}""")
                 elif len(fcst.data_vars.keys()) > 1 and len(obs.data_vars.keys()) == 1:
                     self.variable = list(obs.data_vars.keys())[0]
-                    print("Running metric on only variable in the truth dataset: {self.variable}.")
+                    print(f"Running metric on only variable in the truth dataset: {self.variable}.")
                 elif len(fcst.data_vars.keys()) == 1 and len(obs.data_vars.keys()) > 1:
                     self.variable = list(obs.data_vars.keys())[0]
-                    print("Running metric on only variable in the forecast dataset: {self.variable}.")
+                    print(f"Running metric on only variable in the forecast dataset: {self.variable}.")
                 else:
                     self.variable = list(obs.data_vars.keys())[0]
 
