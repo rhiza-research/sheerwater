@@ -2,15 +2,12 @@
 import xarray as xr
 from nuthatch import cache
 import warnings
-import numpy as np
 
 from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from sheerwater.masks import spatial_mask
 from sheerwater.utils import dask_remote, groupby_region, groupby_time
-from sheerwater.utils import time_utils
-from sheerwater.utils import assign_grouping_coordinates
 
 
 @dask_remote
