@@ -97,13 +97,11 @@ def era5_land_daily_year(year, variable, mask=None, region='global'):
     elif variable == 'precip':
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
-        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
-        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
+        ds = ds.resample(time='D').sum(dim='time')
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
     elif variable == 'ssrd':
-        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
-        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
+        ds = ds.resample(time='D').sum(dim='time')
         ds = np.maximum(ds, 0)
     else:
         raise ValueError(f"Variable {variable} not implemented.")
@@ -282,17 +280,14 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
     elif variable == 'precip':
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
-        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
-        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
+        ds = ds.resample(time='D').sum(dim='time')
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
     elif variable == 'tcwv':
         ds.attrs.update(units='kg/m^2')
-        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
-        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
+        ds = ds.resample(time='D').sum(dim='time')
     elif variable == 'ssrd':
-        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
-        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
+        ds = ds.resample(time='D').sum(dim='time')
         ds = np.maximum(ds, 0)
     elif variable == 'rh2m':
         # Read and combine all the data into an array
@@ -370,5 +365,4 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='gl
     if variable == 'rh2m':
         ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
-    ds = ds.assign_attrs(agg_days=agg_days)
     return ds
