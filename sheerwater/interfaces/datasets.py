@@ -4,9 +4,13 @@ import warnings
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
+from nuthatch import cache
+
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days)
+from sheerwater.interfaces import spatial
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
+
 
 from .events import get_event_fn
 
@@ -209,12 +213,12 @@ class forecast(SheerwaterDataset):
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
-    def blend_fcst_and_obs(self, fcst, obs, lookback_days=0):
+    def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
         """Blend the forecast and observations.
 
         Args:
             fcst (xr.Dataset): The forecast dataset, indexed by init_time and prediction_timedelta.
-            obs (xr.Dataset): The observations dataset, indexed by time.
+            lookback_source (str): The source of the observations to look back to.
             lookback_days (int): The number of days to look back, integer.
 
         Returns:
@@ -224,18 +228,38 @@ class forecast(SheerwaterDataset):
             return fcst
 
         # Get the lookback periods for the observations
-        obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
-        lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
-        obs_broadcast = obs.expand_dims({"prediction_timedelta": lookbacks.values})
-        obs_broadcast = convert_pred_time_to_init_time(obs_broadcast)
-        obs_broadcast = obs_broadcast.sel(init_time=fcst.init_time)
+        # @spatial()
+        @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid', 'agg_days'],
+               backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
+        def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days):
+            # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
+            ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
+                                               variable=variable, grid=grid,
+                                               agg_days=agg_days,
+                                               mask=None, region='global')
+            lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
+            ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
+            ds_obs = convert_pred_time_to_init_time(ds_obs)
+            ds_obs = ds_obs.chunk({'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1})
+            return ds_obs
+
+        # Get the observations for forecast period + the lookback period
+        new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
+        new_end = fcst.init_time.values.max()
+        obs = obs_with_lookback(new_start, new_end, lookback_source, variable=self.variable, grid=self.grid, agg_days=1)
+
+        # Clip and mask the observational product, and select on the forecasting times
+        obs = self.clip_and_mask(obs)
+        obs = obs.sel(init_time=fcst.init_time)
 
         # Concat with forecast on prediction_timedelta
-        combined = xr.concat([fcst, obs_broadcast], dim="prediction_timedelta")
+        combined = xr.concat([fcst, obs], dim="prediction_timedelta")
         combined = combined.sortby("prediction_timedelta")
 
-        # # Ensure we've done the proper selection of the observations
-        # ds1 = obs.sel(time="2016-02-10")
+        # Ensure we've done the proper selection of the observations
+        # orig_obs = get_data(self.lookback_source)(start_time=new_start, end_time=new_end,
+        #                                           variable=self.variable, grid=self.grid, agg_days=1)
+        # ds1 = orig_obs.sel(time="2016-02-10")
         # import numpy as np
         # ds2 = combined.sel(init_time="2016-02-15", prediction_timedelta=np.timedelta64(-5, "D"))
         # import matplotlib.pyplot as plt
@@ -260,14 +284,7 @@ class forecast(SheerwaterDataset):
             # If the first event has a lookback period, blend in the lookback observations
             lookback_days = self.event_fns[0].duration
 
-            # Get the observations for forecast period + the lookback period
-            new_start = shift_by_days(ds.init_time.values.min(), -lookback_days)
-            new_end = ds.init_time.values.max()
-            obs = get_data(self.lookback_source)(start_time=new_start, end_time=new_end,
-                                                 variable=self.variable, grid=self.grid,
-                                                 agg_days=1,
-                                                 mask=self.mask, region=self.region)
-            ds = self.blend_fcst_and_obs(ds, obs, lookback_days)
+            ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
             # For the first event, rename prediction timedelta to time to act along leads
