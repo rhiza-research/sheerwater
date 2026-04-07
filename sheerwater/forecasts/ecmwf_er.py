@@ -398,7 +398,7 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    ds = ds.assign_attrs(prob_type=prob_label, agg_days=agg_days)
+    ds = ds.assign_attrs(prob_type=prob_label)
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
 
