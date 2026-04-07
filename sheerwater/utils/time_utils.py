@@ -168,7 +168,7 @@ def doy_mean(data, dim='time'):
     return days
 
 
-def groupby_time(ds, groupby, agg_fn, time_dim='time', return_timeseries=False, bins=None, **kwargs):
+def groupby_time(ds, groupby, agg_fn, time_dim='time', return_timeseries=False, **kwargs):
     """Aggregates data in groups along the time dimension according to time_grouping.
 
     Args:
@@ -180,8 +180,6 @@ def groupby_time(ds, groupby, agg_fn, time_dim='time', return_timeseries=False, 
             - 'quarter': Group by quarter.
             - 'ea_rainy_season': Group by East African rainy season (MAM and OND).
         agg_fn (object, list): The aggregation function to apply.
-            - 'hist': Compute a histogram of the values.
-            - 'paired_hist': Compute a paired histogram of two variables.
         time_dim (str): The time dimension to group by.
         return_timeseries (bool): If True, return a timeseries (the first date in each period).
              Otherwise, returns the label for the group (e.g., 'MAM', 2015, 'Q4', 'M1').
@@ -197,91 +195,15 @@ def groupby_time(ds, groupby, agg_fn, time_dim='time', return_timeseries=False, 
         raise ValueError("Cannot apply multiple aggregation functions to a single group.")
     if len(groupby) != len(agg_fn):
         raise ValueError("Length of group_by and agg_fn must be the same.")
-    if agg_fn == "hist" and bins is None:
-        raise ValueError("Bins must be specified for histogram aggregation.")
-    if agg_fn == "paired_hist" and len(kwargs.get("variables")) != 2:
-        raise ValueError("Paired histogram aggregation requires two variables.")
-
-    def hist(values, bins):
-        values = values[~np.isnan(values)]
-        hist, bins = np.histogram(values, bins=bins)
-        return hist
-
-    def paired_hist(values1, values2, bins):
-        mask = ~np.isnan(values1) & ~np.isnan(values2)
-        values1 = values1[mask]
-        values2 = values2[mask]
-
-        hist2d, xedges, yedges = np.histogram2d(values1, values2, bins=bins)
-        return hist2d
 
     # Run multiple grouping steps
     for grp, agg in zip(groupby, agg_fn):
         # If no grouping is specified, apply the aggregation function directly
         if grp is None:
-            if agg == "hist":
-                ds = xr.apply_ufunc(hist, ds,
-                    input_core_dims=[[time_dim]], output_core_dims=[["bin"]],
-                    vectorize=True, dask="parallelized",
-                    output_dtypes=[int],
-                    dask_gufunc_kwargs={"allow_rechunk": True},
-                    output_sizes={"bin": len(bins)-1},
-                    kwargs={"bins": bins},
-                )
-                ds = ds.assign_coords(bins=bins)
-            elif agg == "paired_hist":
-                vars = kwargs.get("variables")
-                ds = xr.apply_ufunc(paired_hist, ds[vars[0]], ds[vars[1]],
-                    input_core_dims=[[time_dim], [time_dim]], output_core_dims=[["bin1", "bin2"]],
-                    vectorize=True, dask="parallelized",
-                    output_dtypes=[int],
-                    dask_gufunc_kwargs={"allow_rechunk": True},
-                    output_sizes={"bin1": len(bins)-1, "bin2": len(bins)-1},
-                    kwargs={"bins": bins},
-                )
-                ds = ds.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
-                ds = ds.to_dataset(name="precip")
-            else:
-                ds = agg(ds, **kwargs)
+            ds = agg(ds, **kwargs)
         else:
             ds = assign_grouping_coordinates(ds, grp, time_dim)
-            if agg == "hist":
-                groups = np.unique(ds['group'].values)
-                hist_list = []
-                for group in groups:
-                    ds_group = xr.apply_ufunc(hist, ds.where(ds.group == group, drop=True),
-                        input_core_dims=[[time_dim]], output_core_dims=[["bin"]],
-                        vectorize=True, dask="parallelized",
-                        output_dtypes=[int],
-                        dask_gufunc_kwargs={"allow_rechunk": True},
-                        output_sizes={"bin": len(bins)-1},
-                        kwargs={"bins": bins},
-                    )
-                    ds_group = ds_group.assign_coords(bins=bins)
-                    ds_group = ds_group.expand_dims(group=[group])
-                    hist_list.append(ds_group)
-                ds = xr.concat(hist_list, dim="group")
-            elif agg == "paired_hist":
-                vars = kwargs.get("variables")
-                groups = np.unique(ds['group'].values)
-                hist_list = []
-                for group in groups:
-                    ds_group = ds.where(ds.group == group, drop=True)
-                    ds_group = xr.apply_ufunc(paired_hist, ds_group[vars[0]], ds_group[vars[1]],
-                        input_core_dims=[[time_dim], [time_dim]], output_core_dims=[["bin1", "bin2"]],
-                        vectorize=True, dask="parallelized",
-                        output_dtypes=[int],
-                        dask_gufunc_kwargs={"allow_rechunk": True},
-                        output_sizes={"bin1": len(bins)-1, "bin2": len(bins)-1},
-                        kwargs={"bins": bins},
-                    )
-                    ds_group = ds_group.assign_coords(bin1=bins[:-1], bin2=bins[:-1])
-                    ds_group = ds_group.expand_dims(group=[group])
-                    ds_group = ds_group.to_dataset(name="precip")
-                    hist_list.append(ds_group)
-                ds = xr.concat(hist_list, dim="group")
-            else:
-                ds = ds.groupby("group").map(agg, **kwargs)
+            ds = ds.groupby("group").map(agg, **kwargs)
             if 'group' not in ds.dims:
                 raise ValueError("Aggregation function must compress dataset along the group dimension.")
 
