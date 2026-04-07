@@ -74,11 +74,11 @@ let xlabel = conditionOn === "satellite"
     : `${satellite} when ${stations} = ${sliceValue} mm/day`;
 
 // plot aesthetics
-const FILL_COLOR   = "rgba(99, 179, 237, 0.25)";
-const LINE_COLOR   = "rgba(49, 130, 206, 0.90)";
-const SLICE_COLOR  = "rgba(237, 137, 54, 0.90)";
-const THRESH_COLOR = "rgba(100, 160, 50, 0.95)";   // yellow-green from histogram
-const THRESH_FILL  = "rgba(154, 205, 100, 0.08)";
+const FILL_COLOR   = "rgba(151, 182, 255, 0.8)"; 
+const LINE_COLOR   = "rgba(105, 85, 234, 0.95)";
+const SLICE_COLOR  = "rgba(52, 35, 164, 0.95)";
+const THRESH_COLOR = "rgba(200, 80, 200, 0.95)";   // yellow-green from histogram
+const THRESH_FILL  = "rgba(255, 220, 120, 0.95)";
 const FONT_FAMILY  = "'Inter', 'Helvetica Neue', Arial, sans-serif";
 const FONT_COLOR   = "#777777";
 
