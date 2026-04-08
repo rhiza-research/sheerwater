@@ -1,9 +1,8 @@
-"""Get gridded prodcuts by station locations."""
+"""Compare stations to satellite data products in paired analyses."""
 import xarray as xr
 import numpy as np
 from google.cloud import secretmanager
 import pandas as pd
-import dask
 
 from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote, get_grid
@@ -125,6 +124,10 @@ def scatter_data(start_time, end_time,
 
 @cache(cache_args=["region", "space_grouping", "grid"], backend="sql")
 def region_codes(start_time, end_time, estimate, truth, agg_days, grid, region="global", time_grouping="month_of_year", space_grouping="country"):
+    """Get the region codes for a paired histogram.
+
+    Converts region strings to categories so that histograms with region labels can be stored efficiently.
+    """
     bins = np.arange(0, 50, 1)
     hist2d = paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
                               time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask='lsm', region=region, bins=bins, recompute=False)
@@ -173,7 +176,7 @@ def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='
     """Compute a paired histogram of two variables."""
     estimate_ds = get_data(estimate)(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
     truth_ds = get_data(truth)(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
-    
+
     # align datasets
     estimate_ds, truth_ds = xr.align(estimate_ds, truth_ds, join='inner')
     # rename precip variables
@@ -239,7 +242,7 @@ def histogram_grouping(ds, time_grouping, space_grouping, grid, mask, region, sp
         if space_grouping is not None:
             space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping)
             space_grouping_ds = space_grouping_ds.assign_coords(
-                lat=np.round(space_grouping_ds.lat, 5), 
+                lat=np.round(space_grouping_ds.lat, 5),
                 lon=np.round(space_grouping_ds.lon, 5))
             if region != 'global':
                 space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
