@@ -912,8 +912,9 @@ spatial_subdivisions = {
 
 @cache(cache_args=["grid", "space_grouping", "region"], backend="sql")
 def spacegrouping_category_codes(grid, space_grouping, region="global"):
-    """Get the category codes for a space grouping as a pandas dataframe.
-    This allows for more efficient data frames where region strings are not replicated over many rows.
+    """Get mapping between categorical codes and string names of spatial subdivisions.
+
+    This allows for more efficient data frames where region name strings are not replicated over many rows.
     """
     labels = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region)
     regions = dask.array.unique(labels.region.data).compute()
