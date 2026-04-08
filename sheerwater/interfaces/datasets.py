@@ -187,7 +187,16 @@ class data(SheerwaterDataset):
 
 @spatial()
 @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid', 'agg_days'],
-       backend_kwargs={'chunking': {'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1}})
+       backend_kwargs={
+    # NOTE: it's really important here that the chunks match the forecast chunks, otherwise the concat will
+    # explode the number of chunks and make everything very slow
+           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1}
+               },
+           }
+})
 def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -199,9 +208,6 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
-    # NOTE: it's really important here that the chunks match the forecast chunks, otherwise the concat will
-    # explode the number of chunks and make everything very slow
-    ds_obs = ds_obs.chunk({'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1})
     return ds_obs
 
 
@@ -238,18 +244,6 @@ class forecast(SheerwaterDataset):
 
         # Trim back to origional start and end times
         ds = ds.sel(init_time=slice(self.start_time, self.end_time))
-
-        # Check correctness
-        # import matplotlib.pyplot as plt
-        # import numpy as np
-        # # Check that the "lead zero" value at a future time is the same as the "lead 2" value from the past init time
-        # ds1 = fcst.sel(init_time="2016-01-04", prediction_timedelta=np.timedelta64(2, "D"))
-        # ds2 = ds.sel(init_time="2016-01-06", prediction_timedelta=np.timedelta64(0, "D"))
-        # (ds1 - ds2).precip.plot(x='lon'); plt.show()
-        # # Check that the "lead 45" value at a future time is the same as the "lead 45" value from the past init time
-        # ds3 = fcst.sel(init_time="2016-01-04", prediction_timedelta=np.timedelta64(45, "D"))
-        # ds4 = ds.sel(init_time="2016-01-06", prediction_timedelta=np.timedelta64(45, "D"))
-        # (ds3 - ds4).precip.plot(x='lon'); plt.show()
         return ds
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
@@ -277,20 +271,8 @@ class forecast(SheerwaterDataset):
         obs = obs.sel(init_time=fcst.init_time, prediction_timedelta=lookbacks)
 
         # Concat with forecast on prediction_timedelta
-        # import pdb; pdb.set_trace()
         combined = xr.concat([fcst, obs], dim="prediction_timedelta", join='outer')
         combined = combined.sortby("prediction_timedelta")
-
-        # Ensure we've done the proper selection of the observations
-        # orig_obs = get_data(self.lookback_source)(start_time=new_start, end_time=new_end,
-        #                                           variable=self.variable, grid=self.grid, agg_days=1)
-        # ds1 = orig_obs.sel(time="2016-02-10")
-        # import numpy as np
-        # ds2 = combined.sel(init_time="2016-02-15", prediction_timedelta=np.timedelta64(-5, "D"))
-        # import matplotlib.pyplot as plt
-        # (ds1 - ds2).precip.plot(x='lon')
-        # plt.show()
-
         return combined
 
     def post_process(self, ds):

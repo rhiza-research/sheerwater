@@ -3448,7 +3448,7 @@ wheels = [
 
 [[package]]
 name = "nuthatch"
-version = "0.4.8"
+version = "0.4.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -3471,9 +3471,9 @@ dependencies = [
     { name = "xarray" },
     { name = "zarr" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/79/33/a0ccfd7e6a1ea1a7834d4bced64204fa88f3d6ca58cffdebefa3db7edd3f/nuthatch-0.4.8.tar.gz", hash = "sha256:573e016e3b49e8d19f295d669bc6bb02a2b220ff0a8e4e487f8696e7a79099d9", size = 207891, upload-time = "2026-03-20T21:49:03.951Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/71/9de2a7f03db7cb998512bc61f463d46e50aa8f7f2e83a0957b27f005fd60/nuthatch-0.4.9.tar.gz", hash = "sha256:3b95c6848e2926d6e339c54cc6889dfccc94f2241875ea166bd79e354f022565", size = 207937, upload-time = "2026-04-08T22:49:28.226Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/b0/a6f073ff33f7d84cff41709fe9a2a65bb40db79f406b38d30af094982797/nuthatch-0.4.8-py3-none-any.whl", hash = "sha256:72fc9fbf91c4c273029d08bb4117dcff7407c507598e912b1cb22f91ba73195c", size = 47317, upload-time = "2026-03-20T21:49:02.691Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/c8/037f67ce1b0ce5d9a9407414fda19da8f5a7e03ae39ff2ba3e5fa9e85c4c/nuthatch-0.4.9-py3-none-any.whl", hash = "sha256:6f9911518fd1ce591089b31a0ee40078688b627e94deff5e06c7fde383aeffb4", size = 47237, upload-time = "2026-04-08T22:49:29.654Z" },
 ]
 
 [[package]]
