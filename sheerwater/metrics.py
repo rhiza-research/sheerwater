@@ -25,7 +25,7 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
 })
 def metric(start_time, end_time, variable, forecast, truth,
            metric_name, agg_days=1,
-           event=None, event_kwargs={},
+           event=None, event_kwargs=None,
            time_grouping=None, space_grouping=None,
            spatial=False, grid="global1_5", mask='lsm', region='global',
            memoize_forecast=True, memoize_truth=True):

@@ -87,7 +87,6 @@ class Metric(ABC):
         self.event = self.event if self.event is not None else self.default_event
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
-                             'event': self.event, 'event_kwargs': self.event_kwargs,
                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
@@ -101,20 +100,26 @@ class Metric(ABC):
             try:
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
                 fcst = fcst_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.cache_kwargs, lookback_source=self.truth, prob_type=self.prob_type)
+                fcst = fcst_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs,
+                               lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
+                fcst = data_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs,
+                               memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs)
+                fcst = data_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -129,10 +134,13 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
+            obs = truth_fn(**self.cache_kwargs,
+                           event=self.event, event_kwargs=self.event_kwargs,
+                           memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**self.cache_kwargs)
+            obs = truth_fn(**self.cache_kwargs,
+                           event=self.event, event_kwargs=self.event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -401,12 +409,12 @@ class ContingencyMetric(Metric):
             # If we're handling the above threshold event, set up the threshold and agg_days
             if 'threshold' not in self.event_kwargs:
                 self.event_kwargs['threshold'] = float(self.metric_data['key'])
-            if 'agg_days' in self.event_kwargs and self.agg_days != 1 and \
-                    self.event_kwargs['agg_days'] != self.agg_days:
+            if 'agg_days' in self.event_kwargs and self.event_kwargs['agg_days'] != self.agg_days:
                 raise ValueError(
                     "The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
             if 'agg_days' not in self.event_kwargs:
                 self.event_kwargs['agg_days'] = self.agg_days
+                self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
@@ -525,7 +533,8 @@ class ACC(Metric):
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
         # Call the parent prepare_data method to get the forecast and observation
-        Metric.prepare_data()
+        Metric.prepare_data(self)
+        assert self.event is None, "ACC metric does not support events."
 
         # Get the appropriate climatology dataframe for metric calculation
         first_year = 1990

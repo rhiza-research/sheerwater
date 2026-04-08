@@ -42,7 +42,8 @@ def event(default_variable: str, duration):
     return decorator
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
+# @event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
+@event(default_variable="precip", duration=0)
 def above_threshold(ds, agg_days=10, threshold=10.0):
     """An event to calculate the above threshold of a dataset."""
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')

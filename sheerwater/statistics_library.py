@@ -90,6 +90,7 @@ def statistic(cache=False, name=None,
             )
             return ds
 
+
         # Register the wrapped function with the registry
         SHEERWATER_STATISTIC_REGISTRY[name] = wrapper
 
