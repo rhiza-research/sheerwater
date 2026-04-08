@@ -32,7 +32,7 @@ def _tiny_precip_ds():
 def test_above_threshold_sets_event_attr_and_preserves_nan():
     """Threshold event writes event attr and keeps null pattern intact."""
     ds = _tiny_precip_ds()
-    out = above_threshold(agg_days=1, threshold=0.5)(ds)
+    out = above_threshold(ds, agg_days=1, threshold=0.5)
 
     assert out.attrs["event"] == "above_threshold"
     assert out.precip.sel(time="2020-01-01").item() == pytest.approx(0.0)
@@ -45,12 +45,12 @@ def test_planting_suitability_rejects_non_precip_variable():
     ds = _tiny_precip_ds().drop_vars("precip")
     ds["tmp2m"] = (("time", "lat", "lon"), np.ones((3, 1, 1), dtype=np.float32))
 
-    with pytest.raises(ValueError, match="not valid"):
-        planting_suitability()(ds)
+    with pytest.raises(ValueError, match="Planting suitability event requires a 'precip' variable."):
+        planting_suitability(ds)
 
 
 def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
-    """dummy_count_ones has duration 3; metric mae is zero at lead -3."""
+    """Check that ."""
     start_time = '2016-01-01'
     end_time = '2022-12-31'
     grid = 'global1_5'
@@ -60,6 +60,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 metric_name='mae',
                 spatial=False, grid=grid,
                 recompute=True,
+                cache_mode='overwrite',
                 event='planting_suitability',
                 event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
                               'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},

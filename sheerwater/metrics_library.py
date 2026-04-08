@@ -111,10 +111,10 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, lookback_source=self.truth, memoize=self.memoize_forecast)
+                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs, lookback_source=self.truth)
+                fcst = data_fn(**self.cache_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 

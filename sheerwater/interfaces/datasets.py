@@ -1,13 +1,12 @@
 """A decorator for identifying data sources."""
 
-import warnings
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
 
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
-                              add_spatial_attrs, check_spatial_attr, shift_by_days, get_dates)
+                              add_spatial_attrs, check_spatial_attr, shift_by_days)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -53,27 +52,28 @@ class SheerwaterDataset(NuthatchProcessor):
         except KeyError:
             raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
-        # Default to global region and no masking if not passed
+        # Set other arguments to reasonable defaults
         self.start_time = bound_args.arguments.get('start_time', None)
         self.end_time = bound_args.arguments.get('end_time', None)
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
 
-        # Event and lookback handling
+        # Event handling
         self.event = kwargs.get('event', None)
         if self.event is not None and self.agg_days != 1:
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
         self.event_kwargs = kwargs.get('event_kwargs', {})
-        # Remove from kwargs so they don't get passed to the underlying function
-        for kwarg in ['event', 'event_kwargs']:
-            if kwarg in kwargs:
-                del kwargs[kwarg]
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
 
-        # If variable is not passed, attempt to set it by the first event in the chain
+        # Handle the case where variable is not passed, but an event is specified by setting variable to default event
         if self.variable is None:
-            args, kwargs = self.set_variable_by_event(args, kwargs, bound_args)
+            if self.event is None:
+                raise ValueError("Dataset decorator requires variable to be passed if no event is specified.")
+            else:
+                self.variable = self.event_fn.default_variable
+                args, kwargs = self.update_args_or_kwargs(
+                    values={'variable': self.variable}, args=args, kwargs=kwargs, bound_args=bound_args)
 
         # Units
         if self.variable == 'precip':
@@ -83,26 +83,29 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             self.units = None
 
+        # Remove event and event_kwargs from kwargs so they don't get passed to the underlying function
+        for kwarg in ['event', 'event_kwargs']:
+            if kwarg in kwargs:
+                del kwargs[kwarg]
+
         return args, kwargs
 
-    def set_variable_by_event(self, args, kwargs, bound_args):
-        """Update the args and kwargs to use the default variable for the first event in the chain."""
-        if self.event is None:
-            raise ValueError("Dataset decorator requires variable to be passed if no event is specified.")
-
-        # Get the default variable for the first event in the chain
-        self.variable = self.event_fn.default_variable
-
-        # Modify the input args, kwargs to use the default variable
-        if 'variable' in bound_args.arguments:
-            idx = list(bound_args.signature.parameters).index('variable')
-            if idx < len(args):
-                args = list(args)
-                args[idx] = self.variable
-                args = tuple(args)
-            elif 'variable' in kwargs:
-                kwargs = dict(kwargs)
-                kwargs['variable'] = self.variable
+    def update_args_or_kwargs(self, values, args, kwargs, bound_args):
+        """Update args or kwargs with a given value dictionary."""
+        for key, value in values.items():
+            # If key is in kwargs, we can proceed immediately
+            if key in kwargs:
+                kwargs[key] = value
+                continue
+            elif key in bound_args.arguments:
+                idx = list(bound_args.signature.parameters).index(key)
+                if idx < len(args):
+                    args = list(args)
+                    args[idx] = value
+                    args = tuple(args)
+            else:
+                # Key not found in the bound arguments, raise an error
+                raise ValueError(f"Key {key} not found in the bound arguments or kwargs.")
         return args, kwargs
 
     def clip_and_mask(self, ds):
@@ -155,18 +158,11 @@ class data(SheerwaterDataset):
 
         # Adjust the end_time to account for the aggregation days, so that
         # agg days past the end time is included in the final aggregation.
-        if 'end_time' in bound_args.arguments:
-            end_time = bound_args.arguments['end_time']
-            if end_time is not None:
-                end_time = shift_by_days(end_time, self.agg_days-1)
-            idx = list(bound_args.signature.parameters).index('end_time')
-            if idx < len(args):
-                args = list(args)
-                args[idx] = end_time
-                args = tuple(args)
-            elif 'end_time' in kwargs:
-                kwargs = dict(kwargs)
-                kwargs['end_time'] = end_time
+        end_time = bound_args.arguments.get('end_time', None)
+        if end_time is not None:
+            end_time = shift_by_days(end_time, self.agg_days-1)
+        args, kwargs = self.update_args_or_kwargs(
+            values={'end_time': end_time}, args=args, kwargs=kwargs, bound_args=bound_args)
         return args, kwargs
 
     def post_process(self, ds):
@@ -187,6 +183,26 @@ class data(SheerwaterDataset):
         ds = ds.assign_attrs({'processed': True})
 
         return ds
+
+
+@spatial()
+@cache(cache=True, cache_args=['lookback_source', 'variable', 'grid', 'agg_days'],
+       backend_kwargs={'chunking': {'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1}})
+def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
+    """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
+    # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
+    ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
+                                       variable=variable, grid=grid,
+                                       agg_days=agg_days,
+                                       mask=None, region='global')
+    lookback_days = 30  # Hard coded 30 day lookback period
+    lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
+    ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
+    ds_obs = convert_pred_time_to_init_time(ds_obs)
+    # NOTE: it's really important here that the chunks match the forecast chunks, otherwise the concat will
+    # explode the number of chunks and make everything very slow
+    ds_obs = ds_obs.chunk({'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1})
+    return ds_obs
 
 
 class forecast(SheerwaterDataset):
@@ -250,34 +266,18 @@ class forecast(SheerwaterDataset):
         if lookback_days == 0:
             return fcst
 
-        # Get the lookback periods for the observations
-        @spatial()
-        @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid', 'agg_days'],
-               backend_kwargs={'chunking': {'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1}})
-        def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days, mask='lsm', region='global'):  # noqa: ARG001
-            # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
-            ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
-                                               variable=variable, grid=grid,
-                                               agg_days=agg_days,
-                                               mask=None, region='global')
-            lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
-            ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
-            ds_obs = convert_pred_time_to_init_time(ds_obs)
-            # NOTE: it's really important here that the chunks match the forecast chunks, otherwise the concat will
-            # explode the number of chunks and make everything very slow
-            ds_obs = ds_obs.chunk({'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1})
-            return ds_obs
-
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
         obs = obs_with_lookback(new_start, new_end, lookback_source, variable=self.variable,
-                                grid=self.grid, agg_days=1, mask=self.mask, region=self.region)
+                                grid=self.grid, agg_days=self.agg_days, mask=self.mask, region=self.region)
 
-        # Clip and mask the observational product, and select on the forecasting times
-        obs = obs.sel(init_time=fcst.init_time)
+        # Select the approriate lookback periods for the duration of the event and on the forecast init times.
+        lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
+        obs = obs.sel(init_time=fcst.init_time, prediction_timedelta=lookbacks)
 
         # Concat with forecast on prediction_timedelta
+        # import pdb; pdb.set_trace()
         combined = xr.concat([fcst, obs], dim="prediction_timedelta", join='outer')
         combined = combined.sortby("prediction_timedelta")
 

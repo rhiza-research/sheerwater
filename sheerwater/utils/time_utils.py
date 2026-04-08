@@ -300,7 +300,6 @@ def is_valid_forecast_date(model, forecast_type, forecast_date):
 def get_dates(start_time, end_time, stride="day", return_string=True):
     """Outputs the list of dates corresponding to input date string or datetime objects."""
     # Input is of the form '20170101-20180130', or datetime objects
-    import pdb; pdb.set_trace()
     if isinstance(start_time, datetime):
         start_date = start_time
     else:

@@ -57,6 +57,9 @@ def above_threshold(ds, agg_days=10, threshold=10.0):
 def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
                          wet_spell_threshold=25.0, dry_spell_threshold=20.0):
     """A function to calculate the above threshold of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Planting suitability event requires a 'precip' variable.")
+
     wet_spell = above_threshold(ds, agg_days=wet_spell_agg_days, threshold=wet_spell_threshold / wet_spell_agg_days)
     dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold / dry_spell_agg_days)
 
