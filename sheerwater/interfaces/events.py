@@ -42,14 +42,14 @@ def event(default_variable: str, duration):
     return decorator
 
 
-# @event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
-@event(default_variable="precip", duration=0)
+@event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
 def above_threshold(ds, agg_days=10, threshold=10.0):
     """An event to calculate the above threshold of a dataset."""
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     # Save and restore the null pattern, which is removed by the boolean operations
     null_mask = ds.isnull()
-    ds = (ds >= threshold).astype(np.float32)
+    # Bins are right aligned, so we want to detect below and up to the theshold, and tstrictly greater
+    ds = (ds > threshold).astype(np.float32)
     ds = ds.where(~null_mask, np.nan)
     return ds
 

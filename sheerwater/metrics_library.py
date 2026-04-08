@@ -159,6 +159,8 @@ class Metric(ABC):
         if 'sparse' in obs.attrs:
             sparse |= obs.attrs['sparse']
 
+        import pdb
+        pdb.set_trace()
         # Drop all times not in fcst
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
         valid_times = list(valid_times)

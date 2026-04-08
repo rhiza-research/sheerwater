@@ -289,14 +289,14 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
-            if callable(self.event_fn.duration):
-                lookback_days = self.event_fn.duration(self.event_kwargs)
-            else:
-                lookback_days = self.event_fn.duration
+            # if callable(self.event_fn.duration):
+            #     lookback_days = self.event_fn.duration(self.event_kwargs)
+            # else:
+            #     lookback_days = self.event_fn.duration
 
-            ds = self.desnify_fcst(ds)
-            ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
-            ds = ds.assign_attrs({'lookback_source': self.lookback_source})
+            # ds = self.desnify_fcst(ds)
+            # ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
+            # ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})

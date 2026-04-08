@@ -214,6 +214,7 @@ def _single_comparison(test_case):
     omin, omax, omean = float(old_data.min()), float(old_data.max()), float(old_data.mean())
     print(f"New function min/max/mean: {nmin:.6f} / {nmax:.6f} / {nmean:.6f}")
     print(f"Old function min/max/mean: {omin:.6f} / {omax:.6f} / {omean:.6f}")
+    import pdb; pdb.set_trace()
 
     try:
         diff = new_data - old_data
