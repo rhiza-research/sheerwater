@@ -51,7 +51,7 @@ def test_planting_suitability_rejects_non_precip_variable():
 
 def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
     """Check that ."""
-    start_time = '2016-01-01'
+    start_time = '2022-01-01'
     end_time = '2022-12-31'
     grid = 'global1_5'
     region = 'kenya'
