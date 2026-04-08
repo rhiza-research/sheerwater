@@ -122,21 +122,6 @@ def scatter_data(start_time, end_time,
     df = df.drop(columns=['time', 'lat', 'lon']).reset_index()
     return df
 
-@cache(cache_args=["region", "space_grouping", "grid"], backend="sql")
-def region_codes(start_time, end_time, estimate, truth, agg_days, grid, region="global", time_grouping="month_of_year", space_grouping="country"):
-    """Get the region codes for a paired histogram.
-
-    Converts region strings to categories so that histograms with region labels can be stored efficiently.
-    """
-    bins = np.arange(0, 50, 1)
-    hist2d = paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
-                              time_grouping=time_grouping, space_grouping=space_grouping, grid=grid, mask='lsm', region=region, bins=bins, recompute=False)
-    # get categories
-    categories = hist2d.region.to_dask_dataframe().cat.categories
-    # create pandas dataframe with region names and categories
-    df = pd.DataFrame({"region": hist2d.region, "region_id": range(len(categories))})
-    return df
-
 
 @cache(cache_args=['estimate', 'truth', 'agg_days', 'grid', 'region'], backend='sql', backend_kwargs={'hash_table_name': False})
 def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="global", time_grouping="month_of_year", space_grouping="country"):
@@ -244,6 +229,7 @@ def histogram_grouping(ds, time_grouping, space_grouping, grid, mask, region, sp
             space_grouping_ds = space_grouping_ds.assign_coords(
                 lat=np.round(space_grouping_ds.lat, 5),
                 lon=np.round(space_grouping_ds.lon, 5))
+
             if region != 'global':
                 space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
 
