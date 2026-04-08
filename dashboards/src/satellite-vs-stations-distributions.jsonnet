@@ -350,15 +350,15 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "oya",
-          "value": "oya"
+          "text": "imerg_final",
+          "value": "imerg_final"
         },
         "description": "precip satellite data source",
         "label": "Satellite Product",
         "name": "satellite",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "IMERG Final",
             "value": "imerg_final"
           },
@@ -378,7 +378,7 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "rain_over_africa"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "OYA",
             "value": "oya"
           }
@@ -389,15 +389,15 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "stations",
-          "value": "stations"
+          "text": "tahmo_avg",
+          "value": "tahmo_avg"
         },
         "description": "",
         "label": "stations",
         "name": "stations",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "tahmo_avg",
             "value": "tahmo_avg"
           },
@@ -407,7 +407,7 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "tahmo"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "stations",
             "value": "stations"
           }
@@ -526,8 +526,8 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
       {
         "allowCustomValue": false,
         "current": {
-          "text": "10",
-          "value": "10"
+          "text": "5",
+          "value": "5"
         },
         "label": "agg_days",
         "name": "agg_days",
@@ -538,12 +538,12 @@ local paired_histogram_js = importstr './assets/paired_histogram.js';
             "value": "1"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "5",
             "value": "5"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "10",
             "value": "10"
           }
