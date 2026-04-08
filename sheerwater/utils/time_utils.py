@@ -298,10 +298,17 @@ def is_valid_forecast_date(model, forecast_type, forecast_date):
 
 
 def get_dates(start_time, end_time, stride="day", return_string=True):
-    """Outputs the list of dates corresponding to input date string."""
-    # Input is of the form '20170101-20180130'
-    start_date = dateparser.parse(start_time)
-    end_date = dateparser.parse(end_time)
+    """Outputs the list of dates corresponding to input date string or datetime objects."""
+    # Input is of the form '20170101-20180130', or datetime objects
+    import pdb; pdb.set_trace()
+    if isinstance(start_time, datetime):
+        start_date = start_time
+    else:
+        start_date = dateparser.parse(start_time)
+    if isinstance(end_time, datetime):
+        end_date = end_time
+    else:
+        end_date = dateparser.parse(end_time)
 
     if stride == "day":
         stride = DAILY

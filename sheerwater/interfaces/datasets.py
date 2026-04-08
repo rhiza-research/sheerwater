@@ -7,12 +7,11 @@ from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
 
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
-                              add_spatial_attrs, check_spatial_attr, shift_by_days)
-from sheerwater.interfaces import spatial
+                              add_spatial_attrs, check_spatial_attr, shift_by_days, get_dates)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
-
 from .events import get_event_fn
+from .spatial import spatial
 
 import logging
 logger = logging.getLogger(__name__)
@@ -62,27 +61,15 @@ class SheerwaterDataset(NuthatchProcessor):
         self.variable = bound_args.arguments.get('variable', None)
 
         # Event and lookback handling
-        self.lookback_source = kwargs.get('lookback_source', None)
         self.event = kwargs.get('event', None)
-        if self.event:
-            if self.agg_days != 1:
-                warnings.warn(f"Event {self.event} requires agg_days to be 1, setting to 1.")
-            self.agg_days = 1  # All events must be called with an agg days of 1
+        if self.event is not None and self.agg_days != 1:
+            raise ValueError(f"Event {self.event} requires agg_days to be 1.")
         self.event_kwargs = kwargs.get('event_kwargs', {})
         # Remove from kwargs so they don't get passed to the underlying function
-        for kwarg in ['event', 'event_kwargs', 'lookback_source']:
+        for kwarg in ['event', 'event_kwargs']:
             if kwarg in kwargs:
                 del kwargs[kwarg]
-
-        if self.event is not None and not isinstance(self.event, list):
-            self.event = [self.event]
-        if not isinstance(self.event_kwargs, list):
-            self.event_kwargs = [self.event_kwargs]
-        if self.event is not None:
-            self.event_fns = [get_event_fn(event)(**event_kwargs)
-                              for event, event_kwargs in zip(self.event, self.event_kwargs)]
-        else:
-            self.event_fns = []
+        self.event_fn = get_event_fn(self.event) if self.event is not None else None
 
         # If variable is not passed, attempt to set it by the first event in the chain
         if self.variable is None:
@@ -104,7 +91,7 @@ class SheerwaterDataset(NuthatchProcessor):
             raise ValueError("Dataset decorator requires variable to be passed if no event is specified.")
 
         # Get the default variable for the first event in the chain
-        self.variable = get_event_fn(self.event[0])(**self.event_kwargs[0]).default_variable
+        self.variable = self.event_fn.default_variable
 
         # Modify the input args, kwargs to use the default variable
         if 'variable' in bound_args.arguments:
@@ -191,9 +178,7 @@ class data(SheerwaterDataset):
 
         # Run the events on the dataset
         if self.event is not None and 'processed' not in ds.attrs:
-            for event_fn in self.event_fns:
-                # Run each event in the chain in order
-                ds = event_fn(ds)
+            ds = self.event_fn(ds, **self.event_kwargs)
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon', 'member', 'station_id']])
@@ -213,6 +198,44 @@ class forecast(SheerwaterDataset):
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
+    def process_arguments(self, sig, *args, **kwargs):
+        """Process the arguments for the data decorator."""
+        args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
+        self.lookback_source = kwargs.get('lookback_source', None)
+        if 'lookback_source' in kwargs:
+            del kwargs['lookback_source']
+        return args, kwargs
+
+    def desnify_fcst(self, fcst):
+        """Desnify the forecast."""
+        ds = convert_init_time_to_pred_time(fcst)
+
+        # Forward fill NaNs along the prediction_timedelta dimension, takes the `staler` value for the same timepoint
+        ds = ds.bfill(dim='prediction_timedelta')
+        # Forward fill NaNs along the time dimension, takes the 'staler' value for the same timepoint
+        # This covers what happens off the end of the forecast period from the previous init time, where
+        # there are no values to fill backwards from
+        ds = ds.ffill(dim='time')
+
+        # Convert back to init time
+        ds = convert_pred_time_to_init_time(ds)
+
+        # Trim back to origional start and end times
+        ds = ds.sel(init_time=slice(self.start_time, self.end_time))
+
+        # Check correctness
+        # import matplotlib.pyplot as plt
+        # import numpy as np
+        # # Check that the "lead zero" value at a future time is the same as the "lead 2" value from the past init time
+        # ds1 = fcst.sel(init_time="2016-01-04", prediction_timedelta=np.timedelta64(2, "D"))
+        # ds2 = ds.sel(init_time="2016-01-06", prediction_timedelta=np.timedelta64(0, "D"))
+        # (ds1 - ds2).precip.plot(x='lon'); plt.show()
+        # # Check that the "lead 45" value at a future time is the same as the "lead 45" value from the past init time
+        # ds3 = fcst.sel(init_time="2016-01-04", prediction_timedelta=np.timedelta64(45, "D"))
+        # ds4 = ds.sel(init_time="2016-01-06", prediction_timedelta=np.timedelta64(45, "D"))
+        # (ds3 - ds4).precip.plot(x='lon'); plt.show()
+        return ds
+
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
         """Blend the forecast and observations.
 
@@ -228,10 +251,10 @@ class forecast(SheerwaterDataset):
             return fcst
 
         # Get the lookback periods for the observations
-        # @spatial()
+        @spatial()
         @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid', 'agg_days'],
-               backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
-        def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days):
+               backend_kwargs={'chunking': {'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1}})
+        def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days, mask='lsm', region='global'):  # noqa: ARG001
             # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
             ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
                                                variable=variable, grid=grid,
@@ -240,20 +263,22 @@ class forecast(SheerwaterDataset):
             lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
             ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
             ds_obs = convert_pred_time_to_init_time(ds_obs)
-            ds_obs = ds_obs.chunk({'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1})
+            # NOTE: it's really important here that the chunks match the forecast chunks, otherwise the concat will
+            # explode the number of chunks and make everything very slow
+            ds_obs = ds_obs.chunk({'lat': 721, 'lon': 1440, 'init_time': 30, 'prediction_timedelta': 1})
             return ds_obs
 
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
-        obs = obs_with_lookback(new_start, new_end, lookback_source, variable=self.variable, grid=self.grid, agg_days=1)
+        obs = obs_with_lookback(new_start, new_end, lookback_source, variable=self.variable,
+                                grid=self.grid, agg_days=1, mask=self.mask, region=self.region)
 
         # Clip and mask the observational product, and select on the forecasting times
-        obs = self.clip_and_mask(obs)
         obs = obs.sel(init_time=fcst.init_time)
 
         # Concat with forecast on prediction_timedelta
-        combined = xr.concat([fcst, obs], dim="prediction_timedelta")
+        combined = xr.concat([fcst, obs], dim="prediction_timedelta", join='outer')
         combined = combined.sortby("prediction_timedelta")
 
         # Ensure we've done the proper selection of the observations
@@ -282,22 +307,22 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
-            lookback_days = self.event_fns[0].duration
+            if callable(self.event_fn.duration):
+                lookback_days = self.event_fn.duration(self.event_kwargs)
+            else:
+                lookback_days = self.event_fn.duration
 
+            ds = self.desnify_fcst(ds)
             ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
-            ds = self.event_fns[0](ds)
+            ds = self.event_fn(ds, **self.event_kwargs)
             ds = ds.rename({'time': 'prediction_timedelta'})
 
             if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
                 ds = convert_init_time_to_pred_time(ds)
-
-            for event_fn in self.event_fns[1:]:
-                # Run each event in the chain after the first
-                ds = event_fn(ds)
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if

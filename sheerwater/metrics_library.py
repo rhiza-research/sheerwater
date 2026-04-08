@@ -84,9 +84,7 @@ class Metric(ABC):
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
-        if self.event is None:
-            # If event is None and the metric has a default event, use the default event
-            self.event = self.event_default
+        self.event = self.event if self.event is not None else self.default_event
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
                              'event': self.event, 'event_kwargs': self.event_kwargs,
@@ -215,7 +213,7 @@ class Metric(ABC):
 
     @property
     @abstractmethod
-    def event_default(self) -> str:
+    def default_event(self) -> str:
         """Default event processing for the metric?"""
         pass
 
@@ -389,8 +387,8 @@ class ContingencyMetric(Metric):
 
     def prepare_data(self):
         if self.metric_data['key'] == 'none' and self.event is None and (
-            self.event_default is None or
-            self.event_default == 'above_threshold' and self.event_kwargs['threshold'] is None
+            self.default_event is None or
+            self.default_event == 'above_threshold' and self.event_kwargs['threshold'] is None
         ):
             # No key was passed and no event was passed, so we can't compute the metric
             raise ValueError("A contingency metric must specify a threshhold.")
@@ -399,7 +397,7 @@ class ContingencyMetric(Metric):
         if self.event_kwargs is None:
             self.event_kwargs = {}
 
-        if self.event == 'above_threshold' or (self.event is None and self.event_default == 'above_threshold'):
+        if self.event == 'above_threshold' or (self.event is None and self.default_event == 'above_threshold'):
             # If we're handling the above threshold event, set up the threshold and agg_days
             if 'threshold' not in self.event_kwargs:
                 self.event_kwargs['threshold'] = float(self.metric_data['key'])
@@ -419,7 +417,7 @@ class MAE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    event_default = None
+    default_event = None
     statistics = ['mae']
 
 
@@ -428,7 +426,7 @@ class MSE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    event_default = None
+    default_event = None
     statistics = ['mse']
 
 
@@ -437,7 +435,7 @@ class RMSE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    event_default = None
+    default_event = None
     statistics = ['mse']
 
     def compute_metric(self):
@@ -449,7 +447,7 @@ class Bias(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    event_default = None
+    default_event = None
     statistics = ['bias']
 
 
@@ -458,7 +456,7 @@ class CRPS(Metric):
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = None  # all variables are valid
-    event_default = None
+    default_event = None
     statistics = ['crps']
 
 
@@ -467,7 +465,7 @@ class Brier(CategoricalMetric):
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = ['precip']
-    event_default = 'above_threshold'
+    default_event = 'above_threshold'
     statistics = ['brier']
 
 
@@ -476,7 +474,7 @@ class SMAPE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = None
+    default_event = None
     statistics = ['smape']
 
 
@@ -485,7 +483,7 @@ class MAPE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = None
+    default_event = None
     statistics = ['mape']
 
 
@@ -494,7 +492,7 @@ class SEEPS(Metric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = None
+    default_event = None
     statistics = ['seeps']
 
     def prepare_data(self):
@@ -521,7 +519,7 @@ class ACC(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None
-    event_default = None
+    default_event = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
 
     def prepare_data(self):
@@ -573,7 +571,7 @@ class Pearson(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = None
+    default_event = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
 
     def compute_metric(self):
@@ -588,7 +586,7 @@ class Heidke(CategoricalMetric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = None
+    default_event = None
 
     @property
     def statistics(self):
@@ -613,7 +611,7 @@ class POD(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = 'above_threshold'
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -627,7 +625,7 @@ class FAR(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = 'above_threshold'
+    default_event = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
 
     def compute_metric(self):
@@ -641,7 +639,7 @@ class ETS(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = 'above_threshold'
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
 
     def compute_metric(self):
@@ -659,7 +657,7 @@ class CSI(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = 'above_threshold'
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -674,7 +672,7 @@ class FrequencyBias(ContingencyMetric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    event_default = 'above_threshold'
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
