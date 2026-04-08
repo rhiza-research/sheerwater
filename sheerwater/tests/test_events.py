@@ -57,7 +57,8 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
     region = 'kenya'
     ds = metric(start_time, end_time, variable='precip',
                 forecast='ecmwf_ifs_er_debiased', truth='imerg',
-                metric_name='mae',
+                metric_name='pod',
+                metric_kwargs={'buffer_days': 6},
                 spatial=False, grid=grid,
                 recompute=True,
                 cache_mode='overwrite',

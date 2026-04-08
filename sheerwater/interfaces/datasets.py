@@ -321,8 +321,8 @@ class forecast(SheerwaterDataset):
             ds = self.event_fn(ds, **self.event_kwargs)
             ds = ds.rename({'time': 'prediction_timedelta'})
 
-            if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
-                ds = convert_init_time_to_pred_time(ds)
+        if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
+            ds = convert_init_time_to_pred_time(ds)
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
