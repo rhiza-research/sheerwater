@@ -154,8 +154,9 @@ def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="globa
     df = df.drop(columns=['index'], errors='ignore')
     return df
 
+
 @dask_remote
-#@cache(cache_args=['start_time', 'end_time', 'time_grouping', 'space_grouping', 'estimate', 'truth', 'agg_days', 'grid'])
+@cache(cache_args=['start_time', 'end_time', 'time_grouping', 'space_grouping', 'estimate', 'truth', 'agg_days', 'grid'])
 def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
                      time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', region='global', spatial=False, bins=None):
     """Compute a paired histogram of two variables."""
