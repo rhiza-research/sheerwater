@@ -230,6 +230,9 @@ class forecast(SheerwaterDataset):
         self.lookback_source = kwargs.get('lookback_source', None)
         if 'lookback_source' in kwargs:
             del kwargs['lookback_source']
+        self.densify = kwargs.get('densify', False)
+        if 'densify' in kwargs:
+            del kwargs['densify']
         return args, kwargs
 
     def desnify_fcst(self, fcst):
@@ -293,14 +296,13 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
-            # if callable(self.event_fn.duration):
-            #     lookback_days = self.event_fn.duration(self.event_kwargs)
-            # else:
-            #     lookback_days = self.event_fn.duration
+            lookback_days = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
+                else self.event_fn.duration
 
-            # ds = self.desnify_fcst(ds)
-            # ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
-            # ds = ds.assign_attrs({'lookback_source': self.lookback_source})
+            if self.densify or 'densify' in self.event_kwargs and self.event_kwargs['densify']:
+                ds = self.desnify_fcst(ds)
+            ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
+            ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
