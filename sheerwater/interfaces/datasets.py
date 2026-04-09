@@ -160,7 +160,11 @@ class data(SheerwaterDataset):
         # agg days past the end time is included in the final aggregation.
         end_time = bound_args.arguments.get('end_time', None)
         if end_time is not None:
-            end_time = shift_by_days(end_time, self.agg_days-1)
+            if 'agg_days' in self.event_kwargs:
+                agg_days = self.event_kwargs['agg_days']
+            else:
+                agg_days = self.agg_days
+            end_time = shift_by_days(end_time, agg_days-1)
         args, kwargs = self.update_args_or_kwargs(
             values={'end_time': end_time}, args=args, kwargs=kwargs, bound_args=bound_args)
         return args, kwargs

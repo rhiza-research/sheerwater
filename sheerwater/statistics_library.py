@@ -90,7 +90,6 @@ def statistic(cache=False, name=None,
             )
             return ds
 
-
         # Register the wrapped function with the registry
         SHEERWATER_STATISTIC_REGISTRY[name] = wrapper
 
@@ -195,25 +194,25 @@ def fn_fcst_digitized(data, **cache_kwargs):  # noqa: F821
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
     # "Positive events" are 1.0, "Negative events" are 0.0
     thresh = 1.0
-    return (data['obs'] < thresh)  & (data['fcst'] >= thresh)
+    return (data['obs'] < thresh) & (data['fcst'] >= thresh)
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
     thresh = 1.0
-    return (data['obs'] >= thresh)  & (data['fcst'] < thresh)
+    return (data['obs'] >= thresh) & (data['fcst'] < thresh)
 
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
     thresh = 1.0
-    return (data['obs'] >= thresh)  & (data['fcst'] >= thresh)
+    return (data['obs'] >= thresh) & (data['fcst'] >= thresh)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
     thresh = 1.0
-    return (data['obs'] < thresh)  & (data['fcst'] < thresh)
+    return (data['obs'] < thresh) & (data['fcst'] < thresh)
 
 
 @statistic(cache=False, name='n_correct')
