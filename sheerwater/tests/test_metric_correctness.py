@@ -55,19 +55,19 @@ def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
 
     # Run grouped_metric_new (same call structure as archive)
     ds_new = new_metric(
+        forecast,
+        truth,
+        metric,
         start_time=start_time,
         end_time=end_time,
         variable=variable,
         agg_days=agg_days,
-        forecast=forecast,
-        truth=truth,
-        metric_name=metric,
+        grid=grid,
         time_grouping=time_grouping,
-        spatial=spatial,
         space_grouping=None,
+        spatial=spatial,
         region=region,
         mask=mask,
-        grid=grid,
     )
 
     # Convert from new metric format to old format by selection region and lead time (archive logic)
@@ -128,19 +128,19 @@ def _single_comparison(test_case):
 
     # Run grouped_metric_new (same call structure as archive)
     ds_new = new_metric(
+        forecast=forecast,
+        truth='era5',
+        metric_name=metric_name,
         start_time="2016-01-01",
         end_time="2022-12-31",
         variable=variable,
         agg_days=7,
-        forecast=forecast,
-        truth='era5',
-        metric_name=metric_name,
+        grid='global1_5',
         time_grouping=None,
-        spatial=spatial,
         space_grouping=space_grouping,
+        spatial=spatial,
         region=region,
         mask=mask,
-        grid='global1_5',
         recompute=recompute,
         cache_mode='overwrite',
     )

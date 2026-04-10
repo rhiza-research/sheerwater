@@ -46,7 +46,7 @@ class Metric(ABC):
         cls.name = cls.__name__.lower()
         SHEERWATER_METRIC_REGISTRY[cls.name] = cls
 
-    def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
+    def __init__(self, forecast, truth, start_time=None, end_time=None, variable=None, agg_days=1,
                  time_grouping=None, spatial=False, grid="global1_5",
                  mask='lsm', space_grouping='country', region='global', data_key='none',
                  memoize_forecast=True, memoize_truth=True):
@@ -87,25 +87,50 @@ class Metric(ABC):
         For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
                      to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
         """
-        try:
-            # Try to get the forecast from the forecast registry
-            fcst_fn = get_forecast(self.forecast)
+        passed_dataset = False
+        if isinstance(self.forecast, str):
             try:
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
-            except TypeError:
-                # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
-            enhanced_prob_type = fcst.attrs['prob_type']
-            forecast_or_truth = 'forecast'
-        except KeyError:
-            data_fn = get_data(self.forecast)
-            try:
-                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
-            except TypeError:
-                # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs)
-            enhanced_prob_type = "deterministic"
-            forecast_or_truth = 'truth'
+                # Try to get the forecast from the forecast registry
+                fcst_fn = get_forecast(self.forecast)
+                try:
+                    fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
+                except TypeError:
+                    # If the forecast is not a cacheable function the memoize kwarg will throw an error
+                    fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
+                enhanced_prob_type = fcst.attrs['prob_type']
+                forecast_or_truth = 'forecast'
+            except KeyError:
+                data_fn = get_data(self.forecast)
+                try:
+                    fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
+                except TypeError:
+                    # If the data is not a cacheable function the memoize kwarg will throw an error
+                    fcst = data_fn(**self.cache_kwargs)
+                enhanced_prob_type = "deterministic"
+                forecast_or_truth = 'truth'
+        elif isinstance(self.forecast, xr.Dataset):
+            passed_dataset=True
+            fcst = self.forecast
+            if 'time' not in fcst.dims or 'lat' not in fcst.dims or 'lon' not in fcst.dims:
+                raise ValueError("Forecasts passed as xarray datasets must have 'lat', 'lon', and 'time' dimensions.")
+
+            if 'prediction_timedelta' in fcst.dims:
+                forecast_or_truth = 'forecast'
+                if 'member' not in fcst.dims:
+                    enhanced_prob_type = 'deterministic'
+                elif 'member' in fcst.dims and 'prob_type' in fcst.attrs:
+                    enhanced_prob_type = fcst.attrs['prob_type']
+                elif 'member' in fcst.dims and 'prob_type' not in fcst.attrs:
+                    print("""Assuming multi-member forecast is an ensemble forecast.
+                          To pass a quantile forecast set the xarray attribute 'prob_type' to 'quantile'.""")
+                    enhanced_prob_type = 'ensemble'
+            else:
+                enhanced_prob_type = 'deterministic'
+                forecast_or_truth = 'truth'
+        else:
+            raise ValueError("Forecast must be the name of a sheerwater forecast/dataset or an xarray dataset.")
+
+        self.passed_dataset = passed_dataset
 
         # Make sure the prob type is consistent
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
@@ -116,27 +141,58 @@ class Metric(ABC):
 
         """2. Fetch the truth data. This must be a dataset, often either a gridded truth or station."""
         # Get the truth dataframe
-        truth_fn = get_data(self.truth)
-        try:
-            obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
-        except TypeError:
-            # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**self.cache_kwargs)
+        if isinstance(self.truth, str):
+            truth_fn = get_data(self.truth)
+            try:
+                obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
+            except TypeError:
+                # If the truth is not a cacheable function the memoize kwarg will throw an error
+                obs = truth_fn(**self.cache_kwargs)
+        elif isinstance(self.truth, xr.Dataset):
+            obs = self.truth
+
+            if 'time' not in obs.dims or 'lat' not in obs.dims or 'lon' not in obs.dims:
+                raise ValueError("Truth passed as xarray datasets must contain 'lat', 'lon', and 'time' dimensions.")
+        else:
+            raise ValueError("Truth must be either the name of a registered sheerwater dataset or an xarray dataset.")
+
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
+
+        if passed_dataset:
+            if self.variable:
+                # Select the variable of interest
+                if self.variable not in obs.data_vars.keys() or self.variable not in fcst.data_vars.keys():
+                    raise ValueError("Requested variable not present in passed forecast or truth data.")
+
+            else:
+                if len(fcst.data_vars.keys()) > 1 and len(obs.data_vars.keys()) > 1:
+                    self.variable = list(fcst.data_vars.keys())[0]
+                    print(f"""Warning: More than one variable passed to both the forecast and truth
+                          datasets and no variable specified.
+                          Using the first forecast variable {self.variable}""")
+                elif len(fcst.data_vars.keys()) > 1 and len(obs.data_vars.keys()) == 1:
+                    self.variable = list(obs.data_vars.keys())[0]
+                    print(f"Running metric on only variable in the truth dataset: {self.variable}.")
+                elif len(fcst.data_vars.keys()) == 1 and len(obs.data_vars.keys()) > 1:
+                    self.variable = list(obs.data_vars.keys())[0]
+                    print(f"Running metric on only variable in the forecast dataset: {self.variable}.")
+                else:
+                    self.variable = list(obs.data_vars.keys())[0]
+
+            if (fcst.lat != obs.lat).all() or (fcst.lon != obs.lon).all():
+                raise ValueError("No latitudes and longitudes match between forecast and truth datasets.")
+            elif (fcst.lat != obs.lat).any() or (fcst.lon != obs.lon).any():
+                print("""Warning: Latitudes and longitudes of passed datasets do not exactly match between
+                      forecast and truth. Only matching latitudes and longitudes will be evaluated.""")
 
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
-        # Select the variable of interest
-        obs = obs[[self.variable]]
-        fcst = fcst[[self.variable]]
-
-
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
@@ -350,7 +406,9 @@ class Metric(ABC):
 
     def compute(self) -> xr.DataArray:
         # Check that the variable is valid for the metric
-        if self.valid_variables and self.variable not in self.valid_variables:
+        # If self.variable is None that means a user has passed in their own variables
+        # don't error in that case
+        if self.valid_variables and not self.passed_dataset and self.variable not in self.valid_variables:
             raise ValueError(f"Variable {self.variable} is not valid for metric {self.name}")
 
         # Prepare the forecasting, observation, and auxiliary data for the metric

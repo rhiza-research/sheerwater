@@ -45,10 +45,9 @@ def _metric_table(start_time, end_time, variable,
                 f"time grouping {time_grouping}")
             # First get the value without the baseline
             try:
-                ds = metric(start_time, end_time, variable,
-                            agg_days=agg, forecast=forecast, truth=truth,
-                            metric_name=metric_name, time_grouping=time_grouping, spatial=False,
-                            grid=grid, space_grouping=space_grouping, recompute=False, retry_null_cache=False)
+                ds = metric(forecast, truth, metric_name, start_time, end_time, variable,
+                            agg_days=agg, grid=grid, time_grouping=time_grouping,
+                            space_grouping=space_grouping, spatial=False, recompute=False, retry_null_cache=False)
             except NotImplementedError:
                 ds = None
 
