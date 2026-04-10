@@ -201,7 +201,7 @@ class data(SheerwaterDataset):
                },
            }
 })
-def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
+def obs_with_lookback(start_time, end_time, fcst_times, lookback_source, variable, grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
     ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
@@ -212,6 +212,7 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid, agg
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
+    ds_obs = ds_obs.sel(init_time=fcst_times)
     return ds_obs
 
 
@@ -270,7 +271,8 @@ class forecast(SheerwaterDataset):
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
-        obs = obs_with_lookback(new_start, new_end, lookback_source, variable=self.variable,
+        fcst_times = fcst.init_time.values
+        obs = obs_with_lookback(new_start, new_end, fcst_times, lookback_source, variable=self.variable,
                                 grid=self.grid, agg_days=self.agg_days, mask=self.mask, region=self.region)
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
@@ -278,6 +280,9 @@ class forecast(SheerwaterDataset):
         obs = obs.sel(init_time=fcst.init_time, prediction_timedelta=lookbacks)
 
         # Concat with forecast on prediction_timedelta
+        # Transpose both to have the same dimensions
+        fcst = fcst.transpose("init_time", "prediction_timedelta", "lat", "lon")
+        obs = obs.transpose("init_time", "prediction_timedelta", "lat", "lon")
         combined = xr.concat([fcst, obs], dim="prediction_timedelta", join='outer')
         combined = combined.sortby("prediction_timedelta")
         return combined
@@ -299,7 +304,7 @@ class forecast(SheerwaterDataset):
             lookback_days = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
                 else self.event_fn.duration
 
-            if self.densify or 'densify' in self.event_kwargs and self.event_kwargs['densify']:
+            if self.densify or (self.event_kwargs.get('densify', False)):
                 ds = self.desnify_fcst(ds)
             ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
