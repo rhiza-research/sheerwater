@@ -272,7 +272,8 @@ class forecast(SheerwaterDataset):
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
         fcst_times = fcst.init_time.values
-        obs = obs_with_lookback(new_start, new_end, fcst_times, lookback_source, variable=self.variable,
+        obs = obs_with_lookback(new_start, new_end, fcst_times=fcst_times,
+                                lookback_source=lookback_source, variable=self.variable,
                                 grid=self.grid, agg_days=self.agg_days, mask=self.mask, region=self.region)
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
@@ -281,8 +282,6 @@ class forecast(SheerwaterDataset):
 
         # Concat with forecast on prediction_timedelta
         # Transpose both to have the same dimensions
-        fcst = fcst.transpose("init_time", "prediction_timedelta", "lat", "lon")
-        obs = obs.transpose("init_time", "prediction_timedelta", "lat", "lon")
         combined = xr.concat([fcst, obs], dim="prediction_timedelta", join='outer')
         combined = combined.sortby("prediction_timedelta")
         return combined
@@ -294,7 +293,8 @@ class forecast(SheerwaterDataset):
         and general spatial postprocessing, including region clipping and masking.
         """
         if not isinstance(ds, xr.Dataset):
-            raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
+            raise RuntimeError(f"Sheerwater forecasts must return xarray datasets. Received {type(ds)}.")
+
         # Clip and mask the dataset
         ds = self.clip_and_mask(ds)
 

@@ -377,14 +377,38 @@ class CategoricalMetric(Metric):
     """Base class for categorical metrics."""
 
     def prepare_data(self):
-        # Populate the data with the bin information
-        if self.metric_data['key'] == 'none':
-            raise ValueError("A categorical metric must have a key that specifies the bins.")
-        # Get the bins
-        bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
-        if len(bins) > 10:
-            raise ValueError("Categorical metrics can only have up to 10 bins.")
-        self.metric_data['data']['bins'] = bins
+        """Prepare the bin data for the categorical metric."""
+        if self.metric_data['key'] == 'none' and self.event is None and (
+            self.default_event is None or
+            self.default_event == 'digitized' and self.event_kwargs['bins'] is None
+        ):
+            # No key was passed and no event was passed, so we can't compute the metric
+            raise ValueError("A categorical metric must specify a set of numerical bins.")
+
+        # Set up the default event based on the passed arguments
+        if self.event_kwargs is None:
+            self.event_kwargs = {}
+
+        ############################################################
+        # Enable categorical metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
+        ############################################################
+        if self.event == 'digitized' or (self.event is None and self.default_event == 'digitized'):
+            if 'bins' not in self.event_kwargs:
+                if self.metric_data['key'] == 'none':
+                    raise ValueError("A categorical metric must have a key that specifies the bins.")
+                # If we're handling the digitized event, set up the bins
+                bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
+                if len(bins) > 10:
+                    raise ValueError("Categorical metrics can only have up to 10 bins.")
+                self.metric_data['data']['bins'] = bins
+                self.event_kwargs['bins'] = bins
+
+            if 'agg_days' in self.event_kwargs and self.event_kwargs['agg_days'] != self.agg_days:
+                raise ValueError(
+                    "The agg_days passed to the categorical metric must match the agg_days passed to the metric.")
+            if 'agg_days' not in self.event_kwargs:
+                self.event_kwargs['agg_days'] = self.agg_days
+                self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
@@ -405,10 +429,20 @@ class ContingencyMetric(Metric):
         if self.event_kwargs is None:
             self.event_kwargs = {}
 
+        ############################################################
+        # Enable contingency metrics to be called in the form 'pod-5' and properly set up the above threshold event.
+        ############################################################
         if self.event == 'above_threshold' or (self.event is None and self.default_event == 'above_threshold'):
-            # If we're handling the above threshold event, set up the threshold and agg_days
-            if 'threshold' not in self.event_kwargs:
-                self.event_kwargs['threshold'] = float(self.metric_data['key'])
+            if 'bins' not in self.event_kwargs:
+                if self.metric_data['key'] == 'none':
+                    raise ValueError("A contingency metric must have a key that specifies the bins.")
+                # If we're handling the above threshold event, set up the bins
+                bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
+                if len(bins) != 3:
+                    raise ValueError("Contingency metrics must have a single key that specifies the threshold.")
+                self.metric_data['data']['bins'] = bins
+                self.event_kwargs['bins'] = bins
+
             if 'agg_days' in self.event_kwargs and self.event_kwargs['agg_days'] != self.agg_days:
                 raise ValueError(
                     "The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
@@ -595,7 +629,7 @@ class Heidke(CategoricalMetric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    default_event = None
+    default_event = 'digitized'
 
     @property
     def statistics(self):
