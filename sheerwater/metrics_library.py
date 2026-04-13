@@ -378,6 +378,8 @@ class CategoricalMetric(Metric):
 
     def prepare_data(self):
         """Prepare the bin data for the categorical metric."""
+        import pdb
+        pdb.set_trace()
         if self.metric_data['key'] == 'none' and self.event is None and (
             self.default_event is None or
             self.default_event == 'digitized' and self.event_kwargs['bins'] is None or

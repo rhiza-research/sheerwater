@@ -201,7 +201,8 @@ class data(SheerwaterDataset):
                },
            }
 })
-def obs_with_lookback(start_time, end_time, fcst_times, lookback_source, variable, grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
+def obs_with_lookback(start_time, end_time, fcst_times, lookback_source, variable,
+                      grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
     ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
