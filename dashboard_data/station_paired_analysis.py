@@ -186,6 +186,8 @@ def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='
 
 def histogram_grouping(ds, time_grouping, space_grouping, grid, mask, region, spatial, bins, time_dim='time', **kwargs):
     """Group data into a histogram with optional time and space grouping."""
+    # histogram functions are structured differently for spatial (hist at every lat, lon) and non-spatial.
+    # these different patterns are more efficient for each case.
     def paired_hist(values1, values2, bins):
         values1 = values1.ravel()
         values2 = values2.ravel()
@@ -195,16 +197,35 @@ def histogram_grouping(ds, time_grouping, space_grouping, grid, mask, region, sp
         hist2d, _, _ = np.histogram2d(values1[valid_mask], values2[valid_mask], bins=bins)
         return hist2d
 
-    def apply_to_group(ds_group, sample_dims="sample"):
+    def spatial_paired_hist(values1, values2, bins):
+        n_point = values1.shape[1]
+        out = np.zeros((len(bins)-1, len(bins)-1, n_point))
+        for i in range(n_point):
+            v1 = values1[:, i]
+            v2 = values2[:, i]
+            m = ~np.isnan(v1) & ~np.isnan(v2)
+            if m.any():
+                out[..., i], _, _ = np.histogram2d(v1[m], v2[m], bins=bins)
+        return out
+
+    def apply_to_group(ds_group, sample_dims="sample", spatial=False):
+        if spatial:
+            input_core_dims = [["bin1", "bin2", "points"]]
+            output_sizes = {"bin1": len(bins)-1, "bin2": len(bins)-1, "points": len(ds_group.points)}
+            func = spatial_paired_hist
+        else:
+            input_core_dims = [["bin1", "bin2"]]
+            output_sizes = {"bin1": len(bins)-1, "bin2": len(bins)-1}
+            func = paired_hist
+        
         result = xr.apply_ufunc(
-            paired_hist, ds_group[var_names[0]], ds_group[var_names[1]],
+            func, ds_group[var_names[0]], ds_group[var_names[1]],
             input_core_dims=[sample_dims, sample_dims],
-            output_core_dims=[["bin1", "bin2"]],
+            output_core_dims=input_core_dims,
             vectorize=False,
             dask="parallelized",
             output_dtypes=[float],
-            dask_gufunc_kwargs={"allow_rechunk": True,
-                "output_sizes": {"bin1": len(bins)-1, "bin2": len(bins)-1}},
+            dask_gufunc_kwargs={"allow_rechunk": True, "output_sizes": output_sizes},
             kwargs={"bins": bins},
         )
         return result.assign_coords(bin1=bins[:-1], bin2=bins[:-1]).to_dataset(name="precip")
@@ -254,6 +275,13 @@ def histogram_grouping(ds, time_grouping, space_grouping, grid, mask, region, sp
 
     else:
         ds = ds.chunk({time_dim: -1})
-        ds = ds.groupby("group").map(apply_to_group, args=([time_dim],))
+        ds = ds.transpose(time_dim, "lat", "lon")
+        ds = ds.stack(points=("lat", "lon"))
+        ds = ds.chunk({time_dim: -1, "points": 2000})
+
+        ds = ds.groupby(["group"]).map(
+            lambda g: apply_to_group(g, list(g[var_names[0]].dims), spatial=True)
+        )
+        ds = ds.unstack("points")
 
     return ds.squeeze(drop=True).persist()
