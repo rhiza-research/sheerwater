@@ -189,7 +189,7 @@ def _single_comparison(test_case):
         region=region_call,
         mask=mask,
         grid='global1_5',
-        recompute=False,
+        recompute=True,
         retry_null_cache=True
     )
 
@@ -298,6 +298,8 @@ METRIC_TEST_CASES = [
         "variable": "precip", "region": "nimbus_east_africa", "spatial": True},
     {"name": "26_mae_nonspatial", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "mae", "variable": "precip", "spatial": False},
+    {"name": "27_brier", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "brier-10", "variable": "precip", "spatial": False},
 ]
 
 

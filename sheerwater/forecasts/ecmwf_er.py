@@ -355,8 +355,9 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
     if debiased:
+        run_type = 'perturbed' if prob_type == 'probabilistic' else 'average'
         ds = ifs_extended_range_debiased_regrid(forecast_start, forecast_end, variable,
-                                                margin_in_days=6, run_type='average',
+                                                margin_in_days=6, run_type=run_type,
                                                 time_group='daily', grid=grid, mask=mask, region=region)
     else:
         ds = ifs_extended_range(forecast_start, forecast_end, variable,
