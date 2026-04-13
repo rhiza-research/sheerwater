@@ -39,11 +39,10 @@ def event(default_variable: str, duration):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
-def above_threshold(ds, agg_days=10, bins=None):
+def above_threshold(ds, agg_days=10, threshold=10.0):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
-    if bins is None or len(bins) != 3:
-        raise ValueError("Bins must be specified for above threshold event and must be a three-element list.")
+    bins = [-np.inf, threshold, np.inf]
     ds = digitized(ds, agg_days=agg_days, bins=bins)
     return ds
 

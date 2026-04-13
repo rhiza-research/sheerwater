@@ -55,14 +55,14 @@
     "warm_metric_only_sec": 41.424438
   },
   "12_pod_global": {
-    "cold_sec": 17.242249,
-    "warm_full_sec": 10.464451,
-    "warm_metric_only_sec": 10.600182
+    "cold_sec": 93.007751,
+    "warm_full_sec": 9.643845,
+    "warm_metric_only_sec": 9.335124
   },
   "13_pod_spatial": {
-    "cold_sec": 16.573284,
-    "warm_full_sec": 16.210071,
-    "warm_metric_only_sec": 16.435973
+    "cold_sec": 63.060967,
+    "warm_full_sec": 16.582304,
+    "warm_metric_only_sec": 16.232014
   },
   "14_pod_global0_25": {
     "cold_sec": 33.189361,

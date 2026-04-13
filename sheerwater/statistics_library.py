@@ -156,44 +156,10 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
     return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
-# @statistic(cache=False, name='obs_digitized')
-# def fn_obs_digitized(data, **cache_kwargs):  # noqa: F821
-#     # `np.digitize(x, bins, right=True)` returns index `i` such that:
-#     #   `bins[i-1] < x <= bins[i]`
-#     # Indices range from 0 (for x <= bins[0]) to len(bins) (for x > bins[-1]).
-#     # `bins` for np.digitize will be `thresholds_np`.
-#     ds = xr.apply_ufunc(
-#         np.digitize,
-#         data['obs'],
-#         kwargs={'bins': data['bins'], 'right': True},
-#         dask='parallelized',
-#         output_dtypes=[int],
-#     )
-#     # Restore NaN values
-#     return ds.where(data['obs'].notnull(), np.nan, drop=False).astype(float)
-
-
-# @statistic(cache=False, name='fcst_digitized')
-# def fn_fcst_digitized(data, **cache_kwargs):  # noqa: F821
-#     # `np.digitize(x, bins, right=True)` returns index `i` such that:
-#     #   `bins[i-1] < x <= bins[i]`
-#     # Indices range from 0 (for x <= bins[0]) to len(bins) (for x > bins[-1]).
-#     # `bins` for np.digitize will be `thresholds_np`.
-#     ds = xr.apply_ufunc(
-#         np.digitize,
-#         data['fcst'],
-#         kwargs={'bins': data['bins'], 'right': True},
-#         dask='parallelized',
-#         output_dtypes=[int],
-#     )
-#     # Restore NaN values
-#     return ds.where(data['fcst'].notnull(), np.nan)
-
-
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
     # Assumes the data is digitized and the bins are [1, 2]
-     return (data['obs'] == 1) & (data['fcst'] == 2)
+    return (data['obs'] == 1) & (data['fcst'] == 2)
 
 
 @statistic(cache=False, name='false_negatives')

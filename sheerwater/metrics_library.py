@@ -380,7 +380,8 @@ class CategoricalMetric(Metric):
         """Prepare the bin data for the categorical metric."""
         if self.metric_data['key'] == 'none' and self.event is None and (
             self.default_event is None or
-            self.default_event == 'digitized' and self.event_kwargs['bins'] is None
+            self.default_event == 'digitized' and self.event_kwargs['bins'] is None or
+            self.default_event == 'above_threshold' and self.event_kwargs['threshold'] is None
         ):
             # No key was passed and no event was passed, so we can't compute the metric
             raise ValueError("A categorical metric must specify a set of numerical bins.")
@@ -392,60 +393,28 @@ class CategoricalMetric(Metric):
         ############################################################
         # Enable categorical metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
         ############################################################
-        if self.event == 'digitized' or (self.event is None and self.default_event == 'digitized'):
+        event = self.event if self.event is not None else self.default_event
+        if event == 'digitized':
             if 'bins' not in self.event_kwargs:
+                # We try to figure out the bins from the metric key
                 if self.metric_data['key'] == 'none':
                     raise ValueError("A categorical metric must have a key that specifies the bins.")
-                # If we're handling the digitized event, set up the bins
                 bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
                 if len(bins) > 10:
                     raise ValueError("Categorical metrics can only have up to 10 bins.")
-                self.metric_data['data']['bins'] = bins
                 self.event_kwargs['bins'] = bins
+        elif event == 'above_threshold':
+            if 'threshold' not in self.event_kwargs:
+                # We try to figure out the threshhold from the metric key
+                if self.metric_data['key'] == 'none':
+                    raise ValueError("A categorical metric must have a key that specifies the threshold.")
+                threshold = float(self.metric_data['key'].split('-')[0])
+                self.event_kwargs['threshold'] = threshold
 
+        if event in ('digitized', 'above_threshold'):
             if 'agg_days' in self.event_kwargs and self.event_kwargs['agg_days'] != self.agg_days:
                 raise ValueError(
                     "The agg_days passed to the categorical metric must match the agg_days passed to the metric.")
-            if 'agg_days' not in self.event_kwargs:
-                self.event_kwargs['agg_days'] = self.agg_days
-                self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
-
-        # Call the parent prepare_data method to get the forecast and observation
-        Metric.prepare_data(self)
-
-
-class ContingencyMetric(Metric):
-    """True Positive, False Positive, False Negative, True Negative metrics."""
-
-    def prepare_data(self):
-        if self.metric_data['key'] == 'none' and self.event is None and (
-            self.default_event is None or
-            self.default_event == 'above_threshold' and self.event_kwargs['threshold'] is None
-        ):
-            # No key was passed and no event was passed, so we can't compute the metric
-            raise ValueError("A contingency metric must specify a threshhold.")
-
-        # Set up the default event based on the passed arguments
-        if self.event_kwargs is None:
-            self.event_kwargs = {}
-
-        ############################################################
-        # Enable contingency metrics to be called in the form 'pod-5' and properly set up the above threshold event.
-        ############################################################
-        if self.event == 'above_threshold' or (self.event is None and self.default_event == 'above_threshold'):
-            if 'bins' not in self.event_kwargs:
-                if self.metric_data['key'] == 'none':
-                    raise ValueError("A contingency metric must have a key that specifies the bins.")
-                # If we're handling the above threshold event, set up the bins
-                bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
-                if len(bins) != 3:
-                    raise ValueError("Contingency metrics must have a single key that specifies the threshold.")
-                self.metric_data['data']['bins'] = bins
-                self.event_kwargs['bins'] = bins
-
-            if 'agg_days' in self.event_kwargs and self.event_kwargs['agg_days'] != self.agg_days:
-                raise ValueError(
-                    "The agg_days passed to the contingency metric must match the agg_days passed to the metric.")
             if 'agg_days' not in self.event_kwargs:
                 self.event_kwargs['agg_days'] = self.agg_days
                 self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
@@ -634,8 +603,8 @@ class Heidke(CategoricalMetric):
     @property
     def statistics(self):
         stats = ['n_correct', 'n_valid']
-        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.metric_data['data']['bins']))]
-        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.metric_data['data']['bins']))]
+        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.event_kwargs['bins']))]
+        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.event_kwargs['bins']))]
         return stats
 
     def compute_metric(self):
@@ -643,13 +612,13 @@ class Heidke(CategoricalMetric):
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
         right_by_chance = xr.zeros_like(gs['n_correct'])
-        for i in range(1, len(self.metric_data['data']['bins'])):
+        for i in range(1, len(self.event_kwargs['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
 
 
-class POD(ContingencyMetric):
+class POD(CategoricalMetric):
     """Probability of Detection metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -663,7 +632,7 @@ class POD(ContingencyMetric):
         return tp / (tp + fn)
 
 
-class FAR(ContingencyMetric):
+class FAR(CategoricalMetric):
     """False Alarm Rate metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -677,7 +646,7 @@ class FAR(ContingencyMetric):
         return fp / (fp + tn)
 
 
-class ETS(ContingencyMetric):
+class ETS(CategoricalMetric):
     """Equitable Threat Score metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -695,7 +664,7 @@ class ETS(ContingencyMetric):
         return (tp - chance) / (tp + fp + fn - chance)
 
 
-class CSI(ContingencyMetric):
+class CSI(CategoricalMetric):
     """Critical Success Index metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -710,7 +679,7 @@ class CSI(ContingencyMetric):
         return tp / (tp + fp + fn)
 
 
-class FrequencyBias(ContingencyMetric):
+class FrequencyBias(CategoricalMetric):
     """Frequency Bias metric."""
     sparse = True
     prob_type = 'deterministic'
