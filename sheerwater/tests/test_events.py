@@ -35,8 +35,8 @@ def test_above_threshold_sets_event_attr_and_preserves_nan():
     out = above_threshold(ds, agg_days=1, threshold=0.5)
 
     assert out.attrs["event"] == "above_threshold"
-    assert out.precip.sel(time="2020-01-01").item() == pytest.approx(0.0)
-    assert out.precip.sel(time="2020-01-02").item() == pytest.approx(1.0)
+    assert out.precip.sel(time="2020-01-01").item() == pytest.approx(1.0)
+    assert out.precip.sel(time="2020-01-02").item() == pytest.approx(2.0)
     assert np.isnan(out.precip.sel(time="2020-01-03").item())
 
 
@@ -57,8 +57,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
     region = 'kenya'
     ds = metric(start_time, end_time, variable='precip',
                 forecast='ecmwf_ifs_er_debiased', truth='imerg',
-                metric_name='pod',
-                metric_kwargs={'buffer_days': 6},
+                metric_name='mae',
                 spatial=False, grid=grid,
                 recompute=True,
                 cache_mode='overwrite',

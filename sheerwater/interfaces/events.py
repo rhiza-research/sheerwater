@@ -25,8 +25,7 @@ def event(default_variable: str, duration):
 
             ds = fn(ds, *args, **kwargs)
             # Add an attribute to the dataset to indicate the event name
-            event_name = "-".join([ds.attrs['event'], name]) if 'event' in ds.attrs else name
-            ds = ds.assign_attrs({'event': event_name})
+            ds = ds.assign_attrs({'event': name})
             return ds
 
         wrapper.duration = duration
