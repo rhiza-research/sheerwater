@@ -40,8 +40,7 @@ def gold_testing_metric(start_time, end_time, variable, forecast, truth,
            metric_name, agg_days=1,
            event=None, event_kwargs=None,  # noqa: ARG001
            time_grouping=None, space_grouping=None,
-           spatial=False, grid="global1_5", mask='lsm', region='global',
-           memoize_forecast=True, memoize_truth=True):
+           spatial=False, grid="global1_5", mask='lsm', region='global'):
     """Compute a grouped metric for a forecast at a specific lead."""
     """Stub function providing gold standard reference for testing.
 
@@ -81,7 +80,7 @@ def _single_comparison(test_case):
     test_case.setdefault("truth", "era5")
     test_case.setdefault("metric_name", "mae")
     test_case.setdefault("variable", "precip")
-    test_case.setdefault("lead", "week3")
+    test_case.setdefault("lead", 21)  # 3 week lead by default
     test_case.setdefault("spatial", True)
     test_case.setdefault("mask", "lsm")
     test_case.setdefault("agg_days", 7)
@@ -96,7 +95,10 @@ def _single_comparison(test_case):
     variable = test_case["variable"]
     space_grouping = test_case["space_grouping"]
     region = test_case["region"]
-    lead = test_case["lead"]
+    try:
+        lead = int(test_case["lead"])
+    except ValueError:
+        lead = None
     agg_days = test_case["agg_days"]
     event = test_case["event"]
     event_kwargs = test_case["event_kwargs"]
@@ -107,7 +109,7 @@ def _single_comparison(test_case):
 
     print(
         f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | variable={variable} | "
-        f"space_grouping={space_grouping} | region={region} | lead={lead} | agg_days={agg_days} | "
+        f"space_grouping={space_grouping} | region={region} | lead={lead} days | agg_days={agg_days} | "
         f"event={event} | event_kwargs={event_kwargs} | spatial={spatial} | mask={mask} | "
         f"time_grouping={time_grouping} | grid={grid}"
     )
@@ -115,69 +117,37 @@ def _single_comparison(test_case):
     recompute = test_case.get("recompute", ["global_statistic", "metric"])
 
     # Run grouped_metric_new (same call structure as archive)
-    ds_new = metric(
-        start_time="2016-01-01",
-        end_time="2022-12-31",
-        variable=variable,
-        forecast=forecast,
-        truth=truth,
-        metric_name=metric_name,
-        agg_days=agg_days,
-        event=event,
-        event_kwargs=event_kwargs,
-        time_grouping=time_grouping,
-        spatial=spatial,
-        space_grouping=space_grouping,
-        region=region,
-        mask=mask,
-        grid=grid,
-        recompute=recompute,
-        cache_mode='overwrite',
-    )
-    # Convert from new metric format to old format by selection region and lead time (archive logic)
-    if ds_new is not None:
-        if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
-            lead_dict = {
-                'week1': 0,
-                'week2': 7,
-                'week3': 14,
-                'week4': 21,
-                'week5': 28,
-                'week6': 35,
-            }
-            ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
+    kwargs = {
+        "start_time": "2016-01-01",
+        "end_time": "2022-12-31",
+        "variable": variable,
+        "forecast": forecast,
+        "truth": truth,
+        "metric_name": metric_name,
+        "agg_days": agg_days,
+        "event": event,
+        "event_kwargs": event_kwargs,
+        "time_grouping": time_grouping,
+        "spatial": spatial,
+        "space_grouping": space_grouping,
+        "region": region,
+        "mask": mask,
+        "grid": grid,
+    }
+    # Run the new metric
+    ds_new = metric(**kwargs, recompute=recompute, cache_mode='overwrite')
 
     # Run gold_testing_metric (same call structure as archive)
-    ds_old = gold_testing_metric(
-        start_time="2016-01-01",
-        end_time="2022-12-31",
-        variable=variable,
-        forecast=forecast,
-        truth=truth,
-        metric_name=metric_name,
-        agg_days=agg_days,
-        event=event,
-        event_kwargs=event_kwargs,
-        time_grouping=time_grouping,
-        spatial=spatial,
-        space_grouping=space_grouping,
-        region=region,
-        mask=mask,
-        grid=grid,
-        recompute=False,
-    )
+    ds_old = gold_testing_metric(**kwargs, recompute=False)
+
     # Convert from new metric format to old format by selection region and lead time (archive logic)
-    if ds_old is not None:
-        if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
-            lead_dict = {
-                'week1': 0,
-                'week2': 7,
-                'week3': 14,
-                'week4': 21,
-                'week5': 28,
-                'week6': 35,
-            }
-            ds_old = ds_old.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
+    if lead is not None:
+        if ds_new is not None:
+            if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
+                ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead, 'D'))
+        if ds_old is not None:
+            if 'prediction_timedelta' in ds_old.dims and len(ds_old.prediction_timedelta.values) > 1:
+                ds_old = ds_old.sel(prediction_timedelta=np.timedelta64(lead, 'D'))
 
     # Compare
     if ds_new is None and ds_old is None:
@@ -276,9 +246,9 @@ METRIC_TEST_CASES = [
     {"name": "21_mae_tmp2m", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "mae", "variable": "tmp2m", "spatial": True},
     {"name": "22_acc_week2", "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc", "variable": "precip", "lead": "week2", "spatial": True},
+        "metric_name": "acc", "variable": "precip", "lead": 14, "spatial": True},
     {"name": "23_acc_tmp2m_week2", "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc", "variable": "tmp2m", "lead": "week2", "spatial": True},
+        "metric_name": "acc", "variable": "tmp2m", "lead": 14, "spatial": True},
     {"name": "24_mae_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
         "variable": "precip", "region": "africa", "spatial": True},
     {"name": "25_mae_nimbus_east_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
