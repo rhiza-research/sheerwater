@@ -166,10 +166,13 @@ class data(SheerwaterDataset):
         # Adjust the end_time to account for the aggregation days, so that
         # agg days past the end time is included in the final aggregation.
         end_time = bound_args.arguments.get('end_time', None)
-        event_duration = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
-            else self.event_fn.duration
+        if self.event_fn is not None:
+            duration = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
+                else self.event_fn.duration
+        else:
+            duration = self.agg_days
         if end_time is not None:
-            end_time = shift_by_days(end_time, event_duration-1)
+            end_time = shift_by_days(end_time, duration-1)
         args, kwargs = self.update_args_or_kwargs(
             values={'end_time': end_time}, args=args, kwargs=kwargs, bound_args=bound_args)
         return args, kwargs
