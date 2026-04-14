@@ -1,12 +1,11 @@
 """Test forecasters functionality and interfaces."""
 import numpy as np
-import pytest
 
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 from sheerwater.utils import desnify_fcst, convert_pred_time_to_init_time
 
 
-def test_desnify_fcst(remote_dask_cluster):
+def test_desnify_fcst(remote_dask_cluster):  # noqa: ARG001
     """Test that the desnify_fcst function works."""
     start_time = '2016-01-01'
     end_time = '2016-03-30'
