@@ -12,6 +12,7 @@ Run only correctness tests:
 Run a specific case with -k, e.g.: pytest ... -k "1" or -k "5_pod_5" or -k "mae_nonspatial"
 """
 # ruff: noqa: E501
+from curses import noecho
 import numpy as np
 import pytest
 
@@ -71,7 +72,7 @@ def gold_testing_metric(start_time, end_time, variable, forecast, truth,
     return ds_new
 
 
-def _single_comparison(test_case):
+def _single_comparison(test_case, overwrite_gold_testing=False):
     """Run new metric(), load old metric from cache, compare. Returns (ds_new, ds_old, result_code)."""
     test_case = dict(test_case)
     test_case.setdefault("region", "global")
@@ -134,11 +135,15 @@ def _single_comparison(test_case):
         "mask": mask,
         "grid": grid,
     }
-    # Run the new metric
-    ds_new = metric(**kwargs, recompute=recompute, cache_mode='read_only')
-
-    # Run gold_testing_metric (same call structure as archive)
-    ds_old = gold_testing_metric(**kwargs, recompute=False, cache_mode='read_only_strict')
+    import pdb; pdb.set_trace()
+    if overwrite_gold_testing:
+        # Run gold_testing_metric (same call structure as archive)
+        ds_old = gold_testing_metric(**kwargs, recompute=True, cache_mode='overwrite')
+    else:
+        # Run gold_testing_metric (same call structure as archive)
+        ds_old = gold_testing_metric(**kwargs, recompute=False, cache_mode='read_only_strict')
+        # Run the new metric
+        ds_new = metric(**kwargs, recompute=recompute, cache_mode='read_only')
 
     # Convert from new metric format to old format by selection region and lead time (archive logic)
     if lead is not None:
@@ -154,10 +159,10 @@ def _single_comparison(test_case):
         print("Both functions returned None")
         return None, None, 0
     if ds_new is None:
-        print("Only grouped_metric_new returned None")
+        print("Only new metrics run returned None")
         return None, ds_old, 1
     if ds_old is None:
-        print("Only grouped_metric returned None")
+        print("Only testing standard returned None")
         return ds_new, None, 2
 
     # Both datasets exist (same compare structure as archive)
@@ -196,9 +201,9 @@ def _single_comparison(test_case):
         raise
 
 
-def _run_single_case(test_case):
+def _run_single_case(test_case, overwrite_gold_testing=False):
     """Run single comparison; return (result, passed, result_code)."""
-    _, _, result_code = _single_comparison(test_case)
+    _, _, result_code = _single_comparison(test_case, overwrite_gold_testing=overwrite_gold_testing)
     # 3=exact, 4=close -> pass; 1=new failed -> fail; 5=significant diff -> fail; 0=both None, 2=old missing -> pass
     passed = result_code in (3, 4, 0, 2)
     if result_code == 1:
@@ -265,15 +270,20 @@ METRIC_TEST_CASES = [
     METRIC_TEST_CASES,
     ids=[c["name"] for c in METRIC_TEST_CASES],
 )
-def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
+def test_metric_correctness(remote_dask_cluster, test_case, overwrite_gold_testing):  # noqa: ARG001
     """One test per metric/forecast/variable/region combination; compares to cached baseline."""
-    _, passed, _ = _run_single_case(test_case)
+    _, passed, _ = _run_single_case(test_case, overwrite_gold_testing=overwrite_gold_testing)
     assert passed
 
 
 if __name__ == "__main__":
     from sheerwater.utils import start_remote
     cluster = start_remote(remote_config='xlarge_cluster')
-    test_metric_correctness(cluster, METRIC_TEST_CASES[2])
-    # test_metric_correctness(cluster, METRIC_TEST_CASES[21])
-    # test_metric_correctness(cluster, METRIC_TEST_CASES[22])
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--overwrite-gold-testing", action="store_true", help="Run in overwrite mode")
+    args = parser.parse_args()
+
+    cluster = start_remote(remote_config='xlarge_cluster')
+    test_metric_correctness(cluster, METRIC_TEST_CASES, overwrite_gold_testing=args.overwrite_gold_testing)
