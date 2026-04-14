@@ -53,8 +53,6 @@ class SheerwaterDataset(NuthatchProcessor):
             raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
 
         # Set other arguments to reasonable defaults
-        self.start_time = bound_args.arguments.get('start_time', None)
-        self.end_time = bound_args.arguments.get('end_time', None)
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
@@ -90,26 +88,12 @@ class SheerwaterDataset(NuthatchProcessor):
 
         return args, kwargs
 
-    def update_args_or_kwargs(self, values, args, kwargs, bound_args):
-        """Update args or kwargs with a given value dictionary."""
-        for key, value in values.items():
-            # If key is in kwargs, we can proceed immediately
-            if key in kwargs:
-                kwargs[key] = value
-                continue
-            elif key in bound_args.arguments:
-                idx = list(bound_args.signature.parameters).index(key)
-                if idx < len(args):
-                    args = list(args)
-                    args[idx] = value
-                    args = tuple(args)
-            else:
-                # Key not found in the bound arguments, raise an error
-                raise ValueError(f"Key {key} not found in the bound arguments or kwargs.")
-        return args, kwargs
-
-    def clip_and_mask(self, ds):
+    def post_process(self, ds):
         """Clip and mask the dataset."""
+        if not isinstance(ds, xr.Dataset):
+            raise RuntimeError(
+                f"Sheerwater data and forecast decorators must return xarray datasets. Received {type(ds)}.")
+
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):
             # Only clip region if the dataframe hasn't already been clipped
@@ -126,6 +110,27 @@ class SheerwaterDataset(NuthatchProcessor):
         })
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
         return ds
+
+    def update_args_or_kwargs(self, values, args, kwargs, bound_args):
+        """Update args or kwargs with a given value dictionary.
+
+        NOTE: this will eventually be replaced by a Nuthatch function that handles this more generically.
+        """
+        for key, value in values.items():
+            # If key is in kwargs, we can proceed immediately
+            if key in kwargs:
+                kwargs[key] = value
+                continue
+            elif key in bound_args.arguments:
+                idx = list(bound_args.signature.parameters).index(key)
+                if idx < len(args):
+                    args = list(args)
+                    args[idx] = value
+                    args = tuple(args)
+            else:
+                # Key not found in the bound arguments, raise an error
+                raise ValueError(f"Key {key} not found in the bound arguments or kwargs.")
+        return args, kwargs
 
     def validate(self, ds):
         """Validate the cached data to ensure it has data within the region."""
@@ -169,10 +174,8 @@ class data(SheerwaterDataset):
 
     def post_process(self, ds):
         """Post-processor for a Sheerwater data. It supports xarray datasets."""
-        if not isinstance(ds, xr.Dataset):
-            raise RuntimeError(f"Sheerwater datasets must return xarray datasets. Received {type(ds)}.")
         # Clip and mask the dataset
-        ds = self.clip_and_mask(ds)
+        ds = SheerwaterDataset.post_process(self, ds)
 
         # Run the events on the dataset
         if self.event is not None and 'processed' not in ds.attrs:
@@ -291,11 +294,8 @@ class forecast(SheerwaterDataset):
         Enables blending the forecast and observations, event definition, conversion of init time to valid time,
         and general spatial postprocessing, including region clipping and masking.
         """
-        if not isinstance(ds, xr.Dataset):
-            raise RuntimeError(f"Sheerwater forecasts must return xarray datasets. Received {type(ds)}.")
-
         # Clip and mask the dataset
-        ds = self.clip_and_mask(ds)
+        ds = SheerwaterDataset.post_process(self, ds)
 
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
