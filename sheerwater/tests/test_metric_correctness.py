@@ -164,8 +164,21 @@ def _single_comparison(test_case):
         region=region,
         mask=mask,
         grid=grid,
-        recompute=True,
+        recompute=False,
     )
+    # Convert from new metric format to old format by selection region and lead time (archive logic)
+    if ds_old is not None:
+        if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
+            lead_dict = {
+                'week1': 0,
+                'week2': 7,
+                'week3': 14,
+                'week4': 21,
+                'week5': 28,
+                'week6': 35,
+            }
+            ds_old = ds_old.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
+
     # Compare
     if ds_new is None and ds_old is None:
         print("Both functions returned None")
