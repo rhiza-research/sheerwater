@@ -6,13 +6,23 @@ import pandas as pd
 import xarray as xr
 
 
+def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
+    """A light wrapper around standard groupby aggregation functions."""
+    # Note, for some reason:
+    # ds.groupby('region').mean(['lat', 'lon'], skipna=True).compute()
+    # raises:
+    # *** AttributeError: 'bool' object has no attribute 'blockwise'
+    # or
+    # *** TypeError: reindex_intermediates() missing 1 required positional argument: 'array_type'
+    # So we have to do it via apply
+    if agg_fn == 'mean':
+        return ds.mean(dims, skipna=True)
+    else:
+        return ds.sum(dims, skipna=True)
+
+
 def groupby_time(ds, time_grouping, agg_fn='mean'):
-    """Aggregate a statistic over time. If agg_fn is None, add the grouping coordinates but perform no aggregation."""
-    # Implement MAM, JJA, SON, DJF seasons
-    season_mapping = {
-        1: 'DJF', 2: 'DJF', 3: 'MAM', 4: 'MAM', 5: 'MAM', 6: 'JJA', 7: 'JJA', 8: 'JJA',
-        9: 'SON', 10: 'SON', 11: 'SON', 12: 'DJF',
-    }
+    """Aggregate a statistic over time."""
     if time_grouping is not None:
         if time_grouping == 'month_of_year':
             coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
@@ -27,25 +37,13 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         elif time_grouping == 'daily':
             coords = [pd.to_datetime(x).date() for x in ds.time.values]
             raise ValueError("Invalid time grouping")
-        elif time_grouping == 'season_of_year':
-            coords = [season_mapping[pd.to_datetime(x).month] for x in ds.time.values]
-        elif time_grouping == 'season':
-            # Implement MAM, JJA, SON, DJF seasons
-            coords = [f"{season_mapping[pd.to_datetime(x).month]}-{pd.to_datetime(x).year:04d}" for x in ds.time.values]
-        else:
-            raise ValueError("Invalid time grouping")
-
         ds = ds.assign_coords(group=("time", coords))
-        if agg_fn is None:
-            return ds
 
         if agg_fn == 'mean':
             ds = ds.groupby("group").mean(dim="time", skipna=True)
-        elif agg_fn == 'sum':
+        else:
             # min_count ensures that all nan groups return nan
             ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
-        else:
-            raise ValueError(f"Invalid aggregation function {agg_fn}")
         ds = ds.rename({"group": "time"})
         ds = ds.assign_coords(time=ds['time'].astype('<U10'))
     else:
