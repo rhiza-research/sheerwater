@@ -135,8 +135,9 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         "grid": grid,
     }
     if overwrite_gold_testing:
-        # Run gold_testing_metric (same call structure as archive)
-        ds_old = gold_testing_metric(**kwargs, recompute=True, cache_mode='overwrite')
+        # Run the new metric
+        ds_old = gold_testing_metric(**kwargs, recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
+        return ds_old, None, 0
     else:
         # Run gold_testing_metric (same call structure as archive)
         ds_old = gold_testing_metric(**kwargs, recompute=False, cache_mode='read_only_strict')

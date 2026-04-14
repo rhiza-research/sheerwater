@@ -46,6 +46,7 @@ def pytest_collection_modifyitems(items):
         if 'remote_dask_cluster' not in item.fixturenames:
             item.fixturenames.append('use_local_cache')
 
+
 @pytest.fixture
 def use_local_cache(monkeypatch):
     """Fixutre to overwrite nuthatch and force the use of local caching."""
@@ -64,13 +65,13 @@ def overwrite_gold_testing(request):
     return request.config.getoption("--overwrite-gold-testing")
 
 
-
 # Scope to module so the memoizer is active throughout performance tests
 @pytest.fixture(scope='module')
 def remote_dask_cluster():
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
     from sheerwater.utils import start_remote
 
+    # client = start_remote(remote_config="xlarge_cluster", remote_name='eve')
     client = start_remote(remote_config="xlarge_cluster")
     yield
 

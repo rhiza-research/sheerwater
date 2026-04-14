@@ -367,6 +367,14 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     # Roll over the lead-time dimension
     ds = roll_and_agg(ds, agg=agg_days, agg_col='lead_time', agg_fn='mean')
 
+    if agg_days in [7, 14]:
+        # Select specific weekly leads relevant at the weekly and biweekly aggregrations
+        leads = [0, 7, 14, 21, 28, 35]
+        import numpy as np
+        leads = [np.timedelta64(lead, 'D') for lead in leads]
+        leads = [ll for ll in leads if ll in ds.lead_time.values]
+        ds = ds.sel(lead_time=leads)
+
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
