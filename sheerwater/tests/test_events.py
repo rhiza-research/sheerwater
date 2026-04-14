@@ -75,26 +75,50 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
         event='planting_suitability',
-        lookback_source='imerg',
         event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
                       'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
         grid="global1_5",
         mask='lsm',
         region='kenya')
 
+    assert len(ds.prediction_timedelta) == 27 # no lookback was added
     # No lanting suitability outside of 0 to 1
     assert (ds.precip > 1.0).sum().compute() == 0
     assert (ds.precip < 0.0).sum().compute() == 0
 
+    ds = ecmwf_ifs_er_debiased(
+        "2022-01-01", "2022-12-31",
+        event='planting_suitability',
+        event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
+                      'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+        lookback_source='imerg',
+        grid="global1_5",
+        mask='lsm',
+        region='kenya')
+
+    # Assert the the additional prediction timedelta have been added
+    assert len(ds.prediction_timedelta) == 57
+
     # Check that if we call with agg days it fails
     with pytest.raises(ValueError, match="Event planting_suitability requires agg_days to be 1."):
-        ds2 = ecmwf_ifs_er_debiased(
+        ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
             event='planting_suitability',
             agg_days=10,
             lookback_source='imerg',
             event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
                           'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+            grid="global1_5",
+            mask='lsm',
+            region='kenya')
+
+    # Check that if we call with agg days it fails
+    with pytest.raises(KeyError, match="agg_days"):
+        ecmwf_ifs_er_debiased(
+            "2022-01-01", "2022-12-31",
+            event='above_threshold',
+            lookback_source='imerg',
+            event_kwargs={'threshold': 0.5},
             grid="global1_5",
             mask='lsm',
             region='kenya')
