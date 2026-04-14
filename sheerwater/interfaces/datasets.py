@@ -6,7 +6,7 @@ from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
-                              add_spatial_attrs, check_spatial_attr, shift_by_days)
+                              add_spatial_attrs, check_spatial_attr, shift_by_days, desnify_fcst)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -68,6 +68,8 @@ class SheerwaterDataset(NuthatchProcessor):
         if self.variable is None:
             if self.event is None:
                 raise ValueError("Dataset decorator requires variable to be passed if no event is specified.")
+            elif self.event_fn.default_variable is None:
+                raise ValueError(f"Event {self.event} has no default variable.")
             else:
                 self.variable = self.event_fn.default_variable
                 args, kwargs = self.update_args_or_kwargs(
@@ -191,10 +193,8 @@ class data(SheerwaterDataset):
 
 
 @spatial()
-@cache(cache=True, cache_args=['lookback_source', 'variable', 'grid', 'agg_days'],
+@cache(cache=True, cache_args=['lookback_source', 'variable', 'grid'],
        backend_kwargs={
-    # NOTE: it's really important here that the chunks match the forecast chunks, otherwise the concat will
-    # explode the number of chunks and make everything very slow
            'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
            'chunk_by_arg': {
                'grid': {
@@ -202,19 +202,16 @@ class data(SheerwaterDataset):
                },
            }
 })
-def obs_with_lookback(start_time, end_time, fcst_times, lookback_source, variable,
-                      grid, agg_days,  mask='lsm', region='global'):  # noqa: ARG001
+def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
     ds_obs = get_data(lookback_source)(start_time=start_time, end_time=end_time,
                                        variable=variable, grid=grid,
-                                       agg_days=agg_days,
                                        mask=None, region='global')
     lookback_days = 30  # Hard coded 30 day lookback period
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
-    ds_obs = ds_obs.sel(init_time=fcst_times)
     return ds_obs
 
 
@@ -238,24 +235,6 @@ class forecast(SheerwaterDataset):
             del kwargs['densify']
         return args, kwargs
 
-    def desnify_fcst(self, fcst):
-        """Desnify the forecast."""
-        ds = convert_init_time_to_pred_time(fcst)
-
-        # Forward fill NaNs along the prediction_timedelta dimension, takes the `staler` value for the same timepoint
-        ds = ds.bfill(dim='prediction_timedelta')
-        # Forward fill NaNs along the time dimension, takes the 'staler' value for the same timepoint
-        # This covers what happens off the end of the forecast period from the previous init time, where
-        # there are no values to fill backwards from
-        ds = ds.ffill(dim='time')
-
-        # Convert back to init time
-        ds = convert_pred_time_to_init_time(ds)
-
-        # Trim back to origional start and end times
-        ds = ds.sel(init_time=slice(self.start_time, self.end_time))
-        return ds
-
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
         """Blend the forecast and observations.
 
@@ -269,14 +248,15 @@ class forecast(SheerwaterDataset):
         """
         if lookback_days == 0:
             return fcst
+        if lookback_days > 30:
+            warnings.warn(
+                f"Lookback days {lookback_days} is greater than 30. Only the last 30 days of observations will be used.")
 
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
-        fcst_times = fcst.init_time.values
-        obs = obs_with_lookback(new_start, new_end, fcst_times=fcst_times,
-                                lookback_source=lookback_source, variable=self.variable,
-                                grid=self.grid, agg_days=self.agg_days, mask=self.mask, region=self.region)
+        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source, variable=self.variable,
+                                grid=self.grid, mask=self.mask, region=self.region)
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
@@ -305,7 +285,7 @@ class forecast(SheerwaterDataset):
             lookback_days = duration - 1  # Go back one day less than the event duration
 
             if self.densify or (self.event_kwargs.get('densify', False)):
-                ds = self.desnify_fcst(ds)
+                ds = desnify_fcst(ds)
             if self.lookback_source is not None:
                 ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
             elif lookback_days > 0:

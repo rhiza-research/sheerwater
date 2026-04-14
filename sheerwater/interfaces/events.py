@@ -2,17 +2,18 @@
 from functools import wraps
 import numpy as np
 import xarray as xr
-from sheerwater.utils import roll_and_agg, groupby_time
+from sheerwater.utils import roll_and_agg
 
 EVENT_REGISTRY = {}
 
 
-def event(default_variable: str, duration):
+def event(default_variable=None, duration=0):
     """Stub decorator for event definitions. Extend with registration or wrapping as needed.
 
     Args:
        default_variable: The default variable for the event.
-       duration: The duration of the event. Can be a callable or an integer.
+       duration: The duration of the event. Can be a callable that takes in event kwargs or an integer.
+            For exmaple, `11` and `lambda kwargs: kwargs['agg_days'] + 1` are both valid.
     """
 
     def decorator(fn):

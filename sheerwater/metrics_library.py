@@ -395,29 +395,29 @@ class CategoricalMetric(Metric):
         ############################################################
         event = self.event if self.event is not None else self.default_event
         if event == 'digitized':
-            if 'bins' not in self.event_kwargs:
-                # We try to figure out the bins from the metric key
-                if self.metric_data['key'] == 'none':
-                    raise ValueError("A categorical metric must have a key that specifies the bins.")
+            # We try to figure out the bins from the metric key
+            if self.metric_data['key'] != 'none':
                 bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
-                if len(bins) > 10:
-                    raise ValueError("Categorical metrics can only have up to 10 bins.")
-                self.event_kwargs['bins'] = bins
+                if 'bins' not in self.event_kwargs:
+                    self.event_kwargs['bins'] = bins
+                elif self.event_kwargs['bins'] != bins:
+                    raise ValueError("Bins passed to the event must match the bins specified in the key.")
         elif event == 'above_threshold':
-            if 'threshold' not in self.event_kwargs:
-                # We try to figure out the threshhold from the metric key
-                if self.metric_data['key'] == 'none':
-                    raise ValueError("A categorical metric must have a key that specifies the threshold.")
+            # We try to figure out the threshhold from the metric key
+            if self.metric_data['key'] != 'none':
                 threshold = float(self.metric_data['key'].split('-')[0])
-                self.event_kwargs['threshold'] = threshold
-
+                if 'threshold' not in self.event_kwargs:
+                    self.event_kwargs['threshold'] = threshold
+                elif self.event_kwargs['threshold'] != threshold:
+                    raise ValueError("Threshold passed does not match the threshold specified in the key.")
+        # Handle agg days
         if event in ('digitized', 'above_threshold'):
-            if 'agg_days' in self.event_kwargs and self.event_kwargs['agg_days'] != self.agg_days:
-                raise ValueError(
-                    "The agg_days passed to the categorical metric must match the agg_days passed to the metric.")
-            if 'agg_days' not in self.event_kwargs:
-                self.event_kwargs['agg_days'] = self.agg_days
-                self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
+            if self.agg_days != 1:
+                if 'agg_days' not in self.event_kwargs:
+                    self.event_kwargs['agg_days'] = self.agg_days
+                    self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
+                elif self.event_kwargs['agg_days'] != self.agg_days:
+                    raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)

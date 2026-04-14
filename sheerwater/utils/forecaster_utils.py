@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 
 """Variable-related utility functions for all parts of the data pipeline."""
+import xarray as xr
 
 
 def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
@@ -25,6 +26,44 @@ def convert_pred_time_to_init_time(ds, time_dim='time',
     ds = ds.rename({lead_time_dim: 'prediction_timedelta'})
     ds = ds.drop_vars(time_dim)
     return ds
+
+
+def desnify_fcst(fcst):
+    """Desnify the forecast."""
+    if not isinstance(fcst, xr.Dataset):
+        raise ValueError(f"fcst must be an xarray dataset. Received {type(fcst)}.")
+
+    # Figure out which input mode the data is in
+    if 'init_time' not in fcst.coords and 'prediction_timedelta' in fcst.coords:
+        mode = 'init_time'
+    elif 'time' in fcst.coords and 'prediction_timedelta' in fcst.coords:
+        mode = 'time'
+    else:
+        raise ValueError("Forecast is not in standard mode.")
+
+    if mode == 'init_time':
+        # Convert to time mode
+        start_time = fcst.time.values.min()
+        end_time = fcst.time.values.max()
+        fcst = convert_init_time_to_pred_time(fcst)
+    else:
+        temp = convert_pred_time_to_init_time(fcst)
+        start_time = temp.init_time.values.min()
+        end_time = temp.init_time.values.max()
+
+    # Forward fill NaNs along the prediction_timedelta dimension, takes the `staler` value for the same timepoint
+    fcst = fcst.bfill(dim='prediction_timedelta')
+    # Forward fill NaNs along the time dimension, takes the 'staler' value for the same timepoint
+    # This covers what happens off the end of the forecast period from the previous init time, where
+    # there are no values to fill backwards from
+    fcst = fcst.ffill(dim='time')
+
+    # Convert back to init time
+    fcst = convert_pred_time_to_init_time(fcst)
+
+    # Trim back to origional start and end times, b/c the conversion will add new times at
+    fcst = fcst.sel(init_time=slice(start_time, end_time))
+    return fcst
 
 
 def get_variable(variable_name, variable_type='era5'):
