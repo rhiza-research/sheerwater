@@ -249,8 +249,7 @@ class forecast(SheerwaterDataset):
         if lookback_days == 0:
             return fcst
         if lookback_days > 30:
-            warnings.warn(
-                f"Lookback days {lookback_days} is greater than 30. Only the last 30 days of observations will be used.")
+            warnings.warn(f"Lookback days {lookback_days} is greater than 30, only the last 30 days will be used.")
 
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
