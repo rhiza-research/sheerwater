@@ -135,7 +135,6 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         "mask": mask,
         "grid": grid,
     }
-    import pdb; pdb.set_trace()
     if overwrite_gold_testing:
         # Run gold_testing_metric (same call structure as archive)
         ds_old = gold_testing_metric(**kwargs, recompute=True, cache_mode='overwrite')

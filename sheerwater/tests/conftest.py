@@ -29,7 +29,6 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 #     set_global_cache_variables(cache_mode="local")
 
 
-@pytest.hookimpl
 def pytest_addoption(parser):
     """Add test options for controlling cache behavior and baseline overwrites."""
     parser.addoption(
@@ -40,7 +39,7 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.hookimpl
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
     """Only use the nuthatch local override on tests that don't use remote."""
     for item in items:
