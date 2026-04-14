@@ -23,5 +23,3 @@ def test_desnify_fcst(remote_dask_cluster):  # noqa: ARG001
     ds3 = ds_dense.sel(init_time="2016-01-06").isel(prediction_timedelta=-1)
     ds4 = ds_dense.sel(init_time="2016-01-06").isel(prediction_timedelta=-3)
     assert (ds3 - ds4).precip.max() < 1e-10
-    import pdb
-    pdb.set_trace()
