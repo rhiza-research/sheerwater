@@ -159,12 +159,10 @@ class data(SheerwaterDataset):
         # Adjust the end_time to account for the aggregation days, so that
         # agg days past the end time is included in the final aggregation.
         end_time = bound_args.arguments.get('end_time', None)
+        event_duration = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
+            else self.event_fn.duration
         if end_time is not None:
-            if 'agg_days' in self.event_kwargs:
-                agg_days = self.event_kwargs['agg_days']
-            else:
-                agg_days = self.agg_days
-            end_time = shift_by_days(end_time, agg_days-1)
+            end_time = shift_by_days(end_time, event_duration-1)
         args, kwargs = self.update_args_or_kwargs(
             values={'end_time': end_time}, args=args, kwargs=kwargs, bound_args=bound_args)
         return args, kwargs
@@ -302,8 +300,9 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
-            lookback_days = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
+            duration = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
                 else self.event_fn.duration
+            lookback_days = duration - 1  # Go back one day less than the event duration
 
             if self.densify or (self.event_kwargs.get('densify', False)):
                 ds = self.desnify_fcst(ds)
