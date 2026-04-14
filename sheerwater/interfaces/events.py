@@ -43,6 +43,8 @@ def above_threshold(ds, agg_days=10, threshold=10.0):
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
     ds = digitized(ds, agg_days=agg_days, bins=bins)
+    # Convert from the outptut of digitized (1,2) to floating (0, 1)
+    ds = ds.astype(float) - 1.0
     return ds
 
 

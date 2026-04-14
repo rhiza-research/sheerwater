@@ -5,6 +5,7 @@ import xarray as xr
 
 from sheerwater.interfaces.events import above_threshold, get_event_fn, planting_suitability
 from sheerwater.metrics import metric
+from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
 pytestmark = pytest.mark.default
 
@@ -67,3 +68,33 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 region=region)
 
     assert float(ds.mae.isel(prediction_timedelta=0).values) == 0.0
+
+
+def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
+    """Check that events on the forecaster work."""
+    ds = ecmwf_ifs_er_debiased(
+        "2022-01-01", "2022-12-31",
+        event='planting_suitability',
+        lookback_source='imerg',
+        event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
+                      'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+        grid="global1_5",
+        mask='lsm',
+        region='kenya')
+
+    # No lanting suitability outside of 0 to 1
+    assert (ds.precip > 1.0).sum().compute() == 0
+    assert (ds.precip < 0.0).sum().compute() == 0
+
+    # Check that if we call with agg days it fails
+    with pytest.raises(ValueError, match="Event planting_suitability requires agg_days to be 1."):
+        ds2 = ecmwf_ifs_er_debiased(
+            "2022-01-01", "2022-12-31",
+            event='planting_suitability',
+            agg_days=10,
+            lookback_source='imerg',
+            event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
+                          'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+            grid="global1_5",
+            mask='lsm',
+            region='kenya')

@@ -158,26 +158,26 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [1, 2]
-    return (data['obs'] == 1) & (data['fcst'] == 2)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] < 0.5) & (data['fcst'] >= 0.5)
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [1, 2]
-    return (data['obs'] == 2) & (data['fcst'] == 1)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] >= 0.5) & (data['fcst'] < 0.5)
 
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [1, 2]
-    return (data['obs'] == 2) & (data['fcst'] == 2)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] >= 0.5) & (data['fcst'] >= 0.5)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [1, 2]
-    return (data['obs'] == 1) & (data['fcst'] == 1)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] < 0.5) & (data['fcst'] < 0.5)
 
 
 @statistic(cache=False, name='n_correct')

@@ -4,7 +4,7 @@ import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
-
+import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
@@ -307,7 +307,11 @@ class forecast(SheerwaterDataset):
 
             if self.densify or (self.event_kwargs.get('densify', False)):
                 ds = self.desnify_fcst(ds)
-            ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
+            if self.lookback_source is not None:
+                ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
+            elif lookback_days > 0:
+                warnings.warn(
+                    f"Lookback days {lookback_days} specified but no lookback source provided. Ignoring lookback days.")
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
             # For the first event, rename prediction timedelta to time to act along leads
