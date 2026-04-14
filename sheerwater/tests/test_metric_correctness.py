@@ -135,10 +135,10 @@ def _single_comparison(test_case):
         "grid": grid,
     }
     # Run the new metric
-    ds_new = metric(**kwargs, recompute=recompute, cache_mode='overwrite')
+    ds_new = metric(**kwargs, recompute=recompute, cache_mode='read_only')
 
     # Run gold_testing_metric (same call structure as archive)
-    ds_old = gold_testing_metric(**kwargs, recompute=False)
+    ds_old = gold_testing_metric(**kwargs, recompute=False, cache_mode='read_only_strict')
 
     # Convert from new metric format to old format by selection region and lead time (archive logic)
     if lead is not None:

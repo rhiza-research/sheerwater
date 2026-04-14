@@ -357,11 +357,11 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
     if debiased:
         run_type = 'perturbed' if prob_type == 'probabilistic' else 'average'
         ds = ifs_extended_range_debiased_regrid(forecast_start, forecast_end, variable,
-                                                margin_in_days=6, run_type=run_type,
-                                                time_group='daily', grid=grid, mask=mask, region=region)
+                                                margin_in_days=6, run_type=run_type, time_group='daily',
+                                                grid=grid, mask=mask, region=region)
     else:
         ds = ifs_extended_range(forecast_start, forecast_end, variable,
-                                prob_type=prob_type, agg_days=agg_days,
+                                forecast_type='forecast', run_type=run_type, time_group='daily',
                                 grid=grid, mask=mask, region=region)
 
     # Roll over the lead-time dimension
