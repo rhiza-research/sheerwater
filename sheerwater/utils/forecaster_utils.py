@@ -28,7 +28,7 @@ def convert_pred_time_to_init_time(ds, time_dim='time',
     return ds
 
 
-def desnify_fcst(fcst):
+def desnify_fcst(fcst, start_time=None, end_time=None):
     """Desnify the forecast."""
     if not isinstance(fcst, xr.Dataset):
         raise ValueError(f"fcst must be an xarray dataset. Received {type(fcst)}.")
@@ -43,13 +43,11 @@ def desnify_fcst(fcst):
 
     if mode == 'init_time':
         # Convert to time mode
-        start_time = fcst.init_time.values.min()
-        end_time = fcst.init_time.values.max()
+        if start_time is None:
+            start_time = fcst.init_time.values.min()
+        if end_time is None:
+            end_time = fcst.init_time.values.max()
         fcst = convert_init_time_to_pred_time(fcst)
-    else:
-        temp = convert_pred_time_to_init_time(fcst)
-        start_time = temp.init_time.values.min()
-        end_time = temp.init_time.values.max()
 
     # Forward fill NaNs along the prediction_timedelta dimension, takes the `staler` value for the same timepoint
     fcst = fcst.bfill(dim='prediction_timedelta')

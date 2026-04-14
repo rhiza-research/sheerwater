@@ -17,6 +17,7 @@ STATION_ACCESSORS = [
 
 pytestmark = pytest.mark.default
 
+
 @pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
 def test_station_accessor_source_grid(name, fn):
     """Test that source grid works for stations."""
@@ -32,6 +33,7 @@ def test_station_accessor_source_grid(name, fn):
     assert 'time' in ds_1.dims
     assert 'lat' in ds_1.coords
     assert 'lon' in ds_1.coords
+
 
 @pytest.mark.parametrize("name,fn", STATION_ACCESSORS)
 def test_station_accessors_roll_with_agg_days(name, fn):
@@ -78,6 +80,10 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global0_25",
+        recompute=True,
+        cache_mode='read_only',
+        memoize_forecast=False,
+        memoize_truth=False
     )
     assert "mae" in result
     assert result["mae"].size >= 1
@@ -91,6 +97,10 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
+        recompute=True,
+        cache_mode='read_only',
+        memoize_forecast=False,
+        memoize_truth=False
     )
     assert "mae" in result
     assert result["mae"].size >= 1
@@ -104,6 +114,10 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
+        recompute=True,
+        cache_mode='read_only',
+        memoize_forecast=False,
+        memoize_truth=False
     )
     assert "mae" in result
     assert result["mae"].size >= 1
