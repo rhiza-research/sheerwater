@@ -273,16 +273,3 @@ def test_metric_correctness(remote_dask_cluster, test_case, overwrite_gold_testi
     """One test per metric/forecast/variable/region combination; compares to cached baseline."""
     _, passed, _ = _run_single_case(test_case, overwrite_gold_testing=overwrite_gold_testing)
     assert passed
-
-
-if __name__ == "__main__":
-    from sheerwater.utils import start_remote
-    cluster = start_remote(remote_config='xlarge_cluster')
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--overwrite-gold-testing", action="store_true", help="Run in overwrite mode")
-    args = parser.parse_args()
-
-    cluster = start_remote(remote_config='xlarge_cluster')
-    test_metric_correctness(cluster, METRIC_TEST_CASES, overwrite_gold_testing=args.overwrite_gold_testing)
