@@ -2,7 +2,7 @@
 from functools import wraps
 import numpy as np
 import xarray as xr
-from sheerwater.utils import roll_and_agg
+from sheerwater.utils import roll_and_agg, groupby_time
 
 EVENT_REGISTRY = {}
 
@@ -91,6 +91,28 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
     return (wet_spell * dry_spell).assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=0)
+def first_hit(ds, hit_threshold=0.5, time_grouping=None):
+    """A function to calculate the above threshold of a dataset."""
+    nanmask = ds.isnull()
+    ds = ds.where(ds >= hit_threshold, 0.0)
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+
+    def first_hit(x):
+        cumsum = x.cumsum(dim="time")
+        return (cumsum == 1) & (x == 1)
+
+    # Ensure that the timedimension is sorted
+    ds = ds.sortby("time")
+    first_hit = ds.groupby("group").map(first_hit)
+
+    # Restore the null pattern and attributes
+    first_hit = first_hit.where(~nanmask, other=np.nan)
+    first_hit = first_hit.assign_attrs(ds.attrs)
+    return first_hit
 
 
 def get_event_fn(name):
