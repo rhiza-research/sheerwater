@@ -34,7 +34,7 @@ def desnify_fcst(fcst):
         raise ValueError(f"fcst must be an xarray dataset. Received {type(fcst)}.")
 
     # Figure out which input mode the data is in
-    if 'init_time' not in fcst.coords and 'prediction_timedelta' in fcst.coords:
+    if 'init_time' in fcst.coords and 'prediction_timedelta' in fcst.coords:
         mode = 'init_time'
     elif 'time' in fcst.coords and 'prediction_timedelta' in fcst.coords:
         mode = 'time'
@@ -43,8 +43,8 @@ def desnify_fcst(fcst):
 
     if mode == 'init_time':
         # Convert to time mode
-        start_time = fcst.time.values.min()
-        end_time = fcst.time.values.max()
+        start_time = fcst.init_time.values.min()
+        end_time = fcst.init_time.values.max()
         fcst = convert_init_time_to_pred_time(fcst)
     else:
         temp = convert_pred_time_to_init_time(fcst)

@@ -61,7 +61,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 metric_name='mae',
                 spatial=False, grid=grid,
                 recompute=True,
-                cache_mode='overwrite',
+                cache_mode='read_only',
                 event='planting_suitability',
                 event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
                               'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
@@ -81,7 +81,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
         mask='lsm',
         region='kenya')
 
-    assert len(ds.prediction_timedelta) == 27 # no lookback was added
+    assert len(ds.prediction_timedelta) == 27  # no lookback was added
     # No lanting suitability outside of 0 to 1
     assert (ds.precip > 1.0).sum().compute() == 0
     assert (ds.precip < 0.0).sum().compute() == 0

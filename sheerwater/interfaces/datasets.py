@@ -284,7 +284,7 @@ class forecast(SheerwaterDataset):
             # If the first event has a lookback period, blend in the lookback observations
             duration = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
                 else self.event_fn.duration
-            lookback_days = duration - 1  # Go back one day less than the event duration
+            lookback_days = duration  # Go back one day less than the event duration
 
             if self.densify or (self.event_kwargs.get('densify', False)):
                 ds = desnify_fcst(ds)
