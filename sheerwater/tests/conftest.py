@@ -29,12 +29,23 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 #     set_global_cache_variables(cache_mode="local")
 
 
+def pytest_addoption(parser):
+    """Add test options for controlling cache behavior and baseline overwrites."""
+    parser.addoption(
+        "--overwrite-gold-testing",
+        action="store_true",
+        default=False,
+        help="Recompute and overwrite cached gold baselines in correctness tests.",
+    )
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(items):
     """Only use the nuthatch local override on tests that don't use remote."""
     for item in items:
         if 'remote_dask_cluster' not in item.fixturenames:
             item.fixturenames.append('use_local_cache')
+
 
 @pytest.fixture
 def use_local_cache(monkeypatch):
@@ -48,6 +59,11 @@ def use_local_cache(monkeypatch):
     monkeypatch.setattr(_nuthatch_mod, "get_cache_mode", _patched_get_cache_mode)
 
 
+@pytest.fixture
+def overwrite_gold_testing(request):
+    """Whether correctness tests should overwrite gold baselines."""
+    return request.config.getoption("--overwrite-gold-testing")
+
 
 # Scope to module so the memoizer is active throughout performance tests
 @pytest.fixture(scope='module')
@@ -55,7 +71,7 @@ def remote_dask_cluster():
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
     from sheerwater.utils import start_remote
 
-    client = start_remote(remote_config="xlarge_cluster")
+    client = start_remote(remote_config=["xxlarge_cluster", "xlarge_node"])
     yield
 
     # Close the client so other tests don't have to use it
