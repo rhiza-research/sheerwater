@@ -71,7 +71,6 @@ def remote_dask_cluster():
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
     from sheerwater.utils import start_remote
 
-    # client = start_remote(remote_config="xlarge_cluster", remote_name='eve')
     client = start_remote(remote_config="xlarge_cluster")
     yield
 

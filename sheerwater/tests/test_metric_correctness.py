@@ -75,6 +75,8 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     """Run new metric(), load old metric from cache, compare. Returns (ds_new, ds_old, result_code)."""
     test_case = dict(test_case)
     test_case.setdefault("region", "global")
+    test_case.setdefault("start_time", "2016-01-01")
+    test_case.setdefault("end_time", "2022-12-31")
     test_case.setdefault("space_grouping", None)
     test_case.setdefault("forecast", "ecmwf_ifs_er_debiased")
     test_case.setdefault("truth", "era5")
@@ -95,6 +97,8 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     variable = test_case["variable"]
     space_grouping = test_case["space_grouping"]
     region = test_case["region"]
+    start_time = test_case["start_time"]
+    end_time = test_case["end_time"]
     try:
         lead = int(test_case["lead"])
     except ValueError:
@@ -111,15 +115,15 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | variable={variable} | "
         f"space_grouping={space_grouping} | region={region} | lead={lead} days | agg_days={agg_days} | "
         f"event={event} | event_kwargs={event_kwargs} | spatial={spatial} | mask={mask} | "
-        f"time_grouping={time_grouping} | grid={grid}"
+        f"time_grouping={time_grouping} | grid={grid} | start_time={start_time} | end_time={end_time}"
     )
 
     recompute = test_case.get("recompute", ["global_statistic", "metric"])
 
     # Run grouped_metric_new (same call structure as archive)
     kwargs = {
-        "start_time": "2016-01-01",
-        "end_time": "2022-12-31",
+        "start_time": start_time,
+        "end_time": end_time,
         "variable": variable,
         "forecast": forecast,
         "truth": truth,
@@ -136,7 +140,8 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     }
     if overwrite_gold_testing:
         # Run the new metric
-        ds_old = gold_testing_metric(**kwargs, recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
+        ds_old = gold_testing_metric(
+            **kwargs, recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
         return ds_old, None, 0
     else:
         # Run gold_testing_metric (same call structure as archive)
@@ -227,11 +232,12 @@ METRIC_TEST_CASES = [
     {"name": "5_pod_5", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "pod-5", "variable": "precip", "spatial": True},
     {"name": "6_rmse", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "rmse", "variable": "precip", "spatial": True},
     {"name": "7_bias", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "bias", "variable": "precip", "spatial": True},
-    {"name": "8_crps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": True},
+    {"name": "8_crps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": False,
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
     {"name": "9_crps_salient_africa", "forecast": "salient", "metric_name": "crps",
         "variable": "precip", "spatial": True, "region": "africa"},
     {"name": "10_smape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
-    # {"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
+    {"name": "11_mape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mape", "variable": "precip", "spatial": False},
     {"name": "12_seeps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "seeps", "variable": "precip", "spatial": True},
     {"name": "13_pearson", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "pearson", "variable": "precip", "spatial": True},

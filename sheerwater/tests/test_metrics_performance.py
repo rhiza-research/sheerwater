@@ -202,8 +202,9 @@ PERFORMANCE_TEST_CASES = [
     {"name": "11_global0_25", "grid": "global0_25"},
     {"name": "12_pod_global", "grid": "global1_5", "metric_name": "pod-5"},
     {"name": "13_pod_spatial", "grid": "global1_5", "metric_name": "pod-5", "spatial": True},
-    {"name": "14_pod_global0_25", "grid": "global0_25", "metric_name": "pod-5"},
-    {"name": "15_crps", "metric_name": "crps", "variable": "precip"},
+    {"name": "14_pod_global0_25", "grid": "global0_25", "metric_name": "pod-5",
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    {"name": "15_crps", "metric_name": "crps", "variable": "precip", "start_time": "2016-01-01", "end_time": "2016-12-31"},
 ]
 
 
@@ -220,6 +221,9 @@ def test_metric_performance(remote_dask_cluster, case):  # noqa: ARG001
     metric_name = overrides.get("metric_name", "mae")
     expected_var = _expected_var(metric_name)
     config_str = ", ".join(f"{k}={v}" for k, v in sorted(overrides.items())) if overrides else "default"
+
+    import pdb
+    pdb.set_trace()
 
     _print_metric_performance(
         case["name"],

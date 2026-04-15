@@ -15,9 +15,9 @@
     "warm_metric_only_sec": 16.776541
   },
   "4_heidke": {
-    "cold_sec": 11.050479,
-    "warm_full_sec": 10.56694,
-    "warm_metric_only_sec": 10.895879
+    "cold_sec": 75.649465,
+    "warm_full_sec": 10.616151,
+    "warm_metric_only_sec": 10.775457
   },
   "5_acc": {
     "cold_sec": 13.508433,
@@ -65,13 +65,13 @@
     "warm_metric_only_sec": 19.069614
   },
   "14_pod_global0_25": {
-    "cold_sec": 34.881481,
-    "warm_full_sec": 44.592503,
-    "warm_metric_only_sec": 23.81602
+    "cold_sec": 68.469905,
+    "warm_full_sec": 28.16823,
+    "warm_metric_only_sec": 24.155331
   },
   "15_crps": {
-    "cold_sec": 113.279019,
-    "warm_full_sec": 25.98297,
-    "warm_metric_only_sec": 25.863873
+    "cold_sec": 298.087107,
+    "warm_full_sec": 66.276507,
+    "warm_metric_only_sec": 73.815298
   }
 }
