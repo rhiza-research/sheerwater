@@ -223,9 +223,6 @@ def test_metric_performance(remote_dask_cluster, case):  # noqa: ARG001
     expected_var = _expected_var(metric_name)
     config_str = ", ".join(f"{k}={v}" for k, v in sorted(overrides.items())) if overrides else "default"
 
-    import pdb
-    pdb.set_trace()
-
     _print_metric_performance(
         case["name"],
         config_str,
