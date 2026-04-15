@@ -204,7 +204,8 @@ PERFORMANCE_TEST_CASES = [
     {"name": "13_pod_spatial", "grid": "global1_5", "metric_name": "pod-5", "spatial": True},
     {"name": "14_pod_global0_25", "grid": "global0_25", "metric_name": "pod-5",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
-    {"name": "15_crps", "metric_name": "crps", "variable": "precip", "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    {"name": "15_crps", "metric_name": "crps", "variable": "precip",
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
 ]
 
 
