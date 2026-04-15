@@ -266,7 +266,8 @@ METRIC_TEST_CASES = [
     {"name": "26_mae_nonspatial", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "mae", "variable": "precip", "spatial": False},
     {"name": "27_brier", "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "brier-10", "variable": "precip", "spatial": False},
+        "metric_name": "brier-10", "variable": "precip", "spatial": False,
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
 ]
 
 
