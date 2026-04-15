@@ -29,24 +29,20 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 #     set_global_cache_variables(cache_mode="local")
 
 
-def pytest_addoption(parser):
-    """Add test options for controlling cache behavior and baseline overwrites."""
-    parser.addoption(
-        "--overwrite-gold-testing",
-        action="store_true",
-        default=False,
-        help="Recompute and overwrite cached gold baselines in correctness tests.",
-    )
-
-
 @pytest.hookimpl(trylast=True)
 def pytest_addoption(parser):
-    """Add test options for controlling local-cache monkeypatch behavior."""
+    """Add test options for controlling behavior."""
     parser.addoption(
         "--disable-local-cache",
         action="store_true",
         default=False,
         help="Disable the use of local-cache monkeypatch fixture.",
+    )
+    parser.addoption(
+        "--overwrite-gold-testing",
+        action="store_true",
+        default=False,
+        help="Recompute and overwrite cached gold baselines in correctness tests.",
     )
 
 
