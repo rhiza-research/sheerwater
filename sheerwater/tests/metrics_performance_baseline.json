@@ -5,14 +5,14 @@
     "warm_metric_only_sec": 10.662951
   },
   "2_mae_spatial": {
-    "cold_sec": 26.88103,
-    "warm_full_sec": 20.259039,
-    "warm_metric_only_sec": 19.96449
+    "cold_sec": 28.389201,
+    "warm_full_sec": 20.741793,
+    "warm_metric_only_sec": 20.582525
   },
   "3_seeps": {
-    "cold_sec": 60.347854,
-    "warm_full_sec": 31.103543,
-    "warm_metric_only_sec": 16.776541
+    "cold_sec": 94.714293,
+    "warm_full_sec": 88.777648,
+    "warm_metric_only_sec": 15.494474
   },
   "4_heidke": {
     "cold_sec": 75.649465,
@@ -20,49 +20,49 @@
     "warm_metric_only_sec": 10.775457
   },
   "5_acc": {
-    "cold_sec": 13.508433,
-    "warm_full_sec": 13.252155,
-    "warm_metric_only_sec": 12.960789
+    "cold_sec": 43.759917,
+    "warm_full_sec": 14.718295,
+    "warm_metric_only_sec": 13.399794
   },
   "6_time_None": {
-    "cold_sec": 10.310762,
-    "warm_full_sec": 10.37861,
-    "warm_metric_only_sec": 10.717786
+    "cold_sec": 45.51698,
+    "warm_full_sec": 10.787595,
+    "warm_metric_only_sec": 10.495754
   },
   "7_time_month": {
-    "cold_sec": 20.2252,
-    "warm_full_sec": 24.079287,
-    "warm_metric_only_sec": 32.659848
+    "cold_sec": 48.165005,
+    "warm_full_sec": 13.684552,
+    "warm_metric_only_sec": 14.734055
   },
   "8_time_year": {
-    "cold_sec": 33.47656,
-    "warm_full_sec": 21.997524,
-    "warm_metric_only_sec": 16.677425
+    "cold_sec": 45.675506,
+    "warm_full_sec": 14.525701,
+    "warm_metric_only_sec": 12.584305
   },
   "9_space_None": {
-    "cold_sec": 16.166578,
-    "warm_full_sec": 11.123265,
-    "warm_metric_only_sec": 11.85547
+    "cold_sec": 47.90642,
+    "warm_full_sec": 12.24553,
+    "warm_metric_only_sec": 11.817679
   },
   "10_space_country": {
-    "cold_sec": 17.644719,
-    "warm_full_sec": 13.775204,
-    "warm_metric_only_sec": 15.723945
+    "cold_sec": 48.956657,
+    "warm_full_sec": 13.417132,
+    "warm_metric_only_sec": 12.580573
   },
   "11_global0_25": {
-    "cold_sec": 71.552815,
-    "warm_full_sec": 42.792559,
-    "warm_metric_only_sec": 41.801806
+    "cold_sec": 77.594728,
+    "warm_full_sec": 49.909816,
+    "warm_metric_only_sec": 47.190214
   },
   "12_pod_global": {
-    "cold_sec": 10.872558,
-    "warm_full_sec": 10.843459,
-    "warm_metric_only_sec": 11.074713
+    "cold_sec": 76.813836,
+    "warm_full_sec": 11.270159,
+    "warm_metric_only_sec": 10.971621
   },
   "13_pod_spatial": {
-    "cold_sec": 24.342808,
-    "warm_full_sec": 16.343023,
-    "warm_metric_only_sec": 19.069614
+    "cold_sec": 56.169839,
+    "warm_full_sec": 17.795432,
+    "warm_metric_only_sec": 17.360154
   },
   "14_pod_global0_25": {
     "cold_sec": 68.469905,

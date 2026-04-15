@@ -79,8 +79,8 @@ def test_metric_stations_vs_tahmo():
         forecast="imerg",
         truth="stations",
         metric_name="mae",
-        grid="global0_25",
-        recompute=['global_statistic', 'metric'],
+        grid="global1_5",
+        recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,
         memoize_truth=False
@@ -97,7 +97,7 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
-        recompute=['global_statistic', 'metric'],
+        recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,
         memoize_truth=False
@@ -114,7 +114,7 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
-        recompute=['global_statistic', 'metric'],
+        recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,
         memoize_truth=False
