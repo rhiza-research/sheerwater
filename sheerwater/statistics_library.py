@@ -201,7 +201,7 @@ def make_fn_n_fcst_bin(category):
     return fn_n_fcst_bin
 
 
-# Generate 10 categorical obserations by default for the categorical metrics
+# Generate 10 categorical obserations by default for the contingency metrics
 for cat in range(1, 10):
     make_fn_n_obs_bin(cat)
     make_fn_n_fcst_bin(cat)

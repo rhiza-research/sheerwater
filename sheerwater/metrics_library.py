@@ -373,25 +373,25 @@ class Metric(ABC):
         return ds
 
 
-class CategoricalMetric(Metric):
-    """Base class for categorical metrics."""
+class ContingencyMetric(Metric):  # noqa: N801
+    """Base class for contingency metrics, both dichotomous and multiclass."""
 
     def prepare_data(self):
-        """Prepare the bin data for the categorical metric."""
+        """Prepare the bin data for the contingency metric."""
         if self.metric_data['key'] == 'none' and self.event is None and (
             self.default_event is None or
             self.default_event == 'digitized' and self.event_kwargs['bins'] is None or
             self.default_event == 'above_threshold' and self.event_kwargs['threshold'] is None
         ):
             # No key was passed and no event was passed, so we can't compute the metric
-            raise ValueError("A categorical metric must specify a set of numerical bins.")
+            raise ValueError("A contingency metric must specify a set of numerical bins.")
 
         # Set up the default event based on the passed arguments
         if self.event_kwargs is None:
             self.event_kwargs = {}
 
         ############################################################
-        # Enable categorical metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
+        # Enable contingency metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
         ############################################################
         event = self.event if self.event is not None else self.default_event
         if event == 'digitized':
@@ -471,7 +471,7 @@ class CRPS(Metric):
     statistics = ['crps']
 
 
-class Brier(CategoricalMetric):
+class Brier(ContingencyMetric):
     """Brier score metric."""
     sparse = False
     prob_type = 'probabilistic'
@@ -593,7 +593,7 @@ class Pearson(Metric):
         return numerator / denominator
 
 
-class Heidke(CategoricalMetric):
+class Heidke(ContingencyMetric):
     """Heidke Skill Score metric for streaming data."""
     sparse = False
     prob_type = 'deterministic'
@@ -618,7 +618,7 @@ class Heidke(CategoricalMetric):
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
 
 
-class POD(CategoricalMetric):
+class POD(ContingencyMetric):
     """Probability of Detection metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -632,7 +632,7 @@ class POD(CategoricalMetric):
         return tp / (tp + fn)
 
 
-class FAR(CategoricalMetric):
+class FAR(ContingencyMetric):
     """False Alarm Rate metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -646,7 +646,7 @@ class FAR(CategoricalMetric):
         return fp / (fp + tn)
 
 
-class ETS(CategoricalMetric):
+class ETS(ContingencyMetric):
     """Equitable Threat Score metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -664,7 +664,7 @@ class ETS(CategoricalMetric):
         return (tp - chance) / (tp + fp + fn - chance)
 
 
-class CSI(CategoricalMetric):
+class CSI(ContingencyMetric):
     """Critical Success Index metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -679,7 +679,7 @@ class CSI(CategoricalMetric):
         return tp / (tp + fp + fn)
 
 
-class FrequencyBias(CategoricalMetric):
+class FrequencyBias(ContingencyMetric):
     """Frequency Bias metric."""
     sparse = True
     prob_type = 'deterministic'
@@ -699,7 +699,7 @@ def metric_factory(metric_name: str, **init_kwargs) -> Metric:
     try:
         # Convert
         if '-' in metric_name:
-            mn = metric_name.split('-')[0]  # support for categorical metric names of the form 'metric-datakey...'
+            mn = metric_name.split('-')[0]  # support for contingency metric names of the form 'metric-datakey...'
             data_key = metric_name[metric_name.find('-')+1:]
         else:
             mn = metric_name

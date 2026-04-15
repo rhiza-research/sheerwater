@@ -79,7 +79,7 @@ def test_metric_stations_vs_tahmo():
         forecast="imerg",
         truth="stations",
         metric_name="mae",
-        grid="global0_25",
+        grid="global1_5",
         recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,

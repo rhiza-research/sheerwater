@@ -15,7 +15,7 @@ Run a specific case with -k, e.g.: pytest ... -k "1" or -k "5_pod_5" or -k "mae_
 import numpy as np
 import pytest
 
-from sheerwater.metrics import metric as new_metric
+from sheerwater.metrics import metric
 from sheerwater.utils import dask_remote
 from nuthatch import cache
 
@@ -24,9 +24,10 @@ pytestmark = pytest.mark.correctness
 
 # Stub providing gold standard reference: same cache signature as legacy grouped_metric.
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'lead', 'forecast', 'truth',
-                   'metric', 'time_grouping', 'spatial', 'grid', 'mask', 'region'],
-       fail_if_no_cache=True,
+@cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
+                   'forecast', 'truth',
+                   'metric_name', 'event', 'event_kwargs',
+                   'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
            'chunk_by_arg': {
@@ -35,9 +36,12 @@ pytestmark = pytest.mark.correctness
                },
            }
 })
-def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
-                             metric, time_grouping=None, spatial=False, grid="global1_5",
-                             mask='lsm', region='africa'):  # noqa
+def gold_testing_metric(start_time, end_time, variable, forecast, truth,
+           metric_name, agg_days=1,
+           event=None, event_kwargs=None,  # noqa: ARG001
+           time_grouping=None, space_grouping=None,
+           spatial=False, grid="global1_5", mask='lsm', region='global'):
+    """Compute a grouped metric for a forecast at a specific lead."""
     """Stub function providing gold standard reference for testing.
 
     The following code enables us to call this with recompute=True and replace the old
@@ -46,167 +50,129 @@ def grouped_metric_test(start_time, end_time, variable, lead, forecast, truth,
 
     To use this, disable the fail_if_no_cache flag above and call with recompute=True.
     """
-    if 'weeks' in lead:
-        agg_days = 14
-    elif 'week' in lead:
-        agg_days = 7
-    else:
-        raise ValueError(f"Invalid lead time: {lead}")
-
     # Run grouped_metric_new (same call structure as archive)
-    ds_new = new_metric(
+    ds_new = metric(
         start_time=start_time,
         end_time=end_time,
         variable=variable,
-        agg_days=agg_days,
         forecast=forecast,
         truth=truth,
-        metric_name=metric,
+        metric_name=metric_name,
+        agg_days=agg_days,
+        event=event,
+        event_kwargs=event_kwargs,
         time_grouping=time_grouping,
+        space_grouping=space_grouping,
         spatial=spatial,
-        space_grouping=None,
         region=region,
         mask=mask,
-        grid=grid,
+        grid=grid
     )
-
-    # Convert from new metric format to old format by selection region and lead time (archive logic)
-    if ds_new is not None:
-        if region in ds_new.dims and len(ds_new.region.values) > 1:
-            ds_new = ds_new.sel(region=region)
-        if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
-            lead_dict = {
-                'week1': 0,
-                'week2': 7,
-                'week3': 14,
-                'week4': 21,
-                'week5': 28,
-                'week6': 35,
-            }
-            ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
-            ds_new = ds_new.rename({'prediction_timedelta': 'lead_time'})
-            ds_new.lead_time.values = lead
-
-        if '-' in metric:
-            mn = metric.split('-')[0]
-        else:
-            mn = metric
-        ds_new = ds_new.rename_vars({mn: variable})
-
-        # Drop lead time coordinate
-        if 'lead_time' in ds_new.coords:
-            ds_new = ds_new.drop_vars('lead_time')
-        if 'prediction_timedelta' in ds_new.coords:
-            ds_new = ds_new.drop_vars('prediction_timedelta')
     return ds_new
 
 
-def _single_comparison(test_case):
+def _single_comparison(test_case, overwrite_gold_testing=False):
     """Run new metric(), load old metric from cache, compare. Returns (ds_new, ds_old, result_code)."""
     test_case = dict(test_case)
     test_case.setdefault("region", "global")
+    test_case.setdefault("start_time", "2016-01-01")
+    test_case.setdefault("end_time", "2022-12-31")
     test_case.setdefault("space_grouping", None)
-    test_case.setdefault("lead", "week3")
+    test_case.setdefault("forecast", "ecmwf_ifs_er_debiased")
+    test_case.setdefault("truth", "era5")
+    test_case.setdefault("metric_name", "mae")
+    test_case.setdefault("variable", "precip")
+    test_case.setdefault("lead", 21)  # 3 week lead by default
     test_case.setdefault("spatial", True)
     test_case.setdefault("mask", "lsm")
+    test_case.setdefault("agg_days", 7)
+    test_case.setdefault("event", None)
+    test_case.setdefault("event_kwargs", None)
+    test_case.setdefault("time_grouping", None)
+    test_case.setdefault("grid", "global1_5")
 
     forecast = test_case["forecast"]
+    truth = test_case["truth"]
     metric_name = test_case["metric_name"]
     variable = test_case["variable"]
     space_grouping = test_case["space_grouping"]
     region = test_case["region"]
-    lead = test_case["lead"]
+    start_time = test_case["start_time"]
+    end_time = test_case["end_time"]
+    try:
+        lead = int(test_case["lead"])
+    except ValueError:
+        lead = None
+    agg_days = test_case["agg_days"]
+    event = test_case["event"]
+    event_kwargs = test_case["event_kwargs"]
     spatial = test_case["spatial"]
     mask = test_case["mask"]
+    time_grouping = test_case["time_grouping"]
+    grid = test_case["grid"]
 
     print(
-        f"Testing: {forecast} | {metric_name} | {variable} | "
-        f"{space_grouping} | {region} | {lead} | spatial={spatial}"
+        f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | variable={variable} | "
+        f"space_grouping={space_grouping} | region={region} | lead={lead} days | agg_days={agg_days} | "
+        f"event={event} | event_kwargs={event_kwargs} | spatial={spatial} | mask={mask} | "
+        f"time_grouping={time_grouping} | grid={grid} | start_time={start_time} | end_time={end_time}"
     )
 
     recompute = test_case.get("recompute", ["global_statistic", "metric"])
 
     # Run grouped_metric_new (same call structure as archive)
-    ds_new = new_metric(
-        start_time="2016-01-01",
-        end_time="2022-12-31",
-        variable=variable,
-        agg_days=7,
-        forecast=forecast,
-        truth='era5',
-        metric_name=metric_name,
-        time_grouping=None,
-        spatial=spatial,
-        space_grouping=space_grouping,
-        region=region,
-        mask=mask,
-        grid='global1_5',
-        recompute=recompute,
-        cache_mode='overwrite',
-    )
-    # Convert from new metric format to old format by selection region and lead time (archive logic)
-    if ds_new is not None:
-        if region in ds_new.dims and len(ds_new.region.values) > 1:
-            ds_new = ds_new.sel(region=region)
-        if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
-            lead_dict = {
-                'week1': 0,
-                'week2': 7,
-                'week3': 14,
-                'week4': 21,
-                'week5': 28,
-                'week6': 35,
-            }
-            ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead_dict[lead], 'D'))
-            ds_new = ds_new.rename({'prediction_timedelta': 'lead_time'})
-            ds_new.lead_time.values = lead
-
-        if '-' in metric_name:
-            mn = metric_name.split('-')[0]
-        else:
-            mn = metric_name
-        ds_new = ds_new.rename_vars({mn: variable})
-
-    # Run grouped_metric (same call structure as archive)
-    if space_grouping == 'nimbus_east_africa' or region == 'nimbus_east_africa':
-        region_call = 'east_africa'
-    elif region != 'global':
-        region_call = region
-    elif space_grouping is not None:
-        region_call = space_grouping
+    kwargs = {
+        "start_time": start_time,
+        "end_time": end_time,
+        "variable": variable,
+        "forecast": forecast,
+        "truth": truth,
+        "metric_name": metric_name,
+        "agg_days": agg_days,
+        "event": event,
+        "event_kwargs": event_kwargs,
+        "time_grouping": time_grouping,
+        "spatial": spatial,
+        "space_grouping": space_grouping,
+        "region": region,
+        "mask": mask,
+        "grid": grid,
+    }
+    if overwrite_gold_testing:
+        # Run the new metric
+        ds_old = gold_testing_metric(
+            **kwargs, recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
+        return ds_old, None, 0
     else:
-        region_call = 'global'
-    ds_old = grouped_metric_test(
-        start_time="2016-01-01",
-        end_time="2022-12-31",
-        variable=variable,
-        lead=lead,
-        forecast=forecast,
-        truth='era5',
-        metric=metric_name,
-        time_grouping=None,
-        spatial=spatial,
-        region=region_call,
-        mask=mask,
-        grid='global1_5',
-        recompute=False,
-        retry_null_cache=True
-    )
+        # Run gold_testing_metric (same call structure as archive)
+        ds_old = gold_testing_metric(**kwargs, recompute=False, cache_mode='read_only_strict')
+        # Run the new metric
+        ds_new = metric(**kwargs, recompute=recompute, cache_mode='read_only')
+
+    # Convert from new metric format to old format by selection region and lead time (archive logic)
+    if lead is not None:
+        if ds_new is not None:
+            if 'prediction_timedelta' in ds_new.dims and len(ds_new.prediction_timedelta.values) > 1:
+                ds_new = ds_new.sel(prediction_timedelta=np.timedelta64(lead, 'D'))
+        if ds_old is not None:
+            if 'prediction_timedelta' in ds_old.dims and len(ds_old.prediction_timedelta.values) > 1:
+                ds_old = ds_old.sel(prediction_timedelta=np.timedelta64(lead, 'D'))
 
     # Compare
     if ds_new is None and ds_old is None:
         print("Both functions returned None")
         return None, None, 0
     if ds_new is None:
-        print("Only grouped_metric_new returned None")
+        print("Only new metrics run returned None")
         return None, ds_old, 1
     if ds_old is None:
-        print("Only grouped_metric returned None")
+        print("Only testing standard returned None")
         return ds_new, None, 2
 
     # Both datasets exist (same compare structure as archive)
-    new_data = ds_new[variable].compute()
-    old_data = ds_old[variable].compute()
+    mn = metric_name.split('-')[0]
+    new_data = ds_new[mn].compute()
+    old_data = ds_old[mn].compute()
 
     print(f"New function result shape: {new_data.shape}")
     print(f"Old function result shape: {old_data.shape}")
@@ -239,9 +205,9 @@ def _single_comparison(test_case):
         raise
 
 
-def _run_single_case(test_case):
+def _run_single_case(test_case, overwrite_gold_testing=False):
     """Run single comparison; return (result, passed, result_code)."""
-    _, _, result_code = _single_comparison(test_case)
+    _, _, result_code = _single_comparison(test_case, overwrite_gold_testing=overwrite_gold_testing)
     # 3=exact, 4=close -> pass; 1=new failed -> fail; 5=significant diff -> fail; 0=both None, 2=old missing -> pass
     passed = result_code in (3, 4, 0, 2)
     if result_code == 1:
@@ -266,7 +232,8 @@ METRIC_TEST_CASES = [
     {"name": "5_pod_5", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "pod-5", "variable": "precip", "spatial": True},
     {"name": "6_rmse", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "rmse", "variable": "precip", "spatial": True},
     {"name": "7_bias", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "bias", "variable": "precip", "spatial": True},
-    {"name": "8_crps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": True},
+    {"name": "8_crps", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "crps", "variable": "precip", "spatial": False,
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
     {"name": "9_crps_salient_africa", "forecast": "salient", "metric_name": "crps",
         "variable": "precip", "spatial": True, "region": "africa"},
     {"name": "10_smape", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "smape", "variable": "precip", "spatial": True},
@@ -289,9 +256,9 @@ METRIC_TEST_CASES = [
     {"name": "21_mae_tmp2m", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "mae", "variable": "tmp2m", "spatial": True},
     {"name": "22_acc_week2", "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc", "variable": "precip", "lead": "week2", "spatial": True},
+        "metric_name": "acc", "variable": "precip", "lead": 14, "spatial": True},
     {"name": "23_acc_tmp2m_week2", "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "acc", "variable": "tmp2m", "lead": "week2", "spatial": True},
+        "metric_name": "acc", "variable": "tmp2m", "lead": 14, "spatial": True},
     {"name": "24_mae_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
         "variable": "precip", "region": "africa", "spatial": True},
     {"name": "25_mae_nimbus_east_africa", "forecast": "ecmwf_ifs_er_debiased", "metric_name": "mae",
@@ -299,7 +266,8 @@ METRIC_TEST_CASES = [
     {"name": "26_mae_nonspatial", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "mae", "variable": "precip", "spatial": False},
     {"name": "27_brier", "forecast": "ecmwf_ifs_er_debiased",
-        "metric_name": "brier-10", "variable": "precip", "spatial": False},
+        "metric_name": "brier-10", "variable": "precip", "spatial": False,
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
 ]
 
 
@@ -308,15 +276,7 @@ METRIC_TEST_CASES = [
     METRIC_TEST_CASES,
     ids=[c["name"] for c in METRIC_TEST_CASES],
 )
-def test_metric_correctness(remote_dask_cluster, test_case):  # noqa: ARG001
+def test_metric_correctness(remote_dask_cluster, test_case, overwrite_gold_testing):  # noqa: ARG001
     """One test per metric/forecast/variable/region combination; compares to cached baseline."""
-    _, passed, _ = _run_single_case(test_case)
+    _, passed, _ = _run_single_case(test_case, overwrite_gold_testing=overwrite_gold_testing)
     assert passed
-
-
-if __name__ == "__main__":
-    from sheerwater.utils import start_remote
-    cluster = start_remote(remote_config='xlarge_cluster')
-    test_metric_correctness(cluster, METRIC_TEST_CASES[2])
-    # test_metric_correctness(cluster, METRIC_TEST_CASES[21])
-    # test_metric_correctness(cluster, METRIC_TEST_CASES[22])
