@@ -6,7 +6,7 @@ database = "postgres"
 username = "sheerwater_write"
 driver = "postgresql"
 dynamic_config_path = "sheerwater.utils.secrets"
-remote_cache_size = "256GB"
+remote_cache_size = "1TB"
 
 [tool.nuthatch.terracotta]
 filesystem = "gs://sheerwater-datalake/rasters"

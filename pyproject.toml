@@ -148,7 +148,7 @@ port = 5432
 database = "postgres"
 username = "sheerwater_write"
 driver = "postgresql"
-remote_cache_size = "256GB"
+remote_cache_size = "1TB"
 dynamic_config_path = "sheerwater.utils.secrets"
 
 [tool.nuthatch.terracotta]
