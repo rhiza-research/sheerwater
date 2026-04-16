@@ -113,13 +113,13 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
             region='kenya')
 
     # Check that if we call without agg days it fails
-    with pytest.raises(KeyError, match="agg_days"):
+    with pytest.raises(ValueError, match="agg_days"):
         ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
             event='above_threshold',
             lookback_source='imerg',
             event_kwargs={'threshold': 0.5},
+            agg_days=10,
             grid="global1_5",
             mask='lsm',
             region='kenya')
-        import pdb; pdb.set_trace()

@@ -2,9 +2,22 @@
 from functools import wraps
 import numpy as np
 import xarray as xr
+from inspect import signature
 from sheerwater.utils import roll_and_agg
 
 EVENT_REGISTRY = {}
+
+
+def wrap_duration(duration_fn, event_name):
+    """Call ``duration_fn(event_kwargs)``, turning missing keys into a clear ``ValueError``."""
+
+    def wrapped(event_kwargs):
+        try:
+            return duration_fn(event_kwargs)
+        except KeyError as e:
+            key = e.args[0] if e.args else None
+            raise ValueError(f"Event {event_name} requires key {key} in event_kwargs") from e
+    return wrapped
 
 
 def event(default_variable=None, duration=0):
@@ -24,21 +37,28 @@ def event(default_variable=None, duration=0):
             if 'agg_days' in ds.attrs and ds.attrs['agg_days'] != 1:
                 raise ValueError(f"Event {name} requires agg_days to be 1.")
 
-            ds = fn(ds, *args, **kwargs)
+            try:
+                ds = fn(ds, *args, **kwargs)
+            except TypeError as e:
+                raise ValueError(f"Event {name} requires missing event_kwargs key. \n{e}") from e
+
             # Add an attribute to the dataset to indicate the event name
             ds = ds.assign_attrs({'event': name})
             return ds
 
-        wrapper.duration = duration
-        wrapper.default_variable = default_variable
         key = fn.__name__.lower()
+        if callable(duration):
+            wrapper.duration = wrap_duration(duration, key)
+        else:
+            wrapper.duration = duration
+        wrapper.default_variable = default_variable
         EVENT_REGISTRY[key] = wrapper
         return wrapper
 
     return decorator
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
 def above_threshold(ds, agg_days, threshold):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
@@ -49,7 +69,7 @@ def above_threshold(ds, agg_days, threshold):
     return ds
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
 def digitized(ds, agg_days, bins):
     """An event to digitize a dataset into bins."""
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
@@ -71,7 +91,10 @@ def digitized(ds, agg_days, bins):
     return ds
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs['wet_spell_agg_days'] + kwargs['dry_spell_agg_days'])
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"],
+)
 def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
                          wet_spell_threshold=25.0, dry_spell_threshold=20.0):
     """A function to calculate the above threshold of a dataset."""
