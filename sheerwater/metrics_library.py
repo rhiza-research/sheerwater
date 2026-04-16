@@ -9,7 +9,7 @@ from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_th
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import groupby_time, latitude_weights
+from sheerwater.utils import groupby_time, latitude_weights, detect_in_time
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
 # Global metric registry dictionary
@@ -47,12 +47,15 @@ class Metric(ABC):
         SHEERWATER_METRIC_REGISTRY[cls.name] = cls
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
+                 metric_kwargs=None, event=None, event_kwargs=None,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 event=None, event_kwargs=None,
-                 mask='lsm', space_grouping='country', region='global', data_key='none',
+                 mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
+        self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
+        self.metric_data = {}  # dictionary to store the data for the metric calculation
+
         self.start_time = start_time
         self.end_time = end_time
 
@@ -73,21 +76,13 @@ class Metric(ABC):
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
-        # Initialize the data dictionary, a place to store all the data needed for the metric calculation.
-        # This is a dictionary that contains a data entry and a key entry.
-        # data is a dictionary containing any data needed
-        # for the metric calculation, such as the forecasts dataframe, the array of bins, etc.
-        # key is a string and should uniquely identify the contents of the metric data dictionary,
-        # other than the standard cache args.
-        self.metric_data = {'key': data_key, 'data': {}}
-
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
         self.event = self.event if self.event is not None else self.default_event
-        self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
-                             'variable': self.variable, 'agg_days': self.agg_days,
-                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
+        self.data_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
+                            'variable': self.variable, 'agg_days': self.agg_days,
+                            'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
@@ -99,13 +94,13 @@ class Metric(ABC):
             fcst_fn = get_forecast(self.forecast)
             try:
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
-                fcst = fcst_fn(**self.cache_kwargs,
+                fcst = fcst_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.cache_kwargs,
+                fcst = fcst_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs,
                                lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
@@ -113,12 +108,12 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs,
+                fcst = data_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs,
                                memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs,
+                fcst = data_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
@@ -134,12 +129,12 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs,
+            obs = truth_fn(**self.data_kwargs,
                            event=self.event, event_kwargs=self.event_kwargs,
                            memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**self.cache_kwargs,
+            obs = truth_fn(**self.data_kwargs,
                            event=self.event, event_kwargs=self.event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
@@ -190,16 +185,22 @@ class Metric(ABC):
         fcst = fcst.where(no_null, np.nan, drop=False)
         obs = obs.where(no_null, np.nan, drop=False)
 
-        """4. Save the data for all downstream metric calculations."""
+        """4. Apply metric-specific post-processing to the forecast and observation."""
+        # For contingency metrics, enable post processing to get first, last, ...
+        if 'detect_in_time' in self.metric_kwargs:
+            obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
+            fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+
+        """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
-        self.metric_data['data']['obs'] = obs
-        self.metric_data['data']['fcst'] = fcst
-        self.metric_data['data']['prob_type'] = enhanced_prob_type
+        self.metric_data['obs'] = obs
+        self.metric_data['fcst'] = fcst
+        self.metric_data['prob_type'] = enhanced_prob_type
 
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
-        self.metric_data['data']['no_null'] = no_null
-        self.metric_data['data']['valid_times'] = valid_times
+        self.metric_data['no_null'] = no_null
+        self.metric_data['valid_times'] = valid_times
 
     @property
     @abstractmethod
@@ -242,7 +243,8 @@ class Metric(ABC):
             stat_fn = statistic_factory(statistic)
 
             # Call the statistic function
-            ds = stat_fn(data=self.metric_data['data'],
+            ds = stat_fn(data=self.metric_data,
+                         metric_kwargs=self.metric_kwargs,
                          start_time=self.start_time,
                          end_time=self.end_time,
                          variable=self.variable,
@@ -251,7 +253,6 @@ class Metric(ABC):
                          agg_days=self.agg_days,
                          forecast=self.forecast,
                          truth=self.truth,
-                         data_key=self.metric_data['key'],
                          grid=self.grid)
 
             if ds is None:
@@ -383,23 +384,27 @@ class ContingencyMetric(Metric):  # noqa: N801
         ############################################################
         # What event are we running? If no event was passed, use the default event.
         event = self.event if self.event is not None else self.default_event
+        if 'config' not in self.metric_kwargs:
+            self.metric_kwargs['config'] = 'none'
 
         if event == 'digitized':
             # We try to figure out the bins from the metric key
-            if self.metric_data['key'] != 'none':
-                bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
+            if self.metric_kwargs['config'] != 'none':
+                bins = [-np.inf] + [float(x) for x in self.metric_kwargs['config'].split('-')] + [np.inf]
                 if 'bins' not in self.event_kwargs:
                     self.event_kwargs['bins'] = bins
                 elif self.event_kwargs['bins'] != bins:
                     raise ValueError("Bins passed to the event must match the bins specified in the key.")
+                del self.metric_kwargs['config']
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key
-            if self.metric_data['key'] != 'none':
-                threshold = float(self.metric_data['key'].split('-')[0])
+            if self.metric_kwargs['config'] != 'none':
+                threshold = float(self.metric_kwargs['config'].split('-')[0])
                 if 'threshold' not in self.event_kwargs:
                     self.event_kwargs['threshold'] = threshold
                 elif self.event_kwargs['threshold'] != threshold:
                     raise ValueError("Threshold passed does not match the threshold specified in the key.")
+                del self.metric_kwargs['config']
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             if self.agg_days != 1:
@@ -504,15 +509,16 @@ class SEEPS(Metric):
         first_year = 1991
         last_year = 2020
         # Get the wet threshold and dry fraction
-        self.metric_data['data']['wet_threshold'] = seeps_wet_threshold(
+        self.metric_data['wet_threshold'] = seeps_wet_threshold(
             first_year=first_year, last_year=last_year, agg_days=self.agg_days,
             grid=self.grid, mask=self.mask, region=self.region)
-        self.metric_data['data']['dry_fraction'] = seeps_dry_fraction(
+        self.metric_data['dry_fraction'] = seeps_dry_fraction(
             first_year=first_year, last_year=last_year,
             agg_days=self.agg_days, grid=self.grid, mask=self.mask, region=self.region)
 
         # Update the metric data key to include the wet threshold and dry fraction year range
-        self.metric_data['key'] = f'{self.metric_data["key"]}-{first_year}-{last_year}'
+        self.metric_kwargs['first_year'] = first_year
+        self.metric_kwargs['last_year'] = last_year
 
 
 class ACC(Metric):
@@ -534,21 +540,24 @@ class ACC(Metric):
         last_year = 2019
         clim_source = 'era5'
         clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
-                              **self.cache_kwargs, prob_type='deterministic')
+                              **self.data_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
-        if 'prediction_timedelta' in self.metric_data['data']['fcst'].dims:
-            leads = self.metric_data['data']['fcst'].prediction_timedelta.values
+        if 'prediction_timedelta' in self.metric_data['fcst'].dims:
+            leads = self.metric_data['fcst'].prediction_timedelta.values
             # Add in a matching prediction_timedelta coordinate
             clim_ds = clim_ds.expand_dims({'prediction_timedelta': leads})
 
         # Subset the climatology to the valid times and non-null times of the forecaster
-        clim_ds = clim_ds.sel(time=self.metric_data['data']['valid_times'])
-        clim_ds = clim_ds.where(self.metric_data['data']['no_null'], np.nan, drop=False)
+        clim_ds = clim_ds.sel(time=self.metric_data['valid_times'])
+        clim_ds = clim_ds.where(self.metric_data['no_null'], np.nan, drop=False)
         # Add the climatology to the metric data
-        self.metric_data['data']['climatology'] = clim_ds
-        # Update the metric data key to include the climatology year range
-        self.metric_data['key'] = f'{self.metric_data["key"]}-{clim_source}-{first_year}-{last_year}'
+        self.metric_data['climatology'] = clim_ds
+
+        # Update the metric kwargs to include the climatology year range
+        self.metric_kwargs['clim_source'] = clim_source
+        self.metric_kwargs['first_year'] = first_year
+        self.metric_kwargs['last_year'] = last_year
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -684,19 +693,21 @@ class FrequencyBias(ContingencyMetric):
         return (tp + fp) / (tp + fn)
 
 
-def metric_factory(metric_name: str, **init_kwargs) -> Metric:
+def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
+        if metric_kwargs is None:
+            metric_kwargs = {}
         # Convert
         if '-' in metric_name:
             mn = metric_name.split('-')[0]  # support for contingency metric names of the form 'metric-datakey...'
-            data_key = metric_name[metric_name.find('-')+1:]
+            metric_kwargs['config'] = metric_name[metric_name.find('-')+1:]
         else:
             mn = metric_name
-            data_key = 'none'
+
         metric = SHEERWATER_METRIC_REGISTRY[mn.lower()]
         # Add runtime metric configuration to the metric class
-        return metric(data_key=data_key, **init_kwargs)
+        return metric(metric_kwargs=metric_kwargs, **init_kwargs)
 
     except KeyError:
         raise ValueError(f"Unknown metric: {metric_name}. Available metrics: {list_metrics()}")

@@ -122,3 +122,82 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
             grid="global1_5",
             mask='lsm',
             region='kenya')
+
+
+def test_metric_kwargs(remote_dask_cluster):  # noqa: ARG001
+    """Check that ."""
+    start_time = '2016-01-01'
+    end_time = '2022-12-31'
+    grid = 'global0_25'
+    # grid = 'global1_5'
+    region = 'ghana'
+    threshold = 5.0
+    agg_days = 5
+    ds_pod = metric(start_time, end_time, variable='precip',
+                    forecast='imerg', truth='tahmo_avg',
+                    metric_name='pod',
+                    # metric_kwargs={'soft_margin_in_days': 10,
+                    #                'detect_in_time': {'detect': 'first', 'criteria': lambda x: x >= 0.5, 'time_grouping': 'season'}},
+                    metric_kwargs=None,
+                    spatial=True, grid=grid,
+                    recompute=True,
+                    cache_mode='read_only',
+                    event='above_threshold',
+                    event_kwargs={'agg_days': agg_days, 'threshold': threshold},
+                    region=region,
+                    memoize_forecast=False,
+                    memoize_truth=False,
+                    )
+    ds_far = metric(start_time, end_time, variable='precip',
+                    forecast='imerg', truth='tahmo_avg',
+                    metric_name='far',
+                    # metric_kwargs={'soft_margin_in_days': 10,
+                    #                'detect_in_time': {'detect': 'first', 'criteria': lambda x: x >= 0.5, 'time_grouping': 'season'}},
+                    metric_kwargs=None,
+                    spatial=True, grid=grid,
+                    recompute=True,
+                    cache_mode='read_only',
+                    event='above_threshold',
+                    event_kwargs={'agg_days': agg_days, 'threshold': threshold},
+                    region=region,
+                    memoize_forecast=True,
+                    memoize_truth=True,
+                    )
+
+    import matplotlib.pyplot as plt
+    import pdb
+
+    # Define discrete color maps
+    from matplotlib.colors import ListedColormap, BoundaryNorm
+
+    # For POD: red (low) to blue (high) with 10 levels
+    pod_colors = [
+        '#d73027', '#f46d43', '#fdae61', '#fee08b', '#ffffbf',
+        '#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695'
+    ]
+    pod_levels = [round(i * 0.1, 2) for i in range(11)]  # [0.0, 0.1, ..., 1.0]
+    pod_cmap = ListedColormap(pod_colors)
+    pod_norm = BoundaryNorm(pod_levels, ncolors=pod_cmap.N, clip=True)
+
+    # For FAR: blue (low) to red (high) with 10 levels
+    far_colors = list(reversed(pod_colors))
+    far_levels = pod_levels
+    far_cmap = ListedColormap(far_colors)
+    far_norm = BoundaryNorm(far_levels, ncolors=far_cmap.N, clip=True)
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    ds_pod.pod.plot(
+        ax=axes[0], x='lon', y='lat', vmin=0.0, vmax=1.0,
+        cmap=pod_cmap, norm=pod_norm, levels=pod_levels, cbar_kwargs={'ticks': pod_levels}
+    )
+    axes[0].set_title('POD')
+
+    ds_far.far.plot(
+        ax=axes[1], x='lon', y='lat', vmin=0.0, vmax=1.0,
+        cmap=far_cmap, norm=far_norm, levels=far_levels, cbar_kwargs={'ticks': far_levels}
+    )
+    axes[1].set_title('FAR')
+
+    plt.tight_layout()
+    plt.show()
+    pdb.set_trace()

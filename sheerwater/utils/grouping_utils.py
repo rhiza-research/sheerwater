@@ -55,9 +55,49 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         elif agg_fn == 'sum':
             # min_count ensures that all nan groups return nan
             ds = ds.sum(dim="time", skipna=True, min_count=1)
+        elif agg_fn is None:
+            return ds
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
     return ds
+
+
+def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_grouping=None):
+    """A function to detect an event in time."""
+    nanmask = ds.isnull()
+    ds = ds.where(criteria(ds), 0.0)
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+
+    def first_hit(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+        return ((cumsum == 1) & (x == 1)).astype(int)
+
+    def last_hit(x):
+        # Reverse in time and run first hit
+        x = x.isel(time=slice(None, None, -1))
+        ret = first_hit(x)
+        ret = ret.isel(time=slice(None, None, -1))
+        return ret
+
+    # Ensure that the timedimension is sorted
+    ds = ds.sortby("time")
+    if detect == 'first':
+        func = first_hit
+    elif detect == 'last':
+        func = last_hit
+    else:
+        raise ValueError(f"Invalid detection type {detect}")
+
+    detected = ds.groupby("group").map(func)
+
+    # Restore the null pattern and attributes
+    detected = detected.where(~nanmask, other=np.nan)
+    detected = detected.assign_attrs(ds.attrs)
+    return detected
 
 
 def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):

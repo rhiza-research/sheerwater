@@ -290,7 +290,7 @@ class forecast(SheerwaterDataset):
             #################################################################################################
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             ##################################################################################################
-            if self.densify:
+            if self.densify or self.event_kwargs.get('densify', False):
                 ds = desnify_fcst(ds)
 
             ##################################################################################################

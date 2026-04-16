@@ -789,7 +789,7 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
 
     if isinstance(mask, str):
         from .masks import spatial_mask
-        mask_ds = spatial_mask(mask, grid)
+        mask_ds = spatial_mask(mask, grid, memoize=False)
     else:
         mask_ds = mask
 
@@ -869,6 +869,7 @@ def clip_station_grid(ds, geometry=None, drop=True):
 
     return ds
 
+
 def nonuniform_grid(ds, error_thresh=1e-5):
     """Check if a dataset has a nonuniform grid.
 
@@ -881,6 +882,7 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
+
 
 ##################################################################
 # Spatial subdivision definitions, including custom regions

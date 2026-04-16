@@ -18,8 +18,8 @@ SHEERWATER_STATISTIC_REGISTRY = {}
 def statistic(cache=False, name=None,
               timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
-                          'event', 'event_kwargs',
-                          'data_key', 'grid', 'statistic'],
+                          'metric_kwargs', 'event', 'event_kwargs',
+                          'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
               chunk_by_arg={
                   'grid': {
@@ -45,7 +45,7 @@ def statistic(cache=False, name=None,
                              'chunk_by_arg': chunk_by_arg
                          })
         def global_statistic(
-            data, data_key,
+            data, metric_kwargs,
             start_time, end_time,
             variable, agg_days, forecast, truth,
             event, event_kwargs,
@@ -55,10 +55,10 @@ def statistic(cache=False, name=None,
         ):
             # Pass the cache kwargs through to the statistics function
             cache_kwargs = {
-                'data_key': data_key,
+                'metric_kwargs': metric_kwargs,
+                'event': event, 'event_kwargs': event_kwargs,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
-                'event': event, 'event_kwargs': event_kwargs,
                 'grid': grid, 'mask': mask, 'region': region,
                 'statistic': statistic,
             }
