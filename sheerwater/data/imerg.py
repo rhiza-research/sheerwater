@@ -11,6 +11,15 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 from .earthaccess_generic import earthaccess_dataset
 
 
+# TODO: Register imerg_raw_live as a sheerwater_data accessor (or add a
+# matching `imerg_live` wrapper that does) so the CLI / skills can expose
+# the same per-fetch live earthaccess path the forecasting-skills
+# imerg-fetch-live skill uses. The current `imerg` / `imerg_final` /
+# `imerg_late` accessors always go through the year-aggregated cache,
+# which is cheaper but doesn't cover the "I want today's data right now,
+# recompute=True, cache_mode=local_overwrite" use case the realtime
+# ingest pipeline needs. Once exposed, the forecasting-skills
+# `imerg-fetch-live` skill becomes redundant and can be deleted.
 @dask_remote
 @spatial()
 @timeseries()

@@ -24,6 +24,17 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         agg_fn (str): Aggregation function. One of mean or sum.
         agg_thresh(int): number of data required to agg.
     """
+    # TODO: Add a calendar-aligned resampling sibling (e.g. resample_and_agg)
+    # so the skills/aggregate-temporal CLI can offer the calendar periods the
+    # forecasting-skills aggregate-temporal-resample skill supports
+    # (`monthly` in particular — calendar months can't be expressed as a
+    # fixed-day rolling window). Should accept
+    # period={'daily','weekly','dekadal','monthly'} and
+    # method={'sum','mean','max','min'}, dispatching to xarray.resample with
+    # the correct freq string ('1D', '7D', '10D', 'MS'). Keep roll_and_agg
+    # for the rolling case; new function for non-overlapping calendar windows.
+    # Once exposed via the CLI, the forecasting-skills
+    # `aggregate-temporal-resample` skill becomes redundant and can be deleted.
     if agg == 1:
         # If aggregation is 1 day, return the original dataset
         return ds
@@ -71,6 +82,15 @@ def regrid(ds, output_grid, method='conservative', base="base180", output_chunks
         region (str): The region to clip the data to.
         regridder_kwargs (dict): Additional keyword arguments for the regridder.
     """
+    # TODO: Add a coarsen-by-factor sibling (or extend regrid with a `factor`
+    # arg) so the skills/regrid CLI can offer the integer-factor and
+    # target-resolution downscaling the forecasting-skills `downscale-coarsen`
+    # skill supports. xarray.coarsen(boundary='trim'|'pad') with method=
+    # mean/sum/max/min/median is the underlying primitive. Useful when the
+    # caller doesn't care which named grid the result lands on, just wants
+    # "N times coarser than what I have" or "approximately X degrees".
+    # Once exposed via the CLI, the forecasting-skills `downscale-coarsen`
+    # skill becomes redundant and can be deleted.
     # Interpret the grid
     ds_out = get_grid_ds(output_grid, base=base)
     if region != 'global':

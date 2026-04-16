@@ -14,12 +14,33 @@ from sheerwater.interfaces import data as sheerwater_data
 @cache(cache_args=[])
 def tahmo_deployment():
     """Stub function to get deployment cache."""
+    # TODO: Implement live deployment fetch from the TAHMO API.
+    # Once this and tahmo_station_cleaned (below) are implemented, the
+    # forecasting-skills `tahmo-fetch-live` skill (the only working
+    # live-TAHMO path today) becomes redundant and can be deleted —
+    # sheerwater's `tahmo-fetch` skill will cover both cached and
+    # fresh-from-API fetches.
+    # Implementation should:
+    #   - Pull TAHMO API credentials via sheerwater.utils.secrets.tahmo_secret
+    #   - Call api.getStations() and pd.json_normalize the result
+    #   - Cache the normalized station deployment dataframe
+    # so this function returns the same shape currently expected by tahmo_raw().
     raise RuntimeError("Processing not implemented for tahmo_deployment and wasn't found in the cache.")
 
 
 @cache(cache_args=['station_id'], fail_if_no_cache=True)
 def tahmo_station_cleaned(station_id):  # noqa: ARG001
     """Stub function to get data cache."""
+    # TODO: Implement live per-station fetch from the TAHMO API. See the
+    # `tahmo_deployment` TODO above for the deletion-trigger note —
+    # forecasting-skills `tahmo-fetch-live` can be deleted once both
+    # are done.
+    # Implementation should:
+    #   - Pull TAHMO credentials via sheerwater.utils.secrets.tahmo_secret
+    #   - Call api.getRawData(station=station_id, dataset="controlled", ...)
+    #   - Filter to quality<=2, pick best-quality sensor per (time, variable)
+    #   - Resample to daily (sum for precip, mean for temp/humidity/pressure)
+    # so tahmo_raw_daily() can read it without going to the API.
     raise RuntimeError("Processing not implemented for tahmo_deployment and wasn't found in the cache.")
 
 

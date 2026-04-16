@@ -56,6 +56,9 @@ dependencies = [
     "xee",
 ]
 
+[project.scripts]
+sheerwater = "sheerwater.cli:main"
+
 [dependency-groups]
 dev = [
     "pooch",

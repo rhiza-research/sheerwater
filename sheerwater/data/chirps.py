@@ -12,6 +12,17 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import dask_remote, regrid, roll_and_agg
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
+# TODO: Register chirps_raw_live as a sheerwater_data accessor (or add a
+# matching `chirps_live` wrapper that does) so the CLI / skills can expose
+# the current-calendar-year CHIRPS v3 prelim data that the
+# forecasting-skills chirps-fetch-live skill uses. The current `chirps` /
+# `chirps_v3` accessors go through the cached `chirps_gridded` path, which
+# is cheaper for historical work but doesn't pick up the prelim file that
+# `chirps_raw_live` reads from data.chc.ucsb.edu/products/CHIRPS/v3.0/
+# daily/prelim/sat/netcdf/byYear/. Note: this function ignores its
+# start_time/end_time args and always returns the current calendar year.
+# Once exposed, the forecasting-skills `chirps-fetch-live` skill becomes
+# redundant and can be deleted.
 @dask_remote
 @spatial()
 @timeseries()
