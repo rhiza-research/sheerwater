@@ -378,22 +378,12 @@ class ContingencyMetric(Metric):  # noqa: N801
 
     def prepare_data(self):
         """Prepare the bin data for the contingency metric."""
-        if self.metric_data['key'] == 'none' and self.event is None and (
-            self.default_event is None or
-            self.default_event == 'digitized' and self.event_kwargs['bins'] is None or
-            self.default_event == 'above_threshold' and self.event_kwargs['threshold'] is None
-        ):
-            # No key was passed and no event was passed, so we can't compute the metric
-            raise ValueError("A contingency metric must specify a set of numerical bins.")
-
-        # Set up the default event based on the passed arguments
-        if self.event_kwargs is None:
-            self.event_kwargs = {}
-
         ############################################################
         # Enable contingency metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
         ############################################################
+        # What event are we running? If no event was passed, use the default event.
         event = self.event if self.event is not None else self.default_event
+
         if event == 'digitized':
             # We try to figure out the bins from the metric key
             if self.metric_data['key'] != 'none':
