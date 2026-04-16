@@ -122,3 +122,4 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
             grid="global1_5",
             mask='lsm',
             region='kenya')
+        import pdb; pdb.set_trace()
