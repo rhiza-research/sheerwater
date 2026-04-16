@@ -39,7 +39,7 @@ def event(default_variable=None, duration=0):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
-def above_threshold(ds, agg_days=10, threshold=10.0):
+def above_threshold(ds, agg_days, threshold):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
@@ -50,11 +50,8 @@ def above_threshold(ds, agg_days=10, threshold=10.0):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs['agg_days'])
-def digitized(ds, agg_days=10, bins=None):
+def digitized(ds, agg_days, bins):
     """An event to digitize a dataset into bins."""
-    if bins is None:
-        raise ValueError("Bins must be specified for digitization.")
-
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
 
     # Save and restore the null pattern, which is removed by the boolean operations

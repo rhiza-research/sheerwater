@@ -29,7 +29,6 @@ _nuthatch_mod = sys.modules['nuthatch.nuthatch']
 #     set_global_cache_variables(cache_mode="local")
 
 
-@pytest.hookimpl(trylast=True)
 def pytest_addoption(parser):
     """Add test options for controlling behavior."""
     parser.addoption(
