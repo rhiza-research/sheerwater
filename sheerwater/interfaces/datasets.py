@@ -50,7 +50,7 @@ class SheerwaterDataset(NuthatchProcessor):
             self.grid = bound_args.arguments['grid']
             self.agg_days = bound_args.arguments['agg_days']
         except KeyError:
-            raise ValueError("Dataset decorator requires grid, agg_days, and variable to be passed.")
+            raise ValueError("Dataset decorator requires grid and agg_days to be passed.")
 
         # Set other arguments to reasonable defaults
         self.region = bound_args.arguments.get('region', 'global')
@@ -69,7 +69,7 @@ class SheerwaterDataset(NuthatchProcessor):
             if self.event is None:
                 raise ValueError("Dataset decorator requires variable to be passed if no event is specified.")
             elif self.event_fn.default_variable is None:
-                raise ValueError(f"Event {self.event} has no default variable.")
+                raise ValueError(f"Event {self.event} has no default variable. Please specify a variable.")
             else:
                 self.variable = self.event_fn.default_variable
                 args, kwargs = self.update_args_or_kwargs(
@@ -231,11 +231,12 @@ class forecast(SheerwaterDataset):
         """Process the arguments for the data decorator."""
         args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
         self.lookback_source = kwargs.get('lookback_source', None)
-        if 'lookback_source' in kwargs:
-            del kwargs['lookback_source']
         self.densify = kwargs.get('densify', False)
-        if 'densify' in kwargs:
-            del kwargs['densify']
+
+        # Remove additional arguments from the passed down kwargs
+        for kwarg in ['lookback_source', 'densify']:
+            if kwarg in kwargs:
+                del kwargs[kwarg]
         return args, kwargs
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
@@ -252,7 +253,10 @@ class forecast(SheerwaterDataset):
         if lookback_days == 0:
             return fcst
         if lookback_days > 30:
+            # We have only cached an observation lookback period of 30 days; if we want more than this
+            # would need to write a new cache
             warnings.warn(f"Lookback days {lookback_days} is greater than 30, only the last 30 days will be used.")
+            lookback_days = 30
 
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
@@ -282,12 +286,19 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
-            duration = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
-                else self.event_fn.duration
-            lookback_days = duration  # Go back one day less than the event duration
 
-            if self.densify or (self.event_kwargs.get('densify', False)):
+            #################################################################################################
+            # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
+            ##################################################################################################
+            if self.densify:
                 ds = desnify_fcst(ds)
+
+            ##################################################################################################
+            # 2. Blend in the lookback observations up to the event duration
+            ##################################################################################################
+            lookback_days = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
+                else self.event_fn.duration
+
             if self.lookback_source is not None:
                 ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
             elif lookback_days > 0:
@@ -295,6 +306,9 @@ class forecast(SheerwaterDataset):
                     f"Lookback days {lookback_days} specified but no lookback source provided. Ignoring lookback days.")
             ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
+            ##################################################################################################
+            # 3. Run the event on the forecast
+            ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
             ds = self.event_fn(ds, **self.event_kwargs)

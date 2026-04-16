@@ -112,7 +112,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
             mask='lsm',
             region='kenya')
 
-    # Check that if we call with agg days it fails
+    # Check that if we call without agg days it fails
     with pytest.raises(KeyError, match="agg_days"):
         ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
