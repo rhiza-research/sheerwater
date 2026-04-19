@@ -234,9 +234,8 @@ def fn_smape(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='brier')
 def fn_brier(data, **cache_kwargs):  # noqa: F821
-    positive_event_id = 2
-    fcst_event_prob = (data['fcst'] == positive_event_id).mean(dim='member')
-    obs_event_prob = (data['obs'] == positive_event_id)
+    fcst_event_prob = (data['fcst'] > 0.5).mean(dim='member')
+    obs_event_prob = (data['obs'] > 0.5)
     return (fcst_event_prob - obs_event_prob)**2
 
 
