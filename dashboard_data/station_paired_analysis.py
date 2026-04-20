@@ -158,7 +158,8 @@ def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="globa
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'time_grouping', 'space_grouping', 'estimate', 'truth', 'agg_days', 'grid'])
 def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='precip',
-                     time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', region='global', spatial=False, bins=None):
+                     time_grouping=None, space_grouping=None, grid="global1_5", mask='lsm', region='global', spatial=False, bins=None,
+                     zero_bin=False):
     """Compute a paired histogram of two variables."""
     estimate_ds = get_data(estimate)(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
     truth_ds = get_data(truth)(start_time, end_time, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
@@ -175,7 +176,12 @@ def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='
     if bins is None:
         max_value = 50
         step = 1
-        bins = np.arange(0, max_value + step, step)
+        if zero_bin:
+            eps = 1e-9
+            first_bin = [0, eps]
+            bins = np.concatenate((first_bin, np.arange(1, max_value + step, step)))
+        else:
+            bins = np.arange(0, max_value + step, step)
 
     hist2d = histogram_grouping(merged_data, time_grouping, space_grouping, grid, mask, region, spatial,
     bins, variables=['estimate_precip', 'truth_precip'])
