@@ -2,7 +2,7 @@
 from functools import wraps
 import numpy as np
 import xarray as xr
-from sheerwater.utils import roll_and_agg, groupby_time
+from sheerwater.utils import roll_and_agg
 
 EVENT_REGISTRY = {}
 

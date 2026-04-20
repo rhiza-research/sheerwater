@@ -80,7 +80,7 @@ def remote_dask_cluster():
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
     from sheerwater.utils import start_remote
 
-    client = start_remote(remote_config=["xlarge_cluster"])
+    client = start_remote(remote_config=["xlarge_cluster", "xlarge_node"])
     yield
 
     # Close the client so other tests don't have to use it

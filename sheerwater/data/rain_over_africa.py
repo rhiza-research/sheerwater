@@ -83,9 +83,10 @@ def roa_gridded(start_time, end_time, grid, mask=None, region='global'): # noqa:
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days=1,
+                event=None, event_kwargs=None,  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
     """Standard data interface for Rain over Africa data."""
     if variable not in ['precip']:

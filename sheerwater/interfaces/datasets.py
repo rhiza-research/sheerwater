@@ -58,10 +58,10 @@ class SheerwaterDataset(NuthatchProcessor):
         self.variable = bound_args.arguments.get('variable', None)
 
         # Event handling
-        self.event = kwargs.get('event', None)
+        self.event = bound_args.arguments.get('event', None)
         if self.event is not None and self.agg_days != 1:
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
-        self.event_kwargs = kwargs.get('event_kwargs', {})
+        self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
 
         # Handle the case where variable is not passed, but an event is specified by setting variable to default event
@@ -82,11 +82,6 @@ class SheerwaterDataset(NuthatchProcessor):
             self.units = 'avg. daily C'
         else:
             self.units = None
-
-        # Remove event and event_kwargs from kwargs so they don't get passed to the underlying function
-        for kwarg in ['event', 'event_kwargs']:
-            if kwarg in kwargs:
-                del kwargs[kwarg]
 
         return args, kwargs
 
@@ -230,13 +225,9 @@ class forecast(SheerwaterDataset):
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the data decorator."""
         args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
-        self.lookback_source = kwargs.get('lookback_source', None)
-        self.densify = kwargs.get('densify', False)
-
-        # Remove additional arguments from the passed down kwargs
-        for kwarg in ['lookback_source', 'densify']:
-            if kwarg in kwargs:
-                del kwargs[kwarg]
+        bound_args = self.bind_signature(sig, *args, **kwargs)
+        self.lookback_source = bound_args.arguments.get('lookback_source', None)
+        self.densify = bound_args.arguments.get('densify', False)
         return args, kwargs
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):

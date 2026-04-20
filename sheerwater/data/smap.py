@@ -56,7 +56,7 @@ def smap_l3_raw(start_time, end_time, delayed=False):
         # Get that set and average them, then round to the nearest day
         try:
             time = pd.Timestamp(pd.to_datetime("2000-01-01") + ds_am['tb_time_seconds'].mean().values).round(freq='1d')
-        except: #noqa: E722
+        except:  # noqa: E722
             # On two files this process fails, just drop those files
             return None
 
@@ -100,7 +100,7 @@ def smap_l3_raw(start_time, end_time, delayed=False):
 @cache(cache_args=['grid', 'version'], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
        cache_disable_if={
            'grid': 'source'
-       })
+})
 def smap_gridded(start_time, end_time, grid='source', version='L3'):
     """SMAP Gridded product."""
     if version == 'L3':
@@ -115,23 +115,24 @@ def smap_gridded(start_time, end_time, grid='source', version='L3'):
     if grid != 'source':
         # Putting the import in the function prevents needing esmpy on your machine, which is hard on mac
         raise ValueError("Currently SMAP only supports the SMAP grid")
-        #import xesmf as xe
-        #ds_out = get_grid_ds(grid)
-        #ds_out = ds_out.rename({'lat': 'latitude', 'lon': 'longitude'})
-        #ds = ds.rename({'lat': 'latitude', 'lon': 'longitude'})
-        #regridder = xe.Regridder(ds, ds_out, "conservative")
-        #ds = regridder(ds)
-        #ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
+        # import xesmf as xe
+        # ds_out = get_grid_ds(grid)
+        # ds_out = ds_out.rename({'lat': 'latitude', 'lon': 'longitude'})
+        # ds = ds.rename({'lat': 'latitude', 'lon': 'longitude'})
+        # regridder = xe.Regridder(ds, ds_out, "conservative")
+        # ds = regridder(ds)
+        # ds = ds.rename({'latitude': 'lat', 'longitude': 'lon'})
 
     return ds
 
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='source', mask=None, region='global'): # noqa: ARG001
+            event=None, event_kwargs=None,  # noqa: ARG001
+            grid='source', mask=None, region='global'):  # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
@@ -143,10 +144,11 @@ def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,
-          grid='source', mask=None, region='global'): # noqa: ARG001
+            event=None, event_kwargs=None,  # noqa: ARG001
+            grid='source', mask=None, region='global'):  # noqa: ARG001
     """Alias for smap final."""
     if variable not in ['soil_moisture']:
         raise NotImplementedError("Only soil moisture and derived variables provided by smap.")
