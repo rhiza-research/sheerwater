@@ -57,17 +57,7 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5", mask=None, re
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def cbam(start_time, end_time, variable, agg_days, event=None, event_kwargs=None,  # noqa: ARG001
          grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
-    """Standard format task data for ERA5 Reanalysis.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days.
-        grid (str): The grid resolution to fetch the data at.
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
+    """Standard format task data for CBAM."""
     # Get daily data
     ds = cbam_gridded(start_time, end_time, variable, grid=grid, mask=mask, region=region)
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")

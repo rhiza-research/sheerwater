@@ -83,7 +83,6 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
     obs["time"] = dd.to_datetime(obs["date"])
     obs = obs.drop(['date'], axis=1)
 
-
     stat = ghcn_station_list()
 
     stat = stat.set_index('ghcn_id')
@@ -120,12 +119,11 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
                                                              tmax=('tmax', 'max'))
             obs = obs.reset_index()
 
-
         # Convert to xarray - for this to succeed obs must be a pandas dataframe
         obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'lat', 'lon']))
     else:
         # Convert to staiton ID index with lat/lon coords
-        obs = obs.rename(columns = {'ghcn_id': 'station_id'})
+        obs = obs.rename(columns={'ghcn_id': 'station_id'})
 
         # Convert to xarray - for this to succeed obs must be a pandas dataframe
         obs = xr.Dataset.from_dataframe(obs.compute().set_index(['time', 'station_id']))
@@ -142,6 +140,8 @@ def ghcnd_yearly(year, grid='global0_25', cell_aggregation='first'):
 
 # Note that this cache can't be disabled because we use filepath only below and it
 # doesn't/can't pass through
+
+
 @dask_remote
 @cache(cache_args=['year', 'grid', 'cell_aggregation'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
@@ -157,6 +157,7 @@ def ghcnd_reindexed(year, grid="global0_25", cell_aggregation='first'):
     obs = obs.reindex_like(grid_ds, method='nearest', tolerance=0.005)
 
     return obs
+
 
 @dask_remote
 @timeseries()
@@ -187,7 +188,6 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
                               parallel=True,
                               chunks={'station_id': 10000, 'time': 365})
 
-
         # This needs to be done againt after the open_mfdataset.
         # For some reason it reindexed lat/lon by time
         # I verified it was the same across time for each stations
@@ -196,7 +196,7 @@ def ghcnd(start_time, end_time, grid="global0_25", cell_aggregation='first',
         x = x.set_coords('lat')
         x = x.set_coords('lon')
 
-        x = x.chunk({'time':365, 'station_id': 10000})
+        x = x.chunk({'time': 365, 'station_id': 10000})
         x = x.assign_coords(station_id=x.coords["station_id"].astype(str))
     else:
         x = xr.open_mfdataset(datasets,
@@ -233,7 +233,8 @@ def _ghcn_unified(start_time, end_time, variable, agg_days,
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
+                                'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
          event=None, event_kwargs=None,  # noqa: ARG001
@@ -247,7 +248,8 @@ def ghcn(start_time=None, end_time=None, variable='precip', agg_days=1,
 @dask_remote
 @sheerwater_data()
 @timeseries()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
+                                'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def ghcn_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
              event=None, event_kwargs=None,  # noqa: ARG001
