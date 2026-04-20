@@ -18,16 +18,21 @@ class Plugin(dask.distributed.diagnostics.plugin.WorkerPlugin):
     We use this instead of the
     Init args in Xee because it has less chance of API overuse errors (429).
     """
-    def __init__(self, *args, **kwargs): # noqa: D107
+
+    def __init__(self, *args, **kwargs):  # noqa: D107
         pass  # the constructor is up to you
-    def setup(self, worker: dask.distributed.Worker): # noqa: ARG002 D102
+
+    def setup(self, worker: dask.distributed.Worker):  # noqa: ARG002 D102
         ee.Initialize(project='sheerwater', opt_url='https://earthengine-highvolume.googleapis.com')
         pass
-    def teardown(self, worker: dask.distributed.Worker): # noqa: ARG001 D102
+
+    def teardown(self, worker: dask.distributed.Worker):  # noqa: ARG001 D102
         pass
-    def transition(self, key: str, start: str, finish: str, **kwargs): # noqa: ARG001 D102
+
+    def transition(self, key: str, start: str, finish: str, **kwargs):  # noqa: ARG001 D102
         pass
-    def release_key(self, key: str, state: str, cause: str | None, reason: None, report: bool): # noqa: ARG001 D102
+
+    def release_key(self, key: str, state: str, cause: str | None, reason: None, report: bool):  # noqa: ARG001 D102
         pass
 
 
@@ -50,7 +55,7 @@ def oya_daily(day):
     # This is how you get the data at its native projection
     day1 = pd.to_datetime(day) + pd.Timedelta(days=1)
     ic = ee.ImageCollection('projects/global-precipitation-nowcast/assets/global_estimation').filterDate(day,
-                                                                                              day1.strftime('%Y-%m-%d'))
+                                                                                                         day1.strftime('%Y-%m-%d'))
     ds = None
     if ic.size().getInfo() > 0:
         ds = xr.open_dataset(ic,
@@ -73,7 +78,6 @@ def oya_daily(day):
     resampled_ds['precip'] = ds['precipitation'].resample(time='1D').sum(skipna=True, min_count=48) * 0.5
 
     return resampled_ds
-
 
 
 @dask_remote
@@ -119,7 +123,7 @@ def oya_raw(start_time, end_time, delayed=False):
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}},
        cache_disable_if={
            'grid': 'source'
-       })
+})
 def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
                   region='global'):
     """Regridded version of whole oya dataset."""
@@ -138,6 +142,8 @@ def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
 
 @dask_remote
 @sheerwater_data()
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def oya(start_time, end_time, variable, agg_days, grid,
         event=None, event_kwargs=None,  # noqa: ARG001
         mask=None, region='global'):
