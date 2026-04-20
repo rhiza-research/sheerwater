@@ -1,8 +1,8 @@
 """Utility functions for benchmarking."""
 from .data_utils import get_anomalies, regrid, roll_and_agg
-from .forecaster_utils import convert_init_time_to_pred_time, get_variable
+from .forecaster_utils import convert_init_time_to_pred_time, convert_pred_time_to_init_time, get_variable, desnify_fcst
 from .general_utils import load_netcdf, load_object, load_zarr, plot_ds, plot_ds_map, run_in_parallel, write_zarr
-from .grouping_utils import groupby_region, groupby_time, latitude_weights, mean_or_sum
+from .grouping_utils import groupby_region, groupby_time, latitude_weights
 from .plotting_utils import plot_by_region
 from .remote import dask_remote, start_remote
 from .secrets import cdsapi_secret, ecmwf_secret, gap_secret, salient_secret, tahmo_secret, huggingface_read_token
@@ -72,7 +72,6 @@ __all__ = [
     "shift_by_days",
     "groupby_region",
     "latitude_weights",
-    "mean_or_sum",
     "groupby_time",
     "assign_grouping_coordinates",
     "convert_group_to_time",
@@ -80,8 +79,10 @@ __all__ = [
     "doy_mean",
     "get_variable",
     "convert_init_time_to_pred_time",
+    "convert_pred_time_to_init_time",
     "first_satisfied_date",
     "add_spatial_attrs",
     "check_spatial_attr",
     "is_station_grid",
+    "desnify_fcst",
 ]

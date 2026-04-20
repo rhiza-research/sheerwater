@@ -25,14 +25,16 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
 })
 def metric(start_time, end_time, variable, forecast, truth,
            metric_name, agg_days=1,
-           event=None, event_kwargs=None,  # noqa: ARG001
+           event=None, event_kwargs=None,
            time_grouping=None, space_grouping=None,
            spatial=False, grid="global1_5", mask='lsm', region='global',
            memoize_forecast=True, memoize_truth=True):
     """Compute a grouped metric for a forecast at a specific lead."""
     # Use the metric registry to get the metric class
     metric_obj = metric_factory(metric_name, start_time=start_time, end_time=end_time, variable=variable,
-                                agg_days=agg_days, forecast=forecast, truth=truth, time_grouping=time_grouping,
+                                agg_days=agg_days, forecast=forecast, truth=truth,
+                                time_grouping=time_grouping,
+                                event=event, event_kwargs=event_kwargs,
                                 space_grouping=space_grouping, spatial=spatial, grid=grid, mask=mask, region=region,
                                 memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
     return metric_obj.compute()

@@ -173,9 +173,11 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1", mas
 @sheerwater_data()
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001
+def era5_land(start_time, end_time, variable, agg_days,
+              event=None, event_kwargs=None,  # noqa: ARG001
+              grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:
@@ -183,6 +185,8 @@ def era5_land(start_time, end_time, variable, agg_days, grid='global0_1', mask='
         end_time (str): The end date to fetch.
         variable (str): The weather variable to fetch.
         agg_days (int): The aggregation period, in days. Ignored if variable is 'rainy_onset'.
+        event (str): The event to apply to the data.
+        event_kwargs (dict): The keyword arguments to pass to the event.
         grid (str): The grid resolution to fetch the data at.
         mask (str): The mask to apply to the data.
         region (str): The region to clip the data to.
@@ -340,20 +344,11 @@ def era5_daily_regrid(start_time, end_time, variable, grid="global0_25", mask=No
 @dask_remote
 @sheerwater_data()
 @timeseries()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5(start_time=None, end_time=None, variable='precip', agg_days=1, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
-    """Standard format task data for ERA5 Reanalysis.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days. Ignored if variable is 'rainy_onset'.
-        grid (str): The grid resolution to fetch the data at.
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
+def era5(start_time=None, end_time=None, variable='precip', agg_days=1, event=None, event_kwargs=None,  # noqa: ARG001
+         grid='global0_25', mask='lsm', region='global'):
+    """Standard format task data for ERA5 Reanalysis."""
     # Read and combine all the data into an array
     _, _, size, _ = get_grid(grid)
     if size < 0.25:

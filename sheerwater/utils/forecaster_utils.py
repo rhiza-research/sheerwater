@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 
 """Variable-related utility functions for all parts of the data pipeline."""
+import xarray as xr
 
 
 def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
@@ -13,6 +14,54 @@ def convert_init_time_to_pred_time(ds, init_time_dim='init_time',
     ds = ds.rename({lead_time_dim: 'prediction_timedelta'})
     ds = ds.drop_vars(init_time_dim)
     return ds
+
+
+def convert_pred_time_to_init_time(ds, time_dim='time',
+                                   lead_time_dim='prediction_timedelta', init_time_dim='init_time'):
+    """The inverse of the above. Converts a valid time to an init time for a specific prediction timedelta."""
+    ds = ds.assign_coords({init_time_dim: ds[time_dim] - ds[lead_time_dim]})
+    tmp = ds.stack(z=(time_dim, lead_time_dim))
+    tmp = tmp.set_index(z=(init_time_dim, lead_time_dim))
+    ds = tmp.unstack('z')
+    ds = ds.rename({lead_time_dim: 'prediction_timedelta'})
+    ds = ds.drop_vars(time_dim)
+    return ds
+
+
+def desnify_fcst(fcst, start_time=None, end_time=None):
+    """Desnify the forecast."""
+    if not isinstance(fcst, xr.Dataset):
+        raise ValueError(f"fcst must be an xarray dataset. Received {type(fcst)}.")
+
+    # Figure out which input mode the data is in
+    if 'init_time' in fcst.coords and 'prediction_timedelta' in fcst.coords:
+        mode = 'init_time'
+    elif 'time' in fcst.coords and 'prediction_timedelta' in fcst.coords:
+        mode = 'time'
+    else:
+        raise ValueError("Forecast is not in standard mode.")
+
+    if mode == 'init_time':
+        # Convert to time mode
+        if start_time is None:
+            start_time = fcst.init_time.values.min()
+        if end_time is None:
+            end_time = fcst.init_time.values.max()
+        fcst = convert_init_time_to_pred_time(fcst)
+
+    # Forward fill NaNs along the prediction_timedelta dimension, takes the `staler` value for the same timepoint
+    fcst = fcst.bfill(dim='prediction_timedelta')
+    # Forward fill NaNs along the time dimension, takes the 'staler' value for the same timepoint
+    # This covers what happens off the end of the forecast period from the previous init time, where
+    # there are no values to fill backwards from
+    fcst = fcst.ffill(dim='time')
+
+    # Convert back to init time
+    fcst = convert_pred_time_to_init_time(fcst)
+
+    # Trim back to origional start and end times, b/c the conversion will add new times at
+    fcst = fcst.sel(init_time=slice(start_time, end_time))
+    return fcst
 
 
 def get_variable(variable_name, variable_type='era5'):

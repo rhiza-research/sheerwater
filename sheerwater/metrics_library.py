@@ -48,12 +48,14 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  time_grouping=None, spatial=False, grid="global1_5",
+                 event=None, event_kwargs=None,
                  mask='lsm', space_grouping='country', region='global', data_key='none',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
         # Save the configuration kwargs for the metric
         self.start_time = start_time
         self.end_time = end_time
+
         self.variable = variable
         self.agg_days = agg_days
         self.forecast = forecast
@@ -64,6 +66,10 @@ class Metric(ABC):
         self.region = region
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
+
+        self.event = event
+        self.event_kwargs = {} if event_kwargs is None else dict(event_kwargs)
+
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
@@ -76,8 +82,9 @@ class Metric(ABC):
         self.metric_data = {'key': data_key, 'data': {}}
 
     def prepare_data(self):
-        """Prepare the data for metric calculation, including forecast, observation, and categorical bins."""
+        """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
+        self.event = self.event if self.event is not None else self.default_event
         self.cache_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                              'variable': self.variable, 'agg_days': self.agg_days,
                              'grid': self.grid, 'mask': self.mask, 'region': self.region}
@@ -91,19 +98,28 @@ class Metric(ABC):
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type, memoize=self.memoize_forecast)
+                # Pass lookback separaetly b/c it is not a cachable argument for the data function
+                fcst = fcst_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs,
+                               lookback_source=self.truth,
+                               prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.cache_kwargs, prob_type=self.prob_type)
+                fcst = fcst_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs,
+                               lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs, memoize=self.memoize_forecast)
+                fcst = data_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs,
+                               memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs)
+                fcst = data_fn(**self.cache_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -118,10 +134,13 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs, memoize=self.memoize_truth)
+            obs = truth_fn(**self.cache_kwargs,
+                           event=self.event, event_kwargs=self.event_kwargs,
+                           memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**self.cache_kwargs)
+            obs = truth_fn(**self.cache_kwargs,
+                           event=self.event, event_kwargs=self.event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -132,11 +151,6 @@ class Metric(ABC):
         fcst = fcst[[self.variable]]
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
-        # Select the variable of interest
-        obs = obs[[self.variable]]
-        fcst = fcst[[self.variable]]
-
-
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
         # Assign sparsity if it exists
         if 'sparse' in fcst.attrs:
@@ -187,16 +201,6 @@ class Metric(ABC):
         self.metric_data['data']['no_null'] = no_null
         self.metric_data['data']['valid_times'] = valid_times
 
-        # If categorical, populate the data with the bin information
-        if self.categorical:
-            if self.metric_data['key'] == 'none':
-                raise ValueError("A categorical metric must have a key that specifies the bins.")
-            # Get the bins
-            bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
-            if len(bins) > 10:
-                raise ValueError("Categorical metrics can only have up to 10 bins.")
-            self.metric_data['data']['bins'] = bins
-
     @property
     @abstractmethod
     def sparse(self) -> bool:
@@ -217,8 +221,8 @@ class Metric(ABC):
 
     @property
     @abstractmethod
-    def categorical(self) -> bool:
-        """Is the metric categorical?"""
+    def default_event(self) -> str:
+        """Default event processing for the metric?"""
         pass
 
     @property
@@ -242,6 +246,8 @@ class Metric(ABC):
                          start_time=self.start_time,
                          end_time=self.end_time,
                          variable=self.variable,
+                         event=self.event,
+                         event_kwargs=self.event_kwargs,
                          agg_days=self.agg_days,
                          forecast=self.forecast,
                          truth=self.truth,
@@ -314,9 +320,9 @@ class Metric(ABC):
                 ds[stat] = ds[stat] * ds['weights']
 
             if self.space_grouping is None:
-                ds = ds.sum(dim=['lat', 'lon'], skipna=True)
+                ds = ds.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
             elif ds.space_grouping.size > 0:
-                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True)
+                ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
                 # If we've passed a global region and clipped, drop any null groups
                 # Currently commenting out because it was hurting performance
@@ -367,12 +373,52 @@ class Metric(ABC):
         return ds
 
 
+class ContingencyMetric(Metric):  # noqa: N801
+    """Base class for contingency metrics, both dichotomous and multiclass."""
+
+    def prepare_data(self):
+        """Prepare the bin data for the contingency metric."""
+        ############################################################
+        # Enable contingency metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
+        ############################################################
+        # What event are we running? If no event was passed, use the default event.
+        event = self.event if self.event is not None else self.default_event
+
+        if event == 'digitized':
+            # We try to figure out the bins from the metric key
+            if self.metric_data['key'] != 'none':
+                bins = [-np.inf] + [float(x) for x in self.metric_data['key'].split('-')] + [np.inf]
+                if 'bins' not in self.event_kwargs:
+                    self.event_kwargs['bins'] = bins
+                elif self.event_kwargs['bins'] != bins:
+                    raise ValueError("Bins passed to the event must match the bins specified in the key.")
+        elif event == 'above_threshold':
+            # We try to figure out the threshhold from the metric key
+            if self.metric_data['key'] != 'none':
+                threshold = float(self.metric_data['key'].split('-')[0])
+                if 'threshold' not in self.event_kwargs:
+                    self.event_kwargs['threshold'] = threshold
+                elif self.event_kwargs['threshold'] != threshold:
+                    raise ValueError("Threshold passed does not match the threshold specified in the key.")
+        # Handle agg days
+        if event in ('digitized', 'above_threshold'):
+            if self.agg_days != 1:
+                if 'agg_days' not in self.event_kwargs:
+                    self.event_kwargs['agg_days'] = self.agg_days
+                    self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
+                elif self.event_kwargs['agg_days'] != self.agg_days:
+                    raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
+
+        # Call the parent prepare_data method to get the forecast and observation
+        Metric.prepare_data(self)
+
+
 class MAE(Metric):
     """Mean Absolute Error metric."""
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
+    default_event = None
     statistics = ['mae']
 
 
@@ -381,7 +427,7 @@ class MSE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
+    default_event = None
     statistics = ['mse']
 
 
@@ -390,7 +436,7 @@ class RMSE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
+    default_event = None
     statistics = ['mse']
 
     def compute_metric(self):
@@ -402,7 +448,7 @@ class Bias(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
-    categorical = False
+    default_event = None
     statistics = ['bias']
 
 
@@ -411,16 +457,16 @@ class CRPS(Metric):
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = None  # all variables are valid
-    categorical = False
+    default_event = None
     statistics = ['crps']
 
 
-class Brier(Metric):
+class Brier(ContingencyMetric):
     """Brier score metric."""
     sparse = False
     prob_type = 'probabilistic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'above_threshold'
     statistics = ['brier']
 
 
@@ -429,7 +475,7 @@ class SMAPE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
+    default_event = None
     statistics = ['smape']
 
 
@@ -438,7 +484,7 @@ class MAPE(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
+    default_event = None
     statistics = ['mape']
 
 
@@ -447,7 +493,7 @@ class SEEPS(Metric):
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
+    default_event = None
     statistics = ['seeps']
 
     def prepare_data(self):
@@ -474,13 +520,14 @@ class ACC(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None
-    categorical = False
+    default_event = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
 
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
         # Call the parent prepare_data method to get the forecast and observation
-        super().prepare_data()
+        Metric.prepare_data(self)
+        assert self.event is None, "ACC metric does not support events."
 
         # Get the appropriate climatology dataframe for metric calculation
         first_year = 1990
@@ -526,7 +573,7 @@ class Pearson(Metric):
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = False
+    default_event = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
 
     def compute_metric(self):
@@ -536,18 +583,18 @@ class Pearson(Metric):
         return numerator / denominator
 
 
-class Heidke(Metric):
+class Heidke(ContingencyMetric):
     """Heidke Skill Score metric for streaming data."""
     sparse = False
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'digitized'
 
     @property
     def statistics(self):
         stats = ['n_correct', 'n_valid']
-        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.metric_data['data']['bins']))]
-        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.metric_data['data']['bins']))]
+        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.event_kwargs['bins']))]
+        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.event_kwargs['bins']))]
         return stats
 
     def compute_metric(self):
@@ -555,18 +602,18 @@ class Heidke(Metric):
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
         right_by_chance = xr.zeros_like(gs['n_correct'])
-        for i in range(1, len(self.metric_data['data']['bins'])):
+        for i in range(1, len(self.event_kwargs['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
 
 
-class POD(Metric):
+class POD(ContingencyMetric):
     """Probability of Detection metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -575,12 +622,12 @@ class POD(Metric):
         return tp / (tp + fn)
 
 
-class FAR(Metric):
+class FAR(ContingencyMetric):
     """False Alarm Rate metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
 
     def compute_metric(self):
@@ -589,12 +636,12 @@ class FAR(Metric):
         return fp / (fp + tn)
 
 
-class ETS(Metric):
+class ETS(ContingencyMetric):
     """Equitable Threat Score metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
 
     def compute_metric(self):
@@ -607,12 +654,12 @@ class ETS(Metric):
         return (tp - chance) / (tp + fp + fn - chance)
 
 
-class CSI(Metric):
+class CSI(ContingencyMetric):
     """Critical Success Index metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -622,12 +669,12 @@ class CSI(Metric):
         return tp / (tp + fp + fn)
 
 
-class FrequencyBias(Metric):
+class FrequencyBias(ContingencyMetric):
     """Frequency Bias metric."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = ['precip']
-    categorical = True
+    default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
@@ -642,7 +689,7 @@ def metric_factory(metric_name: str, **init_kwargs) -> Metric:
     try:
         # Convert
         if '-' in metric_name:
-            mn = metric_name.split('-')[0]  # support for categorical metric names of the form 'metric-datakey...'
+            mn = metric_name.split('-')[0]  # support for contingency metric names of the form 'metric-datakey...'
             data_key = metric_name[metric_name.find('-')+1:]
         else:
             mn = metric_name

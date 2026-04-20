@@ -228,11 +228,12 @@ def check_bases(ds, dsp, lon_col='lon', lon_colp='lon'):
 
 def add_spatial_attrs(ds, grid, mask, region):
     """Add spatial processing attributes to a dataset."""
-    attrs = {
+    attrs = dict(ds.attrs) if hasattr(ds, "attrs") else {}
+    attrs.update({
         'post_processed_grid': grid,
         'post_processed_mask': mask,
         'post_processed_region': region
-    }
+    })
     return ds.assign_attrs(attrs)
 
 
