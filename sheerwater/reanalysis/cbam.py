@@ -53,9 +53,10 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5", mask=None, re
 @dask_remote
 @sheerwater_data()
 @timeseries()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def cbam(start_time, end_time, variable, agg_days, grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
+def cbam(start_time, end_time, variable, agg_days, event=None, event_kwargs=None,  # noqa: ARG001
+         grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for ERA5 Reanalysis.
 
     Args:

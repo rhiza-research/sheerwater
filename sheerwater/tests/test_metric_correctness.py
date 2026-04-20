@@ -67,8 +67,6 @@ def gold_testing_metric(start_time, end_time, variable, forecast, truth,
         region=region,
         mask=mask,
         grid=grid,
-        memoize_forecast=False,
-        memoize_truth=False,
     )
     return ds_new
 

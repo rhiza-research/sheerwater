@@ -138,7 +138,9 @@ def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
 
 @dask_remote
 @sheerwater_data()
-def oya(start_time, end_time, variable, agg_days, grid, mask=None, region='global'):
+def oya(start_time, end_time, variable, agg_days, grid,
+        event=None, event_kwargs=None,  # noqa: ARG001
+        mask=None, region='global'):
     """A unified oya caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by oya.")
