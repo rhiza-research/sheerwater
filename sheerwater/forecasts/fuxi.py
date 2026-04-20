@@ -163,10 +163,11 @@ def fuxi_rolled(start_time, end_time, variable, agg_days=7, prob_type='probabili
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'prob_type', 'grid', 'mask', 'region'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
          event=None, event_kwargs=None,  # noqa: ARG001
+         lookback_source=None, densify=False,  # noqa: ARG001
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final FuXi forecast interface."""
     if grid != 'global1_5':

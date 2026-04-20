@@ -225,13 +225,9 @@ class forecast(SheerwaterDataset):
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the data decorator."""
         args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
-        self.lookback_source = kwargs.get('lookback_source', None)
-        self.densify = kwargs.get('densify', False)
-
-        # Remove additional arguments from the passed down kwargs
-        for kwarg in ['lookback_source', 'densify']:
-            if kwarg in kwargs:
-                del kwargs[kwarg]
+        bound_args = self.bind_signature(sig, *args, **kwargs)
+        self.lookback_source = bound_args.arguments.get('lookback_source', None)
+        self.densify = bound_args.arguments.get('densify', False)
         return args, kwargs
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
