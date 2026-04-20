@@ -18,6 +18,7 @@ SHEERWATER_STATISTIC_REGISTRY = {}
 def statistic(cache=False, name=None,
               timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
+                          'event', 'event_kwargs',
                           'data_key', 'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
               chunk_by_arg={
@@ -47,6 +48,7 @@ def statistic(cache=False, name=None,
             data, data_key,
             start_time, end_time,
             variable, agg_days, forecast, truth,
+            event, event_kwargs,
             statistic, grid,
             mask=None, region='global',
             **cache_kwargs
@@ -56,6 +58,7 @@ def statistic(cache=False, name=None,
                 'data_key': data_key,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
+                'event': event, 'event_kwargs': event_kwargs,
                 'grid': grid, 'mask': mask, 'region': region,
                 'statistic': statistic,
             }
@@ -80,7 +83,6 @@ def statistic(cache=False, name=None,
         ):
             # Set the statistic to the function name in lowercase
             cache_kwargs['statistic'] = name
-
             # Call the global statistic function
             ds = global_statistic(
                 data=data, memoize=True,
@@ -154,94 +156,52 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
     return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
-@statistic(cache=False, name='obs_digitized')
-def fn_obs_digitized(data, **cache_kwargs):  # noqa: F821
-    # `np.digitize(x, bins, right=True)` returns index `i` such that:
-    #   `bins[i-1] < x <= bins[i]`
-    # Indices range from 0 (for x <= bins[0]) to len(bins) (for x > bins[-1]).
-    # `bins` for np.digitize will be `thresholds_np`.
-    ds = xr.apply_ufunc(
-        np.digitize,
-        data['obs'],
-        kwargs={'bins': data['bins'], 'right': True},
-        dask='parallelized',
-        output_dtypes=[int],
-    )
-    # Restore NaN values
-    return ds.where(data['obs'].notnull(), np.nan, drop=False).astype(float)
-
-
-@statistic(cache=False, name='fcst_digitized')
-def fn_fcst_digitized(data, **cache_kwargs):  # noqa: F821
-    # `np.digitize(x, bins, right=True)` returns index `i` such that:
-    #   `bins[i-1] < x <= bins[i]`
-    # Indices range from 0 (for x <= bins[0]) to len(bins) (for x > bins[-1]).
-    # `bins` for np.digitize will be `thresholds_np`.
-    ds = xr.apply_ufunc(
-        np.digitize,
-        data['fcst'],
-        kwargs={'bins': data['bins'], 'right': True},
-        dask='parallelized',
-        output_dtypes=[int],
-    )
-    # Restore NaN values
-    return ds.where(data['fcst'].notnull(), np.nan)
-
-
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # "Positive events" are 2 (above threshold); negative are 1
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 1) & (fcst_dig == 2)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] < 0.5) & (data['fcst'] >= 0.5)
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 2) & (fcst_dig == 1)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] >= 0.5) & (data['fcst'] < 0.5)
 
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 2) & (fcst_dig == 2)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] >= 0.5) & (data['fcst'] >= 0.5)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == 1) & (fcst_dig == 1)
+    # Assumes the data is digitized and the bins are [0, 1]
+    return (data['obs'] < 0.5) & (data['fcst'] < 0.5)
 
 
 @statistic(cache=False, name='n_correct')
 def fn_n_correct(data, **cache_kwargs):  # noqa: F821
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    return (obs_dig == fcst_dig)
+    # Assumes the data is digitized and the bins are [1, 2 ... n]
+    return (data['obs'] == data['fcst'])
 
 
 # Dynamically generate functions for each category and bind it with the correct category
 def make_fn_n_obs_bin(category):
     @statistic(cache=False, name=f'n_obs_bin_{category}')
     def fn_n_obs_bin(data, **cache_kwargs):
-        obs_dig = fn_obs_digitized(data, **cache_kwargs)
-        return (obs_dig == category)
+        return (data['obs'] == category)
     return fn_n_obs_bin
 
 
 def make_fn_n_fcst_bin(category):
     @statistic(cache=False, name=f'n_fcst_bin_{category}')
     def fn_n_fcst_bin(data, **cache_kwargs):
-        fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-        return (fcst_dig == category)
+        return (data['fcst'] == category)
     return fn_n_fcst_bin
 
 
-# Generate 10 categorical obserations by default for the categorical metrics
+# Generate 10 categorical obserations by default for the contingency metrics
 for cat in range(1, 10):
     make_fn_n_obs_bin(cat)
     make_fn_n_fcst_bin(cat)
@@ -274,11 +234,8 @@ def fn_smape(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='brier')
 def fn_brier(data, **cache_kwargs):  # noqa: F821
-    fcst_dig = fn_fcst_digitized(data, **cache_kwargs)
-    obs_dig = fn_obs_digitized(data, **cache_kwargs)
-    positive_event_id = 2
-    fcst_event_prob = (fcst_dig == positive_event_id).mean(dim='member')
-    obs_event_prob = (obs_dig == positive_event_id)
+    fcst_event_prob = (data['fcst'] > 0.5).mean(dim='member')
+    obs_event_prob = (data['obs'] > 0.5)
     return (fcst_event_prob - obs_event_prob)**2
 
 
