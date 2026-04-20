@@ -68,7 +68,7 @@ class Metric(ABC):
         self.space_grouping = space_grouping if space_grouping != 'None' else None
 
         self.event = event
-        self.event_kwargs = {} if event_kwargs is None else event_kwargs
+        self.event_kwargs = {} if event_kwargs is None else dict(event_kwargs)
 
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
