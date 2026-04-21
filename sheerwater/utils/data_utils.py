@@ -40,6 +40,10 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         ds_agg = ds.rolling(**agg_kwargs).mean()
     elif agg_fn == "sum":
         ds_agg = ds.rolling(**agg_kwargs).sum()
+    elif agg_fn == "max":
+        ds_agg = ds.rolling(**agg_kwargs).max()
+    elif agg_fn == "min":
+        ds_agg = ds.rolling(**agg_kwargs).min()
     else:
         raise NotImplementedError(f"Aggregation function {agg_fn} not implemented.")
 

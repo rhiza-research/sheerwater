@@ -49,7 +49,6 @@ class Metric(ABC):
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  metric_kwargs=None, event=None, event_kwargs=None,
                  time_grouping=None, spatial=False, grid="global1_5",
-                 event=None, event_kwargs=None,
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
@@ -188,6 +187,7 @@ class Metric(ABC):
 
         """4. Apply metric-specific post-processing to the forecast and observation."""
         # For contingency metrics, enable post processing to get first, last, ...
+        # TODO: need to think about how this interacts with the memoizer
         if 'detect_in_time' in self.metric_kwargs:
             obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
             fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])

@@ -4,6 +4,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+from .data_utils import roll_and_agg
 
 
 def groupby_time(ds, time_grouping, agg_fn='mean'):
@@ -98,6 +99,11 @@ def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_groupin
     detected = detected.where(~nanmask, other=np.nan)
     detected = detected.assign_attrs(ds.attrs)
     return detected
+
+
+def soften_in_time(ds, margin_in_days, agg_fn='max'):
+    """Soften a dataset in time by applying a rolling aggregation."""
+    return roll_and_agg(ds, agg=margin_in_days, agg_col="time", agg_fn=agg_fn)
 
 
 def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):

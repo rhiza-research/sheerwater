@@ -9,7 +9,7 @@ import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
 from sheerwater.interfaces import spatial
-from sheerwater.utils import add_spatial_attrs
+from sheerwater.utils import add_spatial_attrs, roll_and_agg
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -59,7 +59,6 @@ def statistic(cache=False, name=None,
                 'event': event, 'event_kwargs': event_kwargs,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
-                'event': event, 'event_kwargs': event_kwargs,
                 'grid': grid, 'mask': mask, 'region': region,
                 'statistic': statistic,
             }
@@ -157,28 +156,75 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
     return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
+@statistic(cache=False, name='contingency_obs_difference')
+def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
+    # Assumes the data is digitized and the bins are [0, 1]
+    if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+    else:
+        soft_margin_in_days = 1
+
+    fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_col="time", agg_fn='max')
+    obs = data['obs']
+
+    # This subtraction removes the forecasted errors from the observed values, and discounts
+    # negative values, where the forecaster said postivite and the observation was negative.
+    error = obs - fcst
+    return error
+
+
+@statistic(cache=False, name='contingency_fcst_difference')
+def fn_contingency_fcst_difference(data, **cache_kwargs):  # noqa: F821
+    # Assumes the data is digitized and the bins are [0, 1]
+    if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+    else:
+        soft_margin_in_days = 1
+
+    obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, agg_col="time", agg_fn='max')
+    fcst = data['fcst']
+
+    # This subtraction removes the forecasted errors from the observed values, and discounts
+    # negative values, where the forecaster said postivite and the observation was negative.
+    error = fcst - obs
+    return error
+
+
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] < 0.5) & (data['fcst'] >= 0.5)
+    diff = fn_contingency_fcst_difference(data, **cache_kwargs)
+    return np.maximum(diff, 0)
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] >= 0.5) & (data['fcst'] < 0.5)
-
-
-@statistic(cache=False, name='true_positives')
-def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] >= 0.5) & (data['fcst'] >= 0.5)
+    diff = fn_contingency_obs_difference(data, **cache_kwargs)
+    return np.maximum(diff, 0)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] < 0.5) & (data['fcst'] < 0.5)
+    neg_obs = 1.0 - data['obs']
+    return neg_obs - fn_false_positives(data, **cache_kwargs)
+
+
+@statistic(cache=False, name='true_positives')
+def fn_true_positives(data, **cache_kwargs):  # noqa: F821
+    return data['obs'] - fn_false_negatives(data, **cache_kwargs)
+
+
+# @statistic(cache=False, name='all_positives')
+# def fn_all_positives(data, **cache_kwargs):  # noqa: F821
+#     null_pattern = data['obs'].isnull()
+#     ds = data['obs'] >= 0.5
+#     return ds.where(~null_pattern, np.nan, drop=False)
+
+
+# @statistic(cache=False, name='all_negatives')
+# def fn_all_negatives(data, **cache_kwargs):  # noqa: F821
+#     null_pattern = data['obs'].isnull()
+#     ds = data['obs'] < 0.5
+#     return ds.where(~null_pattern, np.nan, drop=False)
 
 
 @statistic(cache=False, name='n_correct')
