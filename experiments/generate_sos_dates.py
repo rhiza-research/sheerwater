@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from sheerwater.interfaces import get_data
-from sheerwater.spatial_subdivisions import multinational_gdf, get_spatial_subdivision_level
+from sheerwater.spatial_subdivisions import polygon_subdivision_geodataframe, get_spatial_subdivision_level
 from sheerwater.utils import start_remote
 
 import numpy as np
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     start_time = "2000-01-01"  # start time of the data
     end_time = "2025-12-31"  # end time of the data
     mask = 'lsm'  # apply a land-sea mask to the data
-    region = 'eastern_africa'  # clip the data to a specific region
+    region = 'nimbus_horn_and_east_africa'  # clip the data to a specific region
 
     # Select the datasource to use. Options are:
     # - imerg_final, imerg_late, chirps_v3, chirp_v3, tahmo, rain_over_africa, tamsat, oya, ...
@@ -116,10 +116,10 @@ if __name__ == "__main__":
     # - Wet spell: 3 consecutive days with precipitation >= 21 mm
     # - Dry spell: 7 consecutive days with precipitation < 10.5 mm
     # - Planting suitability: Wet spell AND NOT dry spell
-    wet_spell_threshold = 21.0
-    dry_spell_threshold = 10.5
-    wet_spell_agg_days = 3
     dry_spell_agg_days = 7
+    wet_spell_threshold = 21.0
+    wet_spell_agg_days = 3
+    dry_spell_threshold = 10.5
 
     # We then detect the first time the event criteria is met in the rainy season.
     # The rainy season defines two periods:
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     # Start a remote dask cluster for fast processing. Can be commenteed out if you want to run locally.
     # If so, consider running on a short time period and smaller region and large resolution, to avoid
     # long processing times.
-    start_remote(remote_config='xlarge_cluster')
+    start_remote(remote_config='xlarge_cluster', remote_name='eve')
 
     # Get the data for the planting suitability event.
     ds = get_data(datasource)(start_time=start_time, end_time=end_time,
@@ -159,7 +159,7 @@ if __name__ == "__main__":
     sos_time['time'] = sos_time['time'].where(has_sos > 0, np.datetime64('NaT'), drop=False)
 
     """Save and plot the SoS dates for each season"""
-    save_dir = f'sos_plots/{datasource}/{grid}'
+    save_dir = f'sos_plots/{datasource}/{grid}/{region}'
     os.makedirs(save_dir, exist_ok=True)
 
     if do_plots:
@@ -167,9 +167,13 @@ if __name__ == "__main__":
         os.makedirs(plot_dir, exist_ok=True)
 
         # Get country boundaries for plotting for the region
-        country_gdf = multinational_gdf()
-        level = get_spatial_subdivision_level(region)[0]
-        country_gdf = country_gdf[country_gdf[level] == region]
+        try:
+            level = get_spatial_subdivision_level(region)[0]
+            country_gdf = polygon_subdivision_geodataframe(level=level, merged=False)
+            country_gdf = country_gdf[country_gdf['region_name'] == region]
+        except Exception as e:
+            print(f"Error getting country boundaries for region {region}: {e}")
+            country_gdf = None
 
         # For each season, generate a plot
         for season in np.unique(sos_time['group'].values):
@@ -198,7 +202,8 @@ if __name__ == "__main__":
             cbar = im.colorbar
             cbar.set_ticklabels(labels)
             # Overlay the country boundaries
-            country_gdf.plot(ax=ax, edgecolor='black', linewidth=0.5, facecolor='none')
+            if country_gdf is not None:
+                country_gdf.plot(ax=ax, edgecolor='black', linewidth=0.5, facecolor='none')
 
             ax.set_title(f'Start of Season (SoS): {season}')
             ax.set_xlabel('Longitude')
