@@ -116,10 +116,11 @@ if __name__ == "__main__":
     # - Wet spell: 3 consecutive days with precipitation >= 21 mm
     # - Dry spell: 7 consecutive days with precipitation < 10.5 mm
     # - Planting suitability: Wet spell AND NOT dry spell
-    dry_spell_agg_days = 7
-    wet_spell_threshold = 21.0
-    wet_spell_agg_days = 3
-    dry_spell_threshold = 10.5
+    onset_definition = 'chc'
+    wet_spell_agg_days = 10
+    wet_spell_threshold = 20.0
+    dry_spell_agg_days = 20
+    dry_spell_threshold = 25.0
 
     # We then detect the first time the event criteria is met in the rainy season.
     # The rainy season defines two periods:
@@ -129,7 +130,7 @@ if __name__ == "__main__":
     # Start a remote dask cluster for fast processing. Can be commenteed out if you want to run locally.
     # If so, consider running on a short time period and smaller region and large resolution, to avoid
     # long processing times.
-    start_remote(remote_config='xlarge_cluster', remote_name='eve')
+    start_remote(remote_config='xlarge_cluster')
 
     # Get the data for the planting suitability event.
     ds = get_data(datasource)(start_time=start_time, end_time=end_time,
@@ -159,7 +160,7 @@ if __name__ == "__main__":
     sos_time['time'] = sos_time['time'].where(has_sos > 0, np.datetime64('NaT'), drop=False)
 
     """Save and plot the SoS dates for each season"""
-    save_dir = f'sos_plots/{datasource}/{grid}/{region}'
+    save_dir = f'sos_plots/{datasource}/{grid}/{region}/{onset_definition}'
     os.makedirs(save_dir, exist_ok=True)
 
     if do_plots:
@@ -208,7 +209,7 @@ if __name__ == "__main__":
             ax.set_title(f'Start of Season (SoS): {season}')
             ax.set_xlabel('Longitude')
             ax.set_ylabel('Latitude')
-            plt.savefig(os.path.join(plot_dir, f'sos_{season}.png'))
+            plt.savefig(os.path.join(plot_dir, f'sos_{season}_{onset_definition}_{datasource}.png'))
             plt.close(fig)
 
     if do_data:
