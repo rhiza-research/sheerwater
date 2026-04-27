@@ -90,7 +90,8 @@ if __name__ == "__main__":
 
     # Select the datasource to use. Options are:
     # - imerg_final, imerg_late, chirps_v3, chirp_v3, tahmo, rain_over_africa, tamsat, oya, ...
-    datasource = 'imerg_final'
+    # datasource = 'imerg_final'
+    datasource = 'chirps_v3'
 
     ############################################################################################
     # Choose a grid resolution. Options are:
@@ -117,10 +118,16 @@ if __name__ == "__main__":
     # - Dry spell: 7 consecutive days with precipitation < 10.5 mm
     # - Planting suitability: Wet spell AND NOT dry spell
     onset_definition = 'chc'
-    wet_spell_agg_days = 10
-    wet_spell_threshold = 20.0
-    dry_spell_agg_days = 20
-    dry_spell_threshold = 25.0
+    if onset_definition == 'chc':
+        wet_spell_agg_days = 10
+        wet_spell_threshold = 20.0
+        dry_spell_agg_days = 20
+        dry_spell_threshold = 25.0
+    elif onset_definition == 'icpac':
+        wet_spell_agg_days = 3
+        wet_spell_threshold = 21.0
+        dry_spell_agg_days = 7
+        dry_spell_threshold = 10.5
 
     # We then detect the first time the event criteria is met in the rainy season.
     # The rainy season defines two periods:
@@ -130,7 +137,7 @@ if __name__ == "__main__":
     # Start a remote dask cluster for fast processing. Can be commenteed out if you want to run locally.
     # If so, consider running on a short time period and smaller region and large resolution, to avoid
     # long processing times.
-    start_remote(remote_config='xlarge_cluster')
+    start_remote(remote_config=['xlarge_cluster', 'large_node'], remote_name='sos_dates')
 
     # Get the data for the planting suitability event.
     ds = get_data(datasource)(start_time=start_time, end_time=end_time,
@@ -206,7 +213,7 @@ if __name__ == "__main__":
             if country_gdf is not None:
                 country_gdf.plot(ax=ax, edgecolor='black', linewidth=0.5, facecolor='none')
 
-            ax.set_title(f'Start of Season (SoS): {season}')
+            ax.set_title(f'{datasource} - {onset_definition} - Start of Season (SoS): {season}')
             ax.set_xlabel('Longitude')
             ax.set_ylabel('Latitude')
             plt.savefig(os.path.join(plot_dir, f'sos_{season}_{onset_definition}_{datasource}.png'))

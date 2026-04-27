@@ -1,5 +1,5 @@
 """Time and date utility functions for all parts of the data pipeline."""
-from calendar import isleap
+import calendar
 from datetime import datetime, timedelta
 
 import dateparser
@@ -178,7 +178,7 @@ def pad_with_leapdays(ds, time_dim="time"):
     Requires the input dataframe to have a dayofyear column. Modifies the input dataset.
     """
     # Find the years that don't have a leap day
-    missing_leaps = [x for x in np.unique(ds[time_dim].dt.year.values) if not isleap(x)]
+    missing_leaps = [x for x in np.unique(ds[time_dim].dt.year.values) if not calendar.isleap(x)]
     missing_dates = [dateparser.parse(f"{x}-02-28") for x in missing_leaps]
 
     # Get the value on the 28th for these years
@@ -249,23 +249,54 @@ def is_valid_forecast_date(model, forecast_type, forecast_date):
 
 
 def get_dates(start_time, end_time, stride="day", return_string=True):
-    """Outputs the list of dates corresponding to input date string."""
-    # Input is of the form '20170101-20180130'
-    start_date = dateparser.parse(start_time)
-    end_date = dateparser.parse(end_time)
+    """Outputs the list of dates corresponding to input date string.
 
-    if stride == "day":
-        stride = DAILY
-    elif stride == "week":
-        stride = WEEKLY
-    elif stride == "month":
-        stride = MONTHLY
-    elif stride == "year":
-        stride = YEARLY
+    Args:
+        start_time (str): Start date as string, e.g. '2017-01-01'.
+        end_time (str): End date as string, e.g. '2018-01-01'.
+        stride (str): "day", "week", "month", "year", or any day-of-week name or combination of days separated by a slash 
+            ("Monday", "Monday/Thursday", "Monday/Tuesday/Wednesday/Thursday/Friday", etc.).
+        return_string (bool): If True, return as strings; else, return as datetime objects.
+    """
+    if isinstance(start_time, str):
+        start_date = dateparser.parse(start_time)
     else:
-        raise ValueError(
-            "Only day, week, month, and year strides are supported.")
-    dates = [dt for dt in rrule(stride, dtstart=start_date, until=end_date)]
+        start_date = pd.Timestamp(start_time)
+    if isinstance(end_time, str):
+        end_date = dateparser.parse(end_time)
+    else:
+        end_date = pd.Timestamp(end_time)
+
+    valid_days = list(calendar.day_name)
+
+    # Support for "Monday", "Monday/Thursday", etc.
+    if isinstance(stride, str) and (
+        stride.capitalize() in valid_days or "/" in stride
+    ):
+        day_nums = [
+            valid_days.index(day.strip().capitalize())
+            for day in stride.split("/")
+            if day.strip().capitalize() in valid_days
+        ]
+        dates = [
+            d for d in (start_date + timedelta(days=n) for n in range((end_date - start_date).days + 1))
+            if d.weekday() in day_nums
+        ]
+    else:
+        if stride == "day":
+            _stride = DAILY
+        elif stride == "week":
+            _stride = WEEKLY
+        elif stride == "month":
+            _stride = MONTHLY
+        elif stride == "year":
+            _stride = YEARLY
+        else:
+            raise ValueError(
+                "Stride must be 'day', 'week', 'month', 'year', or valid day-of-week (e.g. 'Monday', 'Monday/Thursday')."
+            )
+        dates = [dt for dt in rrule(_stride, dtstart=start_date, until=end_date)]
+
     if return_string:
         dates = [date.strftime(DATETIME_FORMAT) for date in dates]
     return dates
