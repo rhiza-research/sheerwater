@@ -8,10 +8,10 @@ import numpy as np
 import xarray_regrid  # noqa: F401, import needed for regridding
 
 from .space_utils import get_grid_ds
-from .time_utils import add_dayofyear
+from .time_utils import add_dayofyear, get_dates
 
 
-def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
+def roll_and_agg(ds, agg, agg_col, agg_fn="mean", stride=None, agg_thresh=None):
     """Rolling aggregation of the dataset.
 
     Applies rolling and then corrects rolling window labels to be left aligned.
@@ -22,6 +22,12 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         agg (int): Aggregation period in days.
         agg_col (str): Column to aggregate over.
         agg_fn (str): Aggregation function. One of mean or sum.
+        stride (str): Stride to aggregate over. If None, rolls over every day, the same as stride="day".
+            If an int, will be treated as the number of units to step between each time (equal to the number
+                of days if the underlying data is daily.
+            If a string, will be treated as in get_dates, e.g., can pass "day", "week", "month", "year",
+                or any day-of-week name or combination of days separated by a slash
+                ("Monday", "Monday/Thursday", "Monday/Tuesday/Wednesday/Thursday/Friday", etc.).
         agg_thresh(int): number of data required to agg.
     """
     if agg == 1:
@@ -40,6 +46,10 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
         ds_agg = ds.rolling(**agg_kwargs).mean()
     elif agg_fn == "sum":
         ds_agg = ds.rolling(**agg_kwargs).sum()
+    elif agg_fn == "max":
+        ds_agg = ds.rolling(**agg_kwargs).max()
+    elif agg_fn == "min":
+        ds_agg = ds.rolling(**agg_kwargs).min()
     else:
         raise NotImplementedError(f"Aggregation function {agg_fn} not implemented.")
 
@@ -52,6 +62,15 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", agg_thresh=None):
     # Correct coords to left-align the aggregated forecast window
     # (default is right aligned)
     ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-np.timedelta64(agg-1, 'D')})
+
+    if stride is not None:
+        if isinstance(stride, int):
+            ds_agg = ds_agg.sel(time=slice(None, None, stride))
+        else:
+            start_time = ds_agg[agg_col].values[0]
+            end_time = ds_agg[agg_col].values[-1]
+            times = get_dates(start_time, end_time, stride=stride)
+            ds_agg = ds_agg.sel(time=times)
 
     return ds_agg
 
