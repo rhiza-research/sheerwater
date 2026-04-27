@@ -104,6 +104,13 @@ def test_roll_and_agg_stride_selection():
     ]
     assert rolled_stride_int["precip"].values.tolist() == [6.0, 12.0, 18.0, 24.0]
 
+    rolled_stride_five = roll_and_agg(ds, agg=3, agg_col="time", agg_fn="sum", stride=5)
+    assert rolled_stride_five.time.dt.strftime("%Y-%m-%d").values.tolist() == [
+        "2024-01-01",
+        "2024-01-06",
+    ]
+    assert rolled_stride_five["precip"].values.tolist() == [6.0, 21.0]
+
     rolled_stride_weekdays = roll_and_agg(
         ds, agg=3, agg_col="time", agg_fn="sum", stride="Monday/Thursday"
     )
