@@ -254,8 +254,8 @@ def get_dates(start_time, end_time, stride="day", return_string=True):
     Args:
         start_time (str): Start date as string, e.g. '2017-01-01'.
         end_time (str): End date as string, e.g. '2018-01-01'.
-        stride (str): "day", "week", "month", "year", or any day-of-week name or combination of days separated by a slash 
-            ("Monday", "Monday/Thursday", "Monday/Tuesday/Wednesday/Thursday/Friday", etc.).
+        stride (str): "day", "week", "month", "year", or any day-of-week name or combination of days
+            separated by a slash (e.g., "Monday", "Monday/Thursday", "Monday/Tuesday/Wednesday", etc.)
         return_string (bool): If True, return as strings; else, return as datetime objects.
     """
     if isinstance(start_time, str):
@@ -292,9 +292,8 @@ def get_dates(start_time, end_time, stride="day", return_string=True):
         elif stride == "year":
             _stride = YEARLY
         else:
-            raise ValueError(
-                "Stride must be 'day', 'week', 'month', 'year', or valid day-of-week (e.g. 'Monday', 'Monday/Thursday')."
-            )
+            raise ValueError("Stride must be 'day', 'week', 'month', 'year', or"
+                             " a valid day-of-week (e.g. 'Monday', 'Monday/Thursday').")
         dates = [dt for dt in rrule(_stride, dtstart=start_date, until=end_date)]
 
     if return_string:
