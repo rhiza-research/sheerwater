@@ -48,6 +48,9 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
             raise ValueError("Invalid time grouping")
 
         ds = ds.assign_coords(group=("time", coords))
+
+        # If some time groups are None in the time grouping, e.g., shoulder seasons for rainy season,
+        # we drop them here.
         mask = np.array(["None" not in g for g in ds['group'].values])
         ds = ds.isel(time=mask)
 
@@ -76,14 +79,12 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
 
-    # Remove None groups after grouping
-    mask = np.array(["None" not in g for g in ds['time'].values])
-    ds = ds.isel(time=mask)
     return ds
 
 
 def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_grouping=None):
-    """A function to detect an event in time."""
+    """Detect the first or last time in a time grouping that satisfies a criteria."""
+    # Apply the criteria to the dataset, converting to ones and zeros
     ds = ds.where(criteria(ds), 0.0)
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
@@ -114,15 +115,10 @@ def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_groupin
 
     detected = ds.groupby("group").map(func)
 
-    # Restore the null pattern and attributes
+    # Restore the null pattern and attributes, which are lost during the grouping
     detected = detected.where(~nanmask, other=np.nan)
     detected = detected.assign_attrs(ds.attrs)
     return detected
-
-
-def soften_in_time(ds, margin_in_days, agg_fn='max'):
-    """Soften a dataset in time by applying a rolling aggregation."""
-    return roll_and_agg(ds, agg=margin_in_days, agg_col="time", agg_fn=agg_fn)
 
 
 def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):

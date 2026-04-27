@@ -2,7 +2,7 @@
 from .data_utils import get_anomalies, regrid, roll_and_agg
 from .forecaster_utils import convert_init_time_to_pred_time, convert_pred_time_to_init_time, get_variable, desnify_fcst
 from .general_utils import load_netcdf, load_object, load_zarr, plot_ds, plot_ds_map, run_in_parallel, write_zarr
-from .grouping_utils import groupby_region, groupby_time, latitude_weights, detect_in_time, soften_in_time
+from .grouping_utils import groupby_region, groupby_time, latitude_weights, detect_in_time
 from .plotting_utils import plot_by_region
 from .remote import dask_remote, start_remote
 from .secrets import cdsapi_secret, ecmwf_secret, gap_secret, salient_secret, tahmo_secret, huggingface_read_token
@@ -85,6 +85,5 @@ __all__ = [
     "check_spatial_attr",
     "is_station_grid",
     "desnify_fcst",
-    "detect_in_time",
-    "soften_in_time",
+    "detect_in_time"
 ]

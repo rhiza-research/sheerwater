@@ -186,11 +186,20 @@ class Metric(ABC):
         obs = obs.where(no_null, np.nan, drop=False)
 
         """4. Apply metric-specific post-processing to the forecast and observation."""
-        # For contingency metrics, enable post processing to get first, last, ...
-        # TODO: need to think about how this interacts with the memoizer
+
+        # Apply post-processing to a forecast to get the first  or last time a criteria is satisfied
+        # A note: detect in time can be passed in as an event kwarg or metric kwarg. If passed
+        # as a metric kwarg, detet in time runs AFTER both the data and the forecast have been aligned
+        # to the same timebase. Thus, their "first" event should match. If passed as an event kwarg,
+        # the detect in time will be run separately on the forecast and the observation BEFORE times
+        # are aligned. This can lead to mismatch in when the "first" event occurs, if the forecast and the
+        # data have different timebases, e.g., biweekly vs daily values. Detect in time should not be
+        # passed in both as a metric kwarg and an event kwarg.
         if 'detect_in_time' in self.metric_kwargs:
             if self.event is not None and 'detect_in"time' in self.event_kwargs:
                 raise ValueError("Cannot use detect_in_time in both the metric kwargs and the event kwargs.")
+            # TODO: need to think about how this interacts with the memoizer. Things are memoized
+            # on return from forecast, not here.
             obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
             fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
 
