@@ -54,6 +54,7 @@ dependencies = [
     "xesmf",
     "earthaccess",
     "xee",
+    "seaborn",
 ]
 
 [dependency-groups]

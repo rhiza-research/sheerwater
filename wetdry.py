@@ -6,6 +6,7 @@ import matplotlib.ticker as mticker
 import math
 import matplotlib.colors as mcolors
 import xarray as xr
+from sheerwater.spatial_subdivisions import spatial_subdivisions
 
 def joint_confidence(hist, xthreshold = 2, x_dim = "truth", y_dim = "estimate", mode="above"):
     """
@@ -83,6 +84,52 @@ def contingency(hist, xthreshold=2, x_dim="truth", y_dim="estimate", mode="above
     })
 
 
+def contingency_2d(hist, x_dim="truth", y_dim="estimate", mode="above"):
+    """
+    Compute contingency table for all (xthreshold, ythreshold) pairs.
+    Returns a Dataset with dimensions (x_dim, y_dim).
+    """
+    import pdb; pdb.set_trace()
+    hist = hist.precip
+
+    # total count
+    total = hist.sum()
+
+    # 2D cumulative sum
+    xy_below = hist.cumsum(dim=x_dim).cumsum(dim=y_dim)
+    x_below = hist.sum(dim=y_dim).cumsum(dim=x_dim)
+    y_below = hist.sum(dim=x_dim).cumsum(dim=y_dim)
+
+    # shift for proper "less-than" behavior
+    x_below = x_below.shift({x_dim: 1}, fill_value=0)
+    y_below = y_below.shift({y_dim: 1}, fill_value=0)
+    xy_below = xy_below.shift({x_dim: 1, y_dim: 1}, fill_value=0)
+
+    if mode == "above":
+        # regions:
+        # hits: x > xt AND y > yt
+        hits = total - x_below - y_below + xy_below
+        # miss: x > xt AND y <= yt
+        miss = y_below - xy_below
+        # false_pos: x <= xt AND y > yt
+        false_pos = x_below - xy_below
+        # true_neg: x <= xt AND y <= yt
+        true_neg = xy_below
+
+    else:
+        hits = xy_below
+        miss = x_below - xy_below
+        false_pos = y_below - xy_below
+        true_neg = total - x_below - y_below + xy_below
+
+    return xr.Dataset({
+        "hits": hits,
+        "miss": miss,
+        "false_pos": false_pos,
+        "true_neg": true_neg,
+    })
+
+
 def plot(hist):
     # calculate confidence
     import pdb; pdb.set_trace()
@@ -123,10 +170,97 @@ def plot(hist):
     plt.show()
     import pdb; pdb.set_trace()
 
+def plot_threshold_scatter(pod, far, pod_thresh=0.8, far_thresh=0.2):
+
+    mask = (pod >= pod_thresh) & (far <= far_thresh)
+
+    valid = mask.any(dim="estimate")
+    first = mask.idxmax(dim="estimate").where(valid)
+
+    hasdata = (pod.notnull() & far.notnull()).any(dim="estimate")
+    notfound = (~valid) & hasdata
+
+    # ---- convert to 2D coordinate grid ----
+    lon2d, lat2d = np.meshgrid(first["lon"], first["lat"])
+
+    vals = first.values
+    nf_vals = notfound.values
+
+    mask_valid = ~np.isnan(vals)
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    ax.set_facecolor("#f3f4f6")
+
+    # ---- main scatter (valid values) ----
+    sc = ax.scatter(
+        lon2d[mask_valid],
+        lat2d[mask_valid],
+        c=vals[mask_valid],
+        cmap="YlGnBu",
+        s=50,
+        edgecolor="none"
+    )
+
+    plt.colorbar(sc, ax=ax, label="First estimate")
+
+    # ---- overlay: not found ----
+    ax.scatter(
+        lon2d[nf_vals],
+        lat2d[nf_vals],
+        color=(0.86, 0.62, 0.70, 0.75),  # dusty pink
+        s=20,
+        edgecolor="none",
+    )
+
+    ax.set_aspect("equal")
+    plt.tight_layout()
+    plt.show()
+    return ax
+
+
+def plot_threshold2(pod, far, pod_thresh=0.8, far_thresh=0.2):
+
+    mask = (pod >= pod_thresh) & (far <= far_thresh)
+
+    valid = mask.any(dim="estimate")
+    first = mask.idxmax(dim="estimate").where(valid)
+
+    hasdata = (pod.notnull() & far.notnull()).any(dim="estimate")
+    notfound = (~valid) & hasdata
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    # base plot (NaNs just fall back to background)
+    first.plot(
+        ax=ax,
+        cmap="YlGnBu",
+        add_colorbar=True,
+        rasterized=True,
+    )
+
+    # overlay: not found
+    nf = notfound.astype(int)
+
+    overlay_cmap = mcolors.ListedColormap([
+        (0, 0, 0, 0),        # transparent
+        (0.86, 0.62, 0.70, 0.75),   # red highlight
+    ])
+
+    nf.plot(
+        ax=ax,
+        cmap=overlay_cmap,
+        add_colorbar=False,
+        rasterized=True,
+    )
+
+    ax.set_aspect("equal")
+    ax.set_facecolor("#f3f4f6")
+    ax.set_title("Threshold exceedance (red = no valid estimate)")
+    plt.tight_layout()
+    plt.show()
 
 def plot_threshold(pod, far, pod_thresh=0.8, far_thresh=0.2):
     # find threshold where pod is at least 0.8 and far is at most 0.2
-    pod_thresh, far_thresh = 0.8, 0.2
     mask = (pod >= pod_thresh) & (far <= far_thresh)
     valid = mask.any(dim="estimate")
     that = mask.idxmax(dim="estimate").where(valid)
@@ -159,11 +293,11 @@ if __name__ == "__main__":
 
     # data sources
     estimate = "imerg_final"
-    truth = "stations"
+    truth = "tahmo_avg"
 
     # event defintion
     agg_days = 5
-    dry_threshold = 2
+    dry_threshold = 0.5
 
     # spatial specs
     grid = "global0_25"
@@ -175,16 +309,40 @@ if __name__ == "__main__":
     bins = np.arange(0, 20, 0.5)
     hist = paired_histogram(start_time, end_time, estimate, truth, agg_days, grid=grid,
                             space_grouping=space_grouping, time_grouping=None, region=region,
-                            spatial=spatial, recompute=True, bins=bins)
+                            spatial=spatial, bins=bins)
 
+    # 2D contingency table
+    ctable2d = contingency_2d(hist, x_dim="truth", y_dim="estimate", mode="above")
+    # compute pod and far
+    pod2 = ctable2d.hits / (ctable2d.hits + ctable2d.miss)
+    far2 = ctable2d.false_pos / (ctable2d.false_pos + ctable2d.true_neg)
+
+    pod_thresh, far_thresh = 0.9, 0.1
+    # boolean condition
+    meets = (pod2 > pod_thresh) & (far2 < far_thresh)
+    # ensure no NaNs interfere
+    meets = meets.fillna(False)
+    has_solution = meets.any(dim="estimate")
+    # get estimate coordinate of first True along "estimate"
+    best_estimate = meets.astype(int).idxmax(dim="estimate").where(has_solution, np.nan)
+    import pdb; pdb.set_trace()
+
+    """
+    Contingency metrics where we set a threshold on stations and vary it over satellites.
+    """                        
     ctable = contingency(hist, xthreshold=dry_threshold, x_dim="truth", y_dim="estimate", mode="above")
     # compute pod and far
     pod = ctable.hits / (ctable.hits + ctable.miss)
     far = ctable.false_pos / (ctable.false_pos + ctable.true_neg)
-    plot_threshold(pod, far)
+    ax = plot_threshold_scatter(pod, far)
+    ax.set_title("satellite threshold for pod > 0.8 and far < 0.2")
+    # get africa outline
+    gdf = spatial_subdivisions["continent"][1]()
+    gdf = gdf[gdf["region_name"] == "africa"]
+    gdf.plot(ax=ax, color="black", linewidth=1)
+
 
     plt.show()
-    import pdb; pdb.set_trace()
 
     
     pod_thresh = 0.8

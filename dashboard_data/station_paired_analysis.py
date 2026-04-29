@@ -173,15 +173,18 @@ def paired_histogram(start_time, end_time, estimate, truth, agg_days, variable='
     merged_data = xr.merge([estimate_ds, truth_ds])
 
     # get bins of histogram
+    eps = 1e-9
     if bins is None:
         max_value = 50
         step = 1
         if zero_bin:
-            eps = 1e-9
             first_bin = [0, eps]
             bins = np.concatenate((first_bin, np.arange(1, max_value + step, step)))
         else:
             bins = np.arange(0, max_value + step, step)
+    else:
+        if zero_bin:
+            bins = np.concatenate(([0, eps], bins[1:]))
 
     hist2d = histogram_grouping(merged_data, time_grouping, space_grouping, grid, mask, region, spatial,
     bins, variables=['estimate_precip', 'truth_precip'])
