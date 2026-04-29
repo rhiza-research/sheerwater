@@ -94,19 +94,28 @@ class Metric(ABC):
         For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
                      to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
         """
+        import pdb; pdb.set_trace()
+        fcst_threshold = self.event_kwargs.pop('fcst_threshold', None)
+        obs_threshold = self.event_kwargs.pop('obs_threshold', None)
+        fcst_event_kwargs = self.event_kwargs.copy()
+        obs_event_kwargs = self.event_kwargs.copy()
+        fcst_event_kwargs['threshold'] = fcst_threshold
+        obs_event_kwargs['threshold'] = obs_threshold
+        import pdb; pdb.set_trace()
+
         try:
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
             try:
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
                 fcst = fcst_fn(**self.cache_kwargs,
-                               event=self.event, event_kwargs=self.event_kwargs,
+                               event=self.event, event_kwargs=fcst_event_kwargs,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.cache_kwargs,
-                               event=self.event, event_kwargs=self.event_kwargs,
+                               event=self.event, event_kwargs=fcst_event_kwargs,
                                lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
@@ -114,12 +123,12 @@ class Metric(ABC):
             data_fn = get_data(self.forecast)
             try:
                 fcst = data_fn(**self.cache_kwargs,
-                               event=self.event, event_kwargs=self.event_kwargs,
+                               event=self.event, event_kwargs=fcst_event_kwargs,
                                memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.cache_kwargs,
-                               event=self.event, event_kwargs=self.event_kwargs)
+                               event=self.event, event_kwargs=fcst_event_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -135,12 +144,12 @@ class Metric(ABC):
         truth_fn = get_data(self.truth)
         try:
             obs = truth_fn(**self.cache_kwargs,
-                           event=self.event, event_kwargs=self.event_kwargs,
+                           event=self.event, event_kwargs=obs_event_kwargs,
                            memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.cache_kwargs,
-                           event=self.event, event_kwargs=self.event_kwargs)
+                           event=self.event, event_kwargs=obs_event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -395,11 +404,26 @@ class ContingencyMetric(Metric):  # noqa: N801
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key
             if self.metric_data['key'] != 'none':
-                threshold = float(self.metric_data['key'].split('-')[0])
-                if 'threshold' not in self.event_kwargs:
-                    self.event_kwargs['threshold'] = threshold
-                elif self.event_kwargs['threshold'] != threshold:
-                    raise ValueError("Threshold passed does not match the threshold specified in the key.")
+                import pdb; pdb.set_trace()
+                thresholds = self.metric_data['key'].split('-')
+                if len(thresholds) == 1:
+                    fcst_threshold = thresholds[0]
+                    obs_threshold = thresholds[0]
+                elif len(thresholds) == 2:
+                    fcst_threshold = thresholds[0]
+                    obs_threshold = thresholds[1]
+                else:
+                    raise ValueError("Threshold key must be in the format 'fcst_threshold-obs_threshold'.")
+                fcst_threshold = float(self.metric_data['key'].split('-')[0])
+                obs_threshold = float(self.metric_data['key'].split('-')[1])
+                if 'fcst_threshold' not in self.event_kwargs:
+                    self.event_kwargs['fcst_threshold'] = fcst_threshold
+                elif self.event_kwargs['fcst_threshold'] != fcst_threshold:
+                    raise ValueError("FCST threshold passed does not match the threshold specified in the key.")
+                if 'obs_threshold' not in self.event_kwargs:
+                    self.event_kwargs['obs_threshold'] = obs_threshold
+                elif self.event_kwargs['obs_threshold'] != obs_threshold:
+                    raise ValueError("OBS threshold passed does not match the threshold specified in the key.")
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             if self.agg_days != 1:
