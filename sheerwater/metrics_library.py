@@ -94,14 +94,12 @@ class Metric(ABC):
         For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
                      to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
         """
-        import pdb; pdb.set_trace()
         fcst_threshold = self.event_kwargs.pop('fcst_threshold', None)
         obs_threshold = self.event_kwargs.pop('obs_threshold', None)
         fcst_event_kwargs = self.event_kwargs.copy()
         obs_event_kwargs = self.event_kwargs.copy()
         fcst_event_kwargs['threshold'] = fcst_threshold
         obs_event_kwargs['threshold'] = obs_threshold
-        import pdb; pdb.set_trace()
 
         try:
             # Try to get the forecast from the forecast registry
@@ -404,18 +402,15 @@ class ContingencyMetric(Metric):  # noqa: N801
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key
             if self.metric_data['key'] != 'none':
-                import pdb; pdb.set_trace()
                 thresholds = self.metric_data['key'].split('-')
                 if len(thresholds) == 1:
-                    fcst_threshold = thresholds[0]
-                    obs_threshold = thresholds[0]
+                    obs_threshold = float(thresholds[0])
+                    fcst_threshold = float(thresholds[0])
                 elif len(thresholds) == 2:
-                    fcst_threshold = thresholds[0]
-                    obs_threshold = thresholds[1]
+                    obs_threshold = float(thresholds[0])
+                    fcst_threshold = float(thresholds[1])
                 else:
-                    raise ValueError("Threshold key must be in the format 'fcst_threshold-obs_threshold'.")
-                fcst_threshold = float(self.metric_data['key'].split('-')[0])
-                obs_threshold = float(self.metric_data['key'].split('-')[1])
+                    raise ValueError("Threshold key must be in the format 'obs_threshold-fcst_threshold'.")
                 if 'fcst_threshold' not in self.event_kwargs:
                     self.event_kwargs['fcst_threshold'] = fcst_threshold
                 elif self.event_kwargs['fcst_threshold'] != fcst_threshold:
