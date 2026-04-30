@@ -6,7 +6,8 @@ from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
-                              add_spatial_attrs, check_spatial_attr, shift_by_days, desnify_fcst)
+                              add_spatial_attrs, check_spatial_attr, shift_by_days,
+                              desnify_fcst, detect_in_time)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -63,6 +64,11 @@ class SheerwaterDataset(NuthatchProcessor):
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
         self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
+        if 'detect_in_time' in self.event_kwargs:
+            self.detect_in_time = self.event_kwargs['detect_in_time']
+            del self.event_kwargs['detect_in_time']
+        else:
+            self.detect_in_time = None
 
         # Handle the case where variable is not passed, but an event is specified by setting variable to default event
         if self.variable is None:
@@ -181,8 +187,12 @@ class data(SheerwaterDataset):
         if self.event is not None and 'processed' not in ds.attrs:
             ds = self.event_fn(ds, **self.event_kwargs)
 
+        if self.detect_in_time is not None:
+            ds = detect_in_time(ds, **self.detect_in_time)
+
         # Remove all unneeded dimensions
-        ds = ds.drop_vars([var for var in ds.coords if var not in ['time', 'lat', 'lon', 'member', 'station_id']])
+        ds = ds.drop_vars([var for var in ds.coords if var not in [
+                          'time', 'lat', 'lon', 'member', 'group', 'station_id']])
 
         # Add a flag to the dataset to indicate that it has been processed
         ds = ds.assign_attrs({'processed': True})
@@ -281,7 +291,7 @@ class forecast(SheerwaterDataset):
             #################################################################################################
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             ##################################################################################################
-            if self.densify or (self.event_kwargs.get('densify', False)):
+            if self.densify or self.event_kwargs.get('densify', False):
                 ds = desnify_fcst(ds)
 
             ##################################################################################################
@@ -308,9 +318,12 @@ class forecast(SheerwaterDataset):
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             ds = convert_init_time_to_pred_time(ds)
 
+        if self.detect_in_time is not None:
+            ds = detect_in_time(ds, **self.detect_in_time)
+
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
-                           var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']])
+                           var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member', 'group']])
 
         ds = ds.assign_attrs({'processed': True})
         return ds
