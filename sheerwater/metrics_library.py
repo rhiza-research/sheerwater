@@ -101,13 +101,13 @@ class Metric(ABC):
             fcst_fn = get_forecast(self.forecast)
             try:
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
-                fcst = fcst_fn(**self.cache_kwargs,
+                fcst = fcst_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=fcst_event_kwargs,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.cache_kwargs,
+                fcst = fcst_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=fcst_event_kwargs,
                                lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
@@ -115,12 +115,12 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.cache_kwargs,
+                fcst = data_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=fcst_event_kwargs,
                                memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.cache_kwargs,
+                fcst = data_fn(**self.data_kwargs,
                                event=self.event, event_kwargs=fcst_event_kwargs)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
@@ -136,12 +136,12 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.cache_kwargs,
+            obs = truth_fn(**self.data_kwargs,
                            event=self.event, event_kwargs=obs_event_kwargs,
                            memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**self.cache_kwargs,
+            obs = truth_fn(**self.data_kwargs,
                            event=self.event, event_kwargs=obs_event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
@@ -417,8 +417,8 @@ class ContingencyMetric(Metric):  # noqa: N801
                 del self.metric_kwargs['config']
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key
-            if self.metric_data['key'] != 'none':
-                thresholds = self.metric_data['key'].split('-')
+            if self.metric_kwargs['config'] != 'none':
+                thresholds = self.metric_kwargs['config'].split('-')
                 if len(thresholds) == 1:
                     obs_threshold = float(thresholds[0])
                     fcst_threshold = float(thresholds[0])
