@@ -126,9 +126,9 @@ def scatter_data(start_time, end_time,
 @cache(cache_args=['estimate', 'truth', 'agg_days', 'grid', 'region'], backend='sql', backend_kwargs={'hash_table_name': False})
 def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="global", time_grouping="month_of_year", space_grouping="country"):
     """Get a dataframe of the histogram data."""
-    if agg_days <= 4:
-        bins = np.arange(0, 100, 1)
-    elif agg_days <= 7:
+    if agg_days <= 5:
+        bins = np.arange(0, 20, 1)
+    elif agg_days <= 10:
         bins = np.arange(0, 50, 1)
     else:
         bins = np.arange(0, 50, 1)
@@ -144,11 +144,12 @@ def hist_df(start_time, end_time, estimate, truth, agg_days, grid, region="globa
     ddf = hist2d.to_dask_dataframe().reset_index()
     # drop zero bins
     ddf_sparse = ddf[ddf["precip"] > 0]
-    # make time grouping categorical
-    ddf_sparse["group"] = ddf_sparse["group"].astype("category")
-    ddf_sparse = ddf_sparse.categorize(columns=["group"])
-    ddf_sparse["group_id"] = ddf_sparse["group"].cat.codes
-    ddf_sparse = ddf_sparse.drop(columns=["group"])
+    # make time grouping categorical if group column exists
+    if "group" in ddf_sparse.columns:
+        ddf_sparse["group"] = ddf_sparse["group"].astype("category")
+        ddf_sparse = ddf_sparse.categorize(columns=["group"])
+        ddf_sparse["group_id"] = ddf_sparse["group"].cat.codes
+        ddf_sparse = ddf_sparse.drop(columns=["group"])
     # convert to pandas
     df = ddf_sparse.compute()
     df = df.drop(columns=['index'], errors='ignore')
