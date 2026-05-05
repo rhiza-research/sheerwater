@@ -13,7 +13,7 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
                    'forecast', 'truth',
-                   'metric_name', 'event', 'event_kwargs',
+                   'metric_name', 'metric_kwargs', 'event', 'event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
@@ -24,17 +24,19 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
            }
 })
 def metric(start_time, end_time, variable, forecast, truth,
-           metric_name, agg_days=1,
+           metric_name, metric_kwargs=None,
            event=None, event_kwargs=None,
+           agg_days=1,
            time_grouping=None, space_grouping=None,
            spatial=False, grid="global1_5", mask='lsm', region='global',
            memoize_forecast=True, memoize_truth=True):
     """Compute a grouped metric for a forecast at a specific lead."""
     # Use the metric registry to get the metric class
-    metric_obj = metric_factory(metric_name, start_time=start_time, end_time=end_time, variable=variable,
+    metric_obj = metric_factory(metric_name, metric_kwargs=metric_kwargs,
+                                event=event, event_kwargs=event_kwargs,
+                                start_time=start_time, end_time=end_time, variable=variable,
                                 agg_days=agg_days, forecast=forecast, truth=truth,
                                 time_grouping=time_grouping,
-                                event=event, event_kwargs=event_kwargs,
                                 space_grouping=space_grouping, spatial=spatial, grid=grid, mask=mask, region=region,
                                 memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
     return metric_obj.compute()

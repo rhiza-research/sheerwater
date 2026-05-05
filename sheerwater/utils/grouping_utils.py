@@ -4,25 +4,19 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-
-
-def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
-    """A light wrapper around standard groupby aggregation functions."""
-    # Note, for some reason:
-    # ds.groupby('region').mean(['lat', 'lon'], skipna=True).compute()
-    # raises:
-    # *** AttributeError: 'bool' object has no attribute 'blockwise'
-    # or
-    # *** TypeError: reindex_intermediates() missing 1 required positional argument: 'array_type'
-    # So we have to do it via apply
-    if agg_fn == 'mean':
-        return ds.mean(dims, skipna=True)
-    else:
-        return ds.sum(dims, skipna=True)
+from .data_utils import roll_and_agg
 
 
 def groupby_time(ds, time_grouping, agg_fn='mean'):
-    """Aggregate a statistic over time."""
+    """Aggregate a statistic over time. If agg_fn is None, add the grouping coordinates but perform no aggregation."""
+    # Implement MAM, JJA, SON, DJF seasons
+    season_mapping = {
+        1: 'DJF', 2: 'DJF', 3: 'MAM', 4: 'MAM', 5: 'MAM', 6: 'JJA', 7: 'JJA', 8: 'JJA',
+        9: 'SON', 10: 'SON', 11: 'SON', 12: 'DJF',
+    }
+    rainy_season_mapping = {
+        2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'MAM', 6: 'MAM', 9: 'OND', 10: 'OND', 11: 'OND', 12: 'OND',
+    }
     if time_grouping is not None:
         if time_grouping == 'month_of_year':
             coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
@@ -37,13 +31,40 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         elif time_grouping == 'daily':
             coords = [pd.to_datetime(x).date() for x in ds.time.values]
             raise ValueError("Invalid time grouping")
+        elif time_grouping == 'season_of_year':
+            coords = [f"{season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+        elif time_grouping == 'season':
+            # Implement MAM, JJA, SON, DJF seasons
+            coords = [f"{season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
+                      for x in ds.time.values]
+        elif time_grouping == 'rainy_season_of_year':
+            coords = [f"{rainy_season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+        elif time_grouping == 'rainy_season':
+            # Implement MAM, JJA, SON, DJF seasons
+            coords = [
+                f"{rainy_season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
+                for x in ds.time.values]
+        else:
+            raise ValueError("Invalid time grouping")
+
         ds = ds.assign_coords(group=("time", coords))
+
+        # If some time groups are None in the time grouping, e.g., shoulder seasons for rainy season,
+        # we drop them here.
+        mask = np.array(["None" not in g for g in ds['group'].values])
+        ds = ds.isel(time=mask)
+
+        # If no aggregation is requested, return the dataset augmented by the grouping coordinates
+        if agg_fn is None:
+            return ds
 
         if agg_fn == 'mean':
             ds = ds.groupby("group").mean(dim="time", skipna=True)
-        else:
+        elif agg_fn == 'sum':
             # min_count ensures that all nan groups return nan
             ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
+        else:
+            raise ValueError(f"Invalid aggregation function {agg_fn}")
         ds = ds.rename({"group": "time"})
         ds = ds.assign_coords(time=ds['time'].astype('<U10'))
     else:
@@ -53,9 +74,51 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         elif agg_fn == 'sum':
             # min_count ensures that all nan groups return nan
             ds = ds.sum(dim="time", skipna=True, min_count=1)
+        elif agg_fn is None:
+            return ds
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
+
     return ds
+
+
+def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_grouping=None):
+    """Detect the first or last time in a time grouping that satisfies a criteria."""
+    # Apply the criteria to the dataset, converting to ones and zeros
+    ds = ds.where(criteria(ds), 0.0)
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    nanmask = ds.isnull()
+
+    def first_hit(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+        return ((cumsum == 1) & (x == 1)).astype(int)
+
+    def last_hit(x):
+        # Reverse in time and run first hit
+        x = x.isel(time=slice(None, None, -1))
+        ret = first_hit(x)
+        ret = ret.isel(time=slice(None, None, -1))
+        return ret
+
+    # Ensure that the timedimension is sorted
+    ds = ds.sortby("time")
+    if detect == 'first':
+        func = first_hit
+    elif detect == 'last':
+        func = last_hit
+    else:
+        raise ValueError(f"Invalid detection type {detect}")
+
+    detected = ds.groupby("group").map(func)
+
+    # Restore the null pattern and attributes, which are lost during the grouping
+    detected = detected.where(~nanmask, other=np.nan)
+    detected = detected.assign_attrs(ds.attrs)
+    return detected
 
 
 def groupby_region(ds, region_ds, mask_ds, agg_fn='mean', weighted=False):
