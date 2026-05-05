@@ -1,65 +1,53 @@
-# compute the annual average series for each lat/lon of a region
-
 from sheerwater.utils import start_remote
-from sheerwater.climatology import station_satellite_climatology
-
+from sheerwater.climatology import climatology
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 import math
 import matplotlib.dates as mdates
+from sklearn.cluster import KMeans
 
-# --------------------------------------------------
-# RUN
-# --------------------------------------------------
 if __name__ == "__main__":
+    start_remote(remote_name = "mohini")
 
-    start_remote(remote_name="mohini")
-
-    start_time = "2015-01-01"
+    start_time = "2024-01-01"
     end_time = "2024-12-31"
     region = "africa"
     grid = "global0_25"
 
+    variable = "precip"
+    agg_days = 1
     first_year = 2015
-    last_year = 2024
+    last_year = 2025
+    mask = "lsm"
+    imerg = climatology(start_time, end_time, variable, agg_days, data='imerg_final',
+                first_year=first_year, last_year=last_year, trend=False,
+                prob_type='deterministic', grid=grid, mask=mask, region=region)
+    import pdb; pdb.set_trace()
+    df = imerg.to_dataframe()
+    df = df.reset_index()
 
-    both = station_satellite_climatology(
-        "2024-01-01",
-        "2024-12-31",
-        first_year,
-        last_year,
-        region,
-        grid=grid
-    )
-
-    df = both.copy()
-
-    # --------------------------------------------------
-    # PREP
-    # --------------------------------------------------
     df['time'] = pd.to_datetime(df['time'])
     df['point_id'] = list(zip(df['lat'], df['lon']))
 
     # --------------------------------------------------
     # PIVOT IMERG TIME SERIES
     # --------------------------------------------------
-    imerg_ts = df.pivot_table(
+    df = df.pivot_table(
         index='point_id',
         columns='time',
-        values='imerg'
+        values='precip'
     ).sort_index(axis=1)
 
     # --------------------------------------------------
     # HANDLE MISSING VALUES
     # --------------------------------------------------
-    imerg_ts = imerg_ts.fillna(0)
+    df = df.fillna(0)
 
     # --------------------------------------------------
     # MIN-MAX NORMALIZATION (0–1 per location)
     # --------------------------------------------------
-    X = imerg_ts.values.astype(float)
+    X = df.values.astype(float)
 
     row_min = np.nanmin(X, axis=1, keepdims=True)
     row_max = np.nanmax(X, axis=1, keepdims=True)
@@ -71,7 +59,7 @@ if __name__ == "__main__":
     # --------------------------------------------------
     # KMEANS
     # --------------------------------------------------
-    k = 6
+    k = 7
     kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
     labels = kmeans.fit_predict(X_scaled)
 
@@ -83,7 +71,7 @@ if __name__ == "__main__":
     # --------------------------------------------------
     # SPATIAL DATAFRAME
     # --------------------------------------------------
-    coords = np.array(imerg_ts.index.tolist())
+    coords = np.array(df.index.tolist())
 
     cluster_df = pd.DataFrame({
         "lat": coords[:, 0],
@@ -91,10 +79,34 @@ if __name__ == "__main__":
         "cluster": labels
     })
 
-    times = pd.to_datetime(imerg_ts.columns.values)
+    times = pd.to_datetime(df.columns.values)
     unique_clusters = np.unique(labels)
 
     colors = plt.cm.tab10(np.linspace(0, 1, k))
+
+    # ==================================================
+    # FIGURE 2: SPATIAL MAP
+    # ==================================================
+    fig_map, ax_map = plt.subplots(figsize=(10, 6))
+
+    scatter = ax_map.scatter(
+        cluster_df["lon"],
+        cluster_df["lat"],
+        c=cluster_df["cluster"],
+        cmap="tab10",
+        s=12,
+        alpha=0.85
+    )
+
+    ax_map.set_title("Spatial Distribution of IMERG Clusters")
+    ax_map.set_xlabel("Longitude")
+    ax_map.set_ylabel("Latitude")
+
+    plt.colorbar(scatter, ax=ax_map, label="Cluster")
+
+    plt.tight_layout()
+    plt.show()
+    import pdb; pdb.set_trace()
 
     # ==================================================
     # FIGURE 1: TIME SERIES SMALL MULTIPLES
@@ -158,27 +170,4 @@ if __name__ == "__main__":
     fig_ts.suptitle("IMERG Cluster Time Series", y=1.02)
     plt.tight_layout()
     plt.show()
-    import pdb; pdb.set_trace()
 
-    # ==================================================
-    # FIGURE 2: SPATIAL MAP
-    # ==================================================
-    fig_map, ax_map = plt.subplots(figsize=(10, 6))
-
-    scatter = ax_map.scatter(
-        cluster_df["lon"],
-        cluster_df["lat"],
-        c=cluster_df["cluster"],
-        cmap="tab10",
-        s=12,
-        alpha=0.85
-    )
-
-    ax_map.set_title("Spatial Distribution of IMERG Clusters")
-    ax_map.set_xlabel("Longitude")
-    ax_map.set_ylabel("Latitude")
-
-    plt.colorbar(scatter, ax=ax_map, label="Cluster")
-
-    plt.tight_layout()
-    plt.show()
