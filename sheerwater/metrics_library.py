@@ -72,9 +72,9 @@ class Metric(ABC):
         self.space_grouping = space_grouping if space_grouping != 'None' else None
 
         self.event = event
-        self.event_kwargs = None if event_kwargs is None else dict(event_kwargs)
-        self.fcst_event_kwargs = None if fcst_event_kwargs is None else dict(fcst_event_kwargs)
-        self.obs_event_kwargs = None if obs_event_kwargs is None else dict(obs_event_kwargs)
+        self.event_kwargs = {} if event_kwargs is None else dict(event_kwargs)
+        self.fcst_event_kwargs = {} if fcst_event_kwargs is None else dict(fcst_event_kwargs)
+        self.obs_event_kwargs = {} if obs_event_kwargs is None else dict(obs_event_kwargs)
 
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
@@ -86,11 +86,12 @@ class Metric(ABC):
         self.data_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                             'variable': self.variable, 'agg_days': self.agg_days,
                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
-        if self.event_kwargs is not None:
+
+        if self.event_kwargs:
             # If an event kwarg is passed, use it for both the forecast and observation
             fcst_event_kwargs = self.event_kwargs.copy()
             obs_event_kwargs = self.event_kwargs.copy()
-        elif self.fcst_event_kwargs is not None and self.obs_event_kwargs is not None:
+        elif self.fcst_event_kwargs and self.obs_event_kwargs:
             # If different event kwargs are passed for the forecast and observation, use them
             fcst_event_kwargs = self.fcst_event_kwargs.copy()
             obs_event_kwargs = self.obs_event_kwargs.copy()
@@ -412,14 +413,42 @@ class ContingencyMetric(Metric):  # noqa: N801
         if 'config' not in self.metric_kwargs:
             self.metric_kwargs['config'] = 'none'
 
+        # If forecast or obs events are empty, copy the events kwargs to them
+        if not self.fcst_event_kwargs and self.event_kwargs:  # empty dictionary
+            self.fcst_event_kwargs = self.event_kwargs.copy()
+        if not self.obs_event_kwargs and self.event_kwargs:
+            self.obs_event_kwargs = self.event_kwargs.copy()
+        self.event_kwargs = None  # we will not make use of the event kwargs after this point
+
+        # Handle agg days
+        if event in ('digitized', 'above_threshold'):
+            # Check that the agg days passed to the metric, event, fcst event, and obs event are all the same
+            passed_agg_days = self.agg_days
+            agg_days_fcst = self.fcst_event_kwargs.get('agg_days', None)
+            agg_days_obs = self.obs_event_kwargs.get('agg_days', None)
+
+            # Get the non-null agg day values and ensure that they're all equal
+            valid_agg_days = [x for x in [passed_agg_days, agg_days_fcst, agg_days_obs] if x is not None]
+            agg_days = valid_agg_days[0] if any(valid_agg_days) else None
+            if not all(x == agg_days for x in valid_agg_days):
+                raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
+
+            # Set the agg days to the non-null value
+            self.fcst_event_kwargs['agg_days'] = agg_days
+            self.obs_event_kwargs['agg_days'] = agg_days
+
+            # Reset the agg days to one and let the event handle the aggregation
+            self.agg_days = 1
+
         if event == 'digitized':
             # We try to figure out the bins from the metric key
             if self.metric_kwargs['config'] != 'none':
                 bins = [-np.inf] + [float(x) for x in self.metric_kwargs['config'].split('-')] + [np.inf]
-                if 'bins' not in self.event_kwargs:
-                    self.event_kwargs['bins'] = bins
-                elif self.event_kwargs['bins'] != bins:
-                    raise ValueError("Bins passed to the event must match the bins specified in the key.")
+                for event_kwargs in [self.fcst_event_kwargs, self.obs_event_kwargs]:
+                    if 'bins' not in event_kwargs:
+                        event_kwargs['bins'] = bins
+                    elif event_kwargs['bins'] != bins:
+                        raise ValueError("Bins passed to the event must match the bins specified in the key.")
                 del self.metric_kwargs['config']
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key,
@@ -437,31 +466,16 @@ class ContingencyMetric(Metric):  # noqa: N801
                 else:
                     raise ValueError("Threshold key must be in the format 'obs_threshold-fcst_threshold'.")
 
-                # Check for coherence between thresholds passed in the key and the thresholds passed in the event kwargs
-                if 'fcst_threshold' not in self.event_kwargs:
-                    self.event_kwargs['fcst_threshold'] = fcst_threshold
-                elif self.event_kwargs['fcst_threshold'] != fcst_threshold:
+                # Check for consistancy
+                f_thresh = self.fcst_event_kwargs.get('threshold', None)
+                o_thresh = self.obs_event_kwargs.get('threshold', None)
+                if f_thresh is not None and f_thresh != fcst_threshold:
                     raise ValueError("Forecast threshold passed does not match the threshold specified in the key.")
-                if 'obs_threshold' not in self.event_kwargs:
-                    self.event_kwargs['obs_threshold'] = obs_threshold
-                elif self.event_kwargs['obs_threshold'] != obs_threshold:
+                if o_thresh is not None and o_thresh != obs_threshold:
                     raise ValueError("Observation threshold passed does not match the threshold specified in the key.")
-        # Handle agg days
-        if event in ('digitized', 'above_threshold'):
-            if self.agg_days != 1:
-                if 'agg_days' not in self.event_kwargs:
-                    self.event_kwargs['agg_days'] = self.agg_days
-                    self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
-                elif self.event_kwargs['agg_days'] != self.agg_days:
-                    raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
 
-        # Set up differing events for the forecast and observation
-        self.fcst_event_kwargs = self.event_kwargs.copy()
-        self.fcst_event_kwargs['threshold'] = fcst_threshold
-        self.obs_event_kwargs = self.event_kwargs.copy()
-        self.obs_event_kwargs['threshold'] = obs_threshold
-        # Reset the event kwargs to None to indicate that the two separate events should be passed separately.
-        self.event_kwargs = None
+                self.fcst_event_kwargs['threshold'] = fcst_threshold
+                self.obs_event_kwargs['threshold'] = obs_threshold
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
