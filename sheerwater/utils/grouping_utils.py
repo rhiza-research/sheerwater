@@ -14,7 +14,22 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         9: 'SON', 10: 'SON', 11: 'SON', 12: 'DJF',
     }
     rainy_season_mapping = {
-        2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'MAM', 6: 'MAM', 9: 'OND', 10: 'OND', 11: 'OND', 12: 'OND',
+        1: 'None', 2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'None', 6: 'None', 7: 'None', 8: 'None', 9: 'OND', 10: 'OND', 11: 'OND', 12: 'None',
+    }
+    two_seasons_mapping = {
+        1: 'first',
+        2: 'first',
+        3: 'first',
+        4: 'first',
+        5: 'first',
+        6: 'first',
+        7: 'first',
+        8: 'second',
+        9: 'second',
+        10: 'second',
+        11: 'second',
+        12: 'second',
+
     }
     if time_grouping is not None:
         if time_grouping == 'month_of_year':
@@ -43,15 +58,16 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
             coords = [
                 f"{rainy_season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
                 for x in ds.time.values]
+        elif time_grouping == 'two_seasons_of_year':
+            coords = [f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+        elif time_grouping == 'two_seasons':
+            coords = [
+                f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
+                for x in ds.time.values]
         else:
             raise ValueError("Invalid time grouping")
 
         ds = ds.assign_coords(group=("time", coords))
-
-        # If some time groups are None in the time grouping, e.g., shoulder seasons for rainy season,
-        # we drop them here.
-        mask = np.array(["None" not in g for g in ds['group'].values])
-        ds = ds.isel(time=mask)
 
         # If no aggregation is requested, return the dataset augmented by the grouping coordinates
         if agg_fn is None:
@@ -65,7 +81,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
         ds = ds.rename({"group": "time"})
-        ds = ds.assign_coords(time=ds['time'].astype('<U10'))
+        ds = ds.assign_coords(time=ds['time'].astype('<U15'))
     else:
         # Average in time
         if agg_fn == 'mean':
@@ -84,10 +100,15 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
 def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_grouping=None):
     """Detect the first or last time in a time grouping that satisfies a criteria."""
     # Apply the criteria to the dataset, converting to ones and zeros
-    ds = ds.where(criteria(ds), 0.0)
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
     nanmask = ds.isnull()
+
+    ds = ds.where(criteria(ds), 0.0)
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, other=0.0)
 
     def first_hit(x):
         cumsum = x.cumsum(dim="time")

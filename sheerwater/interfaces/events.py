@@ -96,7 +96,7 @@ def digitized(ds, agg_days, bins):
 )
 def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
                          wet_spell_threshold=25.0, dry_spell_threshold=20.0):
-    """A function to calculate the above threshold of a dataset."""
+    """A function to calculate the planting suitability of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Planting suitability event requires a 'precip' variable.")
 
@@ -113,6 +113,39 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
     return (wet_spell * dry_spell).assign_attrs(attrs)
+
+
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] +
+                             kwargs["dry_spell_agg_days"] + kwargs["leading_dry_spell_agg_days"])
+)
+def start_of_season(ds,
+                    leading_dry_spell_agg_days=20, leading_dry_spell_threshold=1.0,
+                    wet_spell_agg_days=3, wet_spell_threshold=7.0,
+                    dry_spell_agg_days=7, dry_spell_threshold=1.0):
+    """A function to calculate the start of season of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season event requires a 'precip' variable.")
+
+    leading_dry_spell = 1.0 - above_threshold(ds, agg_days=leading_dry_spell_agg_days,
+                                              threshold=leading_dry_spell_threshold)
+    wet_spell = above_threshold(ds, agg_days=wet_spell_agg_days, threshold=wet_spell_threshold)
+    dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold)
+
+    # Shift to get wet spell followed by dry spell
+    wet_spell = wet_spell.shift(time=-leading_dry_spell_agg_days)
+    dry_spell = dry_spell.shift(time=-(wet_spell_agg_days + leading_dry_spell_agg_days))
+
+    # Chop off the last days for wet spell, which won't have a matching dry spell
+    # TODO: figure out if this is right
+    leading_dry_spell = leading_dry_spell.isel(time=slice(None, -(leading_dry_spell_agg_days + wet_spell_agg_days)))
+    wet_spell = wet_spell.isel(time=slice(None, -(leading_dry_spell_agg_days)))
+
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    attrs = ds.attrs.copy()
+    return (leading_dry_spell * wet_spell * dry_spell).assign_attrs(attrs)
 
 
 def get_event_fn(name):
