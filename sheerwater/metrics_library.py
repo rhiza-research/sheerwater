@@ -47,7 +47,8 @@ class Metric(ABC):
         SHEERWATER_METRIC_REGISTRY[cls.name] = cls
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
-                 metric_kwargs=None, event=None, event_kwargs=None,
+                 metric_kwargs=None, event=None,
+                 event_kwargs=None, fcst_event_kwargs=None, obs_event_kwargs=None,
                  time_grouping=None, spatial=False, grid="global1_5",
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
@@ -71,7 +72,9 @@ class Metric(ABC):
         self.space_grouping = space_grouping if space_grouping != 'None' else None
 
         self.event = event
-        self.event_kwargs = {} if event_kwargs is None else dict(event_kwargs)
+        self.event_kwargs = None if event_kwargs is None else dict(event_kwargs)
+        self.fcst_event_kwargs = None if fcst_event_kwargs is None else dict(fcst_event_kwargs)
+        self.obs_event_kwargs = None if obs_event_kwargs is None else dict(obs_event_kwargs)
 
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
@@ -83,19 +86,22 @@ class Metric(ABC):
         self.data_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                             'variable': self.variable, 'agg_days': self.agg_days,
                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
+        if self.event_kwargs is not None:
+            # If an event kwarg is passed, use it for both the forecast and observation
+            fcst_event_kwargs = self.event_kwargs.copy()
+            obs_event_kwargs = self.event_kwargs.copy()
+        elif self.fcst_event_kwargs is not None and self.obs_event_kwargs is not None:
+            # If different event kwargs are passed for the forecast and observation, use them
+            fcst_event_kwargs = self.fcst_event_kwargs.copy()
+            obs_event_kwargs = self.obs_event_kwargs.copy()
+        else:
+            raise ValueError("Either an event kwarg or separate forecast and observation event kwargs must be passed.")
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
         For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
                      to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
         """
-        fcst_threshold = self.event_kwargs.pop('fcst_threshold', None)
-        obs_threshold = self.event_kwargs.pop('obs_threshold', None)
-        fcst_event_kwargs = self.event_kwargs.copy()
-        obs_event_kwargs = self.event_kwargs.copy()
-        fcst_event_kwargs['threshold'] = fcst_threshold
-        obs_event_kwargs['threshold'] = obs_threshold
-
         try:
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
@@ -416,25 +422,30 @@ class ContingencyMetric(Metric):  # noqa: N801
                     raise ValueError("Bins passed to the event must match the bins specified in the key.")
                 del self.metric_kwargs['config']
         elif event == 'above_threshold':
-            # We try to figure out the threshhold from the metric key
+            # We try to figure out the threshhold from the metric key,
+            # allowing users to pass, e.g., pod-obs_threshold-fcst_threshold as pod-5-6.5.
             if self.metric_kwargs['config'] != 'none':
                 thresholds = self.metric_kwargs['config'].split('-')
                 if len(thresholds) == 1:
+                    # Set both thresholds to the same value
                     obs_threshold = float(thresholds[0])
                     fcst_threshold = float(thresholds[0])
                 elif len(thresholds) == 2:
+                    # Set the thresholds to the values passed in the key
                     obs_threshold = float(thresholds[0])
                     fcst_threshold = float(thresholds[1])
                 else:
                     raise ValueError("Threshold key must be in the format 'obs_threshold-fcst_threshold'.")
+
+                # Check for coherence between thresholds passed in the key and the thresholds passed in the event kwargs
                 if 'fcst_threshold' not in self.event_kwargs:
                     self.event_kwargs['fcst_threshold'] = fcst_threshold
                 elif self.event_kwargs['fcst_threshold'] != fcst_threshold:
-                    raise ValueError("FCST threshold passed does not match the threshold specified in the key.")
+                    raise ValueError("Forecast threshold passed does not match the threshold specified in the key.")
                 if 'obs_threshold' not in self.event_kwargs:
                     self.event_kwargs['obs_threshold'] = obs_threshold
                 elif self.event_kwargs['obs_threshold'] != obs_threshold:
-                    raise ValueError("OBS threshold passed does not match the threshold specified in the key.")
+                    raise ValueError("Observation threshold passed does not match the threshold specified in the key.")
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             if self.agg_days != 1:
@@ -443,6 +454,14 @@ class ContingencyMetric(Metric):  # noqa: N801
                     self.agg_days = 1  # reset agg days to one and let the event handle the aggregation
                 elif self.event_kwargs['agg_days'] != self.agg_days:
                     raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
+
+        # Set up differing events for the forecast and observation
+        self.fcst_event_kwargs = self.event_kwargs.copy()
+        self.fcst_event_kwargs['threshold'] = fcst_threshold
+        self.obs_event_kwargs = self.event_kwargs.copy()
+        self.obs_event_kwargs['threshold'] = obs_threshold
+        # Reset the event kwargs to None to indicate that the two separate events should be passed separately.
+        self.event_kwargs = None
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)

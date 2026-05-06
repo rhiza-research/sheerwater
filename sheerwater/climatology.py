@@ -550,29 +550,3 @@ def climatology_era5_rolling(start_time, end_time, variable, agg_days, prob_type
     ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})
     ds = ds.rename({"time": "init_time"})
     return ds
-
-@cache(cache=True, cache_args=["grid", "region"], backend="sql")
-def station_satellite_climatology(start_time, end_time, first_year, last_year, region, grid='global0_25', mask='lsm'):
-    variable = "precip"
-    agg_days = 1
-    imerg = climatology(start_time, end_time, variable, agg_days, data='imerg_final',
-                first_year=first_year, last_year=last_year, trend=False,
-                prob_type='deterministic', grid=grid, mask=mask, region=region)
-    tahmo = climatology(start_time, end_time, variable, agg_days, data='tahmo',
-                first_year=first_year, last_year=last_year, trend=False,
-                prob_type='deterministic', grid=grid, mask=mask, region=region)
-
-    imerg, tahmo = xr.align(imerg, tahmo, join="inner")
-    imerg = imerg.rename({'precip': 'imerg'})
-    tahmo = tahmo.rename({'precip': 'tahmo'})
-    both = xr.Dataset({
-        "imerg": imerg.imerg,
-        "tahmo": tahmo.tahmo
-    })
-    # stack lat, lon into location and drop locations where tahmo is nan
-    both = both.stack(location=('lat', 'lon'))
-    both = both.dropna('location', subset=['tahmo'], how='all')
-    # convert to dataframe
-    df = both.to_dataframe().droplevel(['lat', 'lon']).reset_index()
-    return df
-
