@@ -198,9 +198,11 @@ def _chirps_unified(start_time, end_time, variable, grid='global0_25',
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'])
 def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
              event=None, event_kwargs=None,  # noqa: ARG001
+             processors=None, processor_kwargs=None,  # noqa: ARG001
              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP2."""
     return _chirps_unified(start_time, end_time, variable, grid=grid,
@@ -210,9 +212,11 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=1,  # n
 @dask_remote
 @sheerwater_data()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region'])
 def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
              event=None, event_kwargs=None,  # noqa: ARG001
+             processors=None, processor_kwargs=None,  # noqa: ARG001
              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP3."""
     return _chirps_unified(start_time, end_time, variable, grid=grid,
@@ -221,9 +225,11 @@ def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=1,  # n
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'])
 def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS2."""
     return _chirps_unified(start_time, end_time, variable, grid=grid,
@@ -232,9 +238,11 @@ def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=1,  # 
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'])
 def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS3."""
     return _chirps_unified(start_time, end_time, variable, grid=grid,
@@ -243,10 +251,12 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=1,  # 
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def chirps(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
            event=None, event_kwargs=None,  # noqa: ARG001
+           processors=None, processor_kwargs=None,  # noqa: ARG001
            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
     ds = _chirps_unified(start_time, end_time, variable, grid=grid,

@@ -161,10 +161,12 @@ def _knust_unified(start_time, end_time, variable,
 @sheerwater_data()
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def knust(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa: ARG001
           event=None, event_kwargs=None,  # noqa: ARG001
+          processors=None, processor_kwargs=None,  # noqa: ARG001
           grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
           missing_thresh=0.9): # noqa: ARG001
     """Standard interface for knust data."""
@@ -176,10 +178,12 @@ def knust(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa:
 @dask_remote
 @sheerwater_data()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9): # noqa: ARG001
     """Standard interface for knust data."""

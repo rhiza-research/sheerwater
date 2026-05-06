@@ -86,13 +86,21 @@ class SheerwaterDataset(NuthatchProcessor):
                     values={'variable': self.variable}, args=args, kwargs=kwargs, bound_args=bound_args)
 
         # Processor handling
-        self.processors = bound_args.arguments.get('processors', [])
-        if not isinstance(self.processors, list):
-            self.processors = [self.processors]
+        processors_arg = bound_args.arguments.get('processors', None)
+        if processors_arg is None:
+            self.processors = []
+        elif not isinstance(processors_arg, list):
+            self.processors = [processors_arg]
+        else:
+            self.processors = processors_arg
 
-        self.processor_kwargs = bound_args.arguments.get('processor_kwargs', [])
-        if not isinstance(self.processor_kwargs, list):
-            self.processor_kwargs = [self.processor_kwargs]
+        processor_kwargs_arg = bound_args.arguments.get('processor_kwargs', None)
+        if processor_kwargs_arg is None:
+            self.processor_kwargs = []
+        elif not isinstance(processor_kwargs_arg, list):
+            self.processor_kwargs = [processor_kwargs_arg]
+        else:
+            self.processor_kwargs = processor_kwargs_arg
 
         self.processor_fns = [get_processor_fn(processor) for processor in self.processors]
 

@@ -3,7 +3,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg
+from sheerwater.utils import dask_remote, regrid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
@@ -53,12 +53,13 @@ def cbam_gridded(start_time, end_time, variable, grid="global1_5", mask=None, re
 @dask_remote
 @sheerwater_data()
 @timeseries()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def cbam(start_time, end_time, variable, agg_days, event=None, event_kwargs=None,  # noqa: ARG001
+         processors=None, processor_kwargs=None,  # noqa: ARG001
          grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Standard format task data for CBAM."""
     # Get daily data
     ds = cbam_gridded(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
