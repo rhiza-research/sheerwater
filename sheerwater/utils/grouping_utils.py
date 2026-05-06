@@ -18,7 +18,7 @@ def mean_or_sum(ds, agg_fn, dims=['lat', 'lon']):
     if agg_fn == 'mean':
         return ds.mean(dims, skipna=True)
     else:
-        return ds.sum(dims, skipna=True)
+        return ds.sum(dims, skipna=True, min_count=1)
 
 
 def groupby_time(ds, time_grouping, agg_fn='mean'):
