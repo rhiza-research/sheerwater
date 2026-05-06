@@ -12,6 +12,7 @@ from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
+from .processors import get_processor_fn
 from .spatial import spatial
 
 import logging
@@ -66,6 +67,7 @@ class SheerwaterDataset(NuthatchProcessor):
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
         self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
+
         if self.event_kwargs and 'detect_in_time' in self.event_kwargs:
             self.detect_in_time = self.event_kwargs['detect_in_time']
             del self.event_kwargs['detect_in_time']
@@ -82,6 +84,20 @@ class SheerwaterDataset(NuthatchProcessor):
                 self.variable = self.event_fn.default_variable
                 args, kwargs = self.update_args_or_kwargs(
                     values={'variable': self.variable}, args=args, kwargs=kwargs, bound_args=bound_args)
+
+        # Processor handling
+        self.processors = bound_args.arguments.get('processors', [])
+        if not isinstance(self.processors, list):
+            self.processors = [self.processors]
+
+        self.processor_kwargs = bound_args.arguments.get('processor_kwargs', [])
+        if not isinstance(self.processor_kwargs, list):
+            self.processor_kwargs = [self.processor_kwargs]
+
+        self.processor_fns = [get_processor_fn(processor) for processor in self.processors]
+
+        if len(self.processor_fns) != len(self.processor_kwargs):
+            raise ValueError("Number of processor kwarg dicts must match number of processor functions")
 
         # Units
         if self.variable == 'precip':
@@ -157,6 +173,7 @@ class data(SheerwaterDataset):
     def __call__(self, func):
         """Call the parent class and register the data in the global data registry."""
         wrapped = SheerwaterDataset.__call__(self, func)
+        self.func_name = func.__name__
         DATA_REGISTRY[func.__name__] = wrapped
         return wrapped
 
@@ -183,6 +200,19 @@ class data(SheerwaterDataset):
         """Post-processor for a Sheerwater data. It supports xarray datasets."""
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
+
+        # Run the processors on the dataset
+        for i, processor_fn in enumerate(self.processor_fns):
+            if 'processed' not in ds.attrs:
+                packed_processor_kwargs = self.processor_kwargs[i]
+                packed_processor_kwargs['func_name'] = self.func_name
+                packed_processor_kwargs['variable'] = self.variable
+                packed_processor_kwargs['grid'] = self.grid
+                start = ds.time.values.min()
+                end = ds.time.values.max()
+                packed_processor_kwargs['start_time'] = start
+                packed_processor_kwargs['end_time'] = end
+                ds = processor_fn(ds, **packed_processor_kwargs)
 
         # Run the events on the dataset
         if self.event is not None and 'processed' not in ds.attrs:
@@ -239,6 +269,7 @@ class forecast(SheerwaterDataset):
     def __call__(self, func):
         """Call the forecast decorator and register it in the global forecast registry."""
         wrapped = SheerwaterDataset.__call__(self, func)
+        self.func_name = func.__name__
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
@@ -293,6 +324,24 @@ class forecast(SheerwaterDataset):
         """
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
+
+        # Run the processors on the dataset
+        for i, processor_fn in enumerate(self.processor_fns):
+            if 'processed' not in ds.attrs:
+                packed_processor_kwargs = self.processor_kwargs[i]
+                packed_processor_kwargs['func_name'] = self.func_name
+                packed_processor_kwargs['variable'] = self.variable
+                packed_processor_kwargs['grid'] = self.grid
+                start = ds.init_time.values.min()
+                end = ds.init_time.values.max()
+                packed_processor_kwargs['start_time'] = start
+                packed_processor_kwargs['end_time'] = end
+                ds = processor_fn(ds, **packed_processor_kwargs)
+
+                # If we have a new grid after this make sure we assign it
+                # this makes sure the we get the lookback on the correct grid
+                if 'grid' in ds.attrs:
+                    self.grid = ds.attrs['grid']
 
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'processed' not in ds.attrs:

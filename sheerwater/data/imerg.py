@@ -105,6 +105,7 @@ def _imerg_unified(start_time, end_time, variable, grid, version, mask=None, reg
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
                 event=None, event_kwargs=None,  # noqa: ARG001
+                processors=None, processor_kwargs=None,  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
     """IMERG Final."""
     return _imerg_unified(start_time, end_time, variable, grid, version='final', mask=mask, region=region)
@@ -116,6 +117,7 @@ def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,  
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
                event=None, event_kwargs=None,  # noqa: ARG001
+               processors=None, processor_kwargs=None,  # noqa: ARG001
                grid='global0_25', mask='lsm', region='global'):
     """IMERG late."""
     return _imerg_unified(start_time, end_time, variable, grid, version='late', mask=mask, region=region)
@@ -127,6 +129,7 @@ def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,  #
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
           event=None, event_kwargs=None,  # noqa: ARG001
+          processors=None, processor_kwargs=None,  # noqa: ARG001
           grid='global0_25', mask='lsm', region='global'):
     """Alias for IMERG final."""
     return _imerg_unified(start_time, end_time, variable, grid, version='final', mask=mask, region=region)
