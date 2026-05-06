@@ -11,7 +11,7 @@ from .space_utils import get_grid_ds
 from .time_utils import add_dayofyear, get_dates
 
 
-def roll_and_agg(ds, agg, agg_col, agg_fn="mean", stride=None, agg_thresh=None):
+def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg_thresh=None):
     """Rolling aggregation of the dataset.
 
     Applies rolling and then corrects rolling window labels to be left aligned.
@@ -22,6 +22,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", stride=None, agg_thresh=None):
         agg (int): Aggregation period in days.
         agg_col (str): Column to aggregate over.
         agg_fn (str): Aggregation function. One of mean or sum.
+        align (str): Whether to align the rolling window to the left, right, or center. Default is left.
         stride (str): Stride to aggregate over. If None, rolls over every day, the same as stride="day".
             If an int, will be treated as the number of units to step between each time (equal to the number
                 of days if the underlying data is daily.
@@ -59,9 +60,15 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", stride=None, agg_thresh=None):
     # Chop off the first agg-1 days, which will be all NaNs
     ds_agg = ds_agg.isel(**{f"{agg_col}": slice(agg-1, None)})
 
-    # Correct coords to left-align the aggregated forecast window
+    # Correct coords to left-align or center-align the aggregated forecast window
     # (default is right aligned)
-    ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-np.timedelta64(agg-1, 'D')})
+    if align == "center":
+        shift = np.timedelta64(agg-1, 'D') / 2
+    elif align == "right":
+        shift = np.timedelta64(0, 'D')
+    elif align == "left":
+        shift = np.timedelta64(agg-1, 'D')
+    ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-shift})
 
     if stride is not None:
         if isinstance(stride, int):

@@ -396,12 +396,14 @@ class ContingencyMetric(Metric):  # noqa: N801
         ############################################################
         # What event are we running? If no event was passed, use the default event.
         event = self.event if self.event is not None else self.default_event
-        if 'config' not in self.metric_kwargs:
-            self.metric_kwargs['config'] = 'none'
+
+        # If a metric is passed as, e.g., pod-5, with a specific value, the metrics factory
+        # will have added a 'config' key to the metric kwargs and set it equal to the values
+        # after the first '-'.
 
         if event == 'digitized':
             # We try to figure out the bins from the metric key
-            if self.metric_kwargs['config'] != 'none':
+            if 'config' in self.metric_kwargs and self.metric_kwargs['config'] != 'none':
                 bins = [-np.inf] + [float(x) for x in self.metric_kwargs['config'].split('-')] + [np.inf]
                 if 'bins' not in self.event_kwargs:
                     self.event_kwargs['bins'] = bins
@@ -410,7 +412,7 @@ class ContingencyMetric(Metric):  # noqa: N801
                 del self.metric_kwargs['config']
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key
-            if self.metric_kwargs['config'] != 'none':
+            if 'config' in self.metric_kwargs and self.metric_kwargs['config'] != 'none':
                 threshold = float(self.metric_kwargs['config'].split('-')[0])
                 if 'threshold' not in self.event_kwargs:
                     self.event_kwargs['threshold'] = threshold
