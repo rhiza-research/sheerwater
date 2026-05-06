@@ -7,7 +7,7 @@ from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days,
-                              desnify_fcst, detect_in_time)
+                              desnify_fcst, detect_in_time, roll_and_agg)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -57,6 +57,7 @@ class SheerwaterDataset(NuthatchProcessor):
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
+        self.missing_thresh = bound_args.arguments.get('missing_thresh', 1)
 
         # Event handling
         self.event = bound_args.arguments.get('event', None)
@@ -190,6 +191,12 @@ class data(SheerwaterDataset):
         if self.detect_in_time is not None:
             ds = detect_in_time(ds, **self.detect_in_time)
 
+
+        # If agg days are not equal to 1 we need to roll and agg
+        if self.agg_days != 1:
+            agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
+
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
                           'time', 'lat', 'lon', 'member', 'group', 'station_id']])
@@ -317,6 +324,11 @@ class forecast(SheerwaterDataset):
 
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             ds = convert_init_time_to_pred_time(ds)
+
+        # If agg days are not equal to 1 we need to roll and agg
+        if self.agg_days != 1:
+            agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta", agg_fn='mean', agg_thresh=agg_thresh)
 
         if self.detect_in_time is not None:
             ds = detect_in_time(ds, **self.detect_in_time)
