@@ -4,7 +4,6 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from .data_utils import roll_and_agg
 
 
 def groupby_time(ds, time_grouping, agg_fn='mean'):
