@@ -1,4 +1,5 @@
 """A decorator for identifying data sources."""
+import math
 
 import xarray as xr
 import pandas as pd
@@ -65,7 +66,7 @@ class SheerwaterDataset(NuthatchProcessor):
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
         self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
-        if 'detect_in_time' in self.event_kwargs:
+        if self.event_kwargs and 'detect_in_time' in self.event_kwargs:
             self.detect_in_time = self.event_kwargs['detect_in_time']
             del self.event_kwargs['detect_in_time']
         else:
@@ -108,7 +109,6 @@ class SheerwaterDataset(NuthatchProcessor):
 
         # Assign attributes, preserving any existing ones (especially 'prob_type')
         ds = ds.assign_attrs({
-            'agg_days': float(self.agg_days),
             'variable': self.variable,
             'units': self.units,
         })
@@ -193,9 +193,12 @@ class data(SheerwaterDataset):
 
 
         # If agg days are not equal to 1 we need to roll and agg
-        if self.agg_days != 1:
+        if self.agg_days != 1 and 'agg_days' not in ds.attrs:
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
+            ds = ds.assign_attrs({
+                'agg_days': float(self.agg_days),
+            })
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
@@ -326,9 +329,13 @@ class forecast(SheerwaterDataset):
             ds = convert_init_time_to_pred_time(ds)
 
         # If agg days are not equal to 1 we need to roll and agg
-        if self.agg_days != 1:
+        if self.agg_days != 1 and 'agg_days' not in ds.attrs:
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
-            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta", agg_fn='mean', agg_thresh=agg_thresh)
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
+                              agg_fn='mean', agg_thresh=agg_thresh)
+            ds = ds.assign_attrs({
+                'agg_days': float(self.agg_days),
+            })
 
         if self.detect_in_time is not None:
             ds = detect_in_time(ds, **self.detect_in_time)

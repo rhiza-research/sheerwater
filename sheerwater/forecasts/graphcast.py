@@ -5,7 +5,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, lon_base_change, regrid, roll_and_agg, shift_by_days
+from sheerwater.utils import dask_remote, lon_base_change, regrid, shift_by_days
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -189,33 +189,13 @@ def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0,
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'grid'],
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 100},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 1, 'time': 30}
-               },
-           }
-})
-def graphcast_wb_processed(start_time, end_time, variable, agg_days, grid='global0_25', mask=None, region='global'):
-    """A rolled and aggregated Graphcast forecast."""
-    # Grab the init 0 forecast; don't need to regrid
-    ds = graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid=grid, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="lead_time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
+def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+              prob_type='deterministic',
               event=None, event_kwargs=None,  # noqa: ARG001
               lookback_source=None, densify=False,  # noqa: ARG001
               grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
@@ -228,8 +208,8 @@ def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, pro
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = graphcast_wb_processed(forecast_start, forecast_end, variable,
-                             agg_days=agg_days, grid=grid, mask=mask,
+    ds = graphcast_daily_wb(forecast_start, forecast_end, variable,
+                            grid=grid, mask=mask,
                              region=region)
     ds = ds.assign_attrs(prob_type="deterministic")
 

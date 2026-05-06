@@ -5,7 +5,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, lon_base_change, regrid, roll_and_agg, shift_by_days
+from sheerwater.utils import dask_remote, lon_base_change, regrid, shift_by_days
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -141,41 +141,13 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, 
 
 
 @dask_remote
-@timeseries()
-@spatial()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type', 'grid'],
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, "member": 10},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
-               },
-           }
-})
-def gencast_processed(start_time, end_time, variable, agg_days,
-                   prob_type='deterministic', grid='global0_25', mask=None,
-                   region='global'):
-    """A rolled and aggregated gencast forecast."""
-    ds = gencast_daily(start_time, end_time, variable, grid, mask=mask, region=region)
-
-    if prob_type == 'deterministic':
-        ds = ds.mean(dim='member')
-        ds = ds.assign_attrs(prob_type="deterministic")
-    else:
-        ds = ds.assign_attrs(prob_type="ensemble")
-
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="lead_time", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
+def gencast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+            prob_type='deterministic',
             event=None, event_kwargs=None,  # noqa: ARG001
             lookback_source=None, densify=False,  # noqa: ARG001
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
@@ -188,12 +160,16 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = gencast_processed(start_time=forecast_start, end_time=forecast_end, variable=variable,
-                        agg_days=agg_days, prob_type=prob_type, grid=grid, mask=mask, region=region)
+    ds = gencast_daily(start_time=forecast_start, end_time=forecast_end, variable=variable,
+                        prob_type=prob_type, grid=grid, mask=mask, region=region)
+
     if prob_type == 'deterministic':
+        ds = ds.mean(dim='member')
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
         ds = ds.assign_attrs(prob_type="ensemble")
+
+
 
     # Rename to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})

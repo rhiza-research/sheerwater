@@ -4,7 +4,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days, roll_and_agg
+from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -138,31 +138,16 @@ def salient_gem_raw(start_time, end_time, variable, grid='global0_25', mask=None
 
 
 @dask_remote
-@timeseries(timeseries='forecast_date')
-@spatial()
-@cache(cache_args=['variable', 'grid'],
-       cache_disable_if={'agg_days': 1},
-       backend_kwargs={
-           'chunking': {"lat": 20, "lon": 20, "forecast_date": 30, 'lead': 126, 'sample': 200}
-})
-def salient_gem_rolled(start_time, end_time, variable, agg_days=7, grid='global0_25',
-                       mask=None, region='eastern_africa'):
-    """Salient GEM rolled and aggregated."""
-    ds = salient_gem_raw(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="lead", agg_fn="mean")
-    return ds
-
-
-@dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
-              event=None, event_kwargs=None,  # noqa: ARG001
-              lookback_source=None, densify=False,  # noqa: ARG001
-              grid='global1_5', mask='lsm', region="eastern_africa"):  # noqa: ARG001
+def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+                prob_type='deterministic',
+                event=None, event_kwargs=None,  # noqa: ARG001
+                lookback_source=None, densify=False,  # noqa: ARG001
+                grid='global1_5', mask='lsm', region="eastern_africa"):  # noqa: ARG001
     """Final Salient GEM interface."""
     if prob_type != 'deterministic':
         raise NotImplementedError("Only deterministic forecast implemented for graphcast")
@@ -172,7 +157,7 @@ def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1, p
     forecast_end = shift_by_days(end_time, 126) if end_time is not None else None
 
     # Get the data with the right days
-    ds = salient_gem_raw(forecast_start, forecast_end, variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    ds = salient_gem_raw(forecast_start, forecast_end, variable, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.mean(dim='samples')
         ds = ds.reset_coords("samples", drop=True)

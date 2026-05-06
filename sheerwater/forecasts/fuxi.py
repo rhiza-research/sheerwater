@@ -14,7 +14,7 @@ from huggingface_hub.utils import EntryNotFoundError
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, lon_base_change, roll_and_agg, shift_by_days
+from sheerwater.utils import dask_remote, lon_base_change, shift_by_days
 from sheerwater.utils.secrets import huggingface_read_token
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
@@ -125,9 +125,9 @@ def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False):  
 @timeseries()
 @spatial()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'prob_type'],
+       cache_args=['variable', 'prob_type'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
-def fuxi_processed(start_time, end_time, variable, agg_days=7, prob_type='probabilistic', mask=None, region='global'):
+def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic', mask=None, region='global'):
     """Roll and aggregate the FuXi data."""
     ds = fuxi_raw(start_time, end_time, mask=mask, region=region)
 
@@ -157,8 +157,6 @@ def fuxi_processed(start_time, end_time, variable, agg_days=7, prob_type='probab
     else:
         ds = ds.assign_attrs(prob_type="ensemble")
 
-    ds = roll_and_agg(ds, agg=agg_days, agg_col='lead_time', agg_fn='mean')
-
     return ds
 
 
@@ -168,7 +166,8 @@ def fuxi_processed(start_time, end_time, variable, agg_days=7, prob_type='probab
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
+def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+         prob_type='deterministic',
          event=None, event_kwargs=None,  # noqa: ARG001
          lookback_source=None, densify=False,  # noqa: ARG001
          grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
@@ -181,7 +180,7 @@ def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1, prob_typ
     forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
     ds = fuxi_processed(forecast_start, forecast_end, variable,
-                        prob_type=prob_type, agg_days=agg_days, mask=mask,
+                        prob_type=prob_type, mask=mask,
                         region=region)
 
     # Reanme to standard naming

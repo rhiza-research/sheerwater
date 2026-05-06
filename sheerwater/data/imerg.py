@@ -5,7 +5,7 @@ from dateutil import parser
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg
+from sheerwater.utils import dask_remote, regrid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 from .earthaccess_generic import earthaccess_dataset
@@ -89,14 +89,13 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
 
 
 @dask_remote
-def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask=None, region='global'):
+def _imerg_unified(start_time, end_time, variable, grid, version, mask=None, region='global'):
     """A unified imerg caller."""
     if variable not in ['precip']:
         raise NotImplementedError("Only precip and derived variables provided by IMERG.")
     if grid == 'source':  # Call IMERG on the global0_1 grid because it is the source grid
         grid = 'global0_1'
     ds = imerg_gridded(start_time, end_time, grid, version, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
 
@@ -104,30 +103,30 @@ def _imerg_unified(start_time, end_time, variable, agg_days, grid, version, mask
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,
+def imerg_final(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
                 event=None, event_kwargs=None,  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
     """IMERG Final."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='final', mask=mask, region=region)
+    return _imerg_unified(start_time, end_time, variable, grid, version='final', mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,
+def imerg_late(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
                event=None, event_kwargs=None,  # noqa: ARG001
                grid='global0_25', mask='lsm', region='global'):
     """IMERG late."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='late', mask=mask, region=region)
+    return _imerg_unified(start_time, end_time, variable, grid, version='late', mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,
+def imerg(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
           event=None, event_kwargs=None,  # noqa: ARG001
           grid='global0_25', mask='lsm', region='global'):
     """Alias for IMERG final."""
-    return _imerg_unified(start_time, end_time, variable, agg_days, grid, version='final', mask=mask, region=region)
+    return _imerg_unified(start_time, end_time, variable, grid, version='final', mask=mask, region=region)

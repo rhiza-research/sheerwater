@@ -3,7 +3,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg, get_grid
+from sheerwater.utils import dask_remote, regrid, get_grid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
@@ -47,7 +47,7 @@ def tamsat_gridded(start_time, end_time, grid, mask=None, region='global'):  # n
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tamsat(start_time=None, end_time=None, variable='precip', agg_days=1,
+def tamsat(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa: ARG001
            event=None, event_kwargs=None,  # noqa: ARG001
            grid='global0_25', mask='lsm', region='global'):
     """Standard data interface for TAMSAT data."""
@@ -55,4 +55,4 @@ def tamsat(start_time=None, end_time=None, variable='precip', agg_days=1,
         raise NotImplementedError("Only precip and derived variables provided by TAMSAT.")
 
     ds = tamsat_gridded(start_time, end_time, grid, mask=mask, region=region)
-    return roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    return ds

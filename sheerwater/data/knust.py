@@ -1,5 +1,4 @@
 """Get knust data."""
-import math
 from functools import partial
 import numpy as np
 import xarray as xr
@@ -143,7 +142,7 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 @dask_remote
 @timeseries()
 @spatial()
-def _knust_unified(start_time, end_time, variable, agg_days,
+def _knust_unified(start_time, end_time, variable,
                    grid='global0_25', cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     """Standard interface for knust data."""
     ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
@@ -164,12 +163,12 @@ def _knust_unified(start_time, end_time, variable, agg_days,
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
+def knust(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa: ARG001
           event=None, event_kwargs=None,  # noqa: ARG001
           grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-          missing_thresh=0.9):
+          missing_thresh=0.9): # noqa: ARG001
     """Standard interface for knust data."""
-    return _knust_unified(start_time, end_time, variable, agg_days,
+    return _knust_unified(start_time, end_time, variable,
                           grid=grid,
                           cell_aggregation='first', mask=mask, region=region)
 
@@ -179,11 +178,11 @@ def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
+def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-              missing_thresh=0.9):
+              missing_thresh=0.9): # noqa: ARG001
     """Standard interface for knust data."""
-    return _knust_unified(start_time, end_time, variable, agg_days,
+    return _knust_unified(start_time, end_time, variable,
                           grid=grid,
                           cell_aggregation='mean', mask=mask, region=region)
