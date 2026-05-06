@@ -143,7 +143,8 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, 
 @dask_remote
 @timeseries()
 @spatial()
-@cache(cache_args=['variable', 'agg_days', 'prob_type', 'grid'],
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'prob_type', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, "member": 10},
            'chunk_by_arg': {
@@ -152,7 +153,7 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, 
                },
            }
 })
-def gencast_rolled(start_time, end_time, variable, agg_days,
+def gencast_processed(start_time, end_time, variable, agg_days,
                    prob_type='deterministic', grid='global0_25', mask=None,
                    region='global'):
     """A rolled and aggregated gencast forecast."""
@@ -187,7 +188,7 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = gencast_rolled(start_time=forecast_start, end_time=forecast_end, variable=variable,
+    ds = gencast_processed(start_time=forecast_start, end_time=forecast_end, variable=variable,
                         agg_days=agg_days, prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")

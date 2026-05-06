@@ -191,8 +191,8 @@ def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0,
 @dask_remote
 @timeseries()
 @spatial()
-@cache(cache_args=['variable', 'agg_days', 'grid'],
-       cache_disable_if={'agg_days': 1},
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 100},
            'chunk_by_arg': {
@@ -201,7 +201,7 @@ def graphcast_daily_regrid(start_time, end_time, variable, init_hour=0,
                },
            }
 })
-def graphcast_wb_rolled(start_time, end_time, variable, agg_days, grid='global0_25', mask=None, region='global'):
+def graphcast_wb_processed(start_time, end_time, variable, agg_days, grid='global0_25', mask=None, region='global'):
     """A rolled and aggregated Graphcast forecast."""
     # Grab the init 0 forecast; don't need to regrid
     ds = graphcast_daily_wb(start_time, end_time, variable, init_hour=0, grid=grid, mask=mask, region=region)
@@ -228,7 +228,7 @@ def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1, pro
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = graphcast_wb_rolled(forecast_start, forecast_end, variable,
+    ds = graphcast_wb_processed(forecast_start, forecast_end, variable,
                              agg_days=agg_days, grid=grid, mask=mask,
                              region=region)
     ds = ds.assign_attrs(prob_type="deterministic")
