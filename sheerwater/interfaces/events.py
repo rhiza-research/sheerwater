@@ -69,11 +69,33 @@ def above_threshold(ds, agg_days, threshold):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
-def digitized(ds, agg_days, bins):
-    """An event to digitize a dataset into bins."""
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+def days_above_threshold(ds, agg_days, threshold, above_days):
+    """An event to calculate the above threshold of a dataset."""
+    # Bins will be in the format [-inf, threshold, inf]
+    bins = [-np.inf, threshold, np.inf]
+    ds = digitized(ds, agg_days=None, bins=bins)
+    # import matplotlib.pyplot as plt
+    # import pdb; pdb.set_trace()
+    # Convert from the outptut of digitized (1,2) to floating (0, 1)
+    ds = ds.astype(float) - 1.0
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='sum')
+    null_mask = ds.isnull()
+    ds = ds >= above_days
+    # Restore NaN values
+    ds = ds.where(~null_mask, np.nan)
+    # import matplotlib.pyplot as plt
+    # ds.sel(time="2015-03-08").precip.plot(x='lon')
+    # import pdb
+    # pdb.set_trace()
+    return ds
 
-    # Save and restore the null pattern, which is removed by the boolean operations
+
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
+def digitized(ds, agg_days, bins):
+    """An event to digitize a dataset into bins."""  # Save and restore the null pattern, which is removed by the boolean operations
+    if agg_days is not None:
+        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+
     null_mask = ds.isnull()
     attrs = ds.attrs.copy()
 

@@ -201,20 +201,20 @@ def fn_contingency_fcst_difference(data, **cache_kwargs):  # noqa: F821
 
     obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
     fcst = data['fcst']
-    import matplotlib.pyplot as plt
-    # lat = -2.75
-    # lon = 39.75
-    lat = 1.25
-    lon = 37.25
-    # lat = 0.0
-    # lon = 34.25
-    year = 2009
-    obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    data['obs'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+    # import matplotlib.pyplot as plt
+    # # lat = -2.75
+    # # lon = 39.75
+    # lat = 1.25
+    # lon = 37.25
+    # # lat = 0.0
+    # # lon = 34.25
+    # year = 2009
+    # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+    # data['obs'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+    # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
 
-    import pdb
-    pdb.set_trace()
+    # import pdb
+    # pdb.set_trace()
 
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.
@@ -237,6 +237,7 @@ def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
     neg_obs = 1.0 - data['obs']
+    # import pdb; pdb.set_trace()
     return neg_obs - fn_false_positives(data, **cache_kwargs)
 
 
