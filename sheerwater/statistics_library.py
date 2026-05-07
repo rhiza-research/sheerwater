@@ -169,21 +169,22 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
     fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
     obs = data['obs']
 
-    # import matplotlib.pyplot as plt
-    # import pdb
-    # pdb.set_trace()
+    import matplotlib.pyplot as plt
     # # lat = -2.75
     # # lon = 39.75
     # lat = 1.25
     # lat = 2.25
     # lon = 37.25
-    # # lat = 0.0
-    # # lon = 34.25
-    # year = 2009
-    # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # # data['fcst'].sel(time=slice("2013-01-01", "2013-12-31")).sel(lat=0.0, lon=34.25).precip.plot()
+    # lat = 0.0
+    # lon = 34.25
+    lat = 1.75
+    lon = 40.0
+    year = 2023
+    obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+    data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+    fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+    plt.show()
+    import pdb; pdb.set_trace()
 
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.

@@ -126,7 +126,7 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold / dry_spell_agg_days)
 
     # Shift to get wet spell followed by dry spell
-    dry_spell = dry_spell.shift(time=-wet_spell_agg_days)
+    dry_spell = dry_spell.shift(time=wet_spell_agg_days)
 
     # Chop off the last  days for wet spell, which won't have a matching dry spell
     wet_spell = wet_spell.isel(time=slice(None, -wet_spell_agg_days))
@@ -156,8 +156,8 @@ def start_of_season(ds,
     dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold)
 
     # Shift to get wet spell followed by dry spell
-    wet_spell = wet_spell.shift(time=-leading_dry_spell_agg_days)
-    dry_spell = dry_spell.shift(time=-(wet_spell_agg_days + leading_dry_spell_agg_days))
+    wet_spell = wet_spell.shift(time=leading_dry_spell_agg_days)
+    dry_spell = dry_spell.shift(time=(wet_spell_agg_days + leading_dry_spell_agg_days))
 
     # Chop off the last days for wet spell, which won't have a matching dry spell
     # TODO: figure out if this is right
@@ -168,6 +168,186 @@ def start_of_season(ds,
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
     return (leading_dry_spell * wet_spell * dry_spell).assign_attrs(attrs)
+
+
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
+)
+def nimbus_start_of_season(ds,
+                           dry_spell_agg_days=10, dry_spell_threshold=4.0, dry_spell_count=1,
+                           wet_spell_agg_days=10, wet_spell_threshold=4.0, wet_spell_count=3):
+    """A function to calculate the start of season of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season event requires a 'precip' variable.")
+
+    not_dry_spell = days_above_threshold(
+        ds,
+        agg_days=dry_spell_agg_days,
+        threshold=dry_spell_threshold,
+        above_days=dry_spell_count)
+    dry_spell = 1.0 - not_dry_spell
+    wet_spell = days_above_threshold(
+        ds,
+        agg_days=wet_spell_agg_days,
+        threshold=wet_spell_threshold,
+        above_days=wet_spell_count)
+
+    # Shift to get wet spell followed by dry spell
+    buffer_days = 7
+    lagged_dry_spell = dry_spell.shift(time=wet_spell_agg_days)
+    # Remove the NaNs that were introduced by the shift
+    lagged_dry_spell = lagged_dry_spell.isel(time=slice(wet_spell_agg_days, None))
+    lagged_dry_spell = roll_and_agg(lagged_dry_spell, agg=buffer_days, agg_col="time", align='right', agg_fn='max')
+
+    # Chop off the first days for wet spell, which won't have a matching dry spell
+    wet_spell = wet_spell.isel(time=slice(wet_spell_agg_days, -(buffer_days-1)))
+
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    attrs = ds.attrs.copy()
+
+    # import matplotlib.pyplot as plt
+    # # # lat = -2.75
+    # # # lon = 39.75
+    # # lat = 1.25
+    # # lat = 2.25
+    # # lon = 37.25
+    # # lat = 0.0
+    # # lon = 34.25
+    # lat = 1.75
+    # lon = 40.0
+    # year = 2023
+    # fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+
+    # wet = wet_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+    # dry = dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+    # lagged_dry = lagged_dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+    # orig = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+
+    # # --- Wet and Dry Spells on One Subplot with Twin Y-Axis ---
+    # ax2 = ax1.twinx()
+
+    # # Plot original precip on left axis
+    # p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
+    # ax1.set_ylabel('Precipitation', color='gray')
+    # ax1.tick_params(axis='y', labelcolor='gray')
+    # precip_min = min(orig.values.min(), 0)
+    # precip_max = max(orig.values.max(), 1.5)
+    # ax1.set_ylim(precip_min, precip_max)
+
+    # # Plot wet spell (binary) on right axis
+    # p2 = ax2.plot(wet.time, wet.values, color='b', label='Wet Spell', linewidth=2)
+    # # Plot dry spell (binary, lagged) on right axis as well
+    # p3 = ax2.plot(lagged_dry.time, 0.5*lagged_dry.values, color='r', label='Lagged Dry Spell', linewidth=2)
+    # p4 = ax2.plot(lagged_dry.time, 0.1*dry.values, color='g', label='Dry Spell', linewidth=2)
+    # # Optionally plot dry (not lagged) for debugging
+    # # p4 = ax2.plot(dry.time, dry.values, color='g', label='Dry Spell', linewidth=2)
+
+    # ax2.set_ylabel('Spell Indicator', color='k')
+    # ax2.tick_params(axis='y', labelcolor='k')
+    # ax2.set_ylim(-0.2, 1.2)
+
+    # ax1.set_title('Wet & Dry Spells (with Original Precip)')
+
+    # # Combine all plotted lines for legend
+    # lines = p1 + p2 + p3 + p4
+    # labels = [l.get_label() for l in lines]
+    # ax1.legend(lines, labels, loc='upper left')
+
+    # plt.tight_layout()
+    # plt.show()
+    # import pdb
+    # pdb.set_trace()
+
+    return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
+
+
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
+)
+def nimbus_start_of_season_not_dry(ds,
+                                   dry_spell_agg_days=10,
+                                   dry_spell_threshold=1.0,
+                                   dry_spell_count=1,
+                                   wet_spell_agg_days=10):
+    """A function to calculate the start of season of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season event requires a 'precip' variable.")
+
+    not_dry_spell = days_above_threshold(
+        ds,
+        agg_days=dry_spell_agg_days,
+        threshold=dry_spell_threshold,
+        above_days=dry_spell_count)
+    dry_spell = 1.0 - not_dry_spell
+
+    # Shift to get wet spell followed by dry spell
+    lagged_dry_spell = dry_spell.shift(time=wet_spell_agg_days)
+    # Remove the NaNs that were introduced by the shift
+    lagged_dry_spell = lagged_dry_spell.isel(time=slice(wet_spell_agg_days, None))
+
+    # Chop off the first days for wet spell, which won't have a matching dry spell
+    not_dry_spell = not_dry_spell.isel(time=slice(wet_spell_agg_days, None))
+
+    import matplotlib.pyplot as plt
+    # # lat = -2.75
+    # # lon = 39.75
+    # lat = 1.25
+    # lat = 2.25
+    # lon = 37.25
+    # lat = 0.0
+    # lon = 34.25
+    lat = 1.75
+    lon = 40.0
+    year = 2023
+    fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+
+    wet = not_dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+    dry = dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+    lagged_dry = lagged_dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+    orig = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+
+    # --- Wet and Dry Spells on One Subplot with Twin Y-Axis ---
+    ax2 = ax1.twinx()
+
+    # Plot original precip on left axis
+    p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
+    ax1.set_ylabel('Precipitation', color='gray')
+    ax1.tick_params(axis='y', labelcolor='gray')
+    precip_min = min(orig.values.min(), 0)
+    precip_max = max(orig.values.max(), 1.5)
+    ax1.set_ylim(precip_min, precip_max)
+
+    # Plot wet spell (binary) on right axis
+    p2 = ax2.plot(wet.time, wet.values, color='b', label='Wet Spell', linewidth=2)
+    # Plot dry spell (binary, lagged) on right axis as well
+    p3 = ax2.plot(lagged_dry.time, 0.5*lagged_dry.values, color='r', label='Lagged Dry Spell', linewidth=2)
+    p4 = ax2.plot(lagged_dry.time, 0.1*dry.values, color='g', label='Dry Spell', linewidth=2)
+    # Optionally plot dry (not lagged) for debugging
+    # p4 = ax2.plot(dry.time, dry.values, color='g', label='Dry Spell', linewidth=2)
+
+    ax2.set_ylabel('Spell Indicator', color='k')
+    ax2.tick_params(axis='y', labelcolor='k')
+    ax2.set_ylim(-0.2, 1.2)
+
+    ax1.set_title('Wet & Dry Spells (with Original Precip)')
+
+    # Combine all plotted lines for legend
+    lines = p1 + p2 + p3 + p4
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+    import pdb
+    pdb.set_trace()
+
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    attrs = ds.attrs.copy()
+    return (lagged_dry_spell * not_dry_spell).assign_attrs(attrs)
 
 
 def get_event_fn(name):
