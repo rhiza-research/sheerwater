@@ -210,7 +210,9 @@ class Metric(ABC):
         # data have different timebases, e.g., biweekly vs daily values. Detect in time should not be
         # passed in both as a metric kwarg and an event kwarg.
         if 'detect_in_time' in self.metric_kwargs:
-            if self.event is not None and 'detect_in"time' in self.event_kwargs:
+            if self.event is not None and ((self.event_kwargs and 'detect_in_time' in self.event_kwargs) or
+                                           (self.fcst_event_kwargs and 'detect_in_time' in self.fcst_event_kwargs) or
+                                           (self.obs_event_kwargs and 'detect_in_time' in self.obs_event_kwargs)):
                 raise ValueError("Cannot use detect_in_time in both the metric kwargs and the event kwargs.")
             # TODO: need to think about how this interacts with the memoizer. Things are memoized
             # on return from forecast, not here.

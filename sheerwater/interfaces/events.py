@@ -74,8 +74,6 @@ def days_above_threshold(ds, agg_days, threshold, above_days):
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
     ds = digitized(ds, agg_days=None, bins=bins)
-    # import matplotlib.pyplot as plt
-    # import pdb; pdb.set_trace()
     # Convert from the outptut of digitized (1,2) to floating (0, 1)
     ds = ds.astype(float) - 1.0
     ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='sum')
@@ -83,10 +81,6 @@ def days_above_threshold(ds, agg_days, threshold, above_days):
     ds = ds >= above_days
     # Restore NaN values
     ds = ds.where(~null_mask, np.nan)
-    # import matplotlib.pyplot as plt
-    # ds.sel(time="2015-03-08").precip.plot(x='lon')
-    # import pdb
-    # pdb.set_trace()
     return ds
 
 
@@ -125,8 +119,10 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     wet_spell = above_threshold(ds, agg_days=wet_spell_agg_days, threshold=wet_spell_threshold / wet_spell_agg_days)
     dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold / dry_spell_agg_days)
 
-    # Shift to get wet spell followed by dry spell
-    dry_spell = dry_spell.shift(time=wet_spell_agg_days)
+    # Shift to get wet spell followed by not dry spell
+    dry_spell = dry_spell.shift(time=-wet_spell_agg_days)
+    # Chop off the last NaNs introduced by the shift
+    dry_spell = dry_spell.isel(time=slice(None, -wet_spell_agg_days))
 
     # Chop off the last  days for wet spell, which won't have a matching dry spell
     wet_spell = wet_spell.isel(time=slice(None, -wet_spell_agg_days))
@@ -135,6 +131,87 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
     return (wet_spell * dry_spell).assign_attrs(attrs)
+
+
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: kwargs["wet_spell_agg_days"] + kwargs["not_dry_spell_agg_days"],
+)
+def planting_suitability_by_count(ds,
+                                  wet_spell_agg_days=5, wet_spell_threshold=4.0, wet_spell_count=3,
+                                  not_dry_spell_agg_days=10, not_dry_spell_threshold=1.0, not_dry_spell_count=2):
+    """A function to calculate the planting suitability based on wet day counts."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Planting suitability event requires a 'precip' variable.")
+
+    wet_spell = days_above_threshold(ds,
+                                     agg_days=wet_spell_agg_days,
+                                     threshold=wet_spell_threshold,
+                                     above_days=wet_spell_count)
+    not_dry_spell = days_above_threshold(ds,
+                                         agg_days=not_dry_spell_agg_days,
+                                         threshold=not_dry_spell_threshold,
+                                         above_days=not_dry_spell_count)
+
+    # Shift to get wet spell followed by not dry spell
+    not_dry_spell = not_dry_spell.shift(time=-wet_spell_agg_days)
+
+    # Chop off the last  days for wet spell, which won't have a matching not dry spell
+    wet_spell = wet_spell.isel(time=slice(None, -wet_spell_agg_days))
+
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    attrs = ds.attrs.copy()
+    return (wet_spell * not_dry_spell).assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=30)
+def start_of_season_by_accumulation(ds, accumulation_threshold=10.0):
+    """A function to calculate the start of season by accumulation of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
+
+    null_mask = ds.isnull()
+    attrs = ds.attrs.copy()
+
+    def leaky_bucket(precip, leak_rate, runoff_rate):
+        """Simple leaky bucket model to calculate accumulated precipitation.
+
+        Args:
+            precip: 1D numpy array of precipitation values
+            leak_rate: amount bucket drains per timestep (mm/day)
+            runoff_rate: above this amount, rainfall runs off (mm/day)
+        """
+        result = np.empty_like(precip, dtype=float)
+        bucket = 0.0
+        for i, p in enumerate(precip):
+            bucket = max(0.0, bucket + min(p, runoff_rate) - leak_rate)
+            # Bucket overflows beyond 120.0
+            bucket = min(bucket, 120.0)
+            result[i] = bucket
+        return result
+    # lat = 1.75
+    # lon = 40.0
+    # lat = -1.5
+    # lon = 37.0
+
+    ds = ds.chunk({'time': -1})
+    ds = xr.apply_ufunc(
+        leaky_bucket,
+        ds,
+        input_core_dims=[["time"]],
+        output_core_dims=[["time"]],
+        kwargs={"leak_rate": 4, "runoff_rate": 20},
+        dask="parallelized",
+        vectorize=True,
+        output_dtypes=[float],
+    )
+
+    ds_suitable = ds >= accumulation_threshold
+    ds_suitable = ds_suitable.where(~null_mask, np.nan)
+
+    attrs = ds.attrs.copy()
+    return ds_suitable.assign_attrs(attrs)
 
 
 @event(
@@ -215,8 +292,8 @@ def nimbus_start_of_season(ds,
     # # lon = 37.25
     # # lat = 0.0
     # # lon = 34.25
-    # lat = 1.75
-    # lon = 40.0
+    lat = 1.75
+    lon = 40.0
     # year = 2023
     # fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
 
@@ -268,10 +345,11 @@ def nimbus_start_of_season(ds,
     duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
 )
 def nimbus_start_of_season_not_dry(ds,
+                                   threshold=1.0,
                                    dry_spell_agg_days=10,
-                                   dry_spell_threshold=1.0,
                                    dry_spell_count=1,
-                                   wet_spell_agg_days=10):
+                                   wet_spell_agg_days=10,
+                                   wet_spell_count=3):
     """A function to calculate the start of season of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season event requires a 'precip' variable.")
@@ -279,17 +357,23 @@ def nimbus_start_of_season_not_dry(ds,
     not_dry_spell = days_above_threshold(
         ds,
         agg_days=dry_spell_agg_days,
-        threshold=dry_spell_threshold,
+        threshold=threshold,
         above_days=dry_spell_count)
     dry_spell = 1.0 - not_dry_spell
 
-    # Shift to get wet spell followed by dry spell
-    lagged_dry_spell = dry_spell.shift(time=wet_spell_agg_days)
+    wet_spell = days_above_threshold(
+        ds,
+        agg_days=wet_spell_agg_days,
+        threshold=threshold,
+        above_days=wet_spell_count)
+
+    # Shift to get dry spell followed by wet spell
+    lagged_dry_spell = dry_spell.shift(time=dry_spell_agg_days)
     # Remove the NaNs that were introduced by the shift
-    lagged_dry_spell = lagged_dry_spell.isel(time=slice(wet_spell_agg_days, None))
+    lagged_dry_spell = lagged_dry_spell.isel(time=slice(dry_spell_agg_days, None))
 
     # Chop off the first days for wet spell, which won't have a matching dry spell
-    not_dry_spell = not_dry_spell.isel(time=slice(wet_spell_agg_days, None))
+    wet_spell = wet_spell.isel(time=slice(dry_spell_agg_days, None))
 
     import matplotlib.pyplot as plt
     # # lat = -2.75
@@ -316,8 +400,9 @@ def nimbus_start_of_season_not_dry(ds,
     p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
     ax1.set_ylabel('Precipitation', color='gray')
     ax1.tick_params(axis='y', labelcolor='gray')
-    precip_min = min(orig.values.min(), 0)
-    precip_max = max(orig.values.max(), 1.5)
+    import numpy as np
+    precip_min = min(np.nanmin(orig.values), 0)
+    precip_max = max(np.nanmax(orig.values), 1.5)
     ax1.set_ylim(precip_min, precip_max)
 
     # Plot wet spell (binary) on right axis
