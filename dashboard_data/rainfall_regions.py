@@ -5,11 +5,18 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
 import xarray as xr
+from affine import Affine
+import geopandas as gpd
+from rasterio import features
+from shapely.ops import unary_union
+from shapely.geometry import Polygon
+
 
 from sheerwater.climatology import climatology
 from sheerwater.utils import get_grid
+from nuthatch import cache
 
-
+@cache(cache_args=['data_source', 'kregions', 'region', 'grid'])
 def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0_25", mask="lsm", agg_days=1, smooth_neighbors=50, spatial_coherence=0.0):
     # time range of climatology (years don't matter)
     start_time, end_time = "1979-01-01", "1979-12-31"
@@ -66,12 +73,14 @@ def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0
     ds_regions = xr.DataArray(
         np.zeros((len(g_lats), len(g_lons), kregions), dtype=bool),
         coords={"lat": g_lats, "lon": g_lons, "region": range(kregions)},
-        dims=["lat", "lon", "region"]
+        dims=["lat", "lon", "region"],
+        name="masks"
     )
     for region_idx in range(kregions):
         region_lat, region_lon = lat[cleaned_labels == region_idx], lon[cleaned_labels == region_idx]
         for rlat, rlon in zip(region_lat, region_lon):
             ds_regions.loc[{"lat": rlat, "lon": rlon, "region": region_idx}] = True
+    
     return ds_regions
 
 
@@ -99,3 +108,32 @@ def rescale(df, mode="min-max"):
         columns=df.columns
     )
 
+
+def masks_to_polygons(masks, crs="EPSG:4326"):
+    """Convert lat/lon mask into a multipolygon geodataframe."""
+    nregions = len(masks.region.values)
+    gdfs = []
+    for region in range(nregions):
+        mask = masks.sel(region=region).astype(np.int8)
+        lat, lon = mask.lat.values, mask.lon.values
+        # grid spacings
+        dlat, dlon = np.abs(np.mean(np.diff(lat))), np.abs(np.mean(np.diff(lon)))
+        # upper-left corner transform
+        tf = Affine.translation(
+            lon.min() - dlon / 2,
+            lat.min() - dlat / 2,
+        ) * Affine.scale(dlon, dlat)
+        polygons = []
+        for geom, values in features.shapes(mask, transform=tf):
+            # if polygon corresponds to masked area, keep it.
+            if values == 1:
+                polygons.append(Polygon(geom['coordinates'][0]))
+        if len(polygons) == 0:
+            gdf = gpd.GeoDataFrame(geometry=[], crs=crs)
+        else:
+            # dissolve
+            merged = unary_union(polygons)
+            gdf = gpd.GeoDataFrame(geometry=[merged],crs=crs)
+        gdf['region'] = region
+        gdfs.append(gdf)
+    return gdfs

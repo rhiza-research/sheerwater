@@ -1,5 +1,9 @@
-from dashboard_data.rainfall_regions import get_rainfall_regions
+from dashboard_data.rainfall_regions import get_rainfall_regions, masks_to_polygons
 from sheerwater.utils import start_remote
+import matplotlib.pyplot as plt
+import geopandas as gpd
+import pandas as pd
+
 
 if __name__ == "__main__":
     start_remote(remote_name="mohini")
@@ -20,6 +24,8 @@ if __name__ == "__main__":
             spatial_coherence=5.0,
     )
 
+    ea_polygons = masks_to_polygons(ea_regions.masks)
+
     region = "nimbus_west_africa"
     kregions = 4
     wa_regions = get_rainfall_regions(
@@ -32,3 +38,5 @@ if __name__ == "__main__":
             smooth_neighbors=50,
             spatial_coherence=5.0,
     )
+
+    wa_polygons = masks_to_polygons(wa_regions.masks)
