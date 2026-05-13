@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from .time_utils import get_dates
+
 
 def groupby_time(ds, time_grouping, agg_fn='mean'):
     """Aggregate a statistic over time. If agg_fn is None, add the grouping coordinates but perform no aggregation."""
@@ -99,11 +101,24 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
 
 def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_grouping=None):
     """Detect the first or last time in a time grouping that satisfies a criteria."""
-    # Apply the criteria to the dataset, converting to ones and zeros
+    # Fill in any missing times between the start and end of the year for the dataset
+    years = pd.to_datetime(ds.time.values).year
+    min_year = years.min()
+    max_year = years.max()
+    start_time = pd.Timestamp(f"{min_year}-01-01")
+    end_time = pd.Timestamp(f"{max_year}-12-31")
+    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries)
+
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
     nanmask = ds.isnull()
 
+    var = list(ds.data_vars)[0]
+    ds['indicator'] = xr.ones_like(ds[var])
+    ds['non_null'] = ds[var].notnull()
+
+    # Apply the criteria to the dataset, converting to ones and zeros
     ds = ds.where(criteria(ds), 0.0)
 
     # Set all times to zero where the group in the null mask (i.e., season was None)
@@ -133,11 +148,19 @@ def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_groupin
     else:
         raise ValueError(f"Invalid detection type {detect}")
 
+    # Coverage per group: fraction of timesteps with non-null data
+    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
+    group_coverage = group_sums['non_null'] / group_sums['indicator']
+
     detected = ds.groupby("group").map(func)
+    coverage_at_time = group_coverage.sel(group=detected['group'])
+    detected = detected.where(coverage_at_time >= 0.95, other=np.nan)
+    detected = detected.drop_vars(['indicator', 'non_null'])
 
     # Restore the null pattern and attributes, which are lost during the grouping
     detected = detected.where(~nanmask, other=np.nan)
     detected = detected.assign_attrs(ds.attrs)
+
     return detected
 
 

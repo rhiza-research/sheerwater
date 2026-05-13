@@ -219,6 +219,17 @@ class Metric(ABC):
             obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
             fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
 
+        plot = False
+        if plot:
+            import matplotlib.pyplot as plt
+            lat = 1.75
+            lon = 40.0
+            year = 2023
+            fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+            obs.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            fcst.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            plt.show()
+
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
         self.metric_data['obs'] = obs

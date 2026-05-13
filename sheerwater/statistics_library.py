@@ -169,22 +169,31 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
     fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
     obs = data['obs']
 
-    # import matplotlib.pyplot as plt
-    # # lat = -2.75
-    # # lon = 39.75
-    # lat = 1.25
-    # lat = 2.25
-    # lon = 37.25
-    # lat = 0.0
-    # lon = 34.25
-    # lat = 1.75
-    # lon = 40.0
-    # year = 2023
-    # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # plt.show()
-    # import pdb; pdb.set_trace()
+    plot = True
+    if plot:
+        import matplotlib.pyplot as plt
+        # lat = -2.75
+        # lon = 39.75
+        # lat = 1.25
+        # lat = 2.25
+        # lon = 37.25
+        # lat = 0.0
+        # lon = 34.25
+        # lat = 1.75
+        # lon = 40.0
+        lat = 12.5
+        lon = -8.0
+        # lat = -2.5
+        # lon = 40.25
+        year = 2020
+        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        obs_plot = obs * -1.0
+        obs_plot.sel(lat=lat, lon=lon).precip.plot()
+        data['fcst'].sel(lat=lat, lon=lon).precip.plot()
+        fcst.sel(lat=lat, lon=lon).precip.plot()
+        plt.show()
 
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.
@@ -202,6 +211,31 @@ def fn_contingency_fcst_difference(data, **cache_kwargs):  # noqa: F821
 
     obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
     fcst = data['fcst']
+    plot = True
+    if plot:
+        import matplotlib.pyplot as plt
+        # lat = -2.75
+        # lon = 39.75
+        # lat = 1.25
+        # lat = 2.25
+        # lon = 37.25
+        # lat = 0.0
+        # lon = 34.25
+        # lat = 1.75
+        # lon = 40.0
+        lat = 12.5
+        lon = -8.0
+        # lat = -2.5
+        # lon = 40.25
+        year = 2020
+        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        obs.sel(lat=lat, lon=lon).precip.plot()
+        data['obs'].sel(lat=lat, lon=lon).precip.plot()
+        fcst_plot = fcst * -1.0
+        fcst_plot.sel(lat=lat, lon=lon).precip.plot()
+        plt.show()
     # import matplotlib.pyplot as plt
     # # lat = -2.75
     # # lon = 39.75
