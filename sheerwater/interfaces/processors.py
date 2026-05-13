@@ -1,12 +1,11 @@
 """A decorator for processors definitions."""
 from functools import wraps
+from sheerwater.utils import regrid as regrid_util
 
 PROCESSOR_REGISTRY = {}
 
-
 def processor():
     """Stub decorator for processor definitions."""
-
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
@@ -35,3 +34,8 @@ def get_processor_fn(name):
     if name not in PROCESSOR_REGISTRY:
         raise ValueError(f"Processor {name!r} not found.")
     return PROCESSOR_REGISTRY[name]
+
+
+@processor()
+def regrid(ds, target_grid, method='conservative', **kwargs):
+    return regrid_util(ds, target_grid, method=method)
