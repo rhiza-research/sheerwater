@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+import ruptures as rpt
+
+from .data_utils import roll_and_agg
 from .time_utils import get_dates
 
 
@@ -19,18 +22,18 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         1: 'None', 2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'None', 6: 'None', 7: 'None', 8: 'None', 9: 'OND', 10: 'OND', 11: 'OND', 12: 'None',
     }
     two_seasons_mapping = {
-        1: 'first',
-        2: 'first',
+        1: 'None',
+        2: 'None',
         3: 'first',
         4: 'first',
-        5: 'first',
-        6: 'first',
-        7: 'first',
-        8: 'second',
+        5: 'None',
+        6: 'None',
+        7: 'None',
+        8: 'None',
         9: 'second',
         10: 'second',
         11: 'second',
-        12: 'second',
+        12: 'None',
 
     }
     if time_grouping is not None:
@@ -99,7 +102,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
     return ds
 
 
-def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_grouping=None):
+def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 0.5, time_grouping=None):
     """Detect the first or last time in a time grouping that satisfies a criteria."""
     # Fill in any missing times between the start and end of the year for the dataset
     years = pd.to_datetime(ds.time.values).year
@@ -117,9 +120,13 @@ def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_groupin
     var = list(ds.data_vars)[0]
     ds['indicator'] = xr.ones_like(ds[var])
     ds['non_null'] = ds[var].notnull()
+    # Coverage per group: fraction of timesteps with non-null data
+    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
+    group_coverage = group_sums['non_null'] / group_sums['indicator']
 
     # Apply the criteria to the dataset, converting to ones and zeros
-    ds = ds.where(criteria(ds), 0.0)
+    # ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    # ds = ds.where(criteria(ds), 1.0, 0.0)
 
     # Set all times to zero where the group in the null mask (i.e., season was None)
     is_null_group = ds['group'].astype(str).str.contains('None')
@@ -139,23 +146,139 @@ def detect_in_time(ds, detect='first', criteria=lambda x: x >= 0.5, time_groupin
         ret = ret.isel(time=slice(None, None, -1))
         return ret
 
+    def _pettitt_cp(arr):
+        """Pettitt's test: location of the dominant single change point."""
+        n = arr.size
+        if n < 3:
+            return np.zeros(n, dtype=int)
+        ranks = np.argsort(np.argsort(arr)) + 1            # tied ranks ignored
+        U = np.cumsum(2 * ranks - (n + 1))                  # Pettitt statistic
+        cp = int(np.argmax(np.abs(U[:-1])))                 # last index excluded
+        out = np.zeros(n, dtype=float)
+        out[cp] = 1.0
+        return out
+
+    def _mle_cp(arr):
+        """MLE single change point under a constant-variance Gaussian model."""
+        n = arr.size
+        if n < 3:
+            return np.zeros(n, dtype=int)
+        cs = np.cumsum(arr.astype(float))
+        taus = np.arange(1, n)
+        mu1 = cs[:-1] / taus
+        mu2 = (cs[-1] - cs[:-1]) / (n - taus)
+        # weighted squared mean difference (proportional to log-likelihood gain)
+        score = taus * (n - taus) / n * (mu2 - mu1) ** 2
+        cp = int(np.argmax(score)) + 1                      # change occurs at tau+1 (new regime starts here)
+        out = np.zeros(n, dtype=int)
+        out[cp] = 1
+        return out
+
+    def _cusum_cp(arr, baseline_frac=0.25, k_mult=0.5, h_mult=5.0):
+        """ One-sided upward CUSUM. Marks the first timestep where the cumulative
+        deviation from the baseline mean exceeds h_mult * baseline_std."""
+        n = arr.size
+        if n < 4:
+            return np.zeros(n, dtype=int)
+        baseline_n = max(2, int(n * baseline_frac))
+        mu = np.median(arr[:baseline_n])
+        sigma = np.std(arr[:baseline_n]) + 1e-9
+        k = k_mult * sigma
+        h = h_mult * sigma
+        S = 0.0
+        out = np.zeros(n, dtype=int)
+        for i, v in enumerate(arr):
+            if np.isnan(v):
+                continue
+            S = max(0.0, S + (v - mu - k))
+            if S > h:
+                out[i] = 1
+                return out
+        return out
+
+    def _ruptures_cp(arr, model="normal", n_bkps=2, min_size=5):
+        """ Single-change-point detection via ruptures' Dynp.
+        Returns a same-length one-hot array with 1 at the detected breakpoint. """
+        arr = np.asarray(arr, dtype=float)
+        n = arr.size
+        out = np.zeros(n, dtype=int)
+        if n < 2 * min_size or np.all(np.isnan(arr)):
+            return out
+
+        # ruptures cannot handle NaN — fill with zeros
+        if np.isnan(arr).any():
+            arr = np.nan_to_num(arr, nan=0.0)
+
+        try:
+            bkps = rpt.Dynp(model=model, min_size=min_size).fit(arr).predict(n_bkps=n_bkps)
+        except Exception:
+            return out
+        # bkps is a list ending with len(arr); the actual change points are bkps[:-1]
+        # Take only the first breakpoint
+        # for cp in bkps[:-1]:
+        #     if 0 < cp < n:
+        #         out[cp] = 1
+        # return out
+        cp = bkps[0]
+        out[cp] = 1
+        return out
+
+    def change_point(x):
+        x = x.chunk({'time': -1})
+        ret = xr.apply_ufunc(
+            # _cusum_cp,             # or _mle_cp, or _cusum_cp
+            # _mle_cp,             # or _mle_cp, or _cusum_cp
+            # _pettitt_cp,             # or _mle_cp, or _cusum_cp
+            # _ruptures_cp,
+            _ruptures_cp,
+            x,
+            input_core_dims=[['time']],
+            output_core_dims=[['time']],
+            dask='parallelized',
+            vectorize=True,
+            output_dtypes=[float],
+        )
+        return ret
+
     # Ensure that the timedimension is sorted
     ds = ds.sortby("time")
     if detect == 'first':
         func = first_hit
     elif detect == 'last':
         func = last_hit
+    elif detect == 'change_point':
+        ds = ds.chunk({'time': -1})
+        func = change_point
     else:
         raise ValueError(f"Invalid detection type {detect}")
 
-    # Coverage per group: fraction of timesteps with non-null data
-    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
-    group_coverage = group_sums['non_null'] / group_sums['indicator']
-
     detected = ds.groupby("group").map(func)
     coverage_at_time = group_coverage.sel(group=detected['group'])
-    detected = detected.where(coverage_at_time >= 0.95, other=np.nan)
+    detected = detected.where(coverage_at_time >= 0.90, other=0.0)
     detected = detected.drop_vars(['indicator', 'non_null'])
+
+    plot = True
+    if plot:
+        import matplotlib.pyplot as plt
+        # lat = 10.85
+        # lon = -1.05
+        # lat = 12.25
+        # lon = 4.25
+        # lat = 12.5
+        # lon = -1.5
+        lat = 13.25
+        lon = -2.25
+        # lat = -2.5
+        # lon = 40.25
+        year = 2020
+        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        ds.sel(lat=lat, lon=lon).precip.plot()
+        (detected*50).sel(lat=lat, lon=lon).precip.plot()
+        plt.show()
+        import pdb
+        pdb.set_trace()
 
     # Restore the null pattern and attributes, which are lost during the grouping
     detected = detected.where(~nanmask, other=np.nan)

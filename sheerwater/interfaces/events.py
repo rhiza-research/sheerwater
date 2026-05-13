@@ -114,6 +114,107 @@ def days_above_threshold(ds, agg_days, threshold, above_days):
     ret = ret.where(~null_mask, np.nan)
     return ret
 
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
+def count_days_above_threshold(ds, agg_days, threshold):
+    """An event to calculate the above threshold of a dataset."""
+    # Bins will be in the format [-inf, threshold, inf]
+    bins = [-np.inf, threshold, np.inf]
+    ret = digitized(ds, agg_days=None, bins=bins)
+    # Convert from the outptut of digitized (1,2) to floating (0, 1)
+    ret = ret.astype(float) - 1.0
+    ret = roll_and_agg(ret, agg=agg_days, agg_col="time", agg_fn='sum')
+    null_mask = ret.isnull()
+
+    plot = False
+    if plot:
+        import matplotlib.pyplot as plt
+        lat = 1.75
+        lon = 40.0
+        year = 2023
+        fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+
+        orig = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+        ret_plot = ret.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+
+        # Plot original precip on left axis
+        p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
+        ax1.set_ylabel('Precipitation', color='gray')
+        ax1.tick_params(axis='y', labelcolor='gray')
+
+        # Create a second y-axis
+        ax2 = ax1.twinx()
+        # Plot ret on right axis
+        p2 = ax2.plot(ret_plot.time, ret_plot.values, color='b', label='Days Above Threshold', linewidth=2)
+        ax2.set_ylabel('Days Above Threshold', color='b')
+        ax2.tick_params(axis='y', labelcolor='b')
+
+        # Combine all plotted lines for legend
+        lines = p1 + p2
+        labels = [l.get_label() for l in lines]
+        ax1.legend(lines, labels, loc='upper left')
+
+        plt.tight_layout()
+        plt.show()
+    # Restore NaN values
+    ret = ret.where(~null_mask, np.nan)
+    return ret
+
+
+@event(default_variable="precip", duration=lambda kwargs: kwargs["smoothing"]+kwargs["continuous_days"])
+def continuous_days_above_threshold(ds, threshold, smoothing, continuous_days):
+    """An event to calculate the above threshold of a dataset."""
+    # Bins will be in the format [-inf, threshold, inf]
+    bins = [-np.inf, threshold, np.inf]
+    ret = digitized(ds, agg_days=None, bins=bins)
+    # Convert from the outptut of digitized (1,2) to floating (0, 1)
+    ret = ret.astype(float) - 1.0
+
+    # Smooth detected above periods with a center-aligned max window
+    ret = roll_and_agg(ret, agg=smoothing, agg_col="time", align="center", agg_fn='max')
+
+    # Now count the number of consecutive days above the threshold
+    ret = roll_and_agg(ret, agg=continuous_days, agg_col="time", agg_fn='sum')
+    null_mask = ret.isnull()
+    ret = (ret == continuous_days)
+
+    plot = False
+    if plot:
+        import matplotlib.pyplot as plt
+        # lat = 1.75
+        # lon = 40.0
+        lat = -1.5
+        lon = 38.0
+        year = 2023
+        fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+
+        # orig = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+        # ret_plot = ret.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+        orig = ds.sel(lat=lat, lon=lon).precip
+        ret_plot = ret.sel(lat=lat, lon=lon).precip
+
+        # Plot original precip on left axis
+        p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
+        ax1.set_ylabel('Precipitation', color='gray')
+        ax1.tick_params(axis='y', labelcolor='gray')
+
+        # Create a second y-axis
+        ax2 = ax1.twinx()
+        # Plot ret on right axis
+        p2 = ax2.plot(ret_plot.time, ret_plot.values, color='b', label='Days Above Threshold', linewidth=2)
+        ax2.set_ylabel('Days Above Threshold', color='b')
+        ax2.tick_params(axis='y', labelcolor='b')
+
+        # Combine all plotted lines for legend
+        lines = p1 + p2
+        labels = [l.get_label() for l in lines]
+        ax1.legend(lines, labels, loc='upper left')
+
+        plt.tight_layout()
+        plt.show()
+    # Restore NaN values
+    ret = ret.where(~null_mask, np.nan)
+    return ret
+
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
 def digitized(ds, agg_days, bins):
@@ -406,7 +507,7 @@ def nimbus_start_of_season_not_dry(ds,
     # Chop off the first days for wet spell, which won't have a matching dry spell
     wet_spell = wet_spell.isel(time=slice(dry_spell_agg_days, None))
 
-    plot = True
+    plot = False
     if plot:
         print(
             f"Plotting nimbus_start_of_season_not_dry with wet spell count {wet_spell_count} and dry spell count {dry_spell_count}, wet spell agg days {wet_spell_agg_days} and dry spell agg days {dry_spell_agg_days}")
@@ -467,6 +568,94 @@ def nimbus_start_of_season_not_dry(ds,
     # Floatwise "and-ing" of the two spells together to get the planting suitability
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
+    return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
+
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
+)
+def wet_day_regime(ds, wet_threshold=4.0, dry_threshold=1.0, agg_days=30, fraction = 0.01):
+    """A function to calculate the regime change of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season event requires a 'precip' variable.")
+
+    wet_days = above_threshold(ds, agg_days=1, threshold=wet_threshold)
+    not_dry_days = above_threshold(ds, agg_days=1, threshold=dry_threshold)
+    dry_days = 1.0 - not_dry_days
+
+    wet_regime = roll_and_agg(wet_days, agg=agg_days, agg_col="time", agg_fn='mean')
+    dry_regime = roll_and_agg(dry_days, agg=agg_days, agg_col="time", agg_fn='mean')
+
+    # Detect a change in regime step by step
+    wet_change = wet_regime.diff(dim="time")
+    dry_change = dry_regime.diff(dim="time")
+
+    # Find the indices of the changes
+
+
+
+
+
+
+
+
+
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    attrs = ds.attrs.copy()
+    plot = False
+    if plot:
+        import matplotlib.pyplot as plt
+        # # # lat = -2.75
+        # # # lon = 39.75
+        # # lat = 1.25
+        # # lat = 2.25
+        # # lon = 37.25
+        # # lat = 0.0
+        # # lon = 34.25
+        lat = 1.75
+        lon = 40.0
+        year = 2023
+        fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+
+        wet = wet_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+        dry = dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+        lagged_dry = lagged_dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+        orig = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
+
+        # --- Wet and Dry Spells on One Subplot with Twin Y-Axis ---
+        ax2 = ax1.twinx()
+
+        # Plot original precip on left axis
+        p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
+        ax1.set_ylabel('Precipitation', color='gray')
+        ax1.tick_params(axis='y', labelcolor='gray')
+        precip_min = min(orig.values.min(), 0)
+        precip_max = max(orig.values.max(), 1.5)
+        ax1.set_ylim(precip_min, precip_max)
+
+        # Plot wet spell (binary) on right axis
+        p2 = ax2.plot(wet.time, wet.values, color='b', label='Wet Spell', linewidth=2)
+        # Plot dry spell (binary, lagged) on right axis as well
+        p3 = ax2.plot(lagged_dry.time, 0.5*lagged_dry.values, color='r', label='Lagged Dry Spell', linewidth=2)
+        p4 = ax2.plot(lagged_dry.time, 0.1*dry.values, color='g', label='Dry Spell', linewidth=2)
+        # Optionally plot dry (not lagged) for debugging
+        # p4 = ax2.plot(dry.time, dry.values, color='g', label='Dry Spell', linewidth=2)
+
+        ax2.set_ylabel('Spell Indicator', color='k')
+        ax2.tick_params(axis='y', labelcolor='k')
+        ax2.set_ylim(-0.2, 1.2)
+
+        ax1.set_title('Wet & Dry Spells (with Original Precip)')
+
+        # Combine all plotted lines for legend
+        lines = p1 + p2 + p3 + p4
+        labels = [l.get_label() for l in lines]
+        ax1.legend(lines, labels, loc='upper left')
+
+        plt.tight_layout()
+        plt.show()
+
     return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
 
 

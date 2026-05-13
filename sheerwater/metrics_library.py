@@ -82,7 +82,8 @@ class Metric(ABC):
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
-        self.event = self.event if self.event is not None else self.default_event
+        # TODO: we don't want to always be calling an event
+        # self.event = self.event if self.event is not None else self.default_event
         self.data_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                             'variable': self.variable, 'agg_days': self.agg_days,
                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
