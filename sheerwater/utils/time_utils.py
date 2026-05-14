@@ -62,6 +62,15 @@ def assign_grouping_coordinates(ds, group, time_dim='time'):
     for grp in group:
         if grp == 'month':
             coords.append(ds[time_dim].dt.month.values)
+        if grp == 'month_of_year':
+            coords.append([f'M{x:02d}' for x in ds.time.dt.month.values])
+        elif grp == 'year':
+            coords.append([f'Y{x:04d}' for x in ds.time.dt.year.values])
+        elif grp == 'day_of_year':
+            coords.append([f'D{x:03d}' for x in ds.time.dt.dayofyear.values])
+        elif grp == 'daily':
+            coords.append([pd.to_datetime(x).date() for x in ds.time.values])
+            raise ValueError("Invalid time grouping")
         elif grp == 'quarter':
             coords.append(ds[time_dim].dt.quarter.values)
         elif grp == 'ea_rainy_season':
