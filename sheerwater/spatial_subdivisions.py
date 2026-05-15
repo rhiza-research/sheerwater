@@ -889,7 +889,8 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
 
-#@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+
+@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
 def rainfall_region_labels(grid='global0_25'):
     """Gridded rainfall-regime labels for east and west Africa nimbus regions.
 
