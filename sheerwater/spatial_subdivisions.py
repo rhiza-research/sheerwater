@@ -957,17 +957,8 @@ def rainfall_region_labels(grid='global0_25'):
 
 @cache(cache_args=['data_source', 'kregions', 'region', 'grid'])
 def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0_25", mask="lsm", agg_days=1, smooth_neighbors=50, spatial_coherence=0.0):
-    """Cluster grid cells by precipitation climatology.
+    """Cluster grid cells by precipitation climatology into kregions."""
 
-    Args:
-        data_source (str): precipitation data source.
-        kregions (int): number of rainfall regions to identify.
-        smooth_neighbors (int): knn neighbor count to ensure contiguous regions.
-        spatial_coherence (float): augment kmeans clustering with lat/lon features to encourage contiguous regions.
-
-    Returns:
-        xarray.DataArray: Boolean ``masks`` with dimensions lat, lon, region.
-    """
     from sheerwater.climatology import climatology
     # time range of climatology (years don't matter)
     start_time, end_time = "1979-01-01", "1979-12-31"
