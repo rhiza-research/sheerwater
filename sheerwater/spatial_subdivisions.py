@@ -891,6 +891,14 @@ def nonuniform_grid(ds, error_thresh=1e-5):
 
 #@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
 def rainfall_region_labels(grid='global0_25'):
+    """Gridded rainfall-regime labels for east and west Africa nimbus regions.
+
+    Args:
+        grid (str): spatial resolution of regions.
+
+    Returns:
+        xarray.Dataset: dataset with a string ``region`` coordinate per lat/lon.
+    """
 
     def masks_to_labels(masks, idx2names):
         labels = xr.DataArray(
@@ -930,7 +938,7 @@ def rainfall_region_labels(grid='global0_25'):
     rr_east_west = xr.concat([rr_east, rr_west], dim="region")
 
     rr_names = {# east africa
-                0 : "east_africa_coastal_horn", 
+                0 : "east_africa_coastal_horn",
                 1 : "east_africa_lake_victoria_basin",
                 2 : "east_africa_coastal_savannah",
                 3 : "east_africa_sudanian",
@@ -941,13 +949,24 @@ def rainfall_region_labels(grid='global0_25'):
                 7 : "west_africa_sudanian",
                 8 : "west_africa_coastal"
                 }
-    
+
     rr_labels = masks_to_labels(rr_east_west, rr_names)
     return rr_labels
 
 
 @cache(cache_args=['data_source', 'kregions', 'region', 'grid'])
 def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0_25", mask="lsm", agg_days=1, smooth_neighbors=50, spatial_coherence=0.0):
+    """Cluster grid cells by precipitation climatology.
+
+    Args:
+        data_source (str): precipitation data source.
+        kregions (int): number of rainfall regions to identify.
+        smooth_neighbors (int): knn neighbor count to ensure contiguous regions.
+        spatial_coherence (float): augment kmeans clustering with lat/lon features to encourage contiguous regions.
+
+    Returns:
+        xarray.DataArray: Boolean ``masks`` with dimensions lat, lon, region.
+    """
     from sheerwater.climatology import climatology
     # time range of climatology (years don't matter)
     start_time, end_time = "1979-01-01", "1979-12-31"
@@ -1011,13 +1030,12 @@ def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0
         region_lat, region_lon = lat[cleaned_labels == region_idx], lon[cleaned_labels == region_idx]
         for rlat, rlon in zip(region_lat, region_lon):
             ds_regions.loc[{"lat": rlat, "lon": rlon, "region": region_idx}] = True
-    
+
     return ds_regions
 
 
 def rescale(df, mode="min-max"):
     """Rescale the data to a range of 0-1 or -1-1."""
-    
     if mode == "min-max":
         row_min = np.nanmin(df.values, axis=1, keepdims=True)
         row_max = np.nanmax(df.values, axis=1, keepdims=True)
