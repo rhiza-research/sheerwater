@@ -1,26 +1,43 @@
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 from sheerwater.metrics import metric
 from sheerwater.utils import start_remote
 from sheerwater.spatial_subdivisions import get_spatial_subdivision_level, polygon_subdivision_geodataframe
+import argparse
 
 if __name__ == "__main__":
-    start_remote(remote_config='xlarge_cluster', remote_name='gen2')
+    # start_remote(remote_config='xlarge_cluster', remote_name='bigger2')
+    start_remote(remote_config='xlarge_cluster')
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--recompute", action="store_true", help="Recompute the metrics.")
+    args = parser.parse_args()
     # start_time = '2022-01-01'
     # end_time = '2022-12-31'
     start_time = "2014-01-01"
+    # start_time = "2023-09-01"
     end_time = "2024-12-31"
+    # end_time = "2023-12-31"
 
     variable = 'precip'
     # grid = 'global0_1'
     grid = 'global0_25'
     # grid = 'global1_5'
     mask = 'lsm'
+    # region = 'eastern_africa'
     region = 'western_africa'
+    time_grouping = 'year'
+    # region = 'africa'
     # region = 'kenya'
     forecast = 'imerg_final'
+    # forecast = 'chirps_v3'
+    # forecast = 'rain_over_africa'
+    # truth = 'tahmo_avg'
     truth = 'tahmo_avg'
     # truth = 'chirps_v3'
+    # truth = 'chirp_v3'
+    # truth = 'imerg_late'
     # fcst_threshold = 4.0
     # obs_threshold = 5.0
     # fcst_threshold = 1.0
@@ -30,7 +47,7 @@ if __name__ == "__main__":
     # event = 'above_threshold'
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
-    event = None
+    event = 'seasonal_accumulation'
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
@@ -74,23 +91,29 @@ if __name__ == "__main__":
     elif event == 'start_of_season_by_accumulation':
         fcst_event_kwargs = {'accumulation_threshold': 5.0}
         obs_event_kwargs = {'accumulation_threshold': 5.0}
+    elif event == 'seasonal_accumulation':
+        fcst_event_kwargs = {'time_grouping': time_grouping}
+        obs_event_kwargs = {'time_grouping': time_grouping}
     else:
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
 
-    soft_margin = 182.5 # the full year
+    soft_margin = 365  # the full year
     detect_in_time = True
     if detect_in_time:
-        metric_kwargs = {'soft_margin_in_days': soft_margin,
-                         #  'detect_in_time': {'detect': 'first', 'time_grouping': 'two_seasons'}}
-                         'detect_in_time': {'detect': 'change_point', 'time_grouping': 'year'}}
+        # metric_kwargs = {'soft_margin_in_days': soft_margin,
+        #                  #  'detect_in_time': {'detect': 'first', 'time_grouping': 'two_seasons'}}
+        #                  'detect_in_time': {'detect': 'change_point', 'time_grouping': 'year'}}
+        # metric_kwargs = {'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}, 'obs_filter': True, 'fcst_filter': True}
+        metric_kwargs = {'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}, 'obs_filter': True, 'fcst_filter': True}
     else:
         metric_kwargs = {'soft_margin_in_days': soft_margin}
 
     data = []
     # for mn in ['pod', 'far']:
     # metrics = ['pod', 'far']
-    metrics = ['pod']
+    # metrics = ['pod']
+    metrics = ['bias']
     for mn in metrics:
         data.append(
             metric(start_time, end_time, variable='precip',
@@ -101,7 +124,7 @@ if __name__ == "__main__":
                    fcst_event_kwargs=fcst_event_kwargs,
                    obs_event_kwargs=obs_event_kwargs,
                    spatial=True, grid=grid,
-                   recompute=True,
+                   recompute=args.recompute,
                    region=region)
         )
 
@@ -114,7 +137,7 @@ if __name__ == "__main__":
         'agg_days': 'ad', 'above_days': 'abd', 'threshold': 'thr',
         'dry_spell_agg_days': 'dsad', 'dry_spell_threshold': 'dst', 'dry_spell_count': 'dsc',
         'wet_spell_agg_days': 'wsad', 'wet_spell_threshold': 'wst', 'wet_spell_count': 'wsc',
-        'accumulation_threshold': 'ath',
+        'accumulation_threshold': 'ath', 'start_time': 'st', 'end_time': 'et',
     }
 
     def compact_kwargs(ev_kwargs):
@@ -134,21 +157,126 @@ if __name__ == "__main__":
         print(f"Error getting country boundaries for region {region}: {e}")
         country_gdf = None
 
+    import matplotlib as mpl
+
     # POD plot
-    if 'pod' in metrics:
-        data[0].pod.plot(x="lon", y="lat", vmin=0.0, vmax=1.0, cmap='rainbow_r',
-                         add_labels=False, cbar_kwargs={'label': 'POD'}, ax=axs[0])
+    if len(metrics) >= 1:
+        met = metrics[0]
+        field = data[0][met]
+        if met in ['pod', 'far']:
+            # For pod, far: rainbow discrete bins
+            vmin = 0.0
+            vmax = 1.0
+            bounds = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+            norm = mpl.colors.BoundaryNorm(bounds, ncolors=len(bounds)-1)
+            cmap = mpl.colormaps['rainbow'].resampled(len(bounds)-1)
+            plot_kwargs = dict(
+                x="lon", y="lat", cmap=cmap,
+                add_labels=False, cbar_kwargs={'label': met}, ax=axs[0],
+                vmin=vmin, vmax=vmax, norm=norm
+            )
+        elif met in ['bias', 'mae', 'MAE']:
+            if met == 'bias':
+                field = field / 1500.0
+                vmin, vmax = -1.0, 1.0
+                bounds = np.linspace(vmin, vmax, 21)
+                norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
+                cmap = mpl.colors.ListedColormap(
+                    mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
+                )
+                cbar_label = f"{met} / 200 (|x|>0.5 is bad)"
+            else:  # 'mae' or 'MAE'
+                field = field / 1500.0
+                vmin, vmax = 0.0, 1.0
+                bounds = np.linspace(vmin, vmax, 11)
+                norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
+                cmap = mpl.colors.ListedColormap(
+                    mpl.colormaps['nipy_spectral'](np.linspace(0.45, 0.9, len(bounds)-1))
+                )
+                cbar_label = f"{met} / 200 (>0.5 is bad)"
+            plot_kwargs = dict(
+                x="lon", y="lat", cmap=cmap,
+                add_labels=False, cbar_kwargs={'label': cbar_label}, ax=axs[0],
+                vmin=vmin, vmax=vmax, norm=norm, extend='both',
+            )
+        else:
+            # Default to rainbow discrete
+            n_bins = 11
+            field_min = float(field.min().values)
+            field_max = float(field.max().values)
+            vmin = field_min
+            vmax = field_max
+            bounds = np.linspace(vmin, vmax, n_bins)
+            norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=n_bins-1)
+            cmap = mpl.colormaps['rainbow'].resampled(n_bins-1)
+            plot_kwargs = dict(
+                x="lon", y="lat", cmap=cmap,
+                add_labels=False, cbar_kwargs={'label': met}, ax=axs[0],
+                vmin=vmin, vmax=vmax, norm=norm
+            )
+
+        field.plot(**plot_kwargs)
         if country_gdf is not None:
             country_gdf.plot(ax=axs[0], edgecolor='black', linewidth=0.5, facecolor='none')
         axs[0].set_xlabel('Longitude')
         axs[0].set_ylabel('Latitude')
 
     # FAR plot
-    if 'far' in metrics:
-        data[1].far.plot(
-            x="lon", y="lat", vmin=0.0, vmax=0.5, cmap='rainbow', add_labels=False,
-            cbar_kwargs={'label': 'FAR'}, ax=axs[1]
-        )
+    if len(metrics) >= 2:
+        met = metrics[1]
+        field = data[1][met]
+        if met in ['pod', 'far']:
+            # For pod, far: rainbow discrete bins (narrowed for FAR)
+            vmin = 0.0
+            vmax = 0.5
+            bounds = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+            norm = mpl.colors.BoundaryNorm(bounds, ncolors=len(bounds)-1)
+            cmap = mpl.colormaps['rainbow'].resampled(len(bounds)-1)
+            plot_kwargs = dict(
+                x="lon", y="lat", cmap=cmap,
+                add_labels=False, cbar_kwargs={'label': met}, ax=axs[1],
+                vmin=vmin, vmax=vmax, norm=norm
+            )
+        elif met in ['bias', 'mae', 'MAE']:
+            if met == 'bias':
+                field = field / 1500.0
+                vmin, vmax = -1.0, 1.0
+                bounds = np.linspace(vmin, vmax, 21)
+                norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
+                cmap = mpl.colors.ListedColormap(
+                    mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
+                )
+                cbar_label = f"{met} / 200 (|x|>0.5 is bad)"
+            else:  # 'mae' or 'MAE'
+                field = field / 1500.0
+                vmin, vmax = 0.0, 1.0
+                bounds = np.linspace(vmin, vmax, 11)
+                norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
+                cmap = mpl.colors.ListedColormap(
+                    mpl.colormaps['nipy_spectral'](np.linspace(0.45, 0.9, len(bounds)-1))
+                )
+                cbar_label = f"{met} / 200 (>0.5 is bad)"
+            plot_kwargs = dict(
+                x="lon", y="lat", cmap=cmap,
+                add_labels=False, cbar_kwargs={'label': cbar_label}, ax=axs[1],
+                vmin=vmin, vmax=vmax, norm=norm, extend='both',
+            )
+        else:
+            n_bins = 11
+            field_min = float(field.min().values)
+            field_max = float(field.max().values)
+            vmin = field_min
+            vmax = field_max
+            bounds = np.linspace(vmin, vmax, n_bins)
+            norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=n_bins-1)
+            cmap = mpl.colormaps['rainbow'].resampled(n_bins-1)
+            plot_kwargs = dict(
+                x="lon", y="lat", cmap=cmap,
+                add_labels=False, cbar_kwargs={'label': met}, ax=axs[1],
+                vmin=vmin, vmax=vmax, norm=norm
+            )
+
+        field.plot(**plot_kwargs)
         if country_gdf is not None:
             country_gdf.plot(ax=axs[1], edgecolor='black', linewidth=0.5, facecolor='none')
         axs[1].set_xlabel('Longitude')
@@ -157,26 +285,27 @@ if __name__ == "__main__":
     def fmt_kwargs(ev_kwargs):
         return ", ".join(f"{k}={v}" for k, v in sorted(ev_kwargs.items()))
 
+    metric_labels = " / ".join(metrics)
     suptitle = (
-        f"POD / FAR  |  {forecast} vs {truth}  |  {region}  |  event: {event}\n"
+        f"{metric_labels}  |  {forecast} vs {truth}  |  {region}  |  event: {event}\n"
         f"soft_margin={soft_margin}d  |  {start_time} to {end_time}\n"
         f"detect_in_time={metric_kwargs.get('detect_in_time', 'None')}\n"
         f"fcst: {fmt_kwargs(fcst_event_kwargs)}\n"
         f"obs:  {fmt_kwargs(obs_event_kwargs)}"
     )
     fig.suptitle(suptitle, fontsize=10)
-    if 'pod' in metrics:
-        axs[0].set_title('POD')
-    if 'far' in metrics:
-        axs[1].set_title('FAR')
+    if len(metrics) >= 1:
+        axs[0].set_title(metrics[0])
+    if len(metrics) >= 2:
+        axs[1].set_title(metrics[1])
     plt.tight_layout(rect=[0, 0, 1, 0.90])
 
     filename = (
-        f"pod_far_{event}_{forecast}_vs_{truth}_sm{soft_margin}d_{'detect_in_time' if detect_in_time else ''}"
+        f"pod_far_{event}_{start_time}_{end_time}_{forecast}_vs_{truth}_sm{soft_margin}d_{'detect_in_time' if detect_in_time else ''}"
         f"_fcst{compact_kwargs(fcst_event_kwargs)}_obs{compact_kwargs(obs_event_kwargs)}.pdf"
     )
     out_path = os.path.join(plot_dir, filename)
     plt.savefig(out_path, format='pdf', bbox_inches='tight')
     plt.show()
     plt.close()
-    print(f"Saved spatial POD/FAR plot to: {out_path}")
+    print(f"Saved spatial {metric_labels} plot to: {out_path}")

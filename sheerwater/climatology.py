@@ -99,6 +99,30 @@ def climatology_raw(variable, first_year=1985, last_year=2014, grid='global1_5',
 
     return ds
 
+@dask_remote
+@spatial()
+@cache(cache_args=['variable', 'quantile', 'first_year', 'last_year', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
+})
+def climatology_quantile(variable, quantile=0.5, first_year=1985, last_year=2014, grid='global1_5', mask=None, region='global'):
+    """Compute the quantile of the climatology data. Years are inclusive."""
+    start_time = f"{first_year}-01-01"
+    end_time = f"{last_year}-12-31"
+
+    # Get single day, masked data between start and end years
+    ds = era5(start_time, end_time, variable=variable, agg_days=1, grid=grid, mask=mask, region=region)
+
+    # Add day of year as a coordinate
+    ds = add_dayofyear(ds)
+    ds = pad_with_leapdays(ds)
+
+    # Take average over the period to produce climatology that includes leap years
+    ds = ds.groupby('dayofyear').mean(dim='time')
+
+    return ds
+
+
 
 @dask_remote
 @spatial()
@@ -550,3 +574,4 @@ def climatology_era5_rolling(start_time, end_time, variable, agg_days, prob_type
     ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})
     ds = ds.rename({"time": "init_time"})
     return ds
+

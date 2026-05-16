@@ -165,11 +165,10 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
         soft_margin_in_days = 1
 
     # Filter all times in 2013
-
-    fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
+    fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1, align="center", agg_col="time", agg_fn='max')
     obs = data['obs']
 
-    plot = True 
+    plot = False
     if plot:
         import matplotlib.pyplot as plt
         # lat = -2.75
@@ -185,8 +184,10 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
         # lon = -7.75
         # lat = -1.5
         # lon = 38.0
-        lat = 13.25
-        lon = -2.25
+        # lat = 8.25
+        # lon = 0.5
+        lat = 6.75
+        lon = -3.0
         # lat = -2.5
         # lon = 40.25
         year = 2020

@@ -201,7 +201,6 @@ class Metric(ABC):
         obs = obs.where(no_null, np.nan, drop=False)
 
         """4. Apply metric-specific post-processing to the forecast and observation."""
-
         # Apply post-processing to a forecast to get the first  or last time a criteria is satisfied
         # A note: detect in time can be passed in as an event kwarg or metric kwarg. If passed
         # as a metric kwarg, detet in time runs AFTER both the data and the forecast have been aligned
@@ -217,19 +216,49 @@ class Metric(ABC):
                 raise ValueError("Cannot use detect_in_time in both the metric kwargs and the event kwargs.")
             # TODO: need to think about how this interacts with the memoizer. Things are memoized
             # on return from forecast, not here.
-            obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
-            fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+            if 'obs_filter' in self.metric_kwargs and self.metric_kwargs['obs_filter']:
+                obs_times = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
+            if 'fcst_filter' in self.metric_kwargs and self.metric_kwargs['fcst_filter']:
+                fcst_times = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+
+            if 'obs_filter' in self.metric_kwargs and self.metric_kwargs['obs_filter'] and 'fcst_filter' in self.metric_kwargs and self.metric_kwargs['fcst_filter']:
+                # A non-boolean OR to preserve null values
+                # TODO: I was having a bug where nan and nan were converting to True?
+                keep_times = (obs_times == 1.0) | (fcst_times == 1.0)
+                obs = obs.where(keep_times, np.nan)
+                fcst = fcst.where(keep_times, np.nan)
+            elif 'obs_filter' in self.metric_kwargs and self.metric_kwargs['obs_filter']:
+                keep_times = obs_times == 1.0
+                obs = obs.where(keep_times, np.nan)
+                fcst = fcst.where(keep_times, np.nan)
+            elif 'fcst_filter' in self.metric_kwargs and self.metric_kwargs['fcst_filter']:
+                keep_times = fcst_times == 1.0
+                obs = obs.where(keep_times, np.nan)
+                fcst = fcst.where(keep_times, np.nan)
+
+            # # Re-apply NaN check
+            # no_null = obs.notnull() & fcst.notnull()
+            # if self.prob_type == 'probabilistic':
+            #     # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
+            #     no_null = no_null.isel(member=0).drop('member')
+            # fcst = fcst.where(no_null, np.nan, drop=False)
+            # obs = obs.where(no_null, np.nan, drop=False)
 
         plot = False
         if plot:
             import matplotlib.pyplot as plt
-            lat = 1.75
-            lon = 40.0
+            # lat = 6.75
+            lat = 7.5
+            lon = -3.0
             year = 2023
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
-            obs.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
-            fcst.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            # obs.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            # fcst.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            fcst.sel(lat=lat, lon=lon).precip.plot()
+            obs.sel(lat=lat, lon=lon).precip.plot()
             plt.show()
+            import pdb
+            pdb.set_trace()
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary

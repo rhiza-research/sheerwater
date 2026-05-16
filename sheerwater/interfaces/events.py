@@ -2,7 +2,8 @@
 from functools import wraps
 import numpy as np
 import xarray as xr
-from sheerwater.utils import roll_and_agg
+import pandas as pd
+from sheerwater.utils import roll_and_agg, get_dates, groupby_time
 
 EVENT_REGISTRY = {}
 
@@ -80,7 +81,7 @@ def days_above_threshold(ds, agg_days, threshold, above_days):
     null_mask = ret.isnull()
     ret = ret >= above_days
 
-    plot = False
+    plot = True
     if plot:
         import matplotlib.pyplot as plt
         lat = 1.75
@@ -113,6 +114,7 @@ def days_above_threshold(ds, agg_days, threshold, above_days):
     # Restore NaN values
     ret = ret.where(~null_mask, np.nan)
     return ret
+
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
 def count_days_above_threshold(ds, agg_days, threshold):
@@ -295,6 +297,81 @@ def planting_suitability_by_count(ds,
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
     return (wet_spell * not_dry_spell).assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=30)
+def seasonal_accumulation(ds, time_grouping='year'):
+    """A function to calculate the seasonal accumulation of a dataset."""
+    # Fill in any missing times between the start and end of the year for the dataset
+    years = pd.to_datetime(ds.time.values).year
+    min_year = years.min()
+    max_year = years.max()
+    start_time = pd.Timestamp(f"{min_year}-01-01")
+    end_time = pd.Timestamp(f"{max_year}-12-31")
+    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    nanmask = ds.isnull()
+
+    var = list(ds.data_vars)[0]
+    ds['indicator'] = xr.ones_like(ds[var])
+    ds['non_null'] = ds[var].notnull()
+    # Coverage per group: fraction of timesteps with non-null data
+    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
+    group_coverage = group_sums['non_null'] / group_sums['indicator']
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
+
+    # Cap values at 100, preserving NaNs (NaNs stay NaN, values >100 become 100)
+    # ds = ds.where(ds.isnull() | (ds <= 100.0), other=100.0)
+
+    def seasonal_accumulation(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+        return cumsum
+
+    # Ensure that the timedimension is sorted
+    ds = ds.sortby("time")
+    ret = ds.groupby("group").map(seasonal_accumulation)
+
+    coverage_at_time = group_coverage.sel(group=ret['group'])
+    ret = ret.where(coverage_at_time >= 0.90, other=np.nan)
+    ret = ret.drop_vars(['indicator', 'non_null'])
+
+    plot = False
+    if plot:
+        import matplotlib.pyplot as plt
+        # lat = 10.85
+        # lon = -1.05
+        # lat = 12.25
+        # lon = 4.25
+        # lat = 12.5
+        # lon = -1.5
+        # lat = 8.25
+        # lon = 0.5
+        lat = 6.75
+        # lat = 7.5
+        lon = -3.0
+        # lat = -2.5
+        # lon = 40.25
+        year = 2020
+        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
+        ds.sel(lat=lat, lon=lon).precip.plot()
+        ret.sel(lat=lat, lon=lon).precip.plot()
+        plt.show()
+
+    # Restore the null pattern and attributes, which are lost during the grouping
+    ret = ret.where(~nanmask, other=np.nan)
+    ret = ret.assign_attrs(ds.attrs)
+    return ret
 
 
 @event(default_variable="precip", duration=30)
@@ -570,11 +647,12 @@ def nimbus_start_of_season_not_dry(ds,
     attrs = ds.attrs.copy()
     return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
 
+
 @event(
     default_variable="precip",
     duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
 )
-def wet_day_regime(ds, wet_threshold=4.0, dry_threshold=1.0, agg_days=30, fraction = 0.01):
+def wet_day_regime(ds, wet_threshold=4.0, dry_threshold=1.0, agg_days=30, fraction=0.01):
     """A function to calculate the regime change of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season event requires a 'precip' variable.")
@@ -591,14 +669,6 @@ def wet_day_regime(ds, wet_threshold=4.0, dry_threshold=1.0, agg_days=30, fracti
     dry_change = dry_regime.diff(dim="time")
 
     # Find the indices of the changes
-
-
-
-
-
-
-
-
 
     # Floatwise "and-ing" of the two spells together to get the planting suitability
     # Ensure that attributes pass through
