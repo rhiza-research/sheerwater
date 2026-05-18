@@ -18,7 +18,9 @@ SHEERWATER_STATISTIC_REGISTRY = {}
 def statistic(cache=False, name=None,
               timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
-                          'metric_kwargs', 'event', 'event_kwargs',
+                          'metric_kwargs',
+                          'metric_event', 'metric_event_kwargs_fcst', 'metric_event_kwargs_obs',
+                          'filter_event', 'filter_event_kwargs_fcst', 'filter_event_kwargs_obs',
                           'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
               chunk_by_arg={
@@ -48,7 +50,8 @@ def statistic(cache=False, name=None,
             data, metric_kwargs,
             start_time, end_time,
             variable, agg_days, forecast, truth,
-            event, event_kwargs,
+            metric_event, metric_event_kwargs_fcst, metric_event_kwargs_obs,
+            filter_event, filter_event_kwargs_fcst, filter_event_kwargs_obs,
             statistic, grid,
             mask=None, region='global',
             **cache_kwargs
@@ -56,7 +59,8 @@ def statistic(cache=False, name=None,
             # Pass the cache kwargs through to the statistics function
             cache_kwargs = {
                 'metric_kwargs': metric_kwargs,
-                'event': event, 'event_kwargs': event_kwargs,
+                'metric_event': metric_event, 'metric_event_kwargs_fcst': metric_event_kwargs_fcst, 'metric_event_kwargs_obs': metric_event_kwargs_obs,
+                'filter_event': filter_event, 'filter_event_kwargs_fcst': filter_event_kwargs_fcst, 'filter_event_kwargs_obs': filter_event_kwargs_obs,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
                 'grid': grid, 'mask': mask, 'region': region,
@@ -165,7 +169,8 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
         soft_margin_in_days = 1
 
     # Filter all times in 2013
-    fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1, align="center", agg_col="time", agg_fn='max')
+    fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
+                        align="center", agg_col="time", agg_fn='max')
     obs = data['obs']
 
     plot = False

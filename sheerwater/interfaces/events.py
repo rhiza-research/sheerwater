@@ -20,7 +20,7 @@ def wrap_duration(duration_fn, event_name):
     return wrapped
 
 
-def event(default_variable=None, duration=0):
+def event(default_variable=None, duration=0, filter=False):
     """Stub decorator for event definitions. Extend with registration or wrapping as needed.
 
     Args:
@@ -52,13 +52,14 @@ def event(default_variable=None, duration=0):
         else:
             wrapper.duration = duration
         wrapper.default_variable = default_variable
+        wrapper.filter = filter
         EVENT_REGISTRY[key] = wrapper
         return wrapper
 
     return decorator
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
 def above_threshold(ds, agg_days, threshold):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
@@ -69,7 +70,7 @@ def above_threshold(ds, agg_days, threshold):
     return ds
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
 def days_above_threshold(ds, agg_days, threshold, above_days):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
@@ -116,7 +117,7 @@ def days_above_threshold(ds, agg_days, threshold, above_days):
     return ret
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
 def count_days_above_threshold(ds, agg_days, threshold):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
@@ -162,7 +163,7 @@ def count_days_above_threshold(ds, agg_days, threshold):
     return ret
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["smoothing"]+kwargs["continuous_days"])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["smoothing"]+kwargs["continuous_days"], filter=True)
 def continuous_days_above_threshold(ds, threshold, smoothing, continuous_days):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
@@ -218,7 +219,7 @@ def continuous_days_above_threshold(ds, threshold, smoothing, continuous_days):
     return ret
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"])
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
 def digitized(ds, agg_days, bins):
     """An event to digitize a dataset into bins."""  # Save and restore the null pattern, which is removed by the boolean operations
     if agg_days is not None:
@@ -243,6 +244,7 @@ def digitized(ds, agg_days, bins):
 @event(
     default_variable="precip",
     duration=lambda kwargs: kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"],
+    filter=True,
 )
 def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
                          wet_spell_threshold=25.0, dry_spell_threshold=20.0):
@@ -270,6 +272,7 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
 @event(
     default_variable="precip",
     duration=lambda kwargs: kwargs["wet_spell_agg_days"] + kwargs["not_dry_spell_agg_days"],
+    filter=True,
 )
 def planting_suitability_by_count(ds,
                                   wet_spell_agg_days=5, wet_spell_threshold=4.0, wet_spell_count=3,
@@ -299,7 +302,7 @@ def planting_suitability_by_count(ds,
     return (wet_spell * not_dry_spell).assign_attrs(attrs)
 
 
-@event(default_variable="precip", duration=30)
+@event(default_variable="precip", duration=30, filter=False)
 def seasonal_accumulation(ds, time_grouping='year'):
     """A function to calculate the seasonal accumulation of a dataset."""
     # Fill in any missing times between the start and end of the year for the dataset
@@ -344,7 +347,7 @@ def seasonal_accumulation(ds, time_grouping='year'):
     ret = ret.where(coverage_at_time >= 0.90, other=np.nan)
     ret = ret.drop_vars(['indicator', 'non_null'])
 
-    plot = False 
+    plot = False
     if plot:
         import matplotlib.pyplot as plt
         # lat = 10.85
@@ -374,7 +377,7 @@ def seasonal_accumulation(ds, time_grouping='year'):
     return ret
 
 
-@event(default_variable="precip", duration=30)
+@event(default_variable="precip", duration=30, filter=True)
 def start_of_season_by_accumulation(ds, accumulation_threshold=10.0):
     """A function to calculate the start of season by accumulation of a dataset."""
     if 'precip' not in ds.data_vars:
@@ -426,7 +429,8 @@ def start_of_season_by_accumulation(ds, accumulation_threshold=10.0):
 @event(
     default_variable="precip",
     duration=lambda kwargs: (kwargs["wet_spell_agg_days"] +
-                             kwargs["dry_spell_agg_days"] + kwargs["leading_dry_spell_agg_days"])
+                             kwargs["dry_spell_agg_days"] + kwargs["leading_dry_spell_agg_days"]),
+    filter=True,
 )
 def start_of_season(ds,
                     leading_dry_spell_agg_days=20, leading_dry_spell_threshold=1.0,
@@ -458,7 +462,8 @@ def start_of_season(ds,
 
 @event(
     default_variable="precip",
-    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"]),
+    filter=True,
 )
 def nimbus_start_of_season(ds,
                            dry_spell_agg_days=10, dry_spell_threshold=4.0, dry_spell_count=1,
@@ -551,7 +556,8 @@ def nimbus_start_of_season(ds,
 
 @event(
     default_variable="precip",
-    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"]),
+    filter=True,
 )
 def nimbus_start_of_season_not_dry(ds,
                                    threshold=1.0,
@@ -650,7 +656,8 @@ def nimbus_start_of_season_not_dry(ds,
 
 @event(
     default_variable="precip",
-    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"])
+    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"]),
+    filter=True,
 )
 def wet_day_regime(ds, wet_threshold=4.0, dry_threshold=1.0, agg_days=30, fraction=0.01):
     """A function to calculate the regime change of a dataset."""

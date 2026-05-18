@@ -8,7 +8,7 @@ import argparse
 
 if __name__ == "__main__":
     # start_remote(remote_config='xlarge_cluster', remote_name='bigger2')
-    start_remote(remote_config='xlarge_cluster', remote_name='sos_dates')
+    start_remote(remote_config='xlarge_cluster')
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--recompute", action="store_true", help="Recompute the metrics.")
@@ -51,7 +51,8 @@ if __name__ == "__main__":
     # event = 'above_threshold'
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
-    event = 'seasonal_accumulation'
+    event = None
+    # event = 'seasonal_accumulation'
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         obs_event_kwargs = {}
 
     soft_margin = 365  # the full year
-    detect_in_time = True
+    detect_in_time = False
     if detect_in_time:
         # metric_kwargs = {'soft_margin_in_days': soft_margin,
         #                  #  'detect_in_time': {'detect': 'first', 'time_grouping': 'two_seasons'}}
@@ -116,7 +117,10 @@ if __name__ == "__main__":
         }
         # metric_kwargs = {'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}, 'obs_filter': True, 'fcst_filter': True}
     else:
-        metric_kwargs = {'soft_margin_in_days': soft_margin}
+        metric_kwargs = {'soft_margin_in_days': soft_margin, 'obs_filter': True, 'fcst_filter': True}
+
+    filter_event = 'above_threshold'
+    filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
 
     data = []
     # for mn in ['pod', 'far']:
@@ -130,9 +134,11 @@ if __name__ == "__main__":
                    forecast=forecast, truth=truth,
                    metric_name=mn,
                    metric_kwargs=metric_kwargs,
-                   event=event,
-                   fcst_event_kwargs=fcst_event_kwargs,
-                   obs_event_kwargs=obs_event_kwargs,
+                   metric_event=event,
+                   metric_event_kwargs_fcst=fcst_event_kwargs,
+                   metric_event_kwargs_obs=obs_event_kwargs,
+                   filter_event=filter_event,
+                   filter_event_kwargs=filter_event_kwargs,
                    spatial=True, grid=grid,
                    recompute=args.recompute,
                    region=region)

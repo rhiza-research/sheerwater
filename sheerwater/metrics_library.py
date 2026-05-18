@@ -9,7 +9,7 @@ from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_th
 from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import groupby_time, latitude_weights, detect_in_time
+from sheerwater.utils import groupby_time, latitude_weights
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
 # Global metric registry dictionary
@@ -47,8 +47,9 @@ class Metric(ABC):
         SHEERWATER_METRIC_REGISTRY[cls.name] = cls
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
-                 metric_kwargs=None, event=None,
-                 event_kwargs=None, fcst_event_kwargs=None, obs_event_kwargs=None,
+                 metric_kwargs=None,
+                 metric_event=None, metric_event_kwargs=None, metric_event_kwargs_fcst=None, metric_event_kwargs_obs=None,
+                 filter_event=None, filter_event_kwargs=None, filter_event_kwargs_fcst=None, filter_event_kwargs_obs=None,
                  time_grouping=None, spatial=False, grid="global1_5",
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
@@ -71,13 +72,48 @@ class Metric(ABC):
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
 
-        self.event = event
-        self.event_kwargs = {} if event_kwargs is None else dict(event_kwargs)
-        self.fcst_event_kwargs = {} if fcst_event_kwargs is None else dict(fcst_event_kwargs)
-        self.obs_event_kwargs = {} if obs_event_kwargs is None else dict(obs_event_kwargs)
+        # Initialize the event kwargs for the metric and filter and check validity.
+        self.init_event_kwargs(metric_event, metric_event_kwargs, metric_event_kwargs_fcst, metric_event_kwargs_obs,
+                               filter_event, filter_event_kwargs, filter_event_kwargs_fcst, filter_event_kwargs_obs)
 
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
+
+    def init_event_kwargs(self, metric_event,
+                          metric_event_kwargs, metric_event_kwargs_fcst, metric_event_kwargs_obs,
+                          filter_event,
+                          filter_event_kwargs, filter_event_kwargs_fcst, filter_event_kwargs_obs):
+        """Initialize the event kwargs for the metric and filter and check validity."""
+        self.metric_event = metric_event
+        self.filter_event = filter_event
+
+        if metric_event_kwargs is not None and (metric_event_kwargs_fcst is not None or metric_event_kwargs_obs is not None):
+            raise ValueError(
+                "Cannot use metric_event_kwargs and metric_event_kwargs_fcst or metric_event_kwargs_obs together.")
+        if filter_event_kwargs is not None and (filter_event_kwargs_fcst is not None or filter_event_kwargs_obs is not None):
+            raise ValueError(
+                "Cannot use filter_event_kwargs and filter_event_kwargs_fcst or filter_event_kwargs_obs together.")
+
+        self.metric_event_kwargs_fcst = (
+            dict(metric_event_kwargs_fcst)
+            if metric_event_kwargs_fcst is not None
+            else (dict(metric_event_kwargs) if metric_event_kwargs is not None else {})
+        )
+        self.metric_event_kwargs_obs = (
+            dict(metric_event_kwargs_obs)
+            if metric_event_kwargs_obs is not None
+            else (dict(metric_event_kwargs) if metric_event_kwargs is not None else {})
+        )
+        self.filter_event_kwargs_fcst = (
+            dict(filter_event_kwargs_fcst)
+            if filter_event_kwargs_fcst is not None
+            else (dict(filter_event_kwargs) if filter_event_kwargs is not None else {})
+        )
+        self.filter_event_kwargs_obs = (
+            dict(filter_event_kwargs_obs)
+            if filter_event_kwargs_obs is not None
+            else (dict(filter_event_kwargs) if filter_event_kwargs is not None else {})
+        )
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
@@ -87,17 +123,6 @@ class Metric(ABC):
         self.data_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
                             'variable': self.variable, 'agg_days': self.agg_days,
                             'grid': self.grid, 'mask': self.mask, 'region': self.region}
-
-        if self.event_kwargs:
-            # If an event kwarg is passed, use it for both the forecast and observation
-            fcst_event_kwargs = self.event_kwargs.copy()
-            obs_event_kwargs = self.event_kwargs.copy()
-        elif self.fcst_event_kwargs and self.obs_event_kwargs:
-            # If different event kwargs are passed for the forecast and observation, use them
-            fcst_event_kwargs = self.fcst_event_kwargs.copy()
-            obs_event_kwargs = self.obs_event_kwargs.copy()
-        else:
-            raise ValueError("Either an event kwarg or separate forecast and observation event kwargs must be passed.")
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
@@ -110,26 +135,39 @@ class Metric(ABC):
             try:
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
                 fcst = fcst_fn(**self.data_kwargs,
-                               event=self.event, event_kwargs=fcst_event_kwargs,
+                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
+                # Pass lookback separaetly b/c it is not a cachable argument for the data function
+                filter_fcst = fcst_fn(**self.data_kwargs,
+                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
+                                      lookback_source=self.truth,
+                                      prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.data_kwargs,
-                               event=self.event, event_kwargs=fcst_event_kwargs,
+                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
                                lookback_source=self.truth, prob_type=self.prob_type)
+                filter_fcst = fcst_fn(**self.data_kwargs,
+                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
+                                      lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
                 fcst = data_fn(**self.data_kwargs,
-                               event=self.event, event_kwargs=fcst_event_kwargs,
+                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
                                memoize=self.memoize_forecast)
+                filter_fcst = data_fn(**self.data_kwargs,
+                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
+                                      memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.data_kwargs,
-                               event=self.event, event_kwargs=fcst_event_kwargs)
+                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst)
+                filter_fcst = data_fn(**self.data_kwargs,
+                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -145,20 +183,28 @@ class Metric(ABC):
         truth_fn = get_data(self.truth)
         try:
             obs = truth_fn(**self.data_kwargs,
-                           event=self.event, event_kwargs=obs_event_kwargs,
+                           event=self.metric_event, event_kwargs=self.metric_event_kwargs_obs,
                            memoize=self.memoize_truth)
+            filter_obs = truth_fn(**self.data_kwargs,
+                                  event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
+                                  memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.data_kwargs,
-                           event=self.event, event_kwargs=obs_event_kwargs)
+                           event=self.metric_event, event_kwargs=self.metric_event_kwargs_obs)
+            filter_obs = truth_fn(**self.data_kwargs,
+                                  event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
+            filter_obs = filter_obs.expand_dims({'prediction_timedelta': leads})
 
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
+        filter_obs = filter_obs[[self.variable]].astype(bool)
+        filter_fcst = filter_fcst[[self.variable]].astype(bool)
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
@@ -169,82 +215,85 @@ class Metric(ABC):
         if 'sparse' in obs.attrs:
             sparse |= obs.attrs['sparse']
 
-        # Drop all times not in fcst
-        valid_times = set(obs.time.values).intersection(set(fcst.time.values))
+        """ Filter data."""
+        valid_times = set(obs.time.values).intersection(set(fcst.time.values)).intersection(
+            set(filter_obs.time.values)).intersection(set(filter_fcst.time.values))
         valid_times = list(valid_times)
         valid_times.sort()
 
         # Cast the longitude and latitude coordinates to floats with precision 4
         # This fixs a bug where the long and lat don't match deep in their floating point precision
-        obs['lon'] = obs['lon'].astype(np.float32).round(4)
-        obs['lat'] = obs['lat'].astype(np.float32).round(4)
-        fcst['lon'] = fcst['lon'].astype(np.float32).round(4)
-        fcst['lat'] = fcst['lat'].astype(np.float32).round(4)
+        for dfs in [obs, fcst, filter_obs, filter_fcst]:
+            dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
+            dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
 
+        # Select forecast and obs on their valid times
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
+        filter_obs = filter_obs.sel(time=valid_times)
+        filter_fcst = filter_fcst.sel(time=valid_times)
 
         # To ensure chunks align for nullification, place all of time in one single chunk
         # TODO: make sure chunks are reasonable for differnt time stretches
-        obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
-        fcst = fcst.chunk({'time': -1, 'lat': 100, 'lon': 100})
+        # obs = obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
+        # fcst = fcst.chunk({'time': -1, 'lat': 100, 'lon': 100})
+        # filter_obs = filter_obs.chunk({'time': -1, 'lat': 100, 'lon': 100})
+        # filter_fcst = filter_fcst.chunk({'time': -1, 'lat': 100, 'lon': 100})
 
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
-        no_null = obs.notnull() & fcst.notnull()
+        import pdb; pdb.set_trace()
+        filter = obs.notnull() & fcst.notnull()
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
-            no_null = no_null.isel(member=0).drop('member')
+            filter = filter.isel(member=0).drop('member')
+        if self.metric_kwargs.get('fcst_filter', False):
+            filter = filter & filter_fcst
+        if self.metric_kwargs.get('obs_filter', False):
+            filter = filter & filter_obs
+        fcst = fcst.where(filter, np.nan, drop=False)
+        obs = obs.where(filter, np.nan, drop=False)
 
-        fcst = fcst.where(no_null, np.nan, drop=False)
-        obs = obs.where(no_null, np.nan, drop=False)
+        # fcst = fcst.where(no_null, np.nan, drop=False)
+        # obs = obs.where(no_null, np.nan, drop=False)
 
-        """4. Apply metric-specific post-processing to the forecast and observation."""
-        # Apply post-processing to a forecast to get the first  or last time a criteria is satisfied
-        # A note: detect in time can be passed in as an event kwarg or metric kwarg. If passed
-        # as a metric kwarg, detet in time runs AFTER both the data and the forecast have been aligned
-        # to the same timebase. Thus, their "first" event should match. If passed as an event kwarg,
-        # the detect in time will be run separately on the forecast and the observation BEFORE times
-        # are aligned. This can lead to mismatch in when the "first" event occurs, if the forecast and the
-        # data have different timebases, e.g., biweekly vs daily values. Detect in time should not be
-        # passed in both as a metric kwarg and an event kwarg.
-        if 'detect_in_time' in self.metric_kwargs:
-            if self.event is not None and ((self.event_kwargs and 'detect_in_time' in self.event_kwargs) or
-                                           (self.fcst_event_kwargs and 'detect_in_time' in self.fcst_event_kwargs) or
-                                           (self.obs_event_kwargs and 'detect_in_time' in self.obs_event_kwargs)):
-                raise ValueError("Cannot use detect_in_time in both the metric kwargs and the event kwargs.")
-            # TODO: need to think about how this interacts with the memoizer. Things are memoized
-            # on return from forecast, not here.
-            if 'obs_filter' not in self.metric_kwargs and 'fcst_filter' not in self.metric_kwargs:
-                # Do normal detection
-                fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
-                obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
-            else:
-                obs_filter = self.metric_kwargs.get('obs_filter', False)
-                fcst_filter = self.metric_kwargs.get('fcst_filter', False)
-                # Do time based filtering, instead of detection
-                if obs_filter:
-                    obs_times = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
-                if fcst_filter:
-                    fcst_times = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+        # if 'detect_in_time' in self.metric_kwargs:
+        #     if self.event is not None and ((self.event_kwargs and 'detect_in_time' in self.event_kwargs) or
+        #                                    (self.fcst_event_kwargs and 'detect_in_time' in self.fcst_event_kwargs) or
+        #                                    (self.obs_event_kwargs and 'detect_in_time' in self.obs_event_kwargs)):
+        #         raise ValueError("Cannot use detect_in_time in both the metric kwargs and the event kwargs.")
+        #     # TODO: need to think about how this interacts with the memoizer. Things are memoized
+        #     # on return from forecast, not here.
+        #     if 'obs_filter' not in self.metric_kwargs and 'fcst_filter' not in self.metric_kwargs:
+        #         # Do normal detection
+        #         fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+        #         obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
+        #     else:
+        #         obs_filter = self.metric_kwargs.get('obs_filter', False)
+        #         fcst_filter = self.metric_kwargs.get('fcst_filter', False)
+        #         # Do time based filtering, instead of detection
+        #         if obs_filter:
+        #             obs_times = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
+        #         if fcst_filter:
+        #             fcst_times = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
 
-                if obs_filter and fcst_filter:
-                    # A non-boolean OR to preserve null values
-                    # TODO: I was having a bug where nan and nan were converting to True?
-                    keep_times = (obs_times == 1.0) | (fcst_times == 1.0)
-                    obs = obs.where(keep_times, np.nan)
-                    fcst = fcst.where(keep_times, np.nan)
-                elif obs_filter:
-                    keep_times = obs_times == 1.0
-                    obs = obs.where(keep_times, np.nan)
-                    fcst = fcst.where(keep_times, np.nan)
-                elif fcst_filter:
-                    keep_times = fcst_times == 1.0
-                    obs = obs.where(keep_times, np.nan)
-                    fcst = fcst.where(keep_times, np.nan)
+        #         if obs_filter and fcst_filter:
+        #             # A non-boolean OR to preserve null values
+        #             # TODO: I was having a bug where nan and nan were converting to True?
+        #             keep_times = (obs_times == 1.0) | (fcst_times == 1.0)
+        #             obs = obs.where(keep_times, np.nan)
+        #             fcst = fcst.where(keep_times, np.nan)
+        #         elif obs_filter:
+        #             keep_times = obs_times == 1.0
+        #             obs = obs.where(keep_times, np.nan)
+        #             fcst = fcst.where(keep_times, np.nan)
+        #         elif fcst_filter:
+        #             keep_times = fcst_times == 1.0
+        #             obs = obs.where(keep_times, np.nan)
+        #             fcst = fcst.where(keep_times, np.nan)
 
-        plot = False
+        plot = True
         if plot:
             import matplotlib.pyplot as plt
             # lat = 1.75
@@ -315,11 +364,15 @@ class Metric(ABC):
             # Call the statistic function
             ds = stat_fn(data=self.metric_data,
                          metric_kwargs=self.metric_kwargs,
+                         metric_event=self.metric_event,
+                         metric_event_kwargs_fcst=self.metric_event_kwargs_fcst,
+                         metric_event_kwargs_obs=self.metric_event_kwargs_obs,
+                         filter_event=self.filter_event,
+                         filter_event_kwargs_fcst=self.filter_event_kwargs_fcst,
+                         filter_event_kwargs_obs=self.filter_event_kwargs_obs,
                          start_time=self.start_time,
                          end_time=self.end_time,
                          variable=self.variable,
-                         event=self.event,
-                         event_kwargs=self.event_kwargs,
                          agg_days=self.agg_days,
                          forecast=self.forecast,
                          truth=self.truth,
