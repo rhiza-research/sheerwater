@@ -189,7 +189,7 @@ def prune_metrics(combos, global_run=False):  # noqa: ARG001
     return pruned_combos
 
 
-def run_in_parallel(func, iterable, parallelism, local_multiproc=False):
+def run_in_parallel(func, iterable, parallelism, local_multiproc=False, skip=0):
     """Run a function in parallel with dask delayed.
 
     Args:
