@@ -189,7 +189,7 @@ class data(SheerwaterDataset):
         if self.event is not None and 'processed' not in ds.attrs:
             ds = self.event_fn(ds, **self.event_kwargs)
 
-        if self.detect_in_time is not None:
+        if self.detect_in_time is not None and 'processed' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
 
         # Remove all unneeded dimensions
@@ -320,7 +320,7 @@ class forecast(SheerwaterDataset):
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             ds = convert_init_time_to_pred_time(ds)
 
-        if self.detect_in_time is not None:
+        if self.detect_in_time is not None and 'processed' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
 
         # Remove all unneeded dimensions

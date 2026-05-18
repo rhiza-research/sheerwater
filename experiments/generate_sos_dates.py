@@ -86,7 +86,7 @@ if __name__ == "__main__":
     start_time = "2000-01-01"  # start time of the data
     end_time = "2025-12-31"  # end time of the data
     mask = 'lsm'  # apply a land-sea mask to the data
-    region = 'nimbus_horn_and_east_africa'  # clip the data to a specific region
+    region = 'kenya'  # clip the data to a specific region
 
     # Select the datasource to use. Options are:
     # - imerg_final, imerg_late, chirps_v3, chirp_v3, tahmo, rain_over_africa, tamsat, oya, ...
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     # the data is not cached and regridding is happening, you should cancel the run.
     ############################################################################################
     grid = 'global0_25'
+    # grid = 'global1_5'
 
     ############################################################################################
     # Event definition parameters:
@@ -133,7 +134,8 @@ if __name__ == "__main__":
     # The rainy season defines two periods:
     # - MAM: Starting Feb 1st and ending June 30th
     # - OND: Starting Sept 1st and ending Dec 31st
-    detect_in_time = {'detect': 'first', 'time_grouping': 'rainy_season'}
+    detect_in_time = {'detect': 'first', 'time_grouping': 'rainy_season',
+                      'criteria': 'greater', 'criteria_kwargs': {'threshold': 0.5}}
     # Start a remote dask cluster for fast processing. Can be commenteed out if you want to run locally.
     # If so, consider running on a short time period and smaller region and large resolution, to avoid
     # long processing times.
@@ -155,12 +157,17 @@ if __name__ == "__main__":
     # The underlying dataframe ds will have a 1 in the precip variable for the SoS date
     # for each grid cell, and 0 otherwise.
     ds = ds.assign_coords(doy=ds.time.dt.dayofyear)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, drop=True)
     has_sos = ds['precip'].groupby("group").sum(dim="time", skipna=True, min_count=1)
     is_sos = ds['precip'].groupby("group").map(lambda x: x.idxmax(dim="time", skipna=True))
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
     is_sos = is_sos.compute()
 
     # Select the value in the time dimension using is_sos as an index (for each grid cell)
-    sos_time = ds.drop_vars('group').sel(time=is_sos)
+    sos_time = ds.drop_vars('group').sel(time=is_sos, method='nearest')
+    # sos_time = ds.drop_vars('group').sel(time=is_sos)
 
     # Properly set to NaN areas where there isn't a SoS
     sos_time['doy'] = sos_time['doy'].where(has_sos > 0, np.nan, drop=False)

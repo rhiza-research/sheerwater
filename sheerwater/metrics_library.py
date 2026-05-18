@@ -216,40 +216,43 @@ class Metric(ABC):
                 raise ValueError("Cannot use detect_in_time in both the metric kwargs and the event kwargs.")
             # TODO: need to think about how this interacts with the memoizer. Things are memoized
             # on return from forecast, not here.
-            if 'obs_filter' in self.metric_kwargs and self.metric_kwargs['obs_filter']:
-                obs_times = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
-            if 'fcst_filter' in self.metric_kwargs and self.metric_kwargs['fcst_filter']:
-                fcst_times = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+            if 'obs_filter' not in self.metric_kwargs and 'fcst_filter' not in self.metric_kwargs:
+                # Do normal detection
+                fcst = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
+                obs = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
+            else:
+                obs_filter = self.metric_kwargs.get('obs_filter', False)
+                fcst_filter = self.metric_kwargs.get('fcst_filter', False)
+                # Do time based filtering, instead of detection
+                if obs_filter:
+                    obs_times = detect_in_time(obs, **self.metric_kwargs['detect_in_time'])
+                if fcst_filter:
+                    fcst_times = detect_in_time(fcst, **self.metric_kwargs['detect_in_time'])
 
-            if 'obs_filter' in self.metric_kwargs and self.metric_kwargs['obs_filter'] and 'fcst_filter' in self.metric_kwargs and self.metric_kwargs['fcst_filter']:
-                # A non-boolean OR to preserve null values
-                # TODO: I was having a bug where nan and nan were converting to True?
-                keep_times = (obs_times == 1.0) | (fcst_times == 1.0)
-                obs = obs.where(keep_times, np.nan)
-                fcst = fcst.where(keep_times, np.nan)
-            elif 'obs_filter' in self.metric_kwargs and self.metric_kwargs['obs_filter']:
-                keep_times = obs_times == 1.0
-                obs = obs.where(keep_times, np.nan)
-                fcst = fcst.where(keep_times, np.nan)
-            elif 'fcst_filter' in self.metric_kwargs and self.metric_kwargs['fcst_filter']:
-                keep_times = fcst_times == 1.0
-                obs = obs.where(keep_times, np.nan)
-                fcst = fcst.where(keep_times, np.nan)
-
-            # # Re-apply NaN check
-            # no_null = obs.notnull() & fcst.notnull()
-            # if self.prob_type == 'probabilistic':
-            #     # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
-            #     no_null = no_null.isel(member=0).drop('member')
-            # fcst = fcst.where(no_null, np.nan, drop=False)
-            # obs = obs.where(no_null, np.nan, drop=False)
+                if obs_filter and fcst_filter:
+                    # A non-boolean OR to preserve null values
+                    # TODO: I was having a bug where nan and nan were converting to True?
+                    keep_times = (obs_times == 1.0) | (fcst_times == 1.0)
+                    obs = obs.where(keep_times, np.nan)
+                    fcst = fcst.where(keep_times, np.nan)
+                elif obs_filter:
+                    keep_times = obs_times == 1.0
+                    obs = obs.where(keep_times, np.nan)
+                    fcst = fcst.where(keep_times, np.nan)
+                elif fcst_filter:
+                    keep_times = fcst_times == 1.0
+                    obs = obs.where(keep_times, np.nan)
+                    fcst = fcst.where(keep_times, np.nan)
 
         plot = False
         if plot:
             import matplotlib.pyplot as plt
-            # lat = 6.75
-            lat = 7.5
+            # lat = 1.75
+            # lon = 40.0
+            lat = 6.75
             lon = -3.0
+            # lat = 7.5
+            # lon = -3.0
             year = 2023
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
             # obs.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
@@ -257,8 +260,6 @@ class Metric(ABC):
             fcst.sel(lat=lat, lon=lon).precip.plot()
             obs.sel(lat=lat, lon=lon).precip.plot()
             plt.show()
-            import pdb
-            pdb.set_trace()
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary

@@ -344,7 +344,7 @@ def seasonal_accumulation(ds, time_grouping='year'):
     ret = ret.where(coverage_at_time >= 0.90, other=np.nan)
     ret = ret.drop_vars(['indicator', 'non_null'])
 
-    plot = False
+    plot = False 
     if plot:
         import matplotlib.pyplot as plt
         # lat = 10.85

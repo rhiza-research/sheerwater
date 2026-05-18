@@ -22,13 +22,13 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         1: 'None', 2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'None', 6: 'None', 7: 'None', 8: 'None', 9: 'OND', 10: 'OND', 11: 'OND', 12: 'None',
     }
     two_seasons_mapping = {
-        1: 'None',
+        1: 'first',
         2: 'first',
         3: 'first',
         4: 'first',
         5: 'first',
         6: 'first',
-        7: 'None',
+        7: 'second',
         8: 'second',
         9: 'second',
         10: 'second',
@@ -232,8 +232,15 @@ def detect_in_time_hold(ds, detect='first', agg_days=1, criteria=lambda x: x >= 
     return detected
 
 
-def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, time_grouping=None):
+def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', criteria_kwargs={'threshold': 0.5}):
     """Detect the first or last time in a time grouping that satisfies a criteria."""
+    if criteria == 'greater':
+        def criteria(x): return x >= criteria_kwargs['threshold']
+    elif criteria == 'less':
+        def criteria(x): return x <= criteria_kwargs['threshold']
+    else:
+        raise ValueError(f"Invalid criteria {criteria}")
+
     # Fill in any missing times between the start and end of the year for the dataset
     years = pd.to_datetime(ds.time.values).year
     min_year = years.min()
@@ -256,7 +263,6 @@ def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, 
 
     if detect == 'first' or detect == 'last':
         # Apply the criteria to the dataset, converting to boolean
-        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
         ds = criteria(ds)
 
     # Set all times to zero where the group in the null mask (i.e., season was None)
@@ -289,7 +295,7 @@ def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, 
         # There is a bug in xarray cumsum that causes the time coordinate to be lost
         # https://github.com/pydata/xarray/issues/6528
         cumsum = cumsum.assign_coords(time=x['time'])
-        return ((cumsum == 1) & (x == 1)).astype(int)
+        return ((cumsum == 1.0) & (x == 1.0)).astype(int)
 
     def last_hit(x):
         # Reverse in time and run first hit
@@ -303,7 +309,6 @@ def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, 
         out = xr.zeros_like(x)
         out.loc[{'time': x.time[-1]}] = 1.0
         return out
- 
 
     def ruptures_cp(arr, model="normal", n_bkps=2, min_size=5):
         arr = np.asarray(arr, dtype=float)
@@ -359,10 +364,10 @@ def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, 
 
     detected = ds.groupby("group").map(func)
     coverage_at_time = group_coverage.sel(group=detected['group'])
-    detected = detected.where(coverage_at_time >= 0.98, other=np.nan)
+    detected = detected.where(coverage_at_time >= 0.95, other=np.nan)
     detected = detected.drop_vars(['indicator', 'non_null'])
 
-    plot = False 
+    plot = False
     if plot:
         import matplotlib.pyplot as plt
         # lat = 10.85
@@ -373,8 +378,10 @@ def detect_in_time(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, 
         # lon = -1.5
         # lat = 8.25
         # lon = 0.5
-        lat = 6.75
-        lon = -3.0
+        # lat = 6.75
+        # lon = -3.0
+        lat = 1.75
+        lon = 40.0
         # lat = -2.5
         # lon = 40.25
         year = 2020
