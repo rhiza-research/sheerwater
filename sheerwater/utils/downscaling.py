@@ -1,6 +1,7 @@
 from sheerwater.interfaces import get_data
 from sheerwater.utils.data_utils import regrid
 from sheerwater.utils.time_utils import assign_grouping_coordinates
+from sheerwater.spatial_subdivisions import apply_mask
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 
 
-def qqmap(ds, source, target, target_grid, time_grouping="month_of_year", variable="precip"):
+def qqmap(ds, source, target, target_grid, time_grouping="month_of_year", variable="precip", mask="lsm"):
     """
     Map source data onto the target statistics and grid with quantile-quantile mapping.
     """
@@ -55,6 +56,9 @@ def qqmap(ds, source, target, target_grid, time_grouping="month_of_year", variab
     source_ds_mapped = source_ds_mapped.drop_vars("group")
     # make into a dataset
     source_ds_mapped = source_ds_mapped.to_dataset(name=variable)
+    # apply the mask after downscaling
+    if mask is not None:
+        source_ds_mapped = apply_mask(source_ds_mapped, mask, grid=target_grid)
 
     return source_ds_mapped
 
@@ -63,7 +67,8 @@ def get_rank(data_source, time_grouping, region="global", agg_days=5, grid="glob
     """Get quantile ranks of a dataset using history from start_year to end_year."""
     start_time = f"{start_year}-01-01"
     end_time = f"{end_year}-12-31"
-    ds = get_data(data_source)(start_time, end_time, grid=grid, region=region, agg_days=agg_days)
+
+    ds = get_data(data_source)(start_time, end_time, grid=grid, region=region, agg_days=agg_days, mask=None)
     ds = assign_grouping_coordinates(ds, time_grouping)
 
     ranks = np.arange(0, 1, 0.1)
