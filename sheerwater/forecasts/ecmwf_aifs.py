@@ -1,0 +1,105 @@
+"""Functions to fetch and process data from the ECMWF WeatherBench dataset."""
+from dateutil import parser
+import gcsfs
+import numpy as np
+import pandas as pd
+import xarray as xr
+from nuthatch import cache
+from nuthatch.processors import timeseries
+
+from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid
+from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
+
+
+@dask_remote
+@spatial()
+@timeseries(timeseries=['init_time'])
+@cache(cache=True,
+       cache_args=['variable', 'prob_type', 'grid'],
+       backend_kwargs={'chunking': {"lat": 300, "lon": 300, "prediction_timedelta": 10, "init_time": 25}})
+def aifs_raw(start_time, end_time, variable='precip', prob_type='deterministic', # noqa: ARG001
+                grid="global0_25", mask=None, region='global'): # noqa: ARG001
+    """Fetches AIFS from our cloud."""
+    def add_time(ds):
+        """Preprocess the dataset to add the member dimension."""
+        ff = ds.encoding["source"]
+        time_str = ff.split('/')[-1].split('T')[0]
+        dt = parser.parse(time_str)
+        ds['time'] = [dt]
+        #ds = ds.drop_coords('time')
+        #ds = ds.assign_coords(time=dt)
+        return ds
+
+
+    fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
+    gsf = [ 'gs://' + x for x in fs.ls('gs://sheerwater-datalake/aifs_mean/')]
+    ds = xr.open_mfdataset(gsf, engine='zarr',
+                           decode_times=False, preprocess=add_time, parallel=True)
+    ds = ds.rename({'latitude': 'lat', 'longitude': 'lon', 'time': 'init_time'})
+
+    # Convert to base180 longitude
+    ds = lon_base_change(ds, to_base="base180")
+    ds = ds.sortby('lat', ascending=True)
+
+    # Select the right variable
+    if variable:
+        var = get_variable(variable, 'ecmwf_ifs_er')
+        ds = ds[[var]]
+
+    # Perform variable renaming if a variable is reuqested
+    for var in ds.variables:
+        try:
+            variable = get_variable(var, 'sheerwater')
+            ds = ds.rename_vars(name_dict={var: variable})
+
+            # Perform unit conversions if a specific variable is requested
+            if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
+                ds[variable] = ds[variable] - 273.15
+                ds[variable].attrs.update(units='C')
+                ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
+            elif variable == 'precip':
+                ds[variable] = ds[variable] * 1000.0
+                ds[variable].attrs.update(units='mm')
+                ds = np.maximum(ds, 0)
+            elif variable == 'ssrd':
+                ds[variable].attrs.update(units='Joules/m^2')
+                ds = np.maximum(ds, 0)
+                ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
+        except ValueError:
+            pass
+
+    # Fix up prediction timedelta
+    if 'prediction_timedelta_daily' in ds.coords:
+        ds['prediction_timedelta'] = pd.to_timedelta(ds.coords['prediction_timedelta_daily'], unit="d")
+    else:
+        ds['prediction_timedelta'] = pd.to_timedelta(ds.coords['prediction_timedelta'], unit="s")
+
+
+    # Average the member if necessary
+    if prob_type != 'deterministic':
+        raise ValueError("Only deterministic aifs is supported.")
+
+    # Regrid if necessary
+    if grid == 'global0_25':
+        pass
+    else:
+        # Need all lats / lons in a single chunk for the output to be reasonable
+        ds = regrid(ds, grid, base='base180', method='conservative')
+
+    return ds
+
+
+@dask_remote
+@sheerwater_forecast()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
+                   'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def ecmwf_aifs(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', # noqa: ARG001
+                event=None, event_kwargs=None,  # noqa: ARG001
+                lookback_source=None, densify=False,  # noqa: ARG001
+                 grid='global0_25', mask='lsm', region="global"):
+    """Standard format forecast data for ECMWF forecasts."""
+    return aifs_raw(start_time=start_time, end_time=end_time, variable=variable,
+                       prob_type=prob_type,
+                       grid=grid, mask=mask, region=region)
