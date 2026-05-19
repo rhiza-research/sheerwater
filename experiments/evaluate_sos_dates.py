@@ -37,8 +37,8 @@ if __name__ == "__main__":
     # forecast = 'rain_over_africa'
     # truth = 'tahmo_avg'
     # truth = 'tahmo_avg'
-    # truth = 'chirps_v3'
-    truth = 'rain_over_africa'
+    truth = 'chirps_v3'
+    # truth = 'rain_over_africa'
     # truth = 'chirp_v3'
     # truth = 'imerg_late'
     # truth = 'imerg_late'
@@ -51,8 +51,8 @@ if __name__ == "__main__":
     # event = 'above_threshold'
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
-    event = None
-    # event = 'seasonal_accumulation'
+    # event = None
+    event = 'seasonal_accumulation'
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
@@ -103,24 +103,18 @@ if __name__ == "__main__":
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
 
+    filter_event = 'start_of_season_by_accumulation'
+    # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
+    filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
     soft_margin = 365  # the full year
-    detect_in_time = False
+    detect_in_time = True
     if detect_in_time:
-        # metric_kwargs = {'soft_margin_in_days': soft_margin,
-        #                  #  'detect_in_time': {'detect': 'first', 'time_grouping': 'two_seasons'}}
-        #                  'detect_in_time': {'detect': 'change_point', 'time_grouping': 'year'}}
-        metric_kwargs = {
-            'detect_in_time': {
-                'detect': 'first', 'criteria': 'greater', 'criteria_kwargs': {'threshold': args.normalize}, 'time_grouping': time_grouping
-            },
-            'obs_filter': True, 'fcst_filter': True
-        }
-        # metric_kwargs = {'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}, 'obs_filter': True, 'fcst_filter': True}
-    else:
-        metric_kwargs = {'soft_margin_in_days': soft_margin, 'obs_filter': True, 'fcst_filter': True}
+        filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
 
-    filter_event = 'above_threshold'
-    filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
+    metric_kwargs = {
+        'obs_filter': True, 'fcst_filter': True,
+        'soft_margin_in_days': soft_margin,
+    }
 
     data = []
     # for mn in ['pod', 'far']:

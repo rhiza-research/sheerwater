@@ -243,17 +243,42 @@ class Metric(ABC):
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
-        import pdb; pdb.set_trace()
-        filter = obs.notnull() & fcst.notnull()
+        no_null = obs.notnull() & fcst.notnull()
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
-            filter = filter.isel(member=0).drop('member')
-        if self.metric_kwargs.get('fcst_filter', False):
-            filter = filter & filter_fcst
+            no_null = no_null.isel(member=0).drop('member')
+
+        # Incorporate event filtering
+        if self.metric_kwargs.get('fcst_filter', False) and self.metric_kwargs.get('obs_filter', False):
+            filter = no_null & (filter_fcst | filter_obs)
+        elif self.metric_kwargs.get('fcst_filter', False):
+            filter = no_null & filter_fcst
         if self.metric_kwargs.get('obs_filter', False):
-            filter = filter & filter_obs
+            filter = no_null & filter_obs
+        else:
+            filter = no_null
         fcst = fcst.where(filter, np.nan, drop=False)
         obs = obs.where(filter, np.nan, drop=False)
+        plot = True
+        if plot:
+            import matplotlib.pyplot as plt
+            # lat = 1.75
+            # lon = 40.0
+            lat = 6.75
+            lon = -3.0
+            # lat = 7.5
+            # lon = -3.0
+            year = 2023
+            fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+            # obs.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            # fcst.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
+            fcst.sel(lat=lat, lon=lon).precip.plot()
+            obs.sel(lat=lat, lon=lon).precip.plot()
+            # filter_obs.sel(lat=lat, lon=lon).precip.plot()
+            # filter_fcst.sel(lat=lat, lon=lon).precip.plot()
+            plt.show()
+            import pdb
+            pdb.set_trace()
 
         # fcst = fcst.where(no_null, np.nan, drop=False)
         # obs = obs.where(no_null, np.nan, drop=False)
@@ -293,23 +318,6 @@ class Metric(ABC):
         #             obs = obs.where(keep_times, np.nan)
         #             fcst = fcst.where(keep_times, np.nan)
 
-        plot = True
-        if plot:
-            import matplotlib.pyplot as plt
-            # lat = 1.75
-            # lon = 40.0
-            lat = 6.75
-            lon = -3.0
-            # lat = 7.5
-            # lon = -3.0
-            year = 2023
-            fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
-            # obs.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
-            # fcst.sel(lat=lat, lon=lon, time=slice(f"{year}-01-01", f"{year}-12-31")).precip.plot()
-            fcst.sel(lat=lat, lon=lon).precip.plot()
-            obs.sel(lat=lat, lon=lon).precip.plot()
-            plt.show()
-
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
         self.metric_data['obs'] = obs
@@ -318,7 +326,7 @@ class Metric(ABC):
 
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
-        self.metric_data['no_null'] = no_null
+        self.metric_data['filter'] = filter
         self.metric_data['valid_times'] = valid_times
 
     @property

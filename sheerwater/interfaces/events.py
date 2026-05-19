@@ -66,6 +66,15 @@ def above_threshold(ds, agg_days, threshold):
     bins = [-np.inf, threshold, np.inf]
     ds = digitized(ds, agg_days=agg_days, bins=bins)
     # Convert from the outptut of digitized (1,2) to floating (0, 1)
+    plot = False
+    if plot:
+        import matplotlib.pyplot as plt
+        lat = 6.75
+        lon = -3.0
+        year = 2023
+        fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
+        ds.sel(lat=lat, lon=lon).precip.plot()
+        plt.show()
     ds = ds.astype(float) - 1.0
     return ds
 
@@ -378,7 +387,20 @@ def seasonal_accumulation(ds, time_grouping='year'):
 
 
 @event(default_variable="precip", duration=30, filter=True)
-def start_of_season_by_accumulation(ds, accumulation_threshold=10.0):
+def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_threshold=200.0):
+    """A function to calculate the start of season by accumulation of a dataset."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
+    null_mask = ds.isnull()
+    ds = seasonal_accumulation(ds, time_grouping=time_grouping)
+    ds_suitable = ds >= accumulation_threshold
+    ds_suitable = ds_suitable.where(~null_mask, np.nan)
+    attrs = ds.attrs.copy()
+    return ds_suitable.assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=30, filter=True)
+def start_of_season_by_leaky_bucket(ds, accumulation_threshold=10.0):
     """A function to calculate the start of season by accumulation of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
