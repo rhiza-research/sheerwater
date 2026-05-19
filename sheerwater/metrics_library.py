@@ -89,6 +89,9 @@ class Metric(ABC):
         self.metric_event = metric_event
         self.filter_event = filter_event
 
+        self.do_fcst_filter = filter_event is not None and self.metric_kwargs.get('fcst_filter', False)
+        self.do_obs_filter = filter_event is not None and self.metric_kwargs.get('obs_filter', False)
+
         if metric_event_kwargs is not None and \
                 (metric_event_kwargs_fcst is not None or metric_event_kwargs_obs is not None):
             raise ValueError(
@@ -142,36 +145,38 @@ class Metric(ABC):
                                event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
-                # Pass lookback separaetly b/c it is not a cachable argument for the data function
-                filter_fcst = fcst_fn(**self.data_kwargs,
-                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                      lookback_source=self.truth,
-                                      prob_type=self.prob_type, memoize=self.memoize_forecast)
+                if self.do_fcst_filter:
+                    filter_fcst = fcst_fn(**self.data_kwargs,
+                                          event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
+                                          lookback_source=self.truth,
+                                          prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.data_kwargs,
                                event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
                                lookback_source=self.truth, prob_type=self.prob_type)
-                filter_fcst = fcst_fn(**self.data_kwargs,
-                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                      lookback_source=self.truth, prob_type=self.prob_type)
+                if self.do_fcst_filter:
+                    filter_fcst = fcst_fn(**self.data_kwargs,
+                                          event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
+                                          lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
                 fcst = data_fn(**self.data_kwargs,
-                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
-                               memoize=self.memoize_forecast)
-                filter_fcst = data_fn(**self.data_kwargs,
-                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                      memoize=self.memoize_forecast)
+                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst, memoize=self.memoize_forecast)
+                if self.do_fcst_filter:
+                    filter_fcst = data_fn(**self.data_kwargs,
+                                          event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
+                                          memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.data_kwargs,
                                event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst)
-                filter_fcst = data_fn(**self.data_kwargs,
-                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst)
+                if self.do_fcst_filter:
+                    filter_fcst = data_fn(**self.data_kwargs,
+                                          event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
@@ -189,26 +194,31 @@ class Metric(ABC):
             obs = truth_fn(**self.data_kwargs,
                            event=self.metric_event, event_kwargs=self.metric_event_kwargs_obs,
                            memoize=self.memoize_truth)
-            filter_obs = truth_fn(**self.data_kwargs,
-                                  event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
-                                  memoize=self.memoize_truth)
+            if self.do_obs_filter:
+                filter_obs = truth_fn(**self.data_kwargs,
+                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
+                                      memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.data_kwargs,
                            event=self.metric_event, event_kwargs=self.metric_event_kwargs_obs)
-            filter_obs = truth_fn(**self.data_kwargs,
-                                  event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
+            if self.do_obs_filter:
+                filter_obs = truth_fn(**self.data_kwargs,
+                                      event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
             obs = obs.expand_dims({'prediction_timedelta': leads})
-            filter_obs = filter_obs.expand_dims({'prediction_timedelta': leads})
+            if self.do_obs_filter:
+                filter_obs = filter_obs.expand_dims({'prediction_timedelta': leads})
 
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
-        filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
-        filter_fcst = filter_fcst[[self.variable]].fillna(0).astype(bool)
+        if self.do_obs_filter:
+            filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
+        if self.do_fcst_filter:
+            filter_fcst = filter_fcst[[self.variable]].fillna(0).astype(bool)
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
@@ -220,23 +230,33 @@ class Metric(ABC):
             sparse |= obs.attrs['sparse']
 
         """ Filter data."""
-        valid_times = set(obs.time.values).intersection(set(fcst.time.values)).intersection(
-            set(filter_obs.time.values)).intersection(set(filter_fcst.time.values))
+        valid_times = set(obs.time.values).intersection(set(fcst.time.values))
+        if self.do_obs_filter:
+            valid_times = valid_times.intersection(set(filter_obs.time.values))
+        if self.do_fcst_filter:
+            valid_times = valid_times.intersection(set(filter_fcst.time.values))
         valid_times = list(valid_times)
         valid_times.sort()
 
         # Cast the longitude and latitude coordinates to floats with precision 4
         # This fixes a bug where the lon and lat don't match deep in their floating point precision
         # and this shows up as errors in the join
-        for dfs in [obs, fcst, filter_obs, filter_fcst]:
+        datasets = [obs, fcst]
+        if self.do_obs_filter:
+            datasets.append(filter_obs)
+        if self.do_fcst_filter:
+            datasets.append(filter_fcst)
+        for dfs in datasets:
             dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
             dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
 
         # Select forecast and obs on their valid times
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
-        filter_obs = filter_obs.sel(time=valid_times)
-        filter_fcst = filter_fcst.sel(time=valid_times)
+        if self.do_obs_filter:
+            filter_obs = filter_obs.sel(time=valid_times)
+        if self.do_fcst_filter:
+            filter_fcst = filter_fcst.sel(time=valid_times)
 
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
@@ -247,11 +267,11 @@ class Metric(ABC):
             no_null = no_null.isel(member=0).drop('member')
 
         # Incorporate event filtering
-        if self.metric_kwargs.get('fcst_filter', False) and self.metric_kwargs.get('obs_filter', False):
+        if self.do_fcst_filter and self.do_obs_filter:
             filter = no_null & (filter_fcst | filter_obs)
-        elif self.metric_kwargs.get('fcst_filter', False):
+        elif self.do_fcst_filter:
             filter = no_null & filter_fcst
-        if self.metric_kwargs.get('obs_filter', False):
+        if self.do_obs_filter:
             filter = no_null & filter_obs
         else:
             filter = no_null
@@ -714,7 +734,7 @@ class Heidke(ContingencyMetric):
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
         right_by_chance = xr.zeros_like(gs['n_correct'])
-        for i in range(1, len(self.event_kwargs['bins'])):
+        for i in range(1, len(self.metric_event_kwargs_fcst['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
