@@ -13,20 +13,15 @@ from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 @timeseries(timeseries=['init_time'])
 @cache(cache=True,
        cache_args=['variable', 'prob_type', 'grid'],
-       backend_kwargs={'chunking': {"lat": 300, "lon": 300, "prediction_timedelta": 15, "init_time": 20,
-                                    'member': 50}})
-def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministic', # noqa: ARG001
+       backend_kwargs={'chunking': {"lat": 300, "lon": 300, "prediction_timedelta": 10, "init_time": 25}})
+def hres_raw(start_time, end_time, variable='precip', prob_type='deterministic', # noqa: ARG001
                 grid="global0_25", mask=None, region='global'): # noqa: ARG001
     """Fetches IFS ENS from the weatherbench bucket."""
-    #filepath = 'gs://weatherbench2/datasets/ifs_ens/2016-2024-1440x721.zarr'
-
-    # This is the only ifs_ens in the weatherbench bucket that seems to work?
-    filepath = 'gs://weatherbench2/datasets/ifs_ens/2018-2022-1440x721.zarr/'
+    filepath = 'gs://weatherbench2/datasets/hres/2016-2022-0012-1440x721.zarr/'
 
     # Pull the google dataset
     ds = xr.open_zarr(filepath, decode_timedelta=True, chunks={})
     ds = ds.rename({'latitude': 'lat', 'longitude': 'lon', 'time': 'init_time'})
-    ds = ds.rename({'number': 'member'})
 
     # Resample time to 1 day
     ds = ds.isel(init_time=slice(0, None, 2))
@@ -38,7 +33,6 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
     if variable:
         var = get_variable(variable, 'ecmwf_ifs_er')
         ds = ds[[var]]
-
 
     # Perform variable renaming if a variable is reuqested
     for var in ds.variables:
@@ -73,11 +67,8 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
     ds = ds.isel(prediction_timedelta=slice(1,None))
 
     # Average the member if necessary
-    if prob_type == 'deterministic':
-        ds = ds.mean(dim='member')
-        ds = ds.assign_attrs(prob_type="deterministic")
-    else:
-        ds = ds.assign_attrs(prob_type="ensemble")
+    if prob_type != 'deterministic':
+        raise ValueError("Only deterministic hres is supported.")
 
     # Regrid if necessary
     if grid == 'global0_25':
@@ -95,11 +86,11 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def ecmwf_ifs_ens(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', # noqa: ARG001
+def ecmwf_hres(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', # noqa: ARG001
                 event=None, event_kwargs=None,  # noqa: ARG001
                 lookback_source=None, densify=False,  # noqa: ARG001
                  grid='global0_25', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return ifs_ens_raw(start_time=start_time, end_time=end_time, variable=variable,
+    return hres_raw(start_time=start_time, end_time=end_time, variable=variable,
                        prob_type=prob_type,
                        grid=grid, mask=mask, region=region)
