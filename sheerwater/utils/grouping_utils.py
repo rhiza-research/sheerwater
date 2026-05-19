@@ -7,7 +7,6 @@ import xarray as xr
 
 import ruptures as rpt
 
-from .data_utils import roll_and_agg
 from .time_utils import get_dates
 
 
@@ -19,7 +18,11 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         9: 'SON', 10: 'SON', 11: 'SON', 12: 'DJF',
     }
     rainy_season_mapping = {
-        1: 'None', 2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'None', 6: 'None', 7: 'None', 8: 'None', 9: 'OND', 10: 'OND', 11: 'OND', 12: 'None',
+        1: 'None',
+        2: 'MAM', 3: 'MAM', 4: 'MAM',
+        5: 'None', 6: 'None', 7: 'None', 8: 'None',
+        9: 'OND', 10: 'OND', 11: 'OND',
+        12: 'None',
     }
     two_seasons_mapping = {
         1: 'first',

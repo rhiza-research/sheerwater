@@ -18,10 +18,10 @@ if __name__ == "__main__":
     start_remote(remote_config='xlarge_cluster', remote_name=args.remote_name)
     # start_time = '2022-01-01'
     # end_time = '2022-12-31'
-    # start_time = "2014-01-01"
-    start_time = "2023-01-01"
-    # end_time = "2024-12-31"
-    end_time = "2023-12-31"
+    start_time = "2014-01-01"
+    # start_time = "2023-01-01"
+    end_time = "2024-12-31"
+    # end_time = "2023-12-31"
 
     variable = 'precip'
     # grid = 'global0_1'
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     # for mn in ['pod', 'far']:
     # metrics = ['pod', 'far']
     # metrics = ['pod']
-    metrics = ['bias']
+    metrics = ['mae']
     # metrics = []
     for mn in metrics:
         data.append(

@@ -48,8 +48,10 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  metric_kwargs=None,
-                 metric_event=None, metric_event_kwargs=None, metric_event_kwargs_fcst=None, metric_event_kwargs_obs=None,
-                 filter_event=None, filter_event_kwargs=None, filter_event_kwargs_fcst=None, filter_event_kwargs_obs=None,
+                 metric_event=None, metric_event_kwargs=None,
+                 metric_event_kwargs_fcst=None, metric_event_kwargs_obs=None,
+                 filter_event=None, filter_event_kwargs=None,
+                 filter_event_kwargs_fcst=None, filter_event_kwargs_obs=None,
                  time_grouping=None, spatial=False, grid="global1_5",
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
@@ -87,10 +89,12 @@ class Metric(ABC):
         self.metric_event = metric_event
         self.filter_event = filter_event
 
-        if metric_event_kwargs is not None and (metric_event_kwargs_fcst is not None or metric_event_kwargs_obs is not None):
+        if metric_event_kwargs is not None and \
+                (metric_event_kwargs_fcst is not None or metric_event_kwargs_obs is not None):
             raise ValueError(
                 "Cannot use metric_event_kwargs and metric_event_kwargs_fcst or metric_event_kwargs_obs together.")
-        if filter_event_kwargs is not None and (filter_event_kwargs_fcst is not None or filter_event_kwargs_obs is not None):
+        if filter_event_kwargs is not None and \
+                (filter_event_kwargs_fcst is not None or filter_event_kwargs_obs is not None):
             raise ValueError(
                 "Cannot use filter_event_kwargs and filter_event_kwargs_fcst or filter_event_kwargs_obs together.")
 

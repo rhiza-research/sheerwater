@@ -2,8 +2,7 @@
 from functools import wraps
 import numpy as np
 import xarray as xr
-import pandas as pd
-from sheerwater.utils import roll_and_agg, get_dates, groupby_time
+from sheerwater.utils import roll_and_agg, groupby_time
 
 EVENT_REGISTRY = {}
 
@@ -24,9 +23,11 @@ def event(default_variable=None, duration=0, filter=False):
     """Stub decorator for event definitions. Extend with registration or wrapping as needed.
 
     Args:
-       default_variable: The default variable for the event.
-       duration: The duration of the event. Can be a callable that takes in event kwargs or an integer.
-            For exmaple, `11` and `lambda kwargs: kwargs['agg_days'] + 1` are both valid.
+        default_variable: The default variable for the event.
+        duration: The duration of the event. Can be a callable that takes in event kwargs or an integer.
+            For example, `11` and `lambda kwargs: kwargs['agg_days'] + 1` are both valid.
+        filter: Whether the event returns a 0 to 1 mask that can be used to filter the data.
+            TODO: could add error checking to enforce this. Atm, is only a soft check.
     """
 
     def decorator(fn):
@@ -61,10 +62,11 @@ def event(default_variable=None, duration=0, filter=False):
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
 def digitized(ds, agg_days, bins):
-    """An event to digitize a dataset into bins."""  # Save and restore the null pattern, which is removed by the boolean operations
+    """An event to digitize a dataset into bins."""
     if agg_days is not None:
         ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
 
+    # Save and restore the null pattern, which is removed by the boolean operations
     null_mask = ds.isnull()
     attrs = ds.attrs.copy()
 
