@@ -79,6 +79,13 @@ def above_threshold(ds, agg_days, threshold):
     return ds
 
 
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
+def accumulated_rain(ds, agg_days):
+    """An event to calculate the accumulated rain over a sliding agg days window."""
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='sum')
+    return ds
+
+
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
 def days_above_threshold(ds, agg_days, threshold, above_days):
     """An event to calculate the above threshold of a dataset."""

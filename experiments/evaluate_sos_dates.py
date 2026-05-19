@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     metric_kwargs = {
         'obs_filter': True, 'fcst_filter': True,
-        'soft_margin_in_days': soft_margin,
+        # 'soft_margin_in_days': soft_margin,
     }
 
     data = []
