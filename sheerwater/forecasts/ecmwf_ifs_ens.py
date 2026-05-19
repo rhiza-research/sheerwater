@@ -14,7 +14,7 @@ from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 @cache(cache=True,
        cache_args=['variable', 'prob_type', 'grid'],
        backend_kwargs={'chunking': {"lat": 300, "lon": 300, "prediction_timedelta": 15, "init_time": 20,
-                                    'member': 50}})
+                                    'member': 5}})
 def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministic', # noqa: ARG001
                 grid="global0_25", mask=None, region='global'): # noqa: ARG001
     """Fetches IFS ENS from the weatherbench bucket."""
