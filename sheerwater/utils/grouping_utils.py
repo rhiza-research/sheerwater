@@ -159,8 +159,8 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
         out.loc[{'time': x.time[-1]}] = 1.0
         return out
 
-    def ruptures_cp(arr, model="normal", n_bkps=2, min_size=5):
-        arr = np.asarray(arr, dtype=float)
+    def ruptures_cp(x, model="normal", n_bkps=2, min_size=5):
+        arr = np.asarray(x, dtype=float)
         n = arr.size
         out = np.zeros(n, dtype=int)
         if n < 2 * min_size or np.all(np.isnan(arr)):
@@ -208,6 +208,15 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
 
     # Apply the detection function to the dataset
     detected = ds.groupby("group").map(func)
+
+    # import matplotlib.pyplot as plt
+    # lat = 8.25
+    # lon = 1.0
+    # detected.sel(lat=lat, lon=lon).precip.plot()
+    # ds.sel(lat=lat, lon=lon).precip.plot()
+    # plt.show()
+    # import pdb
+    # pdb.set_trace()
 
     # Remove groups that don't have enough coverage
     coverage_at_time = group_coverage.sel(group=detected['group'])

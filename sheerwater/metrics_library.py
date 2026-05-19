@@ -203,8 +203,8 @@ class Metric(ABC):
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
-        filter_obs = filter_obs[[self.variable]].astype(bool)
-        filter_fcst = filter_fcst[[self.variable]].astype(bool)
+        filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
+        filter_fcst = filter_fcst[[self.variable]].fillna(0).astype(bool)
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
         sparse = False  # A variable used to indicate whether the metricis expected to be sparse
@@ -253,15 +253,6 @@ class Metric(ABC):
             filter = no_null
         fcst = fcst.where(filter, np.nan, drop=False)
         obs = obs.where(filter, np.nan, drop=False)
-
-        plot = True
-        if plot:
-            import matplotlib.pyplot as plt
-            lat = 8.25
-            lon = 1.0
-            fcst.sel(lat=lat, lon=lon).precip.plot()
-            obs.sel(lat=lat, lon=lon).precip.plot()
-            plt.show()
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary

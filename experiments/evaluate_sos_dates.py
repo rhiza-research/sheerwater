@@ -9,18 +9,19 @@ import argparse
 
 if __name__ == "__main__":
     # start_remote(remote_config='xlarge_cluster', remote_name='bigger2')
-    start_remote(remote_config='xlarge_cluster')
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--recompute", action="store_true", help="Recompute the metrics.")
+    parser.add_argument("--remote_name", type=str, default=None, help="Remote name to use.")
     parser.add_argument("--normalize", action="store_true", help="Normalize the metrics.")
     args = parser.parse_args()
+    start_remote(remote_config='xlarge_cluster', remote_name=args.remote_name)
     # start_time = '2022-01-01'
     # end_time = '2022-12-31'
-    start_time = "2014-01-01"
-    # start_time = "2023-09-01"
-    end_time = "2024-12-31"
-    # end_time = "2023-12-31"
+    # start_time = "2014-01-01"
+    start_time = "2023-01-01"
+    # end_time = "2024-12-31"
+    end_time = "2023-12-31"
 
     variable = 'precip'
     # grid = 'global0_1'
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     mask = 'lsm'
     # region = 'eastern_africa'
     region = 'western_africa'
+    # region = 'togo'
     time_grouping = 'year'
     # time_grouping = 'rainy_season'
     # time_grouping = 'two_seasons'
@@ -99,8 +101,8 @@ if __name__ == "__main__":
         fcst_event_kwargs = {'accumulation_threshold': 5.0}
         obs_event_kwargs = {'accumulation_threshold': 5.0}
     elif event == 'seasonal_accumulation':
-        fcst_event_kwargs = {'time_grouping': time_grouping}
-        obs_event_kwargs = {'time_grouping': time_grouping}
+        fcst_event_kwargs = {'time_grouping': time_grouping, 'by_percent': True}
+        obs_event_kwargs = {'time_grouping': time_grouping, 'by_percent': True}
     else:
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
@@ -108,7 +110,8 @@ if __name__ == "__main__":
     # filter_event = None
     filter_event = 'start_of_season_by_accumulation'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
-    filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
+    # filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
+    filter_event_kwargs = {'accumulation_threshold': 0.10,  'by_percent': True, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'time_grouping': time_grouping}
     # filter_event_kwargs = {}
     soft_margin = 365  # the full year
@@ -118,7 +121,7 @@ if __name__ == "__main__":
         # filter_event_kwargs.update({'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}})
 
     metric_kwargs = {
-        'obs_filter': True, 'fcst_filter': True,
+        'obs_filter': True, 'fcst_filter': False,
         # 'soft_margin_in_days': soft_margin,
     }
     if args.normalize:
@@ -147,6 +150,8 @@ if __name__ == "__main__":
                    recompute=args.recompute,
                    region=region)
         )
+
+    import pdb; pdb.set_trace()
 
     # Flat output folder; uniqueness comes from the filename below.
     plot_dir = os.path.join('sos_plots', 'metrics', region, 'pod_far_spatial')
@@ -185,25 +190,22 @@ if __name__ == "__main__":
         field = data[0][met]
         if met in ['pod', 'far']:
             # For pod, far: rainbow discrete bins
-            vmin = 0.0
-            vmax = 1.0
             bounds = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
             norm = mpl.colors.BoundaryNorm(bounds, ncolors=len(bounds)-1)
             cmap = mpl.colormaps['rainbow'].resampled(len(bounds)-1)
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': met}, ax=axs[0],
-                vmin=vmin, vmax=vmax, norm=norm
+                norm=norm
             )
         elif met in ['bias', 'mae']:
             if met == 'bias':
                 field = field / normalize
                 if normalize == 1:
                     max_abs = float(np.abs(field).max().values)
-                    vmin, vmax = -max_abs, max_abs
+                    bounds = np.linspace(-max_abs, max_abs, 21)
                 else:
-                    vmin, vmax = -1.0, 1.0
-                bounds = np.linspace(vmin, vmax, 21)
+                    bounds = np.linspace(-1.0, 1.0, 21)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
@@ -215,8 +217,7 @@ if __name__ == "__main__":
                     vmax = float(field.max().values)
                 else:
                     vmax = 1.0
-                vmin = 0.0
-                bounds = np.linspace(vmin, vmax, 11)
+                bounds = np.linspace(0.0, vmax, 11)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.45, 0.9, len(bounds)-1))
@@ -225,22 +226,20 @@ if __name__ == "__main__":
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': cbar_label}, ax=axs[0],
-                vmin=vmin, vmax=vmax, norm=norm, extend='both',
+                norm=norm, extend='both',
             )
         else:
             # Default to rainbow discrete
             n_bins = 11
             field_min = float(field.min().values)
             field_max = float(field.max().values)
-            vmin = field_min
-            vmax = field_max
-            bounds = np.linspace(vmin, vmax, n_bins)
+            bounds = np.linspace(field_min, field_max, n_bins)
             norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=n_bins-1)
             cmap = mpl.colormaps['rainbow'].resampled(n_bins-1)
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': met}, ax=axs[0],
-                vmin=vmin, vmax=vmax, norm=norm
+                norm=norm
             )
 
         field.plot(**plot_kwargs)
@@ -255,25 +254,22 @@ if __name__ == "__main__":
         field = data[1][met]
         if met in ['pod', 'far']:
             # For pod, far: rainbow discrete bins (narrowed for FAR)
-            vmin = 0.0
-            vmax = 0.5
             bounds = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
             norm = mpl.colors.BoundaryNorm(bounds, ncolors=len(bounds)-1)
             cmap = mpl.colormaps['rainbow'].resampled(len(bounds)-1)
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': met}, ax=axs[1],
-                vmin=vmin, vmax=vmax, norm=norm
+                norm=norm
             )
         elif met in ['bias', 'mae']:
             if met == 'bias':
                 field = field / normalize
                 if normalize == 1:
                     max_abs = float(np.abs(field).max().values)
-                    vmin, vmax = -max_abs, max_abs
+                    bounds = np.linspace(-max_abs, max_abs, 21)
                 else:
-                    vmin, vmax = -1.0, 1.0
-                bounds = np.linspace(vmin, vmax, 21)
+                    bounds = np.linspace(-1.0, 1.0, 21)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
@@ -285,8 +281,7 @@ if __name__ == "__main__":
                     vmax = float(field.max().values)
                 else:
                     vmax = 1.0
-                vmin = 0.0
-                bounds = np.linspace(vmin, vmax, 11)
+                bounds = np.linspace(0.0, vmax, 11)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.45, 0.9, len(bounds)-1))
@@ -295,21 +290,19 @@ if __name__ == "__main__":
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': cbar_label}, ax=axs[1],
-                vmin=vmin, vmax=vmax, norm=norm, extend='both',
+                norm=norm, extend='both',
             )
         else:
             n_bins = 11
             field_min = float(field.min().values)
             field_max = float(field.max().values)
-            vmin = field_min
-            vmax = field_max
-            bounds = np.linspace(vmin, vmax, n_bins)
+            bounds = np.linspace(field_min, field_max, n_bins)
             norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=n_bins-1)
             cmap = mpl.colormaps['rainbow'].resampled(n_bins-1)
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': met}, ax=axs[1],
-                vmin=vmin, vmax=vmax, norm=norm
+                norm=norm
             )
 
         field.plot(**plot_kwargs)

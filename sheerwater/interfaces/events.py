@@ -216,32 +216,13 @@ def planting_suitability_by_count(ds,
 @event(default_variable="precip", duration=30, filter=False)
 def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
     """A function to calculate the seasonal accumulation of a dataset."""
-    # Fill in any missing times between the start and end of the year for the dataset
-    years = pd.to_datetime(ds.time.values).year
-    min_year = years.min()
-    max_year = years.max()
-    start_time = pd.Timestamp(f"{min_year}-01-01")
-    end_time = pd.Timestamp(f"{max_year}-12-31")
-    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
-    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
-
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
     nanmask = ds.isnull()
 
-    var = list(ds.data_vars)[0]
-    ds['indicator'] = xr.ones_like(ds[var])
-    ds['non_null'] = ds[var].notnull()
-    # Coverage per group: fraction of timesteps with non-null data
-    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
-    group_coverage = group_sums['non_null'] / group_sums['indicator']
-
     # Set all times to zero where the group in the null mask (i.e., season was None)
     is_null_group = ds['group'].astype(str).str.contains('None')
     ds = ds.where(~is_null_group, np.nan)
-
-    # Cap values at 100, preserving NaNs (NaNs stay NaN, values >100 become 100)
-    # ds = ds.where(ds.isnull() | (ds <= 100.0), other=100.0)
 
     def seasonal_accumulation(x):
         cumsum = x.cumsum(dim="time")
@@ -256,44 +237,24 @@ def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
     ds = ds.sortby("time")
     ret = ds.groupby("group").map(seasonal_accumulation)
 
-    coverage_at_time = group_coverage.sel(group=ret['group'])
-    ret = ret.where(coverage_at_time >= 0.90, other=np.nan)
-    ret = ret.drop_vars(['indicator', 'non_null'])
-
     # Restore the null pattern and attributes, which are lost during the grouping
     ret = ret.where(~nanmask, other=np.nan)
     ret = ret.assign_attrs(ds.attrs)
     return ret
 
+
 @event(default_variable="precip", duration=30, filter=True)
-def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_threshold=200.0):
+def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_threshold=200.0, by_percent=False):
     """A function to calculate the start of season by accumulation of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
 
-    ds = seasonal_accumulation(ds, time_grouping=time_grouping)
+    ds = seasonal_accumulation(ds, time_grouping=time_grouping, by_percent=by_percent)
     null_mask = ds.isnull()
     ds_suitable = (ds >= accumulation_threshold)
     ds_suitable = ds_suitable.where(~null_mask, np.nan)
 
     attrs = ds.attrs.copy()
-
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        lat = 8.25
-        lon = 1.0
-        ds_suitable.sel(lat=lat, lon=lon).precip.plot()
-        plt.show()
-    # import pdb
-    # pdb.set_trace()
-
-    # # Remove seasons that don't have a SoS
-    # has_sos = ds_suitable.groupby("group").sum(dim="time", skipna=True, min_count=1)
-    # # Set seasons that don't have a SoS to NaN
-    # has_sos_at_time = has_sos.sel(group=ds_suitable['group'])
-    # ds_suitable = ds_suitable.where(has_sos_at_time >= 1.00, other=np.nan)
-
     return ds_suitable.assign_attrs(attrs)
 
 
@@ -414,59 +375,6 @@ def nimbus_start_of_season(ds,
     # Floatwise "and-ing" of the two spells together to get the planting suitability
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        # # # lat = -2.75
-        # # # lon = 39.75
-        # # lat = 1.25
-        # # lat = 2.25
-        # # lon = 37.25
-        # # lat = 0.0
-        # # lon = 34.25
-        lat = 1.75
-        lon = 40.0
-        year = 2023
-        fig, ax1 = plt.subplots(1, 1, figsize=(12, 5), sharex=True)
-
-        wet = wet_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
-        dry = dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
-        lagged_dry = lagged_dry_spell.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
-        orig = ds.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip
-
-        # --- Wet and Dry Spells on One Subplot with Twin Y-Axis ---
-        ax2 = ax1.twinx()
-
-        # Plot original precip on left axis
-        p1 = ax1.plot(orig.time, orig.values, color='gray', alpha=0.45, label='Original Precip')
-        ax1.set_ylabel('Precipitation', color='gray')
-        ax1.tick_params(axis='y', labelcolor='gray')
-        precip_min = min(orig.values.min(), 0)
-        precip_max = max(orig.values.max(), 1.5)
-        ax1.set_ylim(precip_min, precip_max)
-
-        # Plot wet spell (binary) on right axis
-        p2 = ax2.plot(wet.time, wet.values, color='b', label='Wet Spell', linewidth=2)
-        # Plot dry spell (binary, lagged) on right axis as well
-        p3 = ax2.plot(lagged_dry.time, 0.5*lagged_dry.values, color='r', label='Lagged Dry Spell', linewidth=2)
-        p4 = ax2.plot(lagged_dry.time, 0.1*dry.values, color='g', label='Dry Spell', linewidth=2)
-        # Optionally plot dry (not lagged) for debugging
-        # p4 = ax2.plot(dry.time, dry.values, color='g', label='Dry Spell', linewidth=2)
-
-        ax2.set_ylabel('Spell Indicator', color='k')
-        ax2.tick_params(axis='y', labelcolor='k')
-        ax2.set_ylim(-0.2, 1.2)
-
-        ax1.set_title('Wet & Dry Spells (with Original Precip)')
-
-        # Combine all plotted lines for legend
-        lines = p1 + p2 + p3 + p4
-        labels = [l.get_label() for l in lines]
-        ax1.legend(lines, labels, loc='upper left')
-
-        plt.tight_layout()
-        plt.show()
-
     return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
 
 
