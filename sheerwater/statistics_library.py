@@ -169,12 +169,10 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
     # Assumes the data is digitized and the bins are [0, 1]
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+        fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
+                            align="center", agg_col="time", agg_fn='max')
     else:
-        soft_margin_in_days = 1
-
-    # Filter all times in 2013
-    fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
-                        align="center", agg_col="time", agg_fn='max')
+        fcst = data['fcst']
     obs = data['obs']
 
     # This subtraction removes the forecasted errors from the observed values, and discounts
@@ -188,10 +186,9 @@ def fn_contingency_fcst_difference(data, **cache_kwargs):  # noqa: F821
     # Assumes the data is digitized and the bins are [0, 1]
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+        obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
     else:
-        soft_margin_in_days = 1
-
-    obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
+        obs = data['obs']
     fcst = data['fcst']
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.

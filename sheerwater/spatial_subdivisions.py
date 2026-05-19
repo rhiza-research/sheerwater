@@ -246,8 +246,8 @@ def multinational_gdf():
 # Define the custom regions, allow the construction of custom regions by country list or lat / lon bounding box
 custom_subdivisions_definitions = {
     'sheerwater_region': {
+        'nimbus_east_africa': {'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'], },
         'nimbus_horn_and_east_africa': {
-            # 'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
             'countries': ['kenya', 'ethiopia', 'tanzania', 'uganda', 'somalia', 'eritrea', 'south_sudan', 'rwanda', 'burundi', 'djibouti'],
         },
         'nimbus_west_africa': {

@@ -1,8 +1,8 @@
 {
   "1_mae_global": {
-    "cold_sec": 57.820164,
-    "warm_full_sec": 11.262842,
-    "warm_metric_only_sec": 10.662951
+    "cold_sec": 39.446232,
+    "warm_full_sec": 72.936871,
+    "warm_metric_only_sec": 57.278443
   },
   "2_mae_spatial": {
     "cold_sec": 28.389201,
@@ -10,9 +10,9 @@
     "warm_metric_only_sec": 20.582525
   },
   "3_seeps": {
-    "cold_sec": 94.714293,
-    "warm_full_sec": 88.777648,
-    "warm_metric_only_sec": 15.494474
+    "cold_sec": 89.498632,
+    "warm_full_sec": 142.283165,
+    "warm_metric_only_sec": 60.184871
   },
   "4_heidke": {
     "cold_sec": 75.649465,
@@ -25,34 +25,34 @@
     "warm_metric_only_sec": 13.399794
   },
   "6_time_None": {
-    "cold_sec": 45.51698,
-    "warm_full_sec": 10.787595,
-    "warm_metric_only_sec": 10.495754
+    "cold_sec": 33.076878,
+    "warm_full_sec": 22.912824,
+    "warm_metric_only_sec": 22.676136
   },
   "7_time_month": {
-    "cold_sec": 48.165005,
-    "warm_full_sec": 13.684552,
-    "warm_metric_only_sec": 14.734055
+    "cold_sec": 34.090062,
+    "warm_full_sec": 25.33315,
+    "warm_metric_only_sec": 27.036395
   },
   "8_time_year": {
-    "cold_sec": 45.675506,
-    "warm_full_sec": 14.525701,
-    "warm_metric_only_sec": 12.584305
+    "cold_sec": 30.459477,
+    "warm_full_sec": 24.401503,
+    "warm_metric_only_sec": 24.637697
   },
   "9_space_None": {
-    "cold_sec": 47.90642,
-    "warm_full_sec": 12.24553,
-    "warm_metric_only_sec": 11.817679
+    "cold_sec": 31.520555,
+    "warm_full_sec": 24.189822,
+    "warm_metric_only_sec": 24.483939
   },
   "10_space_country": {
-    "cold_sec": 48.956657,
-    "warm_full_sec": 13.417132,
-    "warm_metric_only_sec": 12.580573
+    "cold_sec": 33.72245,
+    "warm_full_sec": 53.745604,
+    "warm_metric_only_sec": 43.926472
   },
   "11_global0_25": {
-    "cold_sec": 77.594728,
-    "warm_full_sec": 49.909816,
-    "warm_metric_only_sec": 47.190214
+    "cold_sec": 116.678628,
+    "warm_full_sec": 43.743859,
+    "warm_metric_only_sec": 107.909275
   },
   "12_pod_global": {
     "cold_sec": 76.813836,

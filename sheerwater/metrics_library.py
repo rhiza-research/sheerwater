@@ -455,23 +455,16 @@ class ContingencyMetric(Metric):  # noqa: N801
         # Enable contingency metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
         ############################################################
         # What event are we running? If no event was passed, use the default event.
-        event = self.event if self.event is not None else self.default_event
+        event = self.metric_event if self.metric_event is not None else self.default_event
         if 'config' not in self.metric_kwargs:
             self.metric_kwargs['config'] = 'none'
-
-        # If forecast or obs events are empty, copy the events kwargs to them
-        if not self.fcst_event_kwargs and self.event_kwargs:  # empty dictionary
-            self.fcst_event_kwargs = self.event_kwargs.copy()
-        if not self.obs_event_kwargs and self.event_kwargs:
-            self.obs_event_kwargs = self.event_kwargs.copy()
-        self.event_kwargs = None  # we will not make use of the event kwargs after this point
 
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             # Check that the agg days passed to the metric, event, fcst event, and obs event are all the same
             passed_agg_days = self.agg_days
-            agg_days_fcst = self.fcst_event_kwargs.get('agg_days', None)
-            agg_days_obs = self.obs_event_kwargs.get('agg_days', None)
+            agg_days_fcst = self.metric_event_kwargs_fcst.get('agg_days', None)
+            agg_days_obs = self.metric_event_kwargs_obs.get('agg_days', None)
 
             # Get the non-null agg day values and ensure that they're all equal
             valid_agg_days = [x for x in [passed_agg_days, agg_days_fcst, agg_days_obs] if x is not None]
@@ -480,8 +473,8 @@ class ContingencyMetric(Metric):  # noqa: N801
                 raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
 
             # Set the agg days to the non-null value
-            self.fcst_event_kwargs['agg_days'] = agg_days
-            self.obs_event_kwargs['agg_days'] = agg_days
+            self.metric_event_kwargs_fcst['agg_days'] = agg_days
+            self.metric_event_kwargs_obs['agg_days'] = agg_days
 
             # Reset the agg days to one and let the event handle the aggregation
             self.agg_days = 1
@@ -490,7 +483,7 @@ class ContingencyMetric(Metric):  # noqa: N801
             # We try to figure out the bins from the metric key
             if self.metric_kwargs['config'] != 'none':
                 bins = [-np.inf] + [float(x) for x in self.metric_kwargs['config'].split('-')] + [np.inf]
-                for event_kwargs in [self.fcst_event_kwargs, self.obs_event_kwargs]:
+                for event_kwargs in [self.metric_event_kwargs_fcst, self.metric_event_kwargs_obs]:
                     if 'bins' not in event_kwargs:
                         event_kwargs['bins'] = bins
                     elif event_kwargs['bins'] != bins:
@@ -513,15 +506,15 @@ class ContingencyMetric(Metric):  # noqa: N801
                     raise ValueError("Threshold key must be in the format 'obs_threshold-fcst_threshold'.")
 
                 # Check for consistancy
-                f_thresh = self.fcst_event_kwargs.get('threshold', None)
-                o_thresh = self.obs_event_kwargs.get('threshold', None)
+                f_thresh = self.metric_event_kwargs_fcst.get('threshold', None)
+                o_thresh = self.metric_event_kwargs_obs.get('threshold', None)
                 if f_thresh is not None and f_thresh != fcst_threshold:
                     raise ValueError("Forecast threshold passed does not match the threshold specified in the key.")
                 if o_thresh is not None and o_thresh != obs_threshold:
                     raise ValueError("Observation threshold passed does not match the threshold specified in the key.")
 
-                self.fcst_event_kwargs['threshold'] = fcst_threshold
-                self.obs_event_kwargs['threshold'] = obs_threshold
+                self.metric_event_kwargs_fcst['threshold'] = fcst_threshold
+                self.metric_event_kwargs_obs['threshold'] = obs_threshold
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
@@ -642,7 +635,7 @@ class ACC(Metric):
         """Prepare specific data for the ACC metric."""
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
-        assert self.event is None, "ACC metric does not support events."
+        assert self.metric_event is None, "ACC metric does not support events."
 
         # Get the appropriate climatology dataframe for metric calculation
         first_year = 1990
@@ -659,7 +652,7 @@ class ACC(Metric):
 
         # Subset the climatology to the valid times and non-null times of the forecaster
         clim_ds = clim_ds.sel(time=self.metric_data['valid_times'])
-        clim_ds = clim_ds.where(self.metric_data['no_null'], np.nan, drop=False)
+        clim_ds = clim_ds.where(self.metric_data['filter'], np.nan, drop=False)
         # Add the climatology to the metric data
         self.metric_data['climatology'] = clim_ds
 
@@ -711,8 +704,9 @@ class Heidke(ContingencyMetric):
     @property
     def statistics(self):
         stats = ['n_correct', 'n_valid']
-        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.event_kwargs['bins']))]
-        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.event_kwargs['bins']))]
+        # fcst and obs should have the same number of bins, so we can use either here
+        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.metric_event_kwargs_fcst['bins']))]
+        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.metric_event_kwargs_obs['bins']))]
         return stats
 
     def compute_metric(self):

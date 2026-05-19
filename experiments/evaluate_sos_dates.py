@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser.add_argument("--recompute", action="store_true", help="Recompute the metrics.")
     parser.add_argument("--remote_name", type=str, default=None, help="Remote name to use.")
     parser.add_argument("--normalize", action="store_true", help="Normalize the metrics.")
+    parser.add_argument("--vmax", type=float, default=None, help="Maximum value for the metrics.")
     args = parser.parse_args()
     start_remote(remote_config='xlarge_cluster', remote_name=args.remote_name)
     # start_time = '2022-01-01'
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     filter_event = 'start_of_season_by_accumulation'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
     # filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
-    filter_event_kwargs = {'accumulation_threshold': 0.10,  'by_percent': True, 'time_grouping': time_grouping}
+    filter_event_kwargs = {'accumulation_threshold': 0.75,  'by_percent': True, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'time_grouping': time_grouping}
     # filter_event_kwargs = {}
     soft_margin = 365  # the full year
@@ -150,8 +151,6 @@ if __name__ == "__main__":
                    recompute=args.recompute,
                    region=region)
         )
-
-    import pdb; pdb.set_trace()
 
     # Flat output folder; uniqueness comes from the filename below.
     plot_dir = os.path.join('sos_plots', 'metrics', region, 'pod_far_spatial')
@@ -201,11 +200,13 @@ if __name__ == "__main__":
         elif met in ['bias', 'mae']:
             if met == 'bias':
                 field = field / normalize
-                if normalize == 1:
+                if args.vmax is not None:
+                    max_abs = args.vmax
+                elif normalize == 1:
                     max_abs = float(np.abs(field).max().values)
-                    bounds = np.linspace(-max_abs, max_abs, 21)
                 else:
-                    bounds = np.linspace(-1.0, 1.0, 21)
+                    max_abs = 1.0
+                bounds = np.linspace(-max_abs, max_abs, 21)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
@@ -213,7 +214,9 @@ if __name__ == "__main__":
                 cbar_label = f"{met}"
             else:  # 'mae'
                 field = field / normalize
-                if normalize == 1:
+                if args.vmax is not None:
+                    vmax = args.vmax
+                elif normalize == 1:
                     vmax = float(field.max().values)
                 else:
                     vmax = 1.0
@@ -232,7 +235,7 @@ if __name__ == "__main__":
             # Default to rainbow discrete
             n_bins = 11
             field_min = float(field.min().values)
-            field_max = float(field.max().values)
+            field_max = float(args.vmax) if args.vmax is not None else float(field.max().values)
             bounds = np.linspace(field_min, field_max, n_bins)
             norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=n_bins-1)
             cmap = mpl.colormaps['rainbow'].resampled(n_bins-1)
@@ -265,11 +268,13 @@ if __name__ == "__main__":
         elif met in ['bias', 'mae']:
             if met == 'bias':
                 field = field / normalize
-                if normalize == 1:
+                if args.vmax is not None:
+                    max_abs = args.vmax
+                elif normalize == 1:
                     max_abs = float(np.abs(field).max().values)
-                    bounds = np.linspace(-max_abs, max_abs, 21)
                 else:
-                    bounds = np.linspace(-1.0, 1.0, 21)
+                    max_abs = 1.0
+                bounds = np.linspace(-max_abs, max_abs, 21)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
@@ -277,7 +282,9 @@ if __name__ == "__main__":
                 cbar_label = f"{met}"
             else:  # 'mae'
                 field = field / normalize
-                if normalize == 1:
+                if args.vmax is not None:
+                    vmax = args.vmax
+                elif normalize == 1:
                     vmax = float(field.max().values)
                 else:
                     vmax = 1.0
@@ -295,7 +302,7 @@ if __name__ == "__main__":
         else:
             n_bins = 11
             field_min = float(field.min().values)
-            field_max = float(field.max().values)
+            field_max = float(args.vmax) if args.vmax is not None else float(field.max().values)
             bounds = np.linspace(field_min, field_max, n_bins)
             norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=n_bins-1)
             cmap = mpl.colormaps['rainbow'].resampled(n_bins-1)
