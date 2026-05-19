@@ -173,38 +173,6 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
                         align="center", agg_col="time", agg_fn='max')
     obs = data['obs']
 
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        # lat = -2.75
-        # lon = 39.75
-        # lat = 1.25
-        # lat = 2.25
-        # lon = 37.25
-        # lat = 0.0
-        # lon = 34.25
-        # lat = 1.75
-        # lon = 40.0
-        # lat = 12.75
-        # lon = -7.75
-        # lat = -1.5
-        # lon = 38.0
-        # lat = 8.25
-        # lon = 0.5
-        lat = 6.75
-        lon = -3.0
-        # lat = -2.5
-        # lon = 40.25
-        year = 2020
-        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        obs_plot = obs * -1.0
-        obs_plot.sel(lat=lat, lon=lon).precip.plot()
-        data['fcst'].sel(lat=lat, lon=lon).precip.plot()
-        fcst.sel(lat=lat, lon=lon).precip.plot()
-        plt.show()
-
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.
     error = obs - fcst
@@ -221,46 +189,6 @@ def fn_contingency_fcst_difference(data, **cache_kwargs):  # noqa: F821
 
     obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
     fcst = data['fcst']
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        # lat = -2.75
-        # lon = 39.75
-        # lat = 1.25
-        # lat = 2.25
-        # lon = 37.25
-        # lat = 0.0
-        # lon = 34.25
-        # lat = 1.75
-        # lon = 40.0
-        lat = 12.5
-        lon = -8.0
-        # lat = -2.5
-        # lon = 40.25
-        year = 2020
-        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        obs.sel(lat=lat, lon=lon).precip.plot()
-        data['obs'].sel(lat=lat, lon=lon).precip.plot()
-        fcst_plot = fcst * -1.0
-        fcst_plot.sel(lat=lat, lon=lon).precip.plot()
-        plt.show()
-    # import matplotlib.pyplot as plt
-    # # lat = -2.75
-    # # lon = 39.75
-    # lat = 1.25
-    # lon = 37.25
-    # # lat = 0.0
-    # # lon = 34.25
-    # year = 2009
-    # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # data['obs'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-    # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-
-    # import pdb
-    # pdb.set_trace()
-
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.
     error = fcst - obs
@@ -289,20 +217,6 @@ def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
     return data['obs'] - fn_false_negatives(data, **cache_kwargs)
-
-
-# @statistic(cache=False, name='all_positives')
-# def fn_all_positives(data, **cache_kwargs):  # noqa: F821
-#     null_pattern = data['obs'].isnull()
-#     ds = data['obs'] >= 0.5
-#     return ds.where(~null_pattern, np.nan, drop=False)
-
-
-# @statistic(cache=False, name='all_negatives')
-# def fn_all_negatives(data, **cache_kwargs):  # noqa: F821
-#     null_pattern = data['obs'].isnull()
-#     ds = data['obs'] < 0.5
-#     return ds.where(~null_pattern, np.nan, drop=False)
 
 
 @statistic(cache=False, name='n_correct')

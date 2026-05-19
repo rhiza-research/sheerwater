@@ -54,7 +54,7 @@ dependencies = [
     "xesmf",
     "earthaccess",
     "xee",
-    "ruptures>=1.1.10",
+    "ruptures",
 ]
 
 [dependency-groups]

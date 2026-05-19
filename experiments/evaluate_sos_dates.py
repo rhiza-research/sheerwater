@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import os
+import hashlib
 import numpy as np
 from sheerwater.metrics import metric
 from sheerwater.utils import start_remote
@@ -12,8 +13,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--recompute", action="store_true", help="Recompute the metrics.")
-    parser.add_argument("--normalize", type=float, default=200.0,
-                        help="Divisor applied to bias/MAE fields before plotting (default: 200).")
+    parser.add_argument("--normalize", action="store_true", help="Normalize the metrics.")
     args = parser.parse_args()
     # start_time = '2022-01-01'
     # end_time = '2022-12-31'
@@ -28,16 +28,18 @@ if __name__ == "__main__":
     # grid = 'global1_5'
     mask = 'lsm'
     # region = 'eastern_africa'
-    # region = 'western_africa'
+    region = 'western_africa'
     time_grouping = 'year'
-    region = 'africa'
+    # time_grouping = 'rainy_season'
+    # time_grouping = 'two_seasons'
+    # region = 'africa'
     # region = 'kenya'
     forecast = 'imerg_final'
     # forecast = 'chirps_v3'
     # forecast = 'rain_over_africa'
     # truth = 'tahmo_avg'
-    # truth = 'tahmo_avg'
-    truth = 'chirps_v3'
+    truth = 'tahmo_avg'
+    # truth = 'chirps_v3'
     # truth = 'rain_over_africa'
     # truth = 'chirp_v3'
     # truth = 'imerg_late'
@@ -103,18 +105,26 @@ if __name__ == "__main__":
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
 
+    # filter_event = None
     filter_event = 'start_of_season_by_accumulation'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
     filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
+    # filter_event_kwargs = {'time_grouping': time_grouping}
+    # filter_event_kwargs = {}
     soft_margin = 365  # the full year
     detect_in_time = True
     if detect_in_time:
         filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
+        # filter_event_kwargs.update({'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}})
 
     metric_kwargs = {
         'obs_filter': True, 'fcst_filter': True,
         # 'soft_margin_in_days': soft_margin,
     }
+    if args.normalize:
+        normalize = filter_event_kwargs.get('accumulation_threshold', 1.0)
+    else:
+        normalize = 1.0
 
     data = []
     # for mn in ['pod', 'far']:
@@ -138,8 +148,6 @@ if __name__ == "__main__":
                    region=region)
         )
 
-    import pdb
-    pdb.set_trace()
     # Flat output folder; uniqueness comes from the filename below.
     plot_dir = os.path.join('sos_plots', 'metrics', region, 'pod_far_spatial')
     os.makedirs(plot_dir, exist_ok=True)
@@ -189,24 +197,31 @@ if __name__ == "__main__":
             )
         elif met in ['bias', 'mae']:
             if met == 'bias':
-                field = field / args.normalize
-                max_abs = float(np.abs(field).max().values)
-                vmin, vmax = -max_abs, max_abs
+                field = field / normalize
+                if normalize == 1:
+                    max_abs = float(np.abs(field).max().values)
+                    vmin, vmax = -max_abs, max_abs
+                else:
+                    vmin, vmax = -1.0, 1.0
                 bounds = np.linspace(vmin, vmax, 21)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
                 )
-                cbar_label = f"{met} / {args.normalize:g}"
+                cbar_label = f"{met}"
             else:  # 'mae'
-                field = field / args.normalize
-                vmin, vmax = 0.0, float(field.max().values)
+                field = field / normalize
+                if normalize == 1:
+                    vmax = float(field.max().values)
+                else:
+                    vmax = 1.0
+                vmin = 0.0
                 bounds = np.linspace(vmin, vmax, 11)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.45, 0.9, len(bounds)-1))
                 )
-                cbar_label = f"{met} / {args.normalize:g}"
+                cbar_label = f"{met}"
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': cbar_label}, ax=axs[0],
@@ -252,24 +267,31 @@ if __name__ == "__main__":
             )
         elif met in ['bias', 'mae']:
             if met == 'bias':
-                field = field / args.normalize
-                max_abs = float(np.abs(field).max().values)
-                vmin, vmax = -max_abs, max_abs
+                field = field / normalize
+                if normalize == 1:
+                    max_abs = float(np.abs(field).max().values)
+                    vmin, vmax = -max_abs, max_abs
+                else:
+                    vmin, vmax = -1.0, 1.0
                 bounds = np.linspace(vmin, vmax, 21)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.0, 0.9, len(bounds)-1))
                 )
-                cbar_label = f"{met} / {args.normalize:g}"
+                cbar_label = f"{met}"
             else:  # 'mae'
-                field = field / args.normalize
-                vmin, vmax = 0.0, float(field.max().values)
+                field = field / normalize
+                if normalize == 1:
+                    vmax = float(field.max().values)
+                else:
+                    vmax = 1.0
+                vmin = 0.0
                 bounds = np.linspace(vmin, vmax, 11)
                 norm = mpl.colors.BoundaryNorm(boundaries=bounds, ncolors=len(bounds)-1)
                 cmap = mpl.colors.ListedColormap(
                     mpl.colormaps['nipy_spectral'](np.linspace(0.45, 0.9, len(bounds)-1))
                 )
-                cbar_label = f"{met} / {args.normalize:g}"
+                cbar_label = f"{met}"
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': cbar_label}, ax=axs[1],
@@ -303,9 +325,10 @@ if __name__ == "__main__":
     suptitle = (
         f"{metric_labels}  |  {forecast} vs {truth}  |  {region}  |  event: {event}\n"
         f"soft_margin={soft_margin}d  |  {start_time} to {end_time}\n"
-        f"detect_in_time={metric_kwargs.get('detect_in_time', 'None')}\n"
+        f"filter kwargs: {', '.join(f'{k}={v}' for k, v in sorted(filter_event_kwargs.items()))}\n"
         f"fcst: {fmt_kwargs(fcst_event_kwargs)}\n"
         f"obs:  {fmt_kwargs(obs_event_kwargs)}"
+
     )
     fig.suptitle(suptitle, fontsize=10)
     if len(metrics) >= 1:
@@ -314,10 +337,15 @@ if __name__ == "__main__":
         axs[1].set_title(metrics[1])
     plt.tight_layout(rect=[0, 0, 1, 0.90])
 
-    filename = (
+    # Construct the descriptive filename string (unhashed, for hashing)
+    descriptive_filename = (
         f"pod_far_{event}_{start_time}_{end_time}_{forecast}_vs_{truth}_sm{soft_margin}d_{'detect_in_time' if detect_in_time else ''}"
-        f"_fcst{compact_kwargs(fcst_event_kwargs)}_obs{compact_kwargs(obs_event_kwargs)}.png"
+        f"_filter{compact_kwargs(filter_event_kwargs)}"
+        f"_fcst{compact_kwargs(fcst_event_kwargs)}_obs{compact_kwargs(obs_event_kwargs)}"
     )
+    # Hash the filename string to create a unique, short filename
+    hash_digest = hashlib.sha256(descriptive_filename.encode()).hexdigest()[:16]
+    filename = f"plot_{hash_digest}.png"
     out_path = os.path.join(plot_dir, filename)
     # Use a higher DPI for better quality
     plt.savefig(out_path, format='png', bbox_inches='tight', dpi=600)

@@ -102,136 +102,6 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
     return ds
 
 
-def detect_in_time_hold(ds, detect='first', agg_days=1, criteria=lambda x: x >= 200, time_grouping=None):
-    """Detect the first or last time in a time grouping that satisfies a criteria."""
-    # Fill in any missing times between the start and end of the year for the dataset
-    years = pd.to_datetime(ds.time.values).year
-    min_year = years.min()
-    max_year = years.max()
-    start_time = pd.Timestamp(f"{min_year}-01-01")
-    end_time = pd.Timestamp(f"{max_year}-12-31")
-    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
-    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
-
-    # Add the grouping coordinates but perform no aggregation
-    ds = groupby_time(ds, time_grouping, agg_fn=None)
-    nanmask = ds.isnull()
-
-    var = list(ds.data_vars)[0]
-    ds['indicator'] = xr.ones_like(ds[var])
-    ds['non_null'] = ds[var].notnull()
-    # Coverage per group: fraction of timesteps with non-null data
-    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
-    group_coverage = group_sums['non_null'] / group_sums['indicator']
-
-    if detect == 'first' or detect == 'last':
-        # Apply the criteria to the dataset, converting to ones and zeros
-        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
-        ds = ds.where(criteria(ds), 0.0)
-
-    # Set all times to zero where the group in the null mask (i.e., season was None)
-    is_null_group = ds['group'].astype(str).str.contains('None')
-    ds = ds.where(~is_null_group, other=0.0)
-
-    def first_hit(x):
-        cumsum = x.cumsum(dim="time")
-        # There is a bug in xarray cumsum that causes the time coordinate to be lost
-        # https://github.com/pydata/xarray/issues/6528
-        cumsum = cumsum.assign_coords(time=x['time'])
-        return ((cumsum == 1) & (x == 1)).astype(int)
-
-    def last_hit(x):
-        # Reverse in time and run first hit
-        x = x.isel(time=slice(None, None, -1))
-        ret = first_hit(x)
-        ret = ret.isel(time=slice(None, None, -1))
-        return ret
-
-    def ruptures_cp(arr, model="normal", n_bkps=2, min_size=5):
-        arr = np.asarray(arr, dtype=float)
-        n = arr.size
-        out = np.zeros(n, dtype=int)
-        if n < 2 * min_size or np.all(np.isnan(arr)):
-            return out
-
-        # ruptures cannot handle NaN — fill with zeros
-        if np.isnan(arr).any():
-            arr = np.nan_to_num(arr, nan=0.0)
-
-        try:
-            bkps = rpt.Dynp(model=model, min_size=min_size).fit(arr).predict(n_bkps=n_bkps)
-        except Exception:
-            return out
-        # bkps is a list ending with len(arr); the actual change points are bkps[:-1]
-        # Take only the first breakpoint
-        # for cp in bkps[:-1]:
-        #     if 0 < cp < n:
-        #         out[cp] = 1
-        # return out
-        cp = bkps[0]
-        out[cp] = 1
-        return out
-
-    def change_point(x):
-        x = x.chunk({'time': -1})
-        ret = xr.apply_ufunc(
-            ruptures_cp,
-            x,
-            input_core_dims=[['time']],
-            output_core_dims=[['time']],
-            dask='parallelized',
-            vectorize=True,
-            output_dtypes=[float],
-        )
-        return ret
-
-    # Ensure that the timedimension is sorted
-    ds = ds.sortby("time")
-    if detect == 'first':
-        func = first_hit
-    elif detect == 'last':
-        func = last_hit
-    elif detect == 'change_point':
-        ds = ds.chunk({'time': -1})
-        func = change_point
-    else:
-        raise ValueError(f"Invalid detection type {detect}")
-
-    detected = ds.groupby("group").map(func)
-    coverage_at_time = group_coverage.sel(group=detected['group'])
-    detected = detected.where(coverage_at_time >= 0.90, other=np.nan)
-    detected = detected.drop_vars(['indicator', 'non_null'])
-
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        # lat = 10.85
-        # lon = -1.05
-        # lat = 12.25
-        # lon = 4.25
-        # lat = 12.5
-        # lon = -1.5
-        # lat = 8.25
-        # lon = 0.5
-        lat = 6.75
-        lon = -3.0
-        # lat = -2.5
-        # lon = 40.25
-        year = 2020
-        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        ds.sel(lat=lat, lon=lon).precip.plot()
-        (detected*50).sel(lat=lat, lon=lon).precip.plot()
-        plt.show()
-
-    # Restore the null pattern and attributes, which are lost during the grouping
-    detected = detected.where(~nanmask, other=np.nan)
-    detected = detected.assign_attrs(ds.attrs)
-
-    return detected
-
-
 def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', criteria_kwargs={'threshold': 0.5}):
     """Detect the first or last time in a time grouping that satisfies a criteria."""
     if criteria == 'greater':
@@ -268,27 +138,6 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
     # Set all times to zero where the group in the null mask (i.e., season was None)
     is_null_group = ds['group'].astype(str).str.contains('None')
     ds = ds.where(~is_null_group, other=np.nan)
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        # lat = 10.85
-        # lon = -1.05
-        # lat = 12.25
-        # lon = 4.25
-        # lat = 12.5
-        # lon = -1.5
-        # lat = 8.25
-        # lon = 0.5
-        lat = 6.75
-        lon = -3.0
-        # lat = -2.5
-        # lon = 40.25
-        year = 2020
-        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        ds.sel(lat=lat, lon=lon).precip.plot()
-        plt.show()
 
     def first_hit(x):
         cumsum = x.cumsum(dim="time")
@@ -326,11 +175,6 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
         except Exception:
             return out
         # bkps is a list ending with len(arr); the actual change points are bkps[:-1]
-        # Take only the first breakpoint
-        # for cp in bkps[:-1]:
-        #     if 0 < cp < n:
-        #         out[cp] = 1
-        # return out
         cp = bkps[0]
         out[cp] = 1
         return out
@@ -362,35 +206,18 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
     else:
         raise ValueError(f"Invalid detection type {detect}")
 
+    # Apply the detection function to the dataset
     detected = ds.groupby("group").map(func)
+
+    # Remove groups that don't have enough coverage
     coverage_at_time = group_coverage.sel(group=detected['group'])
     detected = detected.where(coverage_at_time >= 0.95, other=np.nan)
     detected = detected.drop_vars(['indicator', 'non_null'])
 
-    plot = False
-    if plot:
-        import matplotlib.pyplot as plt
-        # lat = 10.85
-        # lon = -1.05
-        # lat = 12.25
-        # lon = 4.25
-        # lat = 12.5
-        # lon = -1.5
-        # lat = 8.25
-        # lon = 0.5
-        # lat = 6.75
-        # lon = -3.0
-        lat = 1.75
-        lon = 40.0
-        # lat = -2.5
-        # lon = 40.25
-        year = 2020
-        # obs.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # data['fcst'].sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        # fcst.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).sel(lat=lat, lon=lon).precip.plot()
-        ds.sel(lat=lat, lon=lon).precip.plot()
-        detected.sel(lat=lat, lon=lon).precip.plot()
-        plt.show()
+    # Remove groups that don't have a detection
+    has_detection = detected.groupby("group").sum(dim="time", skipna=True, min_count=1)
+    has_detection_at_time = has_detection.sel(group=detected['group'])
+    detected = detected.where(has_detection_at_time >= 1.00, other=np.nan)
 
     # Restore the null pattern and attributes, which are lost during the grouping
     detected = detected.where(~nanmask, other=np.nan)
