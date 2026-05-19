@@ -212,15 +212,6 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
     # Apply the detection function to the dataset
     detected = ds.groupby("group").map(func)
 
-    # import matplotlib.pyplot as plt
-    # lat = 8.25
-    # lon = 1.0
-    # detected.sel(lat=lat, lon=lon).precip.plot()
-    # ds.sel(lat=lat, lon=lon).precip.plot()
-    # plt.show()
-    # import pdb
-    # pdb.set_trace()
-
     # Remove groups that don't have enough coverage
     coverage_at_time = group_coverage.sel(group=detected['group'])
     detected = detected.where(coverage_at_time >= 0.95, other=np.nan)

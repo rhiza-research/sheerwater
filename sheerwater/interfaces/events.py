@@ -179,7 +179,8 @@ def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
     # Floatwise "and-ing" of the two spells together to get the planting suitability
     # Ensure that attributes pass through
     attrs = ds.attrs.copy()
-    return (wet_spell * dry_spell).assign_attrs(attrs)
+    ret = (wet_spell * dry_spell).assign_attrs(attrs)
+    return ret
 
 
 @event(

@@ -30,9 +30,9 @@ if __name__ == "__main__":
     # grid = 'global1_5'
     mask = 'lsm'
     # region = 'eastern_africa'
-    region = 'western_africa'
+    region = 'kenya'
     # region = 'togo'
-    time_grouping = 'year'
+    time_grouping = 'rainy_season'
     # time_grouping = 'rainy_season'
     # time_grouping = 'two_seasons'
     # region = 'africa'
@@ -57,17 +57,22 @@ if __name__ == "__main__":
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
     # event = None
-    event = 'seasonal_accumulation'
+    # event = 'seasonal_accumulation'
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
-    # event = 'nimbus_start_of_season'
+    event = 'planting_suitability'
     # event = 'start_of_season_by_accumulation'
     if event == 'days_above_threshold':
         # fcst_event_kwargs = {'agg_days': 30, 'threshold': 1.0, 'above_days': 3}
         # obs_event_kwargs = {'agg_days': 30, 'threshold': 0.5, 'above_days': 3}
         fcst_event_kwargs = {'agg_days': 21, 'threshold': 4.0, 'above_days': 6}
         obs_event_kwargs = {'agg_days': 21, 'threshold': 4.0, 'above_days': 6}
+    elif event == 'planting_suitability':
+        fcst_event_kwargs = {'wet_spell_agg_days': 10, 'wet_spell_threshold': 20.0,
+                             'dry_spell_agg_days': 20, 'dry_spell_threshold': 25.0}
+        obs_event_kwargs = {'wet_spell_agg_days': 10, 'wet_spell_threshold': 20.0,
+                            'dry_spell_agg_days': 20, 'dry_spell_threshold': 25.0}
     elif event == 'count_days_above_threshold':
         fcst_event_kwargs = {'agg_days': 21, 'threshold': 4.0}
         obs_event_kwargs = {'agg_days': 21, 'threshold': 4.0}
@@ -108,22 +113,24 @@ if __name__ == "__main__":
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
 
-    # filter_event = None
-    filter_event = 'start_of_season_by_accumulation'
+    filter_event = None
+    # filter_event = 'start_of_season_by_accumulation'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
     # filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
-    filter_event_kwargs = {'accumulation_threshold': 0.75,  'by_percent': True, 'time_grouping': time_grouping}
+    # filter_event_kwargs = {'accumulation_threshold': 0.75,  'by_percent': True, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'time_grouping': time_grouping}
-    # filter_event_kwargs = {}
+    filter_event_kwargs = {}
     soft_margin = 365  # the full year
     detect_in_time = True
     if detect_in_time:
-        filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
+        # filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
+        fcst_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
+        obs_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
         # filter_event_kwargs.update({'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}})
 
     metric_kwargs = {
-        'obs_filter': True, 'fcst_filter': False,
-        # 'soft_margin_in_days': soft_margin,
+        'obs_filter': False, 'fcst_filter': False,
+        'soft_margin_in_days': 28,
     }
     if args.normalize:
         normalize = filter_event_kwargs.get('accumulation_threshold', 1.0)
@@ -133,8 +140,8 @@ if __name__ == "__main__":
     data = []
     # for mn in ['pod', 'far']:
     # metrics = ['pod', 'far']
-    # metrics = ['pod']
-    metrics = ['mae']
+    metrics = ['pod']
+    # metrics = ['mae']
     # metrics = []
     for mn in metrics:
         data.append(
@@ -188,10 +195,11 @@ if __name__ == "__main__":
         met = metrics[0]
         field = data[0][met]
         if met in ['pod', 'far']:
-            # For pod, far: rainbow discrete bins
+            # For pod, far: rainbow discrete bins (pod reversed so high=blue, low=red)
             bounds = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
             norm = mpl.colors.BoundaryNorm(bounds, ncolors=len(bounds)-1)
-            cmap = mpl.colormaps['rainbow'].resampled(len(bounds)-1)
+            cmap_name = 'rainbow_r' if met == 'pod' else 'rainbow'
+            cmap = mpl.colormaps[cmap_name].resampled(len(bounds)-1)
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': met}, ax=axs[0],
@@ -256,10 +264,11 @@ if __name__ == "__main__":
         met = metrics[1]
         field = data[1][met]
         if met in ['pod', 'far']:
-            # For pod, far: rainbow discrete bins (narrowed for FAR)
+            # For pod, far: rainbow discrete bins (narrowed for FAR; pod reversed so high=blue, low=red)
             bounds = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
             norm = mpl.colors.BoundaryNorm(bounds, ncolors=len(bounds)-1)
-            cmap = mpl.colormaps['rainbow'].resampled(len(bounds)-1)
+            cmap_name = 'rainbow_r' if met == 'pod' else 'rainbow'
+            cmap = mpl.colormaps[cmap_name].resampled(len(bounds)-1)
             plot_kwargs = dict(
                 x="lon", y="lat", cmap=cmap,
                 add_labels=False, cbar_kwargs={'label': met}, ax=axs[1],
