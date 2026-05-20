@@ -7,6 +7,18 @@ from google.cloud import secretmanager
 # import salientsdk as sk
 from nuthatch import config_parameter
 
+def earthmover_api_key():
+    """Get a postgres write password."""
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(
+        request={"name": "projects/750045969992/secrets/EARTHMOVER_API_KEY/versions/latest"})
+    key = response.payload.data.decode("UTF-8")
+
+    return key
+
+
+
 
 def earthaccess_username():
     """Get a postgres write password."""
