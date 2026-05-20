@@ -63,8 +63,7 @@ def event(default_variable=None, duration=0, filter=False):
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
 def digitized(ds, agg_days, bins):
     """An event to digitize a dataset into bins."""
-    if agg_days is not None:
-        ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
 
     # Save and restore the null pattern, which is removed by the boolean operations
     null_mask = ds.isnull()
@@ -96,33 +95,17 @@ def above_threshold(ds, agg_days, threshold):
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
 def accumulated_rain(ds, agg_days):
-    """An event to calculate the accumulated rain over a sliding agg days window."""
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='sum')
+    """An event to calculate the accumulated rain over a sliding, right-aligned window."""
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", align='right', agg_fn='sum')
     return ds
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
-def days_above_threshold(ds, agg_days, threshold, above_days):
-    """An event to calculate whether a forecast spends sufficient time above a threshold."""
-    # Bins will be in the format [-inf, threshold, inf]
-    bins = [-np.inf, threshold, np.inf]
-    ret = digitized(ds, agg_days=None, bins=bins)
-    # Convert from the outptut of digitized (1,2) to floating (0, 1)
-    ret = ret.astype(float) - 1.0
-    ret = roll_and_agg(ret, agg=agg_days, agg_col="time", agg_fn='sum')
-    null_mask = ret.isnull()
-    ret = (ret >= above_days)
-    # Restore NaN values
-    ret = ret.where(~null_mask, np.nan)
-    return ret
-
-
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
-def count_days_above_threshold(ds, agg_days, threshold):
+def days_above_threshold(ds, agg_days, threshold):
     """An event to calculate the number of days above a threshold."""
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
-    ret = digitized(ds, agg_days=None, bins=bins)
+    ret = digitized(ds, agg_days=1, bins=bins)
     # Convert from the outptut of digitized (1,2) to floating (0, 1)
     ret = ret.astype(float) - 1.0
     ret = roll_and_agg(ret, agg=agg_days, agg_col="time", agg_fn='sum')
@@ -132,12 +115,23 @@ def count_days_above_threshold(ds, agg_days, threshold):
     return ret
 
 
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
+def has_days_above_threshold(ds, agg_days, threshold, above_days):
+    """An event to calculate whether a forecast spends sufficient time above a threshold."""
+    ds = days_above_threshold(ds, agg_days=agg_days, threshold=threshold)
+    null_mask = ds.isnull()
+    ds = (ds >= above_days)
+    # Restore NaN values
+    ds = ds.where(~null_mask, np.nan)
+    return ds
+
+
 @event(default_variable="precip", duration=lambda kwargs: kwargs["smoothing"]+kwargs["continuous_days"], filter=True)
-def continuous_days_above_threshold(ds, threshold, smoothing, continuous_days):
+def has_continuous_days_above_threshold(ds, threshold, smoothing, continuous_days):
     """An event to calculate whether a forecast spends consecutive days above a threshold."""
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
-    ret = digitized(ds, agg_days=None, bins=bins)
+    ret = digitized(ds, agg_days=1, bins=bins)
     # Convert from the outptut of digitized (1,2) to floating (0, 1)
     ret = ret.astype(float) - 1.0
 
@@ -154,69 +148,7 @@ def continuous_days_above_threshold(ds, threshold, smoothing, continuous_days):
     return ret
 
 
-@event(
-    default_variable="precip",
-    duration=lambda kwargs: kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"],
-    filter=True,
-)
-def planting_suitability(ds, wet_spell_agg_days=10, dry_spell_agg_days=20,
-                         wet_spell_threshold=25.0, dry_spell_threshold=20.0):
-    """A function to calculate the planting suitability of a dataset."""
-    if 'precip' not in ds.data_vars:
-        raise ValueError("Planting suitability event requires a 'precip' variable.")
-
-    wet_spell = above_threshold(ds, agg_days=wet_spell_agg_days, threshold=wet_spell_threshold / wet_spell_agg_days)
-    dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold / dry_spell_agg_days)
-
-    # Shift to get wet spell followed by not dry spell
-    dry_spell = dry_spell.shift(time=-wet_spell_agg_days)
-    # Chop off the last NaNs introduced by the shift
-    dry_spell = dry_spell.isel(time=slice(None, -wet_spell_agg_days))
-
-    # Chop off the last  days for wet spell, which won't have a matching dry spell
-    wet_spell = wet_spell.isel(time=slice(None, -wet_spell_agg_days))
-
-    # Floatwise "and-ing" of the two spells together to get the planting suitability
-    # Ensure that attributes pass through
-    attrs = ds.attrs.copy()
-    ret = (wet_spell * dry_spell).assign_attrs(attrs)
-    return ret
-
-
-@event(
-    default_variable="precip",
-    duration=lambda kwargs: kwargs["wet_spell_agg_days"] + kwargs["not_dry_spell_agg_days"],
-    filter=True,
-)
-def planting_suitability_by_count(ds,
-                                  wet_spell_agg_days=5, wet_spell_threshold=4.0, wet_spell_count=3,
-                                  not_dry_spell_agg_days=10, not_dry_spell_threshold=1.0, not_dry_spell_count=2):
-    """A function to calculate the planting suitability based on wet day counts."""
-    if 'precip' not in ds.data_vars:
-        raise ValueError("Planting suitability event requires a 'precip' variable.")
-
-    wet_spell = days_above_threshold(ds,
-                                     agg_days=wet_spell_agg_days,
-                                     threshold=wet_spell_threshold,
-                                     above_days=wet_spell_count)
-    not_dry_spell = days_above_threshold(ds,
-                                         agg_days=not_dry_spell_agg_days,
-                                         threshold=not_dry_spell_threshold,
-                                         above_days=not_dry_spell_count)
-
-    # Shift to get wet spell followed by not dry spell
-    not_dry_spell = not_dry_spell.shift(time=-wet_spell_agg_days)
-
-    # Chop off the last  days for wet spell, which won't have a matching not dry spell
-    wet_spell = wet_spell.isel(time=slice(None, -wet_spell_agg_days))
-
-    # Floatwise "and-ing" of the two spells together to get the planting suitability
-    # Ensure that attributes pass through
-    attrs = ds.attrs.copy()
-    return (wet_spell * not_dry_spell).assign_attrs(attrs)
-
-
-@event(default_variable="precip", duration=30, filter=False)
+@event(default_variable="precip", duration=120, filter=False)
 def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
     """A function to calculate the seasonal accumulation of a dataset."""
     # Add the grouping coordinates but perform no aggregation
@@ -246,7 +178,7 @@ def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
     return ret
 
 
-@event(default_variable="precip", duration=30, filter=True)
+@event(default_variable="precip", duration=120, filter=True)
 def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_threshold=200.0, by_percent=False):
     """A function to calculate the start of season by accumulation of a dataset."""
     if 'precip' not in ds.data_vars:
@@ -261,14 +193,134 @@ def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_thres
     return ds_suitable.assign_attrs(attrs)
 
 
+@event(
+    default_variable="precip",
+    duration=lambda kwargs: np.sum(kwargs["agg_days"]) if 'agg_days' in kwargs else 30,
+    filter=True
+)
+def start_of_season_by_spells(ds, event_name='chc',
+                              spells=['wet', 'wet'], agg_days=[10, 20],
+                              thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
+                              trigger_index=0):
+    """A function to calculate the planting suitability of a dataset."""
+    if event_name == 'chc':
+        spells = ['wet', 'not_dry']
+        agg_days = [10, 20]
+        thresholds = [25.0, 20.0]
+        agg_type = ['mean', 'mean']
+        counts = [np.nan, np.nan]
+        trigger_index = 0
+    elif event_name == 'icpac':
+        spells = ['wet', 'not_dry']
+        agg_days = [10, 20]
+        thresholds = [25.0, 20.0]
+        agg_type = ['mean', 'mean']
+        counts = [np.nan, np.nan]
+        trigger_index = 0
+    elif event_name == 'moron-and-robertson':
+        spells = ['wet', 'not_dry']
+        agg_days = [5, 10]
+        thresholds = [38.0, 5.0]
+        agg_type = ['mean', 'mean']
+        counts = [np.nan, np.nan]
+        trigger_index = 0
+    elif event_name == 'wet-not_dry-count':
+        spells = ['wet', 'not_dry']
+        agg_days = [10, 20]
+        thresholds = [5.0, 5.0]
+        agg_type = ['count', 'count']
+        counts = [3, 2]
+        trigger_index = 0
+    elif event_name == 'dry-wet-not_dry-agg':
+        spells = ['dry', 'wet', 'not_dry']
+        agg_days = [20, 10, 20]
+        thresholds = [20.0, 25.0, 20.0]
+        agg_type = ['mean', 'mean', 'mean']
+        counts = [np.nan, np.nan, np.nan]
+        trigger_index = 1
+    elif event_name is None:
+        pass
+    else:
+        raise ValueError(f"Invalid event name: {event_name}")
+
+    # Input error checking
+    if len(spells) != len(agg_days) or len(spells) != len(thresholds) or \
+            len(spells) != len(agg_type) or len(spells) != len(counts):
+        raise ValueError("The number of spells, agg days, thresholds, agg types, and counts must be the same.")
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season by spells event requires a 'precip' variable.")
+    for i, a_type in enumerate(agg_type):
+        if a_type not in ['mean', 'sum', 'count']:
+            raise ValueError(f"Invalid aggregation type: {a_type}")
+        if a_type == 'count' and not isinstance(counts[i], int):
+            raise ValueError(f"Count type requires an integer count, got {counts[i]}")
+
+    # We want to declare start of season around the trigger index event, and need to align dry spells before it
+    # and wet spells after it with the trigger index event.
+    shift_indices = [0]*len(spells)
+    # Compute the shift indicies for each spell. We want everything to align around the trigger index
+    event_indicies = list(zip(range(len(spells)), spells, agg_days))
+    # Shift the events before the trigger index to the right (positive)
+    shift_days = 0
+    for index, event, agg in event_indicies[0:trigger_index][::-1]:
+        shift_days += agg
+        shift_indices[index] = shift_days
+    # Shift the events after the trigger index to the left (negative)
+    shift_days = -agg_days[trigger_index]
+    for index, event, agg in event_indicies[trigger_index+1:]:
+        shift_indices[index] = shift_days
+        shift_days -= agg
+
+    # Get the spell timeseries
+    spell_timeseries = []
+    for i, event in enumerate(spells):
+        spell_event_threshold = thresholds[i]
+        spell_agg_days = agg_days[i]
+        if agg_type[i] == 'mean':
+            spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold / spell_agg_days)
+        elif agg_type[i] == 'sum':
+            spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold)
+        elif agg_type[i] == 'count':
+            spell = has_days_above_threshold(ds, agg_days=spell_agg_days,
+                                             threshold=spell_event_threshold, above_days=counts[i])
+
+        if event == 'dry':
+            # Looking for not above threshhold, so negate the event
+            spell = 1.0 - spell
+
+        # Shift the spell to be aligned with the trigger index
+        if i != trigger_index:
+            spell = spell.shift(time=shift_indices[i])
+        spell_timeseries.append(spell)
+
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    attrs = ds.attrs.copy()
+    ret = xr.ones_like(ds['precip'])
+    for spell in spell_timeseries:
+        ret = ret * spell
+
+    # Invalid at start
+    invalid_at_start = int(np.sum(shift_indices[0:trigger_index]))
+    invalid_at_end = int(np.sum(np.abs(shift_indices[trigger_index+1:])))
+    ret = ret.isel(time=slice(invalid_at_start, -invalid_at_end))
+    return ret.assign_attrs(attrs)
+
+
 @event(default_variable="precip", duration=30, filter=True)
-def start_of_season_by_leaky_bucket(ds, accumulation_threshold=10.0):
-    """A function to calculate the start of season by accumulation of a dataset."""
+def seasonal_accumulation_with_leaky_bucket(ds, time_grouping='year', leak_rate=4, runoff_rate=20, max_bucket=120.0):
+    """A function to calculate the seasonal accumulation of a dataset with a leaky bucket."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
 
-    null_mask = ds.isnull()
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    nanmask = ds.isnull()
     attrs = ds.attrs.copy()
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
 
     def leaky_bucket(precip, leak_rate, runoff_rate):
         """Simple leaky bucket model to calculate accumulated precipitation.
@@ -282,145 +334,49 @@ def start_of_season_by_leaky_bucket(ds, accumulation_threshold=10.0):
         bucket = 0.0
         for i, p in enumerate(precip):
             bucket = max(0.0, bucket + min(p, runoff_rate) - leak_rate)
-            # Bucket overflows beyond 120.0
-            bucket = min(bucket, 120.0)
+            # Bucket overflows beyond max_bucket
+            bucket = min(bucket, max_bucket)
             result[i] = bucket
         return result
 
+    def func(x):
+        ret = xr.apply_ufunc(
+            leaky_bucket,
+            x,
+            input_core_dims=[["time"]],
+            output_core_dims=[["time"]],
+            kwargs={"leak_rate": leak_rate, "runoff_rate": runoff_rate, "max_bucket": max_bucket},
+            dask="parallelized",
+            vectorize=True,
+            output_dtypes=[float],
+        )
+        return ret
+
+    # Ensure that the timedimension is sorted
+    ds = ds.sortby("time")
     ds = ds.chunk({'time': -1})  # must
-    ds = xr.apply_ufunc(
-        leaky_bucket,
-        ds,
-        input_core_dims=[["time"]],
-        output_core_dims=[["time"]],
-        kwargs={"leak_rate": 4, "runoff_rate": 20},
-        dask="parallelized",
-        vectorize=True,
-        output_dtypes=[float],
-    )
+    ret = ds.groupby("group").map(func)
 
-    ds_suitable = ds >= accumulation_threshold
+    # Restore the null pattern and attributes, which are lost during the grouping
+    ret = ret.where(~nanmask, other=np.nan)
+    ret = ret.assign_attrs(attrs)
+    return ret
+
+
+@event(default_variable="precip", duration=30, filter=True)
+def start_of_season_by_accumulation_with_leaky_bucket(ds, time_grouping='year', accumulation_threshold=40.0,
+                                                      leak_rate=4, runoff_rate=20, max_bucket=120.0):
+    """A function to calculate the start of season by accumulation of a dataset with a leaky bucket."""
+    if 'precip' not in ds.data_vars:
+        raise ValueError("Start of season by accumulation with leaky bucket event requires a 'precip' variable.")
+
+    ds = seasonal_accumulation_with_leaky_bucket(
+        ds, time_grouping=time_grouping, leak_rate=leak_rate, runoff_rate=runoff_rate, max_bucket=max_bucket)
+    null_mask = ds.isnull()
+    ds_suitable = (ds >= accumulation_threshold)
     ds_suitable = ds_suitable.where(~null_mask, np.nan)
-
     attrs = ds.attrs.copy()
     return ds_suitable.assign_attrs(attrs)
-
-
-@event(
-    default_variable="precip",
-    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] +
-                             kwargs["dry_spell_agg_days"] + kwargs["leading_dry_spell_agg_days"]),
-    filter=True,
-)
-def start_of_season(ds,
-                    leading_dry_spell_agg_days=20, leading_dry_spell_threshold=1.0,
-                    wet_spell_agg_days=3, wet_spell_threshold=7.0,
-                    dry_spell_agg_days=7, dry_spell_threshold=1.0):
-    """Start of season of a dataset with a leading dry spell, a wet spell, and a not dry spell."""
-    if 'precip' not in ds.data_vars:
-        raise ValueError("Start of season event requires a 'precip' variable.")
-
-    leading_dry_spell = 1.0 - above_threshold(ds, agg_days=leading_dry_spell_agg_days,
-                                              threshold=leading_dry_spell_threshold)
-    wet_spell = above_threshold(ds, agg_days=wet_spell_agg_days, threshold=wet_spell_threshold)
-    dry_spell = above_threshold(ds, agg_days=dry_spell_agg_days, threshold=dry_spell_threshold)
-
-    # Shift to get wet spell followed by dry spell
-    wet_spell = wet_spell.shift(time=leading_dry_spell_agg_days)
-    dry_spell = dry_spell.shift(time=(wet_spell_agg_days + leading_dry_spell_agg_days))
-
-    # Chop off the last days for wet spell, which won't have a matching dry spell
-    # TODO: figure out if this is right
-    leading_dry_spell = leading_dry_spell.isel(time=slice(None, -(leading_dry_spell_agg_days + wet_spell_agg_days)))
-    wet_spell = wet_spell.isel(time=slice(None, -(leading_dry_spell_agg_days)))
-
-    # Floatwise "and-ing" of the two spells together to get the planting suitability
-    # Ensure that attributes pass through
-    attrs = ds.attrs.copy()
-    return (leading_dry_spell * wet_spell * dry_spell).assign_attrs(attrs)
-
-
-@event(
-    default_variable="precip",
-    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"]),
-    filter=True,
-)
-def nimbus_start_of_season(ds,
-                           dry_spell_agg_days=10, dry_spell_threshold=4.0, dry_spell_count=1,
-                           wet_spell_agg_days=10, wet_spell_threshold=4.0, wet_spell_count=3):
-    """State of season with a dry spell, by count, buffered, and followed by a wet spell by count."""
-    if 'precip' not in ds.data_vars:
-        raise ValueError("Start of season event requires a 'precip' variable.")
-
-    not_dry_spell = days_above_threshold(
-        ds,
-        agg_days=dry_spell_agg_days,
-        threshold=dry_spell_threshold,
-        above_days=dry_spell_count)
-    dry_spell = 1.0 - not_dry_spell
-
-    wet_spell = days_above_threshold(
-        ds,
-        agg_days=wet_spell_agg_days,
-        threshold=wet_spell_threshold,
-        above_days=wet_spell_count)
-
-    # Shift to get wet spell followed by dry spell
-    buffer_days = 7
-    lagged_dry_spell = dry_spell.shift(time=wet_spell_agg_days)
-    # Remove the NaNs that were introduced by the shift
-    lagged_dry_spell = lagged_dry_spell.isel(time=slice(wet_spell_agg_days, None))
-    lagged_dry_spell = roll_and_agg(lagged_dry_spell, agg=buffer_days, agg_col="time", align='right', agg_fn='max')
-
-    # Chop off the first days for wet spell, which won't have a matching dry spell
-    wet_spell = wet_spell.isel(time=slice(wet_spell_agg_days, -(buffer_days-1)))
-
-    # Floatwise "and-ing" of the two spells together to get the planting suitability
-    # Ensure that attributes pass through
-    attrs = ds.attrs.copy()
-    return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
-
-
-@event(
-    default_variable="precip",
-    duration=lambda kwargs: (kwargs["wet_spell_agg_days"] + kwargs["dry_spell_agg_days"]),
-    filter=True,
-)
-def nimbus_start_of_season_not_dry(ds,
-                                   threshold=1.0,
-                                   dry_spell_agg_days=10,
-                                   dry_spell_count=1,
-                                   wet_spell_agg_days=10,
-                                   wet_spell_count=3):
-    """State of season with a dry spell, by count, followed by a not dry spell by count."""
-    if 'precip' not in ds.data_vars:
-        raise ValueError("Start of season event requires a 'precip' variable.")
-
-    not_dry_spell = days_above_threshold(
-        ds,
-        agg_days=dry_spell_agg_days,
-        threshold=threshold,
-        above_days=dry_spell_count)
-    dry_spell = 1.0 - not_dry_spell
-
-    wet_spell = days_above_threshold(
-        ds,
-        agg_days=wet_spell_agg_days,
-        threshold=threshold,
-        above_days=wet_spell_count)
-
-    # Shift to get dry spell followed by wet spell
-    lagged_dry_spell = dry_spell.shift(time=dry_spell_agg_days)
-    # Remove the NaNs that were introduced by the shift
-    lagged_dry_spell = lagged_dry_spell.isel(time=slice(dry_spell_agg_days, None))
-
-    # Chop off the first days for wet spell, which won't have a matching dry spell
-    wet_spell = wet_spell.isel(time=slice(dry_spell_agg_days, None))
-
-    # Floatwise "and-ing" of the two spells together to get the planting suitability
-    # Ensure that attributes pass through
-    attrs = ds.attrs.copy()
-    return (lagged_dry_spell * wet_spell).assign_attrs(attrs)
 
 
 def get_event_fn(name):

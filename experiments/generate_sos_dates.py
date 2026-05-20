@@ -134,7 +134,7 @@ if __name__ == "__main__":
     # The rainy season defines two periods:
     # - MAM: Starting Feb 1st and ending June 30th
     # - OND: Starting Sept 1st and ending Dec 31st
-    detect_in_time = {'detect': 'first', 'time_grouping': 'rainy_season',
+    detect_in_time = {'detect': 'first', 'time_grouping': 'kenya_rainy_season ',
                       'criteria': 'greater', 'criteria_kwargs': {'threshold': 0.5}}
     # Start a remote dask cluster for fast processing. Can be commenteed out if you want to run locally.
     # If so, consider running on a short time period and smaller region and large resolution, to avoid

@@ -86,10 +86,10 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     test_case.setdefault("spatial", True)
     test_case.setdefault("mask", "lsm")
     test_case.setdefault("agg_days", 7)
-    test_case.setdefault("metric_event", None)
-    test_case.setdefault("metric_event_kwargs", None)
-    test_case.setdefault("metric_event_kwargs_fcst", None)
-    test_case.setdefault("metric_event_kwargs_obs", None)
+    test_case.setdefault("event", None)
+    test_case.setdefault("event_kwargs", None)
+    test_case.setdefault("event_kwargs_fcst", None)
+    test_case.setdefault("event_kwargs_obs", None)
     test_case.setdefault("filter_event", None)
     test_case.setdefault("filter_event_kwargs", None)
     test_case.setdefault("filter_event_kwargs_fcst", None)
@@ -110,10 +110,10 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     except ValueError:
         lead = None
     agg_days = test_case["agg_days"]
-    metric_event = test_case["metric_event"]
-    metric_event_kwargs = test_case["metric_event_kwargs"]
-    metric_event_kwargs_fcst = test_case["metric_event_kwargs_fcst"]
-    metric_event_kwargs_obs = test_case["metric_event_kwargs_obs"]
+    event = test_case["event"]
+    event_kwargs = test_case["event_kwargs"]
+    event_kwargs_fcst = test_case["event_kwargs_fcst"]
+    event_kwargs_obs = test_case["event_kwargs_obs"]
     filter_event = test_case["filter_event"]
     filter_event_kwargs = test_case["filter_event_kwargs"]
     filter_event_kwargs_fcst = test_case["filter_event_kwargs_fcst"]
@@ -126,7 +126,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     print(
         f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | variable={variable} | "
         f"space_grouping={space_grouping} | region={region} | lead={lead} days | agg_days={agg_days} | "
-        f"metric_event={metric_event} | metric_event_kwargs={metric_event_kwargs} | metric_event_kwargs_fcst={metric_event_kwargs_fcst} | metric_event_kwargs_obs={metric_event_kwargs_obs} | filter_event={filter_event} | filter_event_kwargs={filter_event_kwargs} | filter_event_kwargs_fcst={filter_event_kwargs_fcst} | filter_event_kwargs_obs={filter_event_kwargs_obs} | spatial={spatial} | mask={mask} | "
+        f"event={event} | event_kwargs={event_kwargs} | event_kwargs_fcst={event_kwargs_fcst} | event_kwargs_obs={event_kwargs_obs} | filter_event={filter_event} | filter_event_kwargs={filter_event_kwargs} | filter_event_kwargs_fcst={filter_event_kwargs_fcst} | filter_event_kwargs_obs={filter_event_kwargs_obs} | spatial={spatial} | mask={mask} | "
         f"time_grouping={time_grouping} | grid={grid} | start_time={start_time} | end_time={end_time}"
     )
 
@@ -149,18 +149,18 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         "grid": grid,
     }
     pass_event_kwargs = {
-        "metric_event": metric_event,
-        "metric_event_kwargs": metric_event_kwargs,
-        "metric_event_kwargs_fcst": metric_event_kwargs_fcst,
-        "metric_event_kwargs_obs": metric_event_kwargs_obs,
+        "event": event,
+        "event_kwargs": event_kwargs,
+        "event_kwargs_fcst": event_kwargs_fcst,
+        "event_kwargs_obs": event_kwargs_obs,
         "filter_event": filter_event,
         "filter_event_kwargs": filter_event_kwargs,
         "filter_event_kwargs_fcst": filter_event_kwargs_fcst,
         "filter_event_kwargs_obs": filter_event_kwargs_obs
     }
     gold_pass_event_kwargs = {
-        "event": metric_event,
-        "event_kwargs": metric_event_kwargs,
+        "event": event,
+        "event_kwargs": event_kwargs,
     }
     if overwrite_gold_testing:
         # Run the new metric

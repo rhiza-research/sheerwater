@@ -62,8 +62,7 @@ class SheerwaterDataset(NuthatchProcessor):
         self.event = bound_args.arguments.get('event', None)
         if self.event is not None and self.agg_days != 1:
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
-        event_kwargs_val = bound_args.arguments.get('event_kwargs', {})
-        self.event_kwargs = {} if event_kwargs_val is None else event_kwargs_val
+        self.event_kwargs = bound_args.arguments.get('event_kwargs') or {}
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
 
         if 'detect_in_time' in self.event_kwargs:

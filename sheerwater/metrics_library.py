@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 
 from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_threshold
-from sheerwater.interfaces import get_data, get_forecast
+from sheerwater.interfaces import get_data, get_forecast, get_event_fn
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
 from sheerwater.utils import groupby_time, latitude_weights
@@ -48,10 +48,8 @@ class Metric(ABC):
 
     def __init__(self, start_time, end_time, variable, agg_days, forecast, truth,
                  metric_kwargs=None,
-                 metric_event=None, metric_event_kwargs=None,
-                 metric_event_kwargs_fcst=None, metric_event_kwargs_obs=None,
+                 event=None, event_kwargs=None,
                  filter_event=None, filter_event_kwargs=None,
-                 filter_event_kwargs_fcst=None, filter_event_kwargs_obs=None,
                  time_grouping=None, spatial=False, grid="global1_5",
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
@@ -73,63 +71,69 @@ class Metric(ABC):
         self.region = region
         self.time_grouping = time_grouping if time_grouping != 'None' else None
         self.space_grouping = space_grouping if space_grouping != 'None' else None
-
-        # Initialize the event kwargs for the metric and filter and check validity.
-        self.init_event_kwargs(metric_event, metric_event_kwargs, metric_event_kwargs_fcst, metric_event_kwargs_obs,
-                               filter_event, filter_event_kwargs, filter_event_kwargs_fcst, filter_event_kwargs_obs)
-
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
-    def init_event_kwargs(self, metric_event,
-                          metric_event_kwargs, metric_event_kwargs_fcst, metric_event_kwargs_obs,
-                          filter_event,
-                          filter_event_kwargs, filter_event_kwargs_fcst, filter_event_kwargs_obs):
-        """Initialize the event kwargs for the metric and filter and check validity."""
-        self.metric_event = metric_event
+        # Initialize the event kwargs for the metric and filter and check validity.
+        self.init_event_kwargs(event, event_kwargs, filter_event, filter_event_kwargs)
+
+    def init_event_kwargs(self, event, event_kwargs, filter_event, filter_event_kwargs):
+        """Initialize the event kwargs for the metric and filter and check validity.
+
+        For both event_kwargs and filter_event_kwargs, the kwargs can be passed in one of two formats:
+            1. As a dictionary of kwrags, which will be used for both fcst and obs
+            2. As a dictionary of fcst kwargs and a dictionary of obs kwargs, which will be used respectively
+            For example, to pass different thresholds for fcst and obs, you can pass:
+                event_kwargs = {'fcst': {'threshold': 1.0}, 'obs': {'threshold': 2.0}}
+                filter_event_kwargs = {'fcst': {'threshold': 1.0}, 'obs': {'threshold': 2.0}}
+            or
+                event_kwargs = {'threshold': 1.0}
+                filter_event_kwargs = {'threshold': 1.0}
+            The latter will be used for both fcst and obs.
+        """
+        self.event = event
         self.filter_event = filter_event
+
+        self.event_kwargs = event_kwargs
+        self.filter_event_kwargs = filter_event_kwargs
+
+        # Check the validity of the filter function
+        event_fn = get_event_fn(filter_event)
+        if filter_event and not event_fn.filter:
+            raise ValueError(
+                f"Can only run filtering with events of type filter. Event {filter_event} is not a boolean event.")
 
         self.do_fcst_filter = filter_event is not None and self.metric_kwargs.get('fcst_filter', False)
         self.do_obs_filter = filter_event is not None and self.metric_kwargs.get('obs_filter', False)
 
-        if metric_event_kwargs is not None and \
-                (metric_event_kwargs_fcst is not None or metric_event_kwargs_obs is not None):
-            raise ValueError(
-                "Cannot use metric_event_kwargs and metric_event_kwargs_fcst or metric_event_kwargs_obs together.")
-        if filter_event_kwargs is not None and \
-                (filter_event_kwargs_fcst is not None or filter_event_kwargs_obs is not None):
-            raise ValueError(
-                "Cannot use filter_event_kwargs and filter_event_kwargs_fcst or filter_event_kwargs_obs together.")
+        if event_kwargs and ('fcst' in event_kwargs or 'obs' in event_kwargs):
+            if not ('fcst' in event_kwargs and 'obs' in event_kwargs):
+                raise ValueError("Event kwargs must contain both fcst and obs keys if one is present.")
+            self.event_kwargs_fcst = event_kwargs['fcst'] if event_kwargs['fcst'] is not None else {}
+            self.event_kwargs_obs = event_kwargs['obs'] if event_kwargs['obs'] is not None else {}
+        else:
+            self.event_kwargs_fcst = event_kwargs if event_kwargs is not None else {}
+            self.event_kwargs_obs = event_kwargs if event_kwargs is not None else {}
 
-        self.metric_event_kwargs_fcst = (
-            dict(metric_event_kwargs_fcst)
-            if metric_event_kwargs_fcst is not None
-            else (dict(metric_event_kwargs) if metric_event_kwargs is not None else {})
-        )
-        self.metric_event_kwargs_obs = (
-            dict(metric_event_kwargs_obs)
-            if metric_event_kwargs_obs is not None
-            else (dict(metric_event_kwargs) if metric_event_kwargs is not None else {})
-        )
-        self.filter_event_kwargs_fcst = (
-            dict(filter_event_kwargs_fcst)
-            if filter_event_kwargs_fcst is not None
-            else (dict(filter_event_kwargs) if filter_event_kwargs is not None else {})
-        )
-        self.filter_event_kwargs_obs = (
-            dict(filter_event_kwargs_obs)
-            if filter_event_kwargs_obs is not None
-            else (dict(filter_event_kwargs) if filter_event_kwargs is not None else {})
-        )
+        if filter_event_kwargs and ('fcst' in filter_event_kwargs or 'obs' in filter_event_kwargs):
+            if not ('fcst' in filter_event_kwargs and 'obs' in filter_event_kwargs):
+                raise ValueError("Filter event kwargs must contain both fcst and obs keys if one is present.")
+            self.filter_event_kwargs_fcst = filter_event_kwargs['fcst'] \
+                if filter_event_kwargs['fcst'] is not None else {}
+            self.filter_event_kwargs_obs = filter_event_kwargs['obs'] \
+                if filter_event_kwargs['obs'] is not None else {}
+        else:
+            self.filter_event_kwargs_fcst = filter_event_kwargs if filter_event_kwargs is not None else {}
+            self.filter_event_kwargs_obs = filter_event_kwargs if filter_event_kwargs is not None else {}
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
         # TODO: we don't want to always be calling an event
-        self.metric_event = self.metric_event if self.metric_event is not None else self.default_event
-        self.data_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
-                            'variable': self.variable, 'agg_days': self.agg_days,
-                            'grid': self.grid, 'mask': self.mask, 'region': self.region}
+        self.event = self.event if self.event is not None else self.default_event
+        self.fcst_obs_kwargs = {'start_time': self.start_time, 'end_time': self.end_time,
+                                'variable': self.variable, 'agg_days': self.agg_days,
+                                'grid': self.grid, 'mask': self.mask, 'region': self.region}
 
         """
         1. Fetch the data to be evaluated. This can either be a forecast or a dataset.
@@ -141,22 +145,22 @@ class Metric(ABC):
             fcst_fn = get_forecast(self.forecast)
             try:
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
-                fcst = fcst_fn(**self.data_kwargs,
-                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
+                fcst = fcst_fn(**self.fcst_obs_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs_fcst,
                                lookback_source=self.truth,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
                 if self.do_fcst_filter:
-                    filter_fcst = fcst_fn(**self.data_kwargs,
+                    filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth,
                                           prob_type=self.prob_type, memoize=self.memoize_forecast)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
-                fcst = fcst_fn(**self.data_kwargs,
-                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst,
+                fcst = fcst_fn(**self.fcst_obs_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs_fcst,
                                lookback_source=self.truth, prob_type=self.prob_type)
                 if self.do_fcst_filter:
-                    filter_fcst = fcst_fn(**self.data_kwargs,
+                    filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
@@ -164,18 +168,18 @@ class Metric(ABC):
         except KeyError:
             data_fn = get_data(self.forecast)
             try:
-                fcst = data_fn(**self.data_kwargs,
-                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst, memoize=self.memoize_forecast)
+                fcst = data_fn(**self.fcst_obs_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs_fcst, memoize=self.memoize_forecast)
                 if self.do_fcst_filter:
-                    filter_fcst = data_fn(**self.data_kwargs,
+                    filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           memoize=self.memoize_forecast)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
-                fcst = data_fn(**self.data_kwargs,
-                               event=self.metric_event, event_kwargs=self.metric_event_kwargs_fcst)
+                fcst = data_fn(**self.fcst_obs_kwargs,
+                               event=self.event, event_kwargs=self.event_kwargs_fcst)
                 if self.do_fcst_filter:
-                    filter_fcst = data_fn(**self.data_kwargs,
+                    filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst)
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
@@ -191,19 +195,19 @@ class Metric(ABC):
         # Get the truth dataframe
         truth_fn = get_data(self.truth)
         try:
-            obs = truth_fn(**self.data_kwargs,
-                           event=self.metric_event, event_kwargs=self.metric_event_kwargs_obs,
+            obs = truth_fn(**self.fcst_obs_kwargs,
+                           event=self.event, event_kwargs=self.event_kwargs_obs,
                            memoize=self.memoize_truth)
             if self.do_obs_filter:
-                filter_obs = truth_fn(**self.data_kwargs,
+                filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
                                       memoize=self.memoize_truth)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
-            obs = truth_fn(**self.data_kwargs,
-                           event=self.metric_event, event_kwargs=self.metric_event_kwargs_obs)
+            obs = truth_fn(**self.fcst_obs_kwargs,
+                           event=self.event, event_kwargs=self.event_kwargs_obs)
             if self.do_obs_filter:
-                filter_obs = truth_fn(**self.data_kwargs,
+                filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
@@ -333,12 +337,10 @@ class Metric(ABC):
             # Must be called with all of the event / filter preprocessing that has been done so far.
             ds = stat_fn(data=self.metric_data,
                          metric_kwargs=self.metric_kwargs,
-                         metric_event=self.metric_event,
-                         metric_event_kwargs_fcst=self.metric_event_kwargs_fcst,
-                         metric_event_kwargs_obs=self.metric_event_kwargs_obs,
+                         event=self.event,
+                         event_kwargs=self.event_kwargs,
                          filter_event=self.filter_event,
-                         filter_event_kwargs_fcst=self.filter_event_kwargs_fcst,
-                         filter_event_kwargs_obs=self.filter_event_kwargs_obs,
+                         filter_event_kwargs=self.filter_event_kwargs,
                          start_time=self.start_time,
                          end_time=self.end_time,
                          variable=self.variable,
@@ -475,16 +477,16 @@ class ContingencyMetric(Metric):  # noqa: N801
         # Enable contingency metrics to be called in the form 'heidke-1-5-10-20' and set up the digitized event.
         ############################################################
         # What event are we running? If no event was passed, use the default event.
-        event = self.metric_event if self.metric_event is not None else self.default_event
-        if 'config' not in self.metric_kwargs:
-            self.metric_kwargs['config'] = 'none'
+        event = self.event if self.event is not None else self.default_event
+        if 'user_input_config' not in self.metric_kwargs:
+            self.metric_kwargs['user_input_config'] = 'none'
 
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             # Check that the agg days passed to the metric, event, fcst event, and obs event are all the same
             passed_agg_days = self.agg_days
-            agg_days_fcst = self.metric_event_kwargs_fcst.get('agg_days', None)
-            agg_days_obs = self.metric_event_kwargs_obs.get('agg_days', None)
+            agg_days_fcst = self.event_kwargs_fcst.get('agg_days', None)
+            agg_days_obs = self.event_kwargs_obs.get('agg_days', None)
 
             # Get the non-null agg day values and ensure that they're all equal
             valid_agg_days = [x for x in [passed_agg_days, agg_days_fcst, agg_days_obs] if x is not None]
@@ -493,27 +495,27 @@ class ContingencyMetric(Metric):  # noqa: N801
                 raise ValueError("Agg days passed to the event must match the agg days passed to the metric.")
 
             # Set the agg days to the non-null value
-            self.metric_event_kwargs_fcst['agg_days'] = agg_days
-            self.metric_event_kwargs_obs['agg_days'] = agg_days
+            self.event_kwargs_fcst['agg_days'] = agg_days
+            self.event_kwargs_obs['agg_days'] = agg_days
 
             # Reset the agg days to one and let the event handle the aggregation
             self.agg_days = 1
 
         if event == 'digitized':
             # We try to figure out the bins from the metric key
-            if self.metric_kwargs['config'] != 'none':
-                bins = [-np.inf] + [float(x) for x in self.metric_kwargs['config'].split('-')] + [np.inf]
-                for event_kwargs in [self.metric_event_kwargs_fcst, self.metric_event_kwargs_obs]:
+            if self.metric_kwargs['user_input_config'] != 'none':
+                bins = [-np.inf] + [float(x) for x in self.metric_kwargs['user_input_config'].split('-')] + [np.inf]
+                for event_kwargs in [self.event_kwargs_fcst, self.event_kwargs_obs]:
                     if 'bins' not in event_kwargs:
                         event_kwargs['bins'] = bins
                     elif event_kwargs['bins'] != bins:
                         raise ValueError("Bins passed to the event must match the bins specified in the key.")
-                del self.metric_kwargs['config']
+                del self.metric_kwargs['user_input_config']
         elif event == 'above_threshold':
             # We try to figure out the threshhold from the metric key,
             # allowing users to pass, e.g., pod-obs_threshold-fcst_threshold as pod-5-6.5.
-            if self.metric_kwargs['config'] != 'none':
-                thresholds = self.metric_kwargs['config'].split('-')
+            if self.metric_kwargs['user_input_config'] != 'none':
+                thresholds = self.metric_kwargs['user_input_config'].split('-')
                 if len(thresholds) == 1:
                     # Set both thresholds to the same value
                     obs_threshold = float(thresholds[0])
@@ -526,15 +528,19 @@ class ContingencyMetric(Metric):  # noqa: N801
                     raise ValueError("Threshold key must be in the format 'obs_threshold-fcst_threshold'.")
 
                 # Check for consistancy
-                f_thresh = self.metric_event_kwargs_fcst.get('threshold', None)
-                o_thresh = self.metric_event_kwargs_obs.get('threshold', None)
+                f_thresh = self.event_kwargs_fcst.get('threshold', None)
+                o_thresh = self.event_kwargs_obs.get('threshold', None)
                 if f_thresh is not None and f_thresh != fcst_threshold:
                     raise ValueError("Forecast threshold passed does not match the threshold specified in the key.")
                 if o_thresh is not None and o_thresh != obs_threshold:
                     raise ValueError("Observation threshold passed does not match the threshold specified in the key.")
 
-                self.metric_event_kwargs_fcst['threshold'] = fcst_threshold
-                self.metric_event_kwargs_obs['threshold'] = obs_threshold
+                self.event_kwargs_fcst['threshold'] = fcst_threshold
+                self.event_kwargs_obs['threshold'] = obs_threshold
+
+        if event in ('digitized', 'above_threshold'):
+            if len(self.event_kwarg_fcst['bins']) != len(self.event_kwargs_obs['bins']):
+                raise ValueError("Bins passed to the event must match the bins specified in the key.")
 
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
@@ -655,14 +661,14 @@ class ACC(Metric):
         """Prepare specific data for the ACC metric."""
         # Call the parent prepare_data method to get the forecast and observation
         Metric.prepare_data(self)
-        assert self.metric_event is None, "ACC metric does not support events."
+        assert self.event is None, "ACC metric does not support events."
 
         # Get the appropriate climatology dataframe for metric calculation
         first_year = 1990
         last_year = 2019
         clim_source = 'era5'
         clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
-                              **self.data_kwargs, prob_type='deterministic')
+                              **self.fcst_obs_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['fcst'].dims:
@@ -724,9 +730,9 @@ class Heidke(ContingencyMetric):
     @property
     def statistics(self):
         stats = ['n_correct', 'n_valid']
-        # fcst and obs should have the same number of bins, so we can use either here
-        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.metric_event_kwargs_fcst['bins']))]
-        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.metric_event_kwargs_obs['bins']))]
+        # fcst and obs have the same number of bins, so we can use either here
+        stats += [f'n_fcst_bin_{i}' for i in range(1, len(self.event_kwargs_fcst['bins']))]
+        stats += [f'n_obs_bin_{i}' for i in range(1, len(self.event_kwargs_obs['bins']))]
         return stats
 
     def compute_metric(self):
@@ -734,7 +740,8 @@ class Heidke(ContingencyMetric):
         prop_correct = gs['n_correct'] / gs['n_valid']
         n2 = gs['n_valid']**2
         right_by_chance = xr.zeros_like(gs['n_correct'])
-        for i in range(1, len(self.metric_event_kwargs_fcst['bins'])):
+        # fcst and obs have the same number of bins, so we can use either here
+        for i in range(1, len(self.event_kwargs_fcst['bins'])):
             right_by_chance += (gs[f'n_fcst_bin_{i}'] * gs[f'n_obs_bin_{i}']) / n2
 
         return (prop_correct - right_by_chance) / (1 - right_by_chance)
@@ -824,7 +831,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
         # Convert
         if '-' in metric_name:
             mn = metric_name.split('-')[0]  # support for contingency metric names of the form 'metric-datakey...'
-            metric_kwargs['config'] = metric_name[metric_name.find('-')+1:]
+            metric_kwargs['user_input_config'] = metric_name[metric_name.find('-')+1:]
         else:
             mn = metric_name
 

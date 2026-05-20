@@ -32,8 +32,8 @@ if __name__ == "__main__":
     # region = 'eastern_africa'
     region = 'kenya'
     # region = 'togo'
-    time_grouping = 'rainy_season'
-    # time_grouping = 'rainy_season'
+    time_grouping = 'kenya_rainy_season '
+    # time_grouping = 'kenya_rainy_season '
     # time_grouping = 'two_seasons'
     # region = 'africa'
     # region = 'kenya'
@@ -113,19 +113,19 @@ if __name__ == "__main__":
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
 
-    filter_event = None
-    # filter_event = 'start_of_season_by_accumulation'
+    # filter_event = None
+    filter_event = 'start_of_season_by_accumulation'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
     # filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'accumulation_threshold': 0.75,  'by_percent': True, 'time_grouping': time_grouping}
-    # filter_event_kwargs = {'time_grouping': time_grouping}
-    filter_event_kwargs = {}
+    filter_event_kwargs = {'time_grouping': time_grouping}
+    # filter_event_kwargs = {}
     soft_margin = 365  # the full year
     detect_in_time = True
     if detect_in_time:
         # filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
-        fcst_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
-        obs_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
+        filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
+        # obs_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
         # filter_event_kwargs.update({'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}})
 
     metric_kwargs = {
@@ -149,9 +149,8 @@ if __name__ == "__main__":
                    forecast=forecast, truth=truth,
                    metric_name=mn,
                    metric_kwargs=metric_kwargs,
-                   metric_event=event,
-                   metric_event_kwargs_fcst=fcst_event_kwargs,
-                   metric_event_kwargs_obs=obs_event_kwargs,
+                   event=event,
+                   event_kwargs={'fcst': fcst_event_kwargs, 'obs': obs_event_kwargs},
                    filter_event=filter_event,
                    filter_event_kwargs=filter_event_kwargs,
                    spatial=True, grid=grid,

@@ -5,8 +5,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-import ruptures as rpt
-
 from .time_utils import get_dates
 
 
@@ -17,7 +15,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         1: 'DJF', 2: 'DJF', 3: 'MAM', 4: 'MAM', 5: 'MAM', 6: 'JJA', 7: 'JJA', 8: 'JJA',
         9: 'SON', 10: 'SON', 11: 'SON', 12: 'DJF',
     }
-    rainy_season_mapping = {
+    kenya_rainy_season_mapping = {
         1: 'None',
         2: 'MAM', 3: 'MAM', 4: 'MAM',
         5: 'None', 6: 'None', 7: 'None', 8: 'None',
@@ -59,12 +57,12 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
             # Implement MAM, JJA, SON, DJF seasons
             coords = [f"{season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
                       for x in ds.time.values]
-        elif time_grouping == 'rainy_season_of_year':
-            coords = [f"{rainy_season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
-        elif time_grouping == 'rainy_season':
+        elif time_grouping == 'kenya_rainy_season_of_year':
+            coords = [f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+        elif time_grouping == 'kenya_rainy_season ':
             # Implement MAM, JJA, SON, DJF seasons
             coords = [
-                f"{rainy_season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
+                f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
                 for x in ds.time.values]
         elif time_grouping == 'two_seasons_of_year':
             coords = [f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
@@ -105,7 +103,8 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
     return ds
 
 
-def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', criteria_kwargs={'threshold': 0.5}):
+def detect_in_time(ds, time_grouping=None, detect='first', coverage_threshold=0.95,
+                   criteria='greater', criteria_kwargs={'threshold': 0.5}):
     """Detect the first or last time in a time grouping that satisfies a criteria."""
     if criteria == 'greater':
         def criteria(x): return x >= criteria_kwargs['threshold']
@@ -134,9 +133,8 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
     group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
     group_coverage = group_sums['non_null'] / group_sums['indicator']
 
-    if detect == 'first' or detect == 'last':
-        # Apply the criteria to the dataset, converting to boolean
-        ds = criteria(ds)
+    # Apply the criteria to the dataset, converting to boolean
+    ds = criteria(ds)
 
     # Set all times to zero where the group in the null mask (i.e., season was None)
     is_null_group = ds['group'].astype(str).str.contains('None')
@@ -162,39 +160,6 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
         out.loc[{'time': x.time[-1]}] = 1.0
         return out
 
-    def ruptures_cp(x, model="normal", n_bkps=2, min_size=5):
-        arr = np.asarray(x, dtype=float)
-        n = arr.size
-        out = np.zeros(n, dtype=int)
-        if n < 2 * min_size or np.all(np.isnan(arr)):
-            return out
-
-        # ruptures cannot handle NaN — fill with zeros
-        if np.isnan(arr).any():
-            arr = np.nan_to_num(arr, nan=0.0)
-
-        try:
-            bkps = rpt.Dynp(model=model, min_size=min_size).fit(arr).predict(n_bkps=n_bkps)
-        except Exception:
-            return out
-        # bkps is a list ending with len(arr); the actual change points are bkps[:-1]
-        cp = bkps[0]
-        out[cp] = 1
-        return out
-
-    def change_point(x):
-        x = x.chunk({'time': -1})
-        ret = xr.apply_ufunc(
-            ruptures_cp,
-            x,
-            input_core_dims=[['time']],
-            output_core_dims=[['time']],
-            dask='parallelized',
-            vectorize=True,
-            output_dtypes=[float],
-        )
-        return ret
-
     # Ensure that the timedimension is sorted
     ds = ds.sortby("time")
     if detect == 'first':
@@ -203,9 +168,6 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
         func = last_hit
     elif detect == 'last_time':
         func = last_time
-    elif detect == 'change_point':
-        ds = ds.chunk({'time': -1})
-        func = change_point
     else:
         raise ValueError(f"Invalid detection type {detect}")
 
@@ -214,7 +176,7 @@ def detect_in_time(ds, time_grouping=None, detect='first', criteria='greater', c
 
     # Remove groups that don't have enough coverage
     coverage_at_time = group_coverage.sel(group=detected['group'])
-    detected = detected.where(coverage_at_time >= 0.95, other=np.nan)
+    detected = detected.where(coverage_at_time >= coverage_threshold, other=np.nan)
     detected = detected.drop_vars(['indicator', 'non_null'])
 
     # Remove groups that don't have a detection

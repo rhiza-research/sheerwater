@@ -18,9 +18,7 @@ SHEERWATER_STATISTIC_REGISTRY = {}
 def statistic(cache=False, name=None,
               timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
-                          'metric_kwargs',
-                          'metric_event', 'metric_event_kwargs_fcst', 'metric_event_kwargs_obs',
-                          'filter_event', 'filter_event_kwargs_fcst', 'filter_event_kwargs_obs',
+                          'metric_kwargs', 'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
                           'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
               chunk_by_arg={
@@ -50,8 +48,7 @@ def statistic(cache=False, name=None,
             data, metric_kwargs,
             start_time, end_time,
             variable, agg_days, forecast, truth,
-            metric_event, metric_event_kwargs_fcst, metric_event_kwargs_obs,
-            filter_event, filter_event_kwargs_fcst, filter_event_kwargs_obs,
+            event, event_kwargs, filter_event, filter_event_kwargs,
             statistic, grid,
             mask=None, region='global',
             **cache_kwargs
@@ -59,12 +56,10 @@ def statistic(cache=False, name=None,
             # Pass the cache kwargs through to the statistics function
             cache_kwargs = {
                 'metric_kwargs': metric_kwargs,
-                'metric_event': metric_event,
-                'metric_event_kwargs_fcst': metric_event_kwargs_fcst,
-                'metric_event_kwargs_obs': metric_event_kwargs_obs,
+                'event': event,
+                'event_kwargs': event_kwargs,
                 'filter_event': filter_event,
-                'filter_event_kwargs_fcst': filter_event_kwargs_fcst,
-                'filter_event_kwargs_obs': filter_event_kwargs_obs,
+                'filter_event_kwargs': filter_event_kwargs,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
                 'grid': grid, 'mask': mask, 'region': region,
@@ -164,9 +159,30 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
     return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
-@statistic(cache=False, name='contingency_obs_difference')
-def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
+@statistic(cache=False, name='false_positives')
+def fn_false_positives(data, **cache_kwargs):  # noqa: F821
+    # If soft_margin_in_days, will soften the observations by the given number of days before
+    # computing false positives, using a square, max window function. The result of this is that
+    # if there is an observation anywhere within the soft margin when a forecast has made a positive
+    # detection, then the false positive is discounted.
+    if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+        obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
+    else:
+        obs = data['obs']
+    fcst = data['fcst']
+    # This subtraction removes the forecasted errors from the observed values, and discounts
+    # negative values, where the forecaster said postivite and the observation was negative.
+    error = fcst - obs
+    return np.maximum(error, 0)
+
+
+@statistic(cache=False, name='false_negatives')
+def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
+    # If soft_margin_in_days, will soften the forecast by the given number of days before
+    # computing false negatives, using a square, max window function. The result of this is that
+    # if there is an forecast anywhere within the soft margin when a observation has made a positive
+    # detection, then the false negative is discounted.
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
         fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
@@ -177,34 +193,7 @@ def fn_contingency_obs_difference(data, **cache_kwargs):  # noqa: F821
 
     # This subtraction removes the forecasted errors from the observed values, and discounts
     # negative values, where the forecaster said postivite and the observation was negative.
-    error = obs - fcst
-    return error
-
-
-@statistic(cache=False, name='contingency_fcst_difference')
-def fn_contingency_fcst_difference(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
-        soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
-        obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
-    else:
-        obs = data['obs']
-    fcst = data['fcst']
-    # This subtraction removes the forecasted errors from the observed values, and discounts
-    # negative values, where the forecaster said postivite and the observation was negative.
-    error = fcst - obs
-    return error
-
-
-@statistic(cache=False, name='false_positives')
-def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    diff = fn_contingency_fcst_difference(data, **cache_kwargs)
-    return np.maximum(diff, 0)
-
-
-@statistic(cache=False, name='false_negatives')
-def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    diff = fn_contingency_obs_difference(data, **cache_kwargs)
+    diff = obs - fcst
     return np.maximum(diff, 0)
 
 
