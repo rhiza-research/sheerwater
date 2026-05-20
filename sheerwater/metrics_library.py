@@ -538,8 +538,8 @@ class ContingencyMetric(Metric):  # noqa: N801
                 self.event_kwargs_fcst['threshold'] = fcst_threshold
                 self.event_kwargs_obs['threshold'] = obs_threshold
 
-        if event in ('digitized', 'above_threshold'):
-            if len(self.event_kwarg_fcst['bins']) != len(self.event_kwargs_obs['bins']):
+        if event == 'digitized':
+            if len(self.event_kwargs_fcst['bins']) != len(self.event_kwargs_obs['bins']):
                 raise ValueError("Bins passed to the event must match the bins specified in the key.")
 
         # Call the parent prepare_data method to get the forecast and observation

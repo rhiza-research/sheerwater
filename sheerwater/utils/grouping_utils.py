@@ -59,7 +59,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
                       for x in ds.time.values]
         elif time_grouping == 'kenya_rainy_season_of_year':
             coords = [f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
-        elif time_grouping == 'kenya_rainy_season ':
+        elif time_grouping == 'kenya_rainy_season':
             # Implement MAM, JJA, SON, DJF seasons
             coords = [
                 f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"

@@ -7,7 +7,7 @@ from sheerwater.utils import roll_and_agg, groupby_time
 EVENT_REGISTRY = {}
 
 
-def wrap_duration(duration_fn, event_name):
+def wrap_duration(duration_fn, onset_definition):
     """Call ``duration_fn(event_kwargs)``, turning missing keys into a clear ``ValueError``."""
 
     def wrapped(event_kwargs):
@@ -15,7 +15,7 @@ def wrap_duration(duration_fn, event_name):
             return duration_fn(event_kwargs)
         except KeyError as e:
             key = e.args[0] if e.args else None
-            raise ValueError(f"Event {event_name} requires key {key} in event_kwargs") from e
+            raise ValueError(f"Event {onset_definition} requires key {key} in event_kwargs") from e
     return wrapped
 
 
@@ -198,50 +198,50 @@ def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_thres
     duration=lambda kwargs: np.sum(kwargs["agg_days"]) if 'agg_days' in kwargs else 30,
     filter=True
 )
-def start_of_season_by_spells(ds, event_name='chc',
+def start_of_season_by_spells(ds, onset_definition='chc',
                               spells=['wet', 'wet'], agg_days=[10, 20],
                               thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
-                              trigger_index=0):
+                              start_of_season_index=0):
     """A function to calculate the planting suitability of a dataset."""
-    if event_name == 'chc':
+    if onset_definition == 'chc':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [25.0, 20.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        trigger_index = 0
-    elif event_name == 'icpac':
+        start_of_season_index = 0
+    elif onset_definition == 'icpac':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [25.0, 20.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        trigger_index = 0
-    elif event_name == 'moron-and-robertson':
+        start_of_season_index = 0
+    elif onset_definition == 'moron-and-robertson':
         spells = ['wet', 'not_dry']
         agg_days = [5, 10]
         thresholds = [38.0, 5.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        trigger_index = 0
-    elif event_name == 'wet-not_dry-count':
+        start_of_season_index = 0
+    elif onset_definition == 'wet-not_dry-count':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [5.0, 5.0]
         agg_type = ['count', 'count']
         counts = [3, 2]
-        trigger_index = 0
-    elif event_name == 'dry-wet-not_dry-agg':
+        start_of_season_index = 0
+    elif onset_definition == 'dry-wet-not_dry-agg':
         spells = ['dry', 'wet', 'not_dry']
         agg_days = [20, 10, 20]
         thresholds = [20.0, 25.0, 20.0]
         agg_type = ['mean', 'mean', 'mean']
         counts = [np.nan, np.nan, np.nan]
-        trigger_index = 1
-    elif event_name is None:
+        start_of_season_index = 1
+    elif onset_definition is None:
         pass
     else:
-        raise ValueError(f"Invalid event name: {event_name}")
+        raise ValueError(f"Invalid event name: {onset_definition}")
 
     # Input error checking
     if len(spells) != len(agg_days) or len(spells) != len(thresholds) or \
@@ -262,12 +262,12 @@ def start_of_season_by_spells(ds, event_name='chc',
     event_indicies = list(zip(range(len(spells)), spells, agg_days))
     # Shift the events before the trigger index to the right (positive)
     shift_days = 0
-    for index, event, agg in event_indicies[0:trigger_index][::-1]:
+    for index, event, agg in event_indicies[0:start_of_season_index][::-1]:
         shift_days += agg
         shift_indices[index] = shift_days
     # Shift the events after the trigger index to the left (negative)
-    shift_days = -agg_days[trigger_index]
-    for index, event, agg in event_indicies[trigger_index+1:]:
+    shift_days = -agg_days[start_of_season_index]
+    for index, event, agg in event_indicies[start_of_season_index+1:]:
         shift_indices[index] = shift_days
         shift_days -= agg
 
@@ -289,7 +289,7 @@ def start_of_season_by_spells(ds, event_name='chc',
             spell = 1.0 - spell
 
         # Shift the spell to be aligned with the trigger index
-        if i != trigger_index:
+        if i != start_of_season_index:
             spell = spell.shift(time=shift_indices[i])
         spell_timeseries.append(spell)
 
@@ -301,8 +301,8 @@ def start_of_season_by_spells(ds, event_name='chc',
         ret = ret * spell
 
     # Invalid at start
-    invalid_at_start = int(np.sum(shift_indices[0:trigger_index]))
-    invalid_at_end = int(np.sum(np.abs(shift_indices[trigger_index+1:])))
+    invalid_at_start = int(np.sum(shift_indices[0:start_of_season_index]))
+    invalid_at_end = int(np.sum(np.abs(shift_indices[start_of_season_index+1:])))
     ret = ret.isel(time=slice(invalid_at_start, -invalid_at_end))
     return ret.assign_attrs(attrs)
 

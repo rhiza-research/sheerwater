@@ -247,7 +247,7 @@ def multinational_gdf():
 custom_subdivisions_definitions = {
     'sheerwater_region': {
         'nimbus_east_africa': {
-            'countries': ['kenya', 'ethiopia', 'tanzania', 'uganda', 'somalia', 'eritrea', 'south_sudan', 'rwanda', 'burundi', 'djibouti'],
+            'countries': ['kenya', 'ethiopia', 'tanzania', 'uganda', 'somalia', 'eritrea', 'south_sudan', 'rwanda', 'burundi', 'djibouti', 'somaliland'],
         },
         'nimbus_west_africa': {
             'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
