@@ -97,11 +97,13 @@ def era5_land_daily_year(year, variable, mask=None, region='global'):
     elif variable == 'precip':
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
-        ds = ds.resample(time='D').sum(dim='time')
+        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
+        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
     elif variable == 'ssrd':
-        ds = ds.resample(time='D').sum(dim='time')
+        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
+        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
         ds = np.maximum(ds, 0)
     else:
         raise ValueError(f"Variable {variable} not implemented.")
@@ -284,14 +286,17 @@ def era5_daily(start_time, end_time, variable, grid="global0_25", mask=None, reg
     elif variable == 'precip':
         ds[variable] = ds[variable] * 1000.0
         ds.attrs.update(units='mm')
-        ds = ds.resample(time='D').sum(dim='time')
+        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
+        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
         # Can't have precip less than zero (there are some very small negative values)
         ds = np.maximum(ds, 0)
     elif variable == 'tcwv':
         ds.attrs.update(units='kg/m^2')
-        ds = ds.resample(time='D').sum(dim='time')
+        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
+        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
     elif variable == 'ssrd':
-        ds = ds.resample(time='D').sum(dim='time')
+        # Set min count to 24 to ensure that days with NaNs in their hourly intervals return NaN
+        ds = ds.resample(time='D').sum(dim='time', skipna=True, min_count=24)
         ds = np.maximum(ds, 0)
     elif variable == 'rh2m':
         # Read and combine all the data into an array
