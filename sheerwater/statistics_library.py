@@ -200,7 +200,6 @@ def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
     neg_obs = 1.0 - data['obs']
-    # import pdb; pdb.set_trace()
     return neg_obs - fn_false_positives(data, **cache_kwargs)
 
 
