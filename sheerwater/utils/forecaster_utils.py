@@ -28,7 +28,7 @@ def convert_pred_time_to_init_time(ds, time_dim='time',
     return ds
 
 
-def desnify_fcst(fcst, start_time=None, end_time=None):
+def densify_fcst(fcst, start_time=None, end_time=None):
     """Desnify the forecast."""
     if not isinstance(fcst, xr.Dataset):
         raise ValueError(f"fcst must be an xarray dataset. Received {type(fcst)}.")

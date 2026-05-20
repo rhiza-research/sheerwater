@@ -7,7 +7,7 @@ from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days,
-                              desnify_fcst, detect_in_time)
+                              densify_fcst, detect_in_time)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -294,7 +294,7 @@ class forecast(SheerwaterDataset):
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             ##################################################################################################
             if self.densify or self.event_kwargs.get('densify', False):
-                ds = desnify_fcst(ds)
+                ds = densify_fcst(ds)
 
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
