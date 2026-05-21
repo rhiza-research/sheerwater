@@ -167,7 +167,8 @@ def fn_false_positives(data, **cache_kwargs):  # noqa: F821
     # detection, then the false positive is discounted.
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
-        obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, align="center", agg_col="time", agg_fn='max')
+        obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, agg_thresh=1,
+                           align="center", agg_col="time", agg_fn='max')
     else:
         obs = data['obs']
     fcst = data['fcst']

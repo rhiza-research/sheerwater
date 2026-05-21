@@ -2,12 +2,13 @@
 
 import xarray as xr
 import pandas as pd
+import numpy as np
 from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days,
-                              densify_fcst, detect_in_time)
+                              densify_fcst, detect_in_time, get_dates)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -97,6 +98,12 @@ class SheerwaterDataset(NuthatchProcessor):
         if not isinstance(ds, xr.Dataset):
             raise RuntimeError(
                 f"Sheerwater data and forecast decorators must return xarray datasets. Received {type(ds)}.")
+
+        # Reindex to fill out the time to a daily time series
+        # Fill in any missing times between the start and end dates of the dataset
+        if 'processed' not in ds.attrs:
+            daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
+            ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
 
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):

@@ -44,13 +44,13 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     }
     # Apply n-day rolling aggregation
     if agg_fn == "mean":
-        ds_agg = ds.rolling(**agg_kwargs).mean(skipna=True, min_count=agg_thresh)
+        ds_agg = ds.rolling(**agg_kwargs).mean()
     elif agg_fn == "sum":
-        ds_agg = ds.rolling(**agg_kwargs).sum(skipna=True, min_count=agg_thresh)
+        ds_agg = ds.rolling(**agg_kwargs).sum()
     elif agg_fn == "max":
-        ds_agg = ds.rolling(**agg_kwargs).max(skipna=True, min_count=agg_thresh)
+        ds_agg = ds.rolling(**agg_kwargs).max()
     elif agg_fn == "min":
-        ds_agg = ds.rolling(**agg_kwargs).min(skipna=True, min_count=agg_thresh)
+        ds_agg = ds.rolling(**agg_kwargs).min()
     else:
         raise NotImplementedError(f"Aggregation function {agg_fn} not implemented.")
 

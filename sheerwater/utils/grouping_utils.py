@@ -71,7 +71,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
                 f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
                 for x in ds.time.values]
         else:
-            raise ValueError("Invalid time grouping")
+            raise ValueError(f"Invalid time groupingi {time_grouping}")
 
         ds = ds.assign_coords(group=("time", coords))
 

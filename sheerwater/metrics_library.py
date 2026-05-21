@@ -234,6 +234,8 @@ class Metric(ABC):
             sparse |= obs.attrs['sparse']
 
         """ Filter data."""
+        # Everthing will be a daily timeseries at this point, so it will not introduce gaps, just
+        # Ensure that we're covering latest start time to the earliest end time of the data
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
         if self.do_obs_filter:
             valid_times = valid_times.intersection(set(filter_obs.time.values))
@@ -267,35 +269,18 @@ class Metric(ABC):
         if self.do_fcst_filter:
             filter_fcst = filter_fcst.sel(time=valid_times)
 
-        # Ensure a matching null pattern
-        # If the observations are sparse, the forecaster and the obs must be the same length
-        # for metrics like ACC to work
-        no_null = obs.notnull() & fcst.notnull()
-        if self.prob_type == 'probabilistic':
-            # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
-            no_null = no_null.isel(member=0).drop('member')
-
-        # Incorporate event filtering
-        if self.do_fcst_filter and self.do_obs_filter:
-            filter = no_null & (filter_fcst | filter_obs)
-        elif self.do_fcst_filter:
-            filter = no_null & filter_fcst
-        if self.do_obs_filter:
-            filter = no_null & filter_obs
-        else:
-            filter = no_null
-        fcst = fcst.where(filter, np.nan, drop=False)
-        obs = obs.where(filter, np.nan, drop=False)
-
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
         self.metric_data['obs'] = obs
         self.metric_data['fcst'] = fcst
+        if self.do_fcst_filter:
+            self.metric_data['filter_fcst'] = filter_fcst
+        if self.do_obs_filter:
+            self.metric_data['filter_obs'] = filter_obs
         self.metric_data['prob_type'] = enhanced_prob_type
 
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
         # properly compute the climatology
-        self.metric_data['filter'] = filter
         self.metric_data['valid_times'] = valid_times
 
     @property
@@ -334,6 +319,10 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         self.statistic_values = None
+        # Initialize a no_null array with the same shape as the data
+        # Note: forecast and obs have the same shape at this point, so could use either
+        no_null = xr.ones_like(self.metric_data['fcst']).astype(bool)
+        import pdb; pdb.set_trace()
         for statistic in self.statistics:
             # Get the statistic function from the registry
             stat_fn = statistic_factory(statistic)
@@ -363,6 +352,36 @@ class Metric(ABC):
                 self.statistic_values = ds.rename({self.variable: statistic})
             else:
                 self.statistic_values[statistic] = ds[self.variable]
+
+            # Update the no null array
+            no_null = no_null & ds.notnull()
+
+        # Ensure a matching null pattern
+        # If the observations are sparse, the forecaster and the obs must be the same length
+        # for metrics like ACC to work
+        if self.prob_type == 'probabilistic':
+            # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
+            no_null = no_null.isel(member=0).drop('member')
+            self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
+            self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
+
+        import pdb
+        pdb.set_trace()
+        # Do event filtering
+        if self.do_fcst_filter and self.do_obs_filter:
+            filter = no_null & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
+        elif self.do_fcst_filter:
+            filter = no_null & self.metric_data['filter_fcst']
+        elif self.do_obs_filter:
+            filter = no_null & self.metric_data['filter_obs']
+        else:
+            filter = no_null
+
+        import pdb
+        pdb.set_trace()
+        for stat in self.statistics:
+            self.statistic_values[stat] = self.statistic_values[stat].where(filter, np.nan, drop=False)
+            # obs = obs.where(filter, np.nan, drop=False)
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.

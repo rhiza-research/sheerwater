@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # region = 'eastern_africa'
     region = 'kenya'
     # region = 'togo'
-    time_grouping = 'kenya_rainy_season '
+    time_grouping = 'kenya_rainy_season'
     # time_grouping = 'kenya_rainy_season '
     # time_grouping = 'two_seasons'
     # region = 'africa'
@@ -61,18 +61,16 @@ if __name__ == "__main__":
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
-    event = 'planting_suitability'
+    event = 'start_of_season_by_spells'
     # event = 'start_of_season_by_accumulation'
     if event == 'days_above_threshold':
         # fcst_event_kwargs = {'agg_days': 30, 'threshold': 1.0, 'above_days': 3}
         # obs_event_kwargs = {'agg_days': 30, 'threshold': 0.5, 'above_days': 3}
         fcst_event_kwargs = {'agg_days': 21, 'threshold': 4.0, 'above_days': 6}
         obs_event_kwargs = {'agg_days': 21, 'threshold': 4.0, 'above_days': 6}
-    elif event == 'planting_suitability':
-        fcst_event_kwargs = {'wet_spell_agg_days': 10, 'wet_spell_threshold': 20.0,
-                             'dry_spell_agg_days': 20, 'dry_spell_threshold': 25.0}
-        obs_event_kwargs = {'wet_spell_agg_days': 10, 'wet_spell_threshold': 20.0,
-                            'dry_spell_agg_days': 20, 'dry_spell_threshold': 25.0}
+    elif event == 'start_of_season_by_spells':
+        fcst_event_kwargs = {'onset_definition': 'chc'}
+        obs_event_kwargs = {'onset_definition': 'chc'}
     elif event == 'count_days_above_threshold':
         fcst_event_kwargs = {'agg_days': 21, 'threshold': 4.0}
         obs_event_kwargs = {'agg_days': 21, 'threshold': 4.0}
@@ -129,7 +127,7 @@ if __name__ == "__main__":
         # filter_event_kwargs.update({'detect_in_time': {'detect': 'last_time', 'time_grouping': time_grouping}})
 
     metric_kwargs = {
-        'obs_filter': False, 'fcst_filter': False,
+        'obs_filter': True, 'fcst_filter': False,
         'soft_margin_in_days': 28,
     }
     if args.normalize:
