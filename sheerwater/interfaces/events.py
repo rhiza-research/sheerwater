@@ -200,7 +200,8 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
 )
 def has_onset_conditions(ds, onset_definition=None,
                          spells=['dry', 'wet', 'not_dry'], agg_days=[20, 10, 20],
-                         thresholds=[10.0, 25.0, 20.0], agg_type=['mean', 'mean', 'mean'], counts=[np.nan, np.nan, np.nan],
+                         thresholds=[10.0, 25.0, 20.0],
+                         agg_type=['mean', 'mean', 'mean'], counts=[np.nan, np.nan, np.nan],
                          onset_spell_index=1):
     """A function to calculate the planting suitability of a dataset.
 

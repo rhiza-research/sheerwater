@@ -99,16 +99,6 @@ class SheerwaterDataset(NuthatchProcessor):
             raise RuntimeError(
                 f"Sheerwater data and forecast decorators must return xarray datasets. Received {type(ds)}.")
 
-        # Reindex to fill out the time to a daily time series
-        # Fill in any missing times between the start and end dates of the dataset
-        if 'processed' not in ds.attrs:
-            daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
-            # Reindexing here seems to destroy the scheduler, so if let's just check and reindex in a separate step if needed.
-            if len(daily_timeseries) != len(ds.time.values):
-                raise ValueError(
-                    "Datasources must have a complete daily time index to enable valid windowing. "
-                    "Please reindex your data source in time.")
-
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):
             # Only clip region if the dataframe hasn't already been clipped
@@ -197,6 +187,13 @@ class data(SheerwaterDataset):
 
         # Run the events on the dataset
         if self.event is not None and 'processed' not in ds.attrs:
+            # Ensure that data are daily indexed before applying events
+            daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(),
+                                         stride='day', return_string=False)
+            if len(daily_timeseries) != len(ds.time.values):
+                raise ValueError(
+                    "Datasources must have a complete daily time index to enable valid windowing. "
+                    "Please reindex your data source in time.")
             ds = self.event_fn(ds, **self.event_kwargs)
 
         if self.detect_in_time is not None and 'processed' not in ds.attrs:
@@ -324,6 +321,7 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
+            # TODO: could add a daily data check here
             ds = self.event_fn(ds, **self.event_kwargs)
             ds = ds.rename({'time': 'prediction_timedelta'})
 
