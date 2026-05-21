@@ -53,7 +53,8 @@ if __name__ == "__main__":
     # obs_threshold = 0.5
     # agg_days = 7
     # above_days = 1
-    # event = 'above_threshold'
+    # event = 'has_wet_not_dry_spells'
+    event = 'above_threshold'
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
     # event = None
@@ -61,7 +62,7 @@ if __name__ == "__main__":
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
-    event = 'start_of_season_by_spells'
+    # event = 'start_of_season_by_spells'
     # event = 'start_of_season_by_accumulation'
     if event == 'days_above_threshold':
         # fcst_event_kwargs = {'agg_days': 30, 'threshold': 1.0, 'above_days': 3}
@@ -78,8 +79,8 @@ if __name__ == "__main__":
         fcst_event_kwargs = {'smoothing': 7, 'threshold': 4.0, 'continuous_days': 21}
         obs_event_kwargs = {'smoothing': 7, 'threshold': 5.0, 'continuous_days': 21}
     elif event == 'above_threshold':
-        fcst_event_kwargs = {'agg_days': 1, 'threshold': 1.0}
-        obs_event_kwargs = {'agg_days': 1, 'threshold': 0.5}
+        fcst_event_kwargs = {'agg_days': 5, 'threshold': 1.0}
+        obs_event_kwargs = {'agg_days': 5, 'threshold': 0.5}
     elif event == 'nimbus_start_of_season':
         fcst_event_kwargs = {'dry_spell_agg_days': 5, 'dry_spell_threshold': 1.0, 'dry_spell_count': 1,
                              'wet_spell_agg_days': 5, 'wet_spell_threshold': 4.0, 'wet_spell_count': 2}
@@ -107,17 +108,21 @@ if __name__ == "__main__":
     elif event == 'seasonal_accumulation':
         fcst_event_kwargs = {'time_grouping': time_grouping, 'by_percent': True}
         obs_event_kwargs = {'time_grouping': time_grouping, 'by_percent': True}
+    elif event == 'has_wet_not_dry_spells':
+        fcst_event_kwargs = {'onset_definition': 'chc'}
+        obs_event_kwargs = {'onset_definition': 'chc'}
     else:
         fcst_event_kwargs = {}
         obs_event_kwargs = {}
 
     # filter_event = None
-    filter_event = 'start_of_season_by_accumulation'
+    # filter_event = 'start_of_season_by_accumulation'
+    filter_event = 'has_wet_not_dry_spells'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
     # filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'accumulation_threshold': 0.75,  'by_percent': True, 'time_grouping': time_grouping}
-    filter_event_kwargs = {'time_grouping': time_grouping}
-    # filter_event_kwargs = {}
+    # filter_event_kwargs = {'time_grouping': time_grouping}
+    filter_event_kwargs = {'onset_definition': 'chc'}
     soft_margin = 365  # the full year
     detect_in_time = True
     if detect_in_time:
@@ -138,7 +143,7 @@ if __name__ == "__main__":
     data = []
     # for mn in ['pod', 'far']:
     # metrics = ['pod', 'far']
-    metrics = ['pod']
+    metrics = ['far']
     # metrics = ['mae']
     # metrics = []
     for mn in metrics:

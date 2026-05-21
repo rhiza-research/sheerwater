@@ -179,7 +179,7 @@ def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
 
 
 @event(default_variable="precip", duration=120, filter=True)
-def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_threshold=200.0, by_percent=False):
+def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=200.0, by_percent=False):
     """A function to calculate the start of season by accumulation of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
@@ -198,10 +198,10 @@ def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_thres
     duration=lambda kwargs: np.sum(kwargs["agg_days"]) if 'agg_days' in kwargs else 30,
     filter=True
 )
-def start_of_season_by_spells(ds, onset_definition=None,
-                              spells=['wet', 'not_dry'], agg_days=[10, 20],
-                              thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
-                              start_of_season_spell_index=0):
+def has_wet_not_dry_spells(ds, onset_definition=None,
+                           spells=['wet', 'not_dry'], agg_days=[10, 20],
+                           thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
+                           start_of_season_spell_index=0):
     """A function to calculate the planting suitability of a dataset.
 
     Args:
@@ -381,8 +381,8 @@ def seasonal_accumulation_with_leaky_bucket(ds, time_grouping='year', leak_rate=
 
 
 @event(default_variable="precip", duration=30, filter=True)
-def start_of_season_by_accumulation_with_leaky_bucket(ds, time_grouping='year', accumulation_threshold=40.0,
-                                                      leak_rate=4, runoff_rate=20, max_bucket=120.0):
+def has_seasonal_accumulation_with_leaky_bucket(ds, time_grouping='year', accumulation_threshold=40.0,
+                                                leak_rate=4, runoff_rate=20, max_bucket=120.0):
     """A function to calculate the start of season by accumulation of a dataset with a leaky bucket."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season by accumulation with leaky bucket event requires a 'precip' variable.")

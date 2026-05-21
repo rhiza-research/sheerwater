@@ -103,7 +103,11 @@ class SheerwaterDataset(NuthatchProcessor):
         # Fill in any missing times between the start and end dates of the dataset
         if 'processed' not in ds.attrs:
             daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
-            ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+            # Reindexing here seems to destroy the scheduler, so if let's just check and reindex in a separate step if needed.
+            if len(daily_timeseries) != len(ds.time.values):
+                raise ValueError(
+                    "Datasources must have a complete daily time index to enable valid windowing. "
+                    "Please reindex your data source in time.")
 
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):

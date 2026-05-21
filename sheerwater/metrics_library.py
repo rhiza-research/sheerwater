@@ -322,7 +322,6 @@ class Metric(ABC):
         # Initialize a no_null array with the same shape as the data
         # Note: forecast and obs have the same shape at this point, so could use either
         no_null = xr.ones_like(self.metric_data['fcst']).astype(bool)
-        import pdb; pdb.set_trace()
         for statistic in self.statistics:
             # Get the statistic function from the registry
             stat_fn = statistic_factory(statistic)
@@ -365,8 +364,6 @@ class Metric(ABC):
             self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
             self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
 
-        import pdb
-        pdb.set_trace()
         # Do event filtering
         if self.do_fcst_filter and self.do_obs_filter:
             filter = no_null & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
@@ -377,11 +374,8 @@ class Metric(ABC):
         else:
             filter = no_null
 
-        import pdb
-        pdb.set_trace()
         for stat in self.statistics:
-            self.statistic_values[stat] = self.statistic_values[stat].where(filter, np.nan, drop=False)
-            # obs = obs.where(filter, np.nan, drop=False)
+            self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -508,7 +502,7 @@ class ContingencyMetric(Metric):  # noqa: N801
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             # Check that the agg days passed to the metric, event, fcst event, and obs event are all the same
-            passed_agg_days = self.agg_days
+            passed_agg_days = self.agg_days if self.agg_days != 1 else None
             agg_days_fcst = self.event_kwargs_fcst.get('agg_days', None)
             agg_days_obs = self.event_kwargs_obs.get('agg_days', None)
 
