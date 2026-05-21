@@ -301,5 +301,5 @@ def get_dates(start_time, end_time, stride="day", return_string=True):
     else:
         # Convert to nanosecond precision to avoid xarray warning
         dates = np.array(dates, dtype='datetime64[ns]')
- 
+
     return dates

@@ -2,7 +2,6 @@
 
 import xarray as xr
 import pandas as pd
-import numpy as np
 from nuthatch.processor import NuthatchProcessor
 from nuthatch import cache
 import warnings
