@@ -7,7 +7,7 @@ from sheerwater.utils import roll_and_agg, groupby_time
 EVENT_REGISTRY = {}
 
 
-def wrap_duration(duration_fn, event_name):
+def wrap_duration(duration_fn, onset_definition):
     """Call ``duration_fn(event_kwargs)``, turning missing keys into a clear ``ValueError``."""
 
     def wrapped(event_kwargs):
@@ -15,7 +15,7 @@ def wrap_duration(duration_fn, event_name):
             return duration_fn(event_kwargs)
         except KeyError as e:
             key = e.args[0] if e.args else None
-            raise ValueError(f"Event {event_name} requires key {key} in event_kwargs") from e
+            raise ValueError(f"Event {onset_definition} requires key {key} in event_kwargs") from e
     return wrapped
 
 
@@ -198,46 +198,63 @@ def start_of_season_by_accumulation(ds, time_grouping='year', accumulation_thres
     duration=lambda kwargs: np.sum(kwargs["agg_days"]) if 'agg_days' in kwargs else 30,
     filter=True
 )
-def start_of_season_by_spells(ds, onset_definition='chc',
-                              spells=['wet', 'wet'], agg_days=[10, 20],
+def start_of_season_by_spells(ds, onset_definition=None,
+                              spells=['wet', 'not_dry'], agg_days=[10, 20],
                               thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
-                              start_of_season_index=0):
-    """A function to calculate the planting suitability of a dataset."""
+                              start_of_season_spell_index=0):
+    """A function to calculate the planting suitability of a dataset.
+
+    Args:
+        ds (xr.Dataset): The input dataset.
+        onset_definition (str): The onset definition to use, from a set of predefined definitions.
+            If this is not None, the other arguments are ignored.
+        spells (list[str]): The wet, not dry, and dry spells to use in the onset definition.
+            Options are 'wet', 'not_dry', and 'dry'.
+        agg_days (list[int]): The aggregation days to use for each spell. Should correspond to the spells list.
+        thresholds (list[float]): The thresholds to use for each spell. Should correspond to the spells list.
+        agg_type (list[str]): The aggregation type to use for each spell. Should correspond to the spells list.
+            Options are 'mean', 'sum', and 'count'.
+        counts (list[int]): The counts to use for each spell. Should correspond to the spells list.
+            This is ignored if the agg_type is not 'count'.
+        start_of_season_spell_index (int): The start of season index to use, within the spells list. For example, if
+            the spells list is ['wet', 'not_dry', 'dry'], and the start of season spell is [1], then the returned
+            dataframe will have a 1 centered around the start of the not_dry spell.
+    """
     if onset_definition == 'chc':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [25.0, 20.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        start_of_season_index = 0
+        start_of_season_spell_index = 0
     elif onset_definition == 'icpac':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [25.0, 20.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        start_of_season_index = 0
+        start_of_season_spell_index = 0
     elif onset_definition == 'moron-and-robertson':
         spells = ['wet', 'not_dry']
         agg_days = [5, 10]
         thresholds = [38.0, 5.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        start_of_season_index = 0
+        start_of_season_spell_index = 0
     elif onset_definition == 'wet-not_dry-count':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [5.0, 5.0]
         agg_type = ['count', 'count']
         counts = [3, 2]
-        start_of_season_index = 0
+        start_of_season_spell_index = 0
     elif onset_definition == 'dry-wet-not_dry-agg':
         spells = ['dry', 'wet', 'not_dry']
         agg_days = [20, 10, 20]
         thresholds = [20.0, 25.0, 20.0]
         agg_type = ['mean', 'mean', 'mean']
         counts = [np.nan, np.nan, np.nan]
-        start_of_season_index = 1
+        start_of_season_spell_index = 1
     elif onset_definition is None:
         pass
     else:
@@ -262,12 +279,12 @@ def start_of_season_by_spells(ds, onset_definition='chc',
     event_indicies = list(zip(range(len(spells)), spells, agg_days))
     # Shift the events before the trigger index to the right (positive)
     shift_days = 0
-    for index, event, agg in event_indicies[0:start_of_season_index][::-1]:
+    for index, event, agg in event_indicies[0:start_of_season_spell_index][::-1]:
         shift_days += agg
         shift_indices[index] = shift_days
     # Shift the events after the trigger index to the left (negative)
-    shift_days = -agg_days[start_of_season_index]
-    for index, event, agg in event_indicies[start_of_season_index+1:]:
+    shift_days = -agg_days[start_of_season_spell_index]
+    for index, event, agg in event_indicies[start_of_season_spell_index+1:]:
         shift_indices[index] = shift_days
         shift_days -= agg
 
@@ -289,7 +306,7 @@ def start_of_season_by_spells(ds, onset_definition='chc',
             spell = 1.0 - spell
 
         # Shift the spell to be aligned with the trigger index
-        if i != start_of_season_index:
+        if i != start_of_season_spell_index:
             spell = spell.shift(time=shift_indices[i])
         spell_timeseries.append(spell)
 
@@ -301,8 +318,8 @@ def start_of_season_by_spells(ds, onset_definition='chc',
         ret = ret * spell
 
     # Invalid at start
-    invalid_at_start = int(np.sum(shift_indices[0:start_of_season_index]))
-    invalid_at_end = int(np.sum(np.abs(shift_indices[start_of_season_index+1:])))
+    invalid_at_start = int(np.sum(shift_indices[0:start_of_season_spell_index]))
+    invalid_at_end = int(np.sum(np.abs(shift_indices[start_of_season_spell_index+1:])))
     ret = ret.isel(time=slice(invalid_at_start, -invalid_at_end))
     return ret.assign_attrs(attrs)
 

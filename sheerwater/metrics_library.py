@@ -254,6 +254,11 @@ class Metric(ABC):
             dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
             dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
 
+        # To ensure chunks align for nullification, place all of time in one single chunk
+        # TODO: make sure chunks are reasonable for differnt time stretches
+        for dfs in datasets:
+            dfs = dfs.chunk({'time': -1, 'lat': 100, 'lon': 100})
+
         # Select forecast and obs on their valid times
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)

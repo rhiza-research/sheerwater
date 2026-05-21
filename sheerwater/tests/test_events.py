@@ -63,7 +63,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 recompute=True,
                 cache_mode='read_only',
                 event='start_of_season_by_spells',
-                event_kwargs={'event_name': 'icpac'},
+                event_kwargs={'onset_definition': 'icpac'},
                 region=region)
 
     assert float(ds.mae.isel(prediction_timedelta=0).values) == 0.0
@@ -74,7 +74,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
         event='start_of_season_by_spells',
-        event_kwargs={'event_name': 'icpac'},
+        event_kwargs={'onset_definition': 'icpac'},
         grid="global1_5",
         mask='lsm',
         region='kenya')
@@ -87,7 +87,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
         event='start_of_season_by_spells',
-        event_kwargs={'event_name': 'icpac'},
+        event_kwargs={'onset_definition': 'icpac'},
         lookback_source='imerg',
         grid="global1_5",
         mask='lsm',
@@ -103,7 +103,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
             event='start_of_season_by_spells',
             agg_days=10,
             lookback_source='imerg',
-            event_kwargs={'event_name': 'icpac'},
+            event_kwargs={'onset_definition': 'icpac'},
             grid="global1_5",
             mask='lsm',
             region='kenya')
@@ -126,7 +126,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
         event='start_of_season_by_spells',
-        event_kwargs={'event_name': 'chc'},
+        event_kwargs={'onset_definition': 'chc'},
         grid="global1_5",
         mask='lsm',
         region='kenya')
@@ -139,7 +139,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
         event='start_of_season_by_spells',
-        event_kwargs={'event_name': 'chc'},
+        event_kwargs={'onset_definition': 'chc'},
         lookback_source='imerg',
         grid="global1_5",
         mask='lsm',
@@ -155,7 +155,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
             event='start_of_season_by_spells',
             agg_days=10,
             lookback_source='imerg',
-            event_kwargs={'event_name': 'chc'},
+            event_kwargs={'onset_definition': 'chc'},
             grid="global1_5",
             mask='lsm',
             region='kenya')
@@ -176,7 +176,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
         event='start_of_season_by_spells',
-        event_kwargs={'event_name': 'dry-wet-not_dry-agg'},
+        event_kwargs={'onset_definition': 'dry-wet-not_dry-agg'},
         grid="global1_5",
         mask='lsm',
         region='kenya')
