@@ -53,7 +53,7 @@ if __name__ == "__main__":
     # obs_threshold = 0.5
     # agg_days = 7
     # above_days = 1
-    # event = 'has_wet_not_dry_spells'
+    # event = 'has_onset_conditions'
     event = 'above_threshold'
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
@@ -62,14 +62,14 @@ if __name__ == "__main__":
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
-    # event = 'start_of_season_by_spells'
+    # event = 'has_onset_conditions'
     # event = 'start_of_season_by_accumulation'
     if event == 'days_above_threshold':
         # fcst_event_kwargs = {'agg_days': 30, 'threshold': 1.0, 'above_days': 3}
         # obs_event_kwargs = {'agg_days': 30, 'threshold': 0.5, 'above_days': 3}
         fcst_event_kwargs = {'agg_days': 21, 'threshold': 4.0, 'above_days': 6}
         obs_event_kwargs = {'agg_days': 21, 'threshold': 4.0, 'above_days': 6}
-    elif event == 'start_of_season_by_spells':
+    elif event == 'has_onset_conditions':
         fcst_event_kwargs = {'onset_definition': 'chc'}
         obs_event_kwargs = {'onset_definition': 'chc'}
     elif event == 'count_days_above_threshold':

@@ -198,10 +198,10 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
     duration=lambda kwargs: np.sum(kwargs["agg_days"]) if 'agg_days' in kwargs else 30,
     filter=True
 )
-def has_wet_not_dry_spells(ds, onset_definition=None,
-                           spells=['wet', 'not_dry'], agg_days=[10, 20],
-                           thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
-                           start_of_season_spell_index=0):
+def has_onset_conditions(ds, onset_definition=None,
+                         spells=['wet', 'not_dry'], agg_days=[10, 20],
+                         thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
+                         start_of_season_spell_index=0):
     """A function to calculate the planting suitability of a dataset.
 
     Args:
