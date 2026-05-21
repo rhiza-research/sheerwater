@@ -219,7 +219,7 @@ class Metric(ABC):
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
-        # Our filters are 0, 1, np.nan int type, so we must first fill with zeros before 
+        # Our filters are 0, 1, np.nan int type, so we must first fill with zeros before
         # converting to booleans, otherwise np.nans will be treated as True.
         if self.do_obs_filter:
             filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
@@ -356,7 +356,7 @@ class Metric(ABC):
                 self.statistic_values[statistic] = ds[self.variable]
 
             # Update the no null array
-            # If a statistic has added any nulls, we update the nonull array to include them here. 
+            # If a statistic has added any nulls, we update the nonull array to include them here.
             # So, if for example, SEEPS has nulled out cells, no_null will be updated to exclude those cells.
             no_null = no_null & ds.notnull()
 
