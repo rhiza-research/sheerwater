@@ -199,9 +199,9 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
     filter=True
 )
 def has_onset_conditions(ds, onset_definition=None,
-                         spells=['wet', 'not_dry'], agg_days=[10, 20],
-                         thresholds=[25.0, 20.0], agg_type=['mean', 'mean'], counts=[np.nan, np.nan],
-                         start_of_season_spell_index=0):
+                         spells=['dry', 'wet', 'not_dry'], agg_days=[20, 10, 20],
+                         thresholds=[10.0, 25.0, 20.0], agg_type=['mean', 'mean', 'mean'], counts=[np.nan, np.nan, np.nan],
+                         onset_spell_index=1):
     """A function to calculate the planting suitability of a dataset.
 
     Args:
@@ -216,7 +216,7 @@ def has_onset_conditions(ds, onset_definition=None,
             Options are 'mean', 'sum', and 'count'.
         counts (list[int]): The counts to use for each spell. Should correspond to the spells list.
             This is ignored if the agg_type is not 'count'.
-        start_of_season_spell_index (int): The start of season index to use, within the spells list. For example, if
+        onset_spell_index (int): The start of season index to use, within the spells list. For example, if
             the spells list is ['wet', 'not_dry', 'dry'], and the start of season spell is [1], then the returned
             dataframe will have a 1 centered around the start of the not_dry spell.
     """
@@ -226,35 +226,35 @@ def has_onset_conditions(ds, onset_definition=None,
         thresholds = [25.0, 20.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        start_of_season_spell_index = 0
+        onset_spell_index = 0
     elif onset_definition == 'icpac':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [25.0, 20.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        start_of_season_spell_index = 0
+        onset_spell_index = 0
     elif onset_definition == 'moron-and-robertson':
         spells = ['wet', 'not_dry']
         agg_days = [5, 10]
         thresholds = [38.0, 5.0]
         agg_type = ['mean', 'mean']
         counts = [np.nan, np.nan]
-        start_of_season_spell_index = 0
+        onset_spell_index = 0
     elif onset_definition == 'wet-not_dry-count':
         spells = ['wet', 'not_dry']
         agg_days = [10, 20]
         thresholds = [5.0, 5.0]
         agg_type = ['count', 'count']
         counts = [3, 2]
-        start_of_season_spell_index = 0
+        onset_spell_index = 0
     elif onset_definition == 'dry-wet-not_dry-agg':
         spells = ['dry', 'wet', 'not_dry']
         agg_days = [20, 10, 20]
         thresholds = [20.0, 25.0, 20.0]
         agg_type = ['mean', 'mean', 'mean']
         counts = [np.nan, np.nan, np.nan]
-        start_of_season_spell_index = 1
+        onset_spell_index = 1
     elif onset_definition is None:
         pass
     else:
@@ -279,12 +279,12 @@ def has_onset_conditions(ds, onset_definition=None,
     event_indicies = list(zip(range(len(spells)), spells, agg_days))
     # Shift the events before the trigger index to the right (positive)
     shift_days = 0
-    for index, event, agg in event_indicies[0:start_of_season_spell_index][::-1]:
+    for index, event, agg in event_indicies[0:onset_spell_index][::-1]:
         shift_days += agg
         shift_indices[index] = shift_days
     # Shift the events after the trigger index to the left (negative)
-    shift_days = -agg_days[start_of_season_spell_index]
-    for index, event, agg in event_indicies[start_of_season_spell_index+1:]:
+    shift_days = -agg_days[onset_spell_index]
+    for index, event, agg in event_indicies[onset_spell_index+1:]:
         shift_indices[index] = shift_days
         shift_days -= agg
 
@@ -306,7 +306,7 @@ def has_onset_conditions(ds, onset_definition=None,
             spell = 1.0 - spell
 
         # Shift the spell to be aligned with the trigger index
-        if i != start_of_season_spell_index:
+        if i != onset_spell_index:
             spell = spell.shift(time=shift_indices[i])
         spell_timeseries.append(spell)
 
@@ -318,8 +318,8 @@ def has_onset_conditions(ds, onset_definition=None,
         ret = ret * spell
 
     # Invalid at start
-    invalid_at_start = int(np.sum(shift_indices[0:start_of_season_spell_index]))
-    invalid_at_end = int(np.sum(np.abs(shift_indices[start_of_season_spell_index+1:])))
+    invalid_at_start = int(np.sum(shift_indices[0:onset_spell_index]))
+    invalid_at_end = int(np.sum(np.abs(shift_indices[onset_spell_index+1:])))
     ret = ret.isel(time=slice(invalid_at_start, -invalid_at_end))
     return ret.assign_attrs(attrs)
 
