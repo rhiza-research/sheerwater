@@ -7,7 +7,7 @@ from sheerwater.utils import roll_and_agg, groupby_time
 EVENT_REGISTRY = {}
 
 
-def wrap_duration(duration_fn, onset_definition):
+def wrap_duration(duration_fn, event_name):
     """Call ``duration_fn(event_kwargs)``, turning missing keys into a clear ``ValueError``."""
 
     def wrapped(event_kwargs):
@@ -15,7 +15,7 @@ def wrap_duration(duration_fn, onset_definition):
             return duration_fn(event_kwargs)
         except KeyError as e:
             key = e.args[0] if e.args else None
-            raise ValueError(f"Event {onset_definition} requires key {key} in event_kwargs") from e
+            raise ValueError(f"Event {event_name} requires key {key} in event_kwargs") from e
     return wrapped
 
 
@@ -47,14 +47,14 @@ def event(default_variable=None, duration=0, filter=False):
             ds = ds.assign_attrs({'event': name})
             return ds
 
-        key = fn.__name__.lower()
+        event_name = fn.__name__.lower()
         if callable(duration):
-            wrapper.duration = wrap_duration(duration, key)
+            wrapper.duration = wrap_duration(duration, event_name)
         else:
             wrapper.duration = duration
         wrapper.default_variable = default_variable
         wrapper.filter = filter
-        EVENT_REGISTRY[key] = wrapper
+        EVENT_REGISTRY[event_name] = wrapper
         return wrapper
 
     return decorator

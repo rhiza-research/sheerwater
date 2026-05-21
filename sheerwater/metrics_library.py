@@ -359,13 +359,13 @@ class Metric(ABC):
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
-        if self.prob_type == 'probabilistic':
-            # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
-            no_null = no_null.isel(member=0).drop('member')
-            if self.do_fcst_filter:
-                self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
-            if self.do_obs_filter:
-                self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
+        # if self.prob_type == 'probabilistic':
+        #     # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
+        #     no_null = no_null.isel(member=0).drop('member')
+        #     if self.do_fcst_filter:
+        #         self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
+        #     if self.do_obs_filter:
+        #         self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
 
         # Do event filtering
         if self.do_fcst_filter and self.do_obs_filter:
@@ -506,7 +506,7 @@ class ContingencyMetric(Metric):  # noqa: N801
         # Handle agg days
         if event in ('digitized', 'above_threshold'):
             # Check that the agg days passed to the metric, event, fcst event, and obs event are all the same
-            passed_agg_days = self.agg_days if self.agg_days != 1 else None
+            passed_agg_days = self.agg_days
             agg_days_fcst = self.event_kwargs_fcst.get('agg_days', None)
             agg_days_obs = self.event_kwargs_obs.get('agg_days', None)
 
