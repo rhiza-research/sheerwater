@@ -200,12 +200,23 @@ def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
+    """Calculate true negatives as the difference between the observation and false positives.
+
+    This is a softening-safe way of computing the number of true negatives, as it gets the number
+    of negative events after a soft-version of false positives are subtracted.
+    """
+    # Get the negative observations by inverting the observations
     neg_obs = 1.0 - data['obs']
     return neg_obs - fn_false_positives(data, **cache_kwargs)
 
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
+    """Calculate true positives as the difference between the observation and false negatives.
+
+    This is a softening-safe way of computing the number of true positives, as it gets the number
+    of positive events after a soft-version of false negatives are subtracted.
+    """
     return data['obs'] - fn_false_negatives(data, **cache_kwargs)
 
 

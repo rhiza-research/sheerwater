@@ -219,6 +219,8 @@ class Metric(ABC):
         # Select the variable of interest
         obs = obs[[self.variable]]
         fcst = fcst[[self.variable]]
+        # Our filters are 0, 1, np.nan int type, so we must first fill with zeros before 
+        # converting to booleans, otherwise np.nans will be treated as True.
         if self.do_obs_filter:
             filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
         if self.do_fcst_filter:
@@ -354,18 +356,20 @@ class Metric(ABC):
                 self.statistic_values[statistic] = ds[self.variable]
 
             # Update the no null array
+            # If a statistic has added any nulls, we update the nonull array to include them here. 
+            # So, if for example, SEEPS has nulled out cells, no_null will be updated to exclude those cells.
             no_null = no_null & ds.notnull()
 
         # Ensure a matching null pattern
         # If the observations are sparse, the forecaster and the obs must be the same length
         # for metrics like ACC to work
-        # if self.prob_type == 'probabilistic':
-        #     # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
-        #     no_null = no_null.isel(member=0).drop('member')
-        #     if self.do_fcst_filter:
-        #         self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
-        #     if self.do_obs_filter:
-        #         self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
+        if self.prob_type == 'probabilistic':
+            # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
+            no_null = no_null.isel(member=0).drop('member')
+            if self.do_fcst_filter:
+                self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
+            if self.do_obs_filter:
+                self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
 
         # Do event filtering
         if self.do_fcst_filter and self.do_obs_filter:

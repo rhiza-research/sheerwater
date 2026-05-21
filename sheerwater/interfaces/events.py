@@ -1,4 +1,11 @@
-"""A decorator for event definitions."""
+"""A decorator for event definitions.
+
+A TODO note: this module defines several events and their corresponding boolean filters,
+e.g., days_above_threshold and has_days_above_threshold, where days_above_threshold returns
+an integer count of days and has_days_above_threshold takes an additional argument of the number of days
+and returns a boolean mask. This pattern is repeated several times and could be consolidated and
+supported in a more general way.
+"""
 from functools import wraps
 import numpy as np
 import xarray as xr
@@ -193,15 +200,75 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
     return ds_suitable.assign_attrs(attrs)
 
 
-@event(
-    default_variable="precip",
-    duration=lambda kwargs: np.sum(kwargs["agg_days"]) if 'agg_days' in kwargs else 30,
-    filter=True
-)
-def has_onset_conditions(ds, onset_definition=None,
-                         spells=['dry', 'wet', 'not_dry'], agg_days=[20, 10, 20],
-                         thresholds=[10.0, 25.0, 20.0],
-                         agg_type=['mean', 'mean', 'mean'], counts=[np.nan, np.nan, np.nan],
+@event(default_variable="precip", duration=10, filter=True)
+def icpac_onset(ds):
+    """An event to calculate the ICPAC onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [3, 7]
+    thresholds = [21.0, 10.5]
+    agg_type = ['sum', 'sum']
+    counts = [None, None]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
+@event(default_variable="precip", duration=30, filter=True)
+def chc_onset(ds):
+    """An event to calculate the CHC onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [10, 20]
+    thresholds = [25.0, 20.0]
+    agg_type = ['sum', 'sum']
+    counts = [None, None]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
+@event(default_variable="precip", duration=15, filter=True)
+def moron_and_robertson_onset(ds):
+    """An event to calculate the Moron and Robertson onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [5, 10]
+    thresholds = [38.0, 5.0]
+    agg_type = ['sum', 'sum']
+    counts = [None, None]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
+@event(default_variable="precip", duration=30, filter=True)
+def wet_not_dry_count_onset(ds):
+    """An event to calculate the wer,  not dry count onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [10, 20]
+    thresholds = [5.0, 5.0]
+    agg_type = ['count', 'count']
+    counts = [3, 1]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
+@event(default_variable="precip", duration=60, filter=True)
+def dry_wet_not_dry_onset(ds):
+    """An event to calculate the dry wet not dry onset conditions."""
+    spells = ['below', 'above', 'above']
+    agg_days = [20, 10, 20]
+    thresholds = [1.0, 2.5, 2.0]
+    agg_type = ['mean', 'mean', 'mean']
+    counts = [None, None, None]
+    onset_spell_index = 1
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
+@event(default_variable="precip", duration=lambda kwargs: np.sum(kwargs["agg_days"]), filter=True)
+def has_onset_conditions(ds, spells=['below', 'above', 'above'], agg_days=[20, 10, 20],
+                         thresholds=[10.0, 25.0, 20.0], agg_type=['sum', 'sum', 'sum'],
+                         counts=[None, None, None],
                          onset_spell_index=1):
     """A function to calculate the planting suitability of a dataset.
 
@@ -221,46 +288,6 @@ def has_onset_conditions(ds, onset_definition=None,
             the spells list is ['wet', 'not_dry', 'dry'], and the start of season spell is [1], then the returned
             dataframe will have a 1 centered around the start of the not_dry spell.
     """
-    if onset_definition == 'chc':
-        spells = ['wet', 'not_dry']
-        agg_days = [10, 20]
-        thresholds = [25.0, 20.0]
-        agg_type = ['mean', 'mean']
-        counts = [np.nan, np.nan]
-        onset_spell_index = 0
-    elif onset_definition == 'icpac':
-        spells = ['wet', 'not_dry']
-        agg_days = [10, 20]
-        thresholds = [25.0, 20.0]
-        agg_type = ['mean', 'mean']
-        counts = [np.nan, np.nan]
-        onset_spell_index = 0
-    elif onset_definition == 'moron-and-robertson':
-        spells = ['wet', 'not_dry']
-        agg_days = [5, 10]
-        thresholds = [38.0, 5.0]
-        agg_type = ['mean', 'mean']
-        counts = [np.nan, np.nan]
-        onset_spell_index = 0
-    elif onset_definition == 'wet-not_dry-count':
-        spells = ['wet', 'not_dry']
-        agg_days = [10, 20]
-        thresholds = [5.0, 5.0]
-        agg_type = ['count', 'count']
-        counts = [3, 2]
-        onset_spell_index = 0
-    elif onset_definition == 'dry-wet-not_dry-agg':
-        spells = ['dry', 'wet', 'not_dry']
-        agg_days = [20, 10, 20]
-        thresholds = [20.0, 25.0, 20.0]
-        agg_type = ['mean', 'mean', 'mean']
-        counts = [np.nan, np.nan, np.nan]
-        onset_spell_index = 1
-    elif onset_definition is None:
-        pass
-    else:
-        raise ValueError(f"Invalid event name: {onset_definition}")
-
     # Input error checking
     if len(spells) != len(agg_days) or len(spells) != len(thresholds) or \
             len(spells) != len(agg_type) or len(spells) != len(counts):
@@ -272,6 +299,8 @@ def has_onset_conditions(ds, onset_definition=None,
             raise ValueError(f"Invalid aggregation type: {a_type}")
         if a_type == 'count' and not isinstance(counts[i], int):
             raise ValueError(f"Count type requires an integer count, got {counts[i]}")
+    if not all(x in ['above', 'below'] for x in spells):
+        raise ValueError(f"Invalid spells: {spells}")
 
     # We want to declare start of season around the trigger index event, and need to align dry spells before it
     # and wet spells after it with the trigger index event.
@@ -295,14 +324,14 @@ def has_onset_conditions(ds, onset_definition=None,
         spell_event_threshold = thresholds[i]
         spell_agg_days = agg_days[i]
         if agg_type[i] == 'mean':
-            spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold / spell_agg_days)
+            spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold)
         elif agg_type[i] == 'sum':
             spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold)
         elif agg_type[i] == 'count':
             spell = has_days_above_threshold(ds, agg_days=spell_agg_days,
                                              threshold=spell_event_threshold, above_days=counts[i])
 
-        if event == 'dry':
+        if event == 'below':
             # Looking for not above threshhold, so negate the event
             spell = 1.0 - spell
 

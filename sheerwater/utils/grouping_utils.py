@@ -17,10 +17,9 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
     }
     kenya_rainy_season_mapping = {
         1: 'None',
-        2: 'MAM', 3: 'MAM', 4: 'MAM',
-        5: 'None', 6: 'None', 7: 'None', 8: 'None',
-        9: 'OND', 10: 'OND', 11: 'OND',
-        12: 'None',
+        2: 'MAM', 3: 'MAM', 4: 'MAM', 5: 'MAM',
+        6: 'None', 7: 'None', 8: 'None',
+        9: 'OND', 10: 'OND', 11: 'OND', 12: 'OND',
     }
     two_seasons_mapping = {
         1: 'first',
