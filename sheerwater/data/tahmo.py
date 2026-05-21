@@ -155,7 +155,8 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
     ds = tahmo_reindex(start_time, end_time, grid, cell_aggregation)
 
     # TODO: remove this once we've updated caches for TAHMO reindex to do this in a more permanent way
-    # Reindex to ensure that TAHMO is a daily timeseries with NaNs for mixixng days
+    # Reindex to ensure that TAHMO is a daily timeseries with NaNs
+    # TAHMO is missing 5 days in June 2024
     daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
     ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
 

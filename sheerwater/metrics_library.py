@@ -319,9 +319,10 @@ class Metric(ABC):
         Subclasses can override this for more complex groupings.
         """
         self.statistic_values = None
-        # Initialize a no_null array with the same shape as the data
-        # Note: forecast and obs have the same shape at this point, so could use either
-        no_null = xr.ones_like(self.metric_data['fcst']).astype(bool)
+        # Seed no_null with the joint validity of fcst and obs so that the original
+        # null pattern is honored even when statistics (e.g. boolean comparisons in
+        # contingency metrics) don't propagate NaN through their outputs.
+        no_null = self.metric_data['fcst'].notnull() & self.metric_data['obs'].notnull()
         for statistic in self.statistics:
             # Get the statistic function from the registry
             stat_fn = statistic_factory(statistic)
@@ -361,8 +362,10 @@ class Metric(ABC):
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
-            self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
-            self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
+            if self.do_fcst_filter:
+                self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
+            if self.do_obs_filter:
+                self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
 
         # Do event filtering
         if self.do_fcst_filter and self.do_obs_filter:
@@ -374,6 +377,7 @@ class Metric(ABC):
         else:
             filter = no_null
 
+        # Apply the filter to each statistic
         for stat in self.statistics:
             self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
 
@@ -696,7 +700,6 @@ class ACC(Metric):
 
         # Subset the climatology to the valid times and non-null times of the forecaster
         clim_ds = clim_ds.sel(time=self.metric_data['valid_times'])
-        clim_ds = clim_ds.where(self.metric_data['filter'], np.nan, drop=False)
         # Add the climatology to the metric data
         self.metric_data['climatology'] = clim_ds
 
