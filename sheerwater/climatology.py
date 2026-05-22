@@ -10,9 +10,9 @@ from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.interfaces import forecast as sheerwater_forecast, spatial, get_data
+from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
 from sheerwater.reanalysis import era5
-from sheerwater.utils import add_dayofyear, dask_remote, get_dates, pad_with_leapdays, roll_and_agg, shift_by_days
+from sheerwater.utils import add_dayofyear, dask_remote, get_dates, pad_with_leapdays, shift_by_days
 
 
 @dask_remote
