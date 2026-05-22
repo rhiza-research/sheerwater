@@ -62,8 +62,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 spatial=False, grid=grid,
                 recompute=True,
                 cache_mode='read_only',
-                event='has_onset_conditions',
-                event_kwargs={'onset_definition': 'icpac'},
+                event='icpac_onset',
                 region=region)
 
     assert float(ds.mae.isel(prediction_timedelta=0).values) == 0.0
@@ -73,8 +72,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     """Check that events on the forecaster work."""
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='has_onset_conditions',
-        event_kwargs={'onset_definition': 'icpac'},
+        event='icpac_onset',
         grid="global1_5",
         mask='lsm',
         region='kenya')
@@ -86,8 +84,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
 
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='has_onset_conditions',
-        event_kwargs={'onset_definition': 'icpac'},
+        event='icpac_onset',
         lookback_source='imerg',
         grid="global1_5",
         mask='lsm',
@@ -97,13 +94,12 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     assert len(ds.prediction_timedelta) == 47
 
     # Check that if we call with agg days it fails
-    with pytest.raises(ValueError, match="Event has_onset_conditions requires agg_days to be 1."):
+    with pytest.raises(ValueError, match="requires agg_days to be 1."):
         ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
-            event='has_onset_conditions',
+            event='icpac_onset',
             agg_days=10,
             lookback_source='imerg',
-            event_kwargs={'onset_definition': 'icpac'},
             grid="global1_5",
             mask='lsm',
             region='kenya')
@@ -125,8 +121,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
     """Check that events on the forecaster work."""
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='has_onset_conditions',
-        event_kwargs={'onset_definition': 'chc'},
+        event='chc_onset',
         grid="global1_5",
         mask='lsm',
         region='kenya')
@@ -138,8 +133,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
 
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='has_onset_conditions',
-        event_kwargs={'onset_definition': 'chc'},
+        event='chc_onset',
         lookback_source='imerg',
         grid="global1_5",
         mask='lsm',
@@ -149,13 +143,12 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
     assert len(ds.prediction_timedelta) == 47
 
     # Check that if we call with agg days it fails
-    with pytest.raises(ValueError, match="Event has_onset_conditions requires agg_days to be 1."):
+    with pytest.raises(ValueError, match="requires agg_days to be 1."):
         ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
-            event='has_onset_conditions',
+            event='chc_onset',
             agg_days=10,
             lookback_source='imerg',
-            event_kwargs={'onset_definition': 'chc'},
             grid="global1_5",
             mask='lsm',
             region='kenya')
@@ -175,8 +168,7 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
     # Test a custom start of season event
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='has_onset_conditions',
-        event_kwargs={'onset_definition': 'dry-wet-not_dry-agg'},
+        event='dry_wet_not_dry_onset',
         grid="global1_5",
         mask='lsm',
         region='kenya')
