@@ -176,23 +176,11 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1", mas
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5_land(start_time, end_time, variable, agg_days,
+def era5_land(start_time, end_time, variable, agg_days, #noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
               processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001
-    """Standard format task data for ERA5 Reanalysis.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days. Ignored if variable is 'rainy_onset'.
-        event (str): The event to apply to the data.
-        event_kwargs (dict): The keyword arguments to pass to the event.
-        grid (str): The grid resolution to fetch the data at.
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
+    """Standard format task data for ERA5 Reanalysis."""
     _, _, size, _ = get_grid(grid)
 
     if size < 0.1 or (size == 0.1 and grid != 'global0_1'):

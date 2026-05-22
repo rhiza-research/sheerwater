@@ -37,5 +37,6 @@ def get_processor_fn(name):
 
 
 @processor()
-def regrid(ds, target_grid, method='conservative', **kwargs):
+def regrid(ds, target_grid, method='conservative', **kwargs): #noqa: ARG001
+    """Processor for dataset regridding."""
     return regrid_util(ds, target_grid, method=method)

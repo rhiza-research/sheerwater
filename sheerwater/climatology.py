@@ -381,8 +381,8 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify',
-                   'prob_type', 'grid', 'mask', 'region'],
-def climatology(start_time, end_time, variable, agg_days, data='era5',
+                   'prob_type', 'grid', 'mask', 'region'])
+def climatology(start_time, end_time, variable, agg_days, data='era5', #noqa: ARG001
                 first_year=1985, last_year=2014, trend=False,
                 prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
