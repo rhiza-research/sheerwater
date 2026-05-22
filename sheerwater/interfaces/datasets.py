@@ -31,17 +31,21 @@ class SheerwaterDataset(NuthatchProcessor):
     It only supports xarray datasets.
     """
 
-    def __init__(self, region_dim=None, **kwargs):
+    def __init__(self, region_dim=None, pre_aggregated=False, **kwargs):
         """Initialize the spatial processor.
 
         Args:
             region_dim (str): The name of the region dimension. If None, the returned dataset will not be
                 assumed to have a region dimesion and region data will be fetched from the region registry
                 before clipping.
+            pre_aggregated (bool): A flag to set if a forecast or dataset has handled aggregation on its own.
+                requests the decorator not to aggregate again. Useful for Salient (which issues fundamentally
+                weekly forecasts.)
             kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
         NuthatchProcessor.__init__(self, **kwargs)
         self.region_dim = region_dim
+        self.pre_aggregated = pre_aggregated
 
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the datasets decorator."""
@@ -238,12 +242,17 @@ class data(SheerwaterDataset):
 
 
         # If agg days are not equal to 1 we need to roll and agg
-        if self.agg_days != 1 and 'agg_days' not in ds.attrs:
+        if not self.pre_aggregated and \
+           self.agg_days != 1 and (('agg_days' not in ds.attrs) or
+                                   ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
             ds = ds.assign_attrs({
                 'agg_days': float(self.agg_days),
             })
+        elif self.agg_days != 1 and 'agg_days' in ds.attrs and self.agg_days != ds.attrs['agg_days']:
+            raise ValueError(f"Requested aggregation {self.agg_days}, but underlying dataset has already been \
+                             aggregated to {ds.attrs['agg_days']}")
 
         if self.detect_in_time is not None and 'processed' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
@@ -397,7 +406,9 @@ class forecast(SheerwaterDataset):
             ds = convert_init_time_to_pred_time(ds)
 
         # If agg days are not equal to 1 we need to roll and agg
-        if self.agg_days != 1 and 'agg_days' not in ds.attrs:
+        if not self.pre_aggregated and \
+           self.agg_days != 1 and (('agg_days' not in ds.attrs) or
+                                   ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
                               agg_fn='mean', agg_thresh=agg_thresh)

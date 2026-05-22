@@ -51,7 +51,7 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal",  # n
 
 
 @dask_remote
-@sheerwater_forecast()
+@sheerwater_forecast(pre_aggregated=True)
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
