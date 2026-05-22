@@ -29,7 +29,7 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
     ds = ds.rename({'number': 'member'})
 
     # Resample time to 1 day
-    ds = ds.isel(init_time=slice(0, None, 2))
+    ds = ds.where(ds.init_time.dt.hour == 0, drop=True)
 
     # Convert to base180 longitude
     ds = lon_base_change(ds, to_base="base180")
@@ -48,19 +48,16 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
     elif variable == 'precip':
         ds[variable] = ds[variable] * 1000.0
         ds[variable].attrs.update(units='mm')
-        ds = np.maximum(ds, 0)
-
-        # We need to select the 15 days discretely here
-        # Sicne we are getting the 24 hr precip variable
-        ds = ds.isel(prediction_timedelta=slice(0, None, 4))
+        ds[variable] = np.maximum(ds[variable], 0)
+        # Since we are getting the 24 hr precip variable
+        ds = ds.where(ds.prediction_timedelta.dt.hour == 0, drop=True)
     elif variable == 'ssrd':
         ds[variable].attrs.update(units='Joules/m^2')
-        ds = np.maximum(ds, 0)
+        ds[variable] = np.maximum(ds[variable], 0)
         ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
     else:
         # Just do a daily average for variables we don't know
         ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
-
 
     # Shift lead time to the right by 1 day
     ds['prediction_timedelta'] = ds['prediction_timedelta'] - np.timedelta64(24, 'h')
