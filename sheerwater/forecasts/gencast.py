@@ -141,16 +141,43 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, 
 
 
 @dask_remote
+@timeseries()
+@spatial()
+@cache(cache_args=['variable', 'prob_type', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 10, "time": 10, "member": 10},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
+               },
+           }
+       },
+       cache_disable_if={
+           'prob_type': 'probabilistic'
+       })
+def gencast_processed(start_time, end_time, variable,
+                   prob_type='deterministic', grid='global0_25', mask=None,
+                   region='global'):
+    """A rolled and aggregated gencast forecast."""
+    ds = gencast_daily(start_time, end_time, variable, grid, mask=mask, region=region)
+
+    if prob_type == 'deterministic':
+        ds = ds.mean(dim='member')
+        ds = ds.assign_attrs(prob_type="deterministic")
+    else:
+        ds = ds.assign_attrs(prob_type="ensemble")
+
+    return ds
+
+
+@dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def gencast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
-            prob_type='deterministic',
+def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', #noqa: ARG001
             event=None, event_kwargs=None,  # noqa: ARG001
-            processors=None, processor_kwargs=None,  # noqa: ARG001
             lookback_source=None, densify=False,  # noqa: ARG001
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
     """Final Gencast interface."""
@@ -162,16 +189,12 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1,  # no
     forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = gencast_daily(start_time=forecast_start, end_time=forecast_end, variable=variable,
+    ds = gencast_processed(start_time=forecast_start, end_time=forecast_end, variable=variable,
                         prob_type=prob_type, grid=grid, mask=mask, region=region)
-
     if prob_type == 'deterministic':
-        ds = ds.mean(dim='member')
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
         ds = ds.assign_attrs(prob_type="ensemble")
-
-
 
     # Rename to standard naming
     ds = ds.rename({'time': 'init_time', 'lead_time': 'prediction_timedelta'})
