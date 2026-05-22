@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from sheerwater.interfaces.events import above_threshold, get_event_fn, planting_suitability
+from sheerwater.interfaces.events import above_threshold, get_event_fn, has_onset_conditions
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
@@ -41,13 +41,13 @@ def test_above_threshold_sets_event_attr_and_preserves_nan():
     assert np.isnan(out.precip.sel(time="2020-01-03").item())
 
 
-def test_planting_suitability_rejects_non_precip_variable():
+def test_start_of_season_by_spells_rejects_non_precip_variable():
     """Event constrained to precip raises when dataset has no valid variables."""
     ds = _tiny_precip_ds().drop_vars("precip")
     ds["tmp2m"] = (("time", "lat", "lon"), np.ones((3, 1, 1), dtype=np.float32))
 
-    with pytest.raises(ValueError, match="Planting suitability event requires a 'precip' variable."):
-        planting_suitability(ds)
+    with pytest.raises(ValueError, match="requires a 'precip' variable."):
+        has_onset_conditions(ds)
 
 
 def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
@@ -62,9 +62,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 spatial=False, grid=grid,
                 recompute=True,
                 cache_mode='read_only',
-                event='planting_suitability',
-                event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
-                              'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+                event='icpac_onset',
                 region=region)
 
     assert float(ds.mae.isel(prediction_timedelta=0).values) == 0.0
@@ -74,40 +72,34 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     """Check that events on the forecaster work."""
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='planting_suitability',
-        event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
-                      'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+        event='chc_onset',
         grid="global1_5",
         mask='lsm',
         region='kenya')
 
-    assert len(ds.prediction_timedelta) == 27  # no lookback was added
+    assert len(ds.prediction_timedelta) == 17  # no lookback was added
     # No lanting suitability outside of 0 to 1
     assert (ds.precip > 1.0).sum().compute() == 0
     assert (ds.precip < 0.0).sum().compute() == 0
 
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='planting_suitability',
-        event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
-                      'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
+        event='chc_onset',
         lookback_source='imerg',
         grid="global1_5",
         mask='lsm',
         region='kenya')
 
     # Assert the the additional prediction timedelta have been added
-    assert len(ds.prediction_timedelta) == 57
+    assert len(ds.prediction_timedelta) == 47
 
     # Check that if we call with agg days it fails
-    with pytest.raises(ValueError, match="Event planting_suitability requires agg_days to be 1."):
+    with pytest.raises(ValueError, match="requires agg_days to be 1."):
         ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
-            event='planting_suitability',
+            event='chc_onset',
             agg_days=10,
             lookback_source='imerg',
-            event_kwargs={'wet_spell_threshold': 38.0, 'dry_spell_threshold': 10.0,
-                          'wet_spell_agg_days': 10, 'dry_spell_agg_days': 20},
             grid="global1_5",
             mask='lsm',
             region='kenya')
@@ -123,3 +115,60 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
             grid="global1_5",
             mask='lsm',
             region='kenya')
+
+
+def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
+    """Check that events on the forecaster work."""
+    ds = ecmwf_ifs_er_debiased(
+        "2022-01-01", "2022-12-31",
+        event='chc_onset',
+        grid="global1_5",
+        mask='lsm',
+        region='kenya')
+
+    assert len(ds.prediction_timedelta) == 17  # no lookback was added
+    # No lanting suitability outside of 0 to 1
+    assert (ds.precip > 1.0).sum().compute() == 0
+    assert (ds.precip < 0.0).sum().compute() == 0
+
+    ds = ecmwf_ifs_er_debiased(
+        "2022-01-01", "2022-12-31",
+        event='chc_onset',
+        lookback_source='imerg',
+        grid="global1_5",
+        mask='lsm',
+        region='kenya')
+
+    # Assert the the additional prediction timedelta have been added
+    assert len(ds.prediction_timedelta) == 47
+
+    # Check that if we call with agg days it fails
+    with pytest.raises(ValueError, match="requires agg_days to be 1."):
+        ecmwf_ifs_er_debiased(
+            "2022-01-01", "2022-12-31",
+            event='chc_onset',
+            agg_days=10,
+            lookback_source='imerg',
+            grid="global1_5",
+            mask='lsm',
+            region='kenya')
+
+    # Check that if we call without agg days it fails
+    with pytest.raises(ValueError, match="agg_days"):
+        ecmwf_ifs_er_debiased(
+            "2022-01-01", "2022-12-31",
+            event='above_threshold',
+            lookback_source='imerg',
+            event_kwargs={'threshold': 0.5},
+            agg_days=10,
+            grid="global1_5",
+            mask='lsm',
+            region='kenya')
+
+    # Test a custom start of season event
+    ds = ecmwf_ifs_er_debiased(
+        "2022-01-01", "2022-12-31",
+        event='dry_wet_not_dry_onset',
+        grid="global1_5",
+        mask='lsm',
+        region='kenya')

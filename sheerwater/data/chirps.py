@@ -13,6 +13,29 @@ from sheerwater.utils import dask_remote, regrid, roll_and_agg
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 @dask_remote
+@cache(cache=True,
+       cache_args=['date'],
+       backend_kwargs={
+           'chunking': {'lat': 2400, 'lon': 7200, 'time': 1}
+})
+def chirps_raw_live_daily(date):  # noqa: ARG001
+    """CHIRPS live from this year."""
+    dt = pd.to_datetime(date)
+    prelim_url = f'https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/prelim/sat/{dt.year}/chirps-v3.0.prelim.{dt.year}.{dt.month:02}.{dt.day:02}.tif'
+    fs = fsspec.filesystem("https", timeout=7200)
+    fprelim = fs.open(prelim_url)
+    ds = xr.open_dataset(fprelim, chunks={}, engine='rasterio')
+    ds = ds.assign_coords(time=dt)
+    ds = ds.expand_dims(dim='time')
+    ds = ds.squeeze('band')
+    ds = ds.reset_coords('band', drop=True)
+    ds = ds.rename({'x': 'lon', 'y': 'lat', 'band_data': 'precip'})
+    ds = ds.sortby('lat', ascending=True)
+    return ds
+
+
+
+@dask_remote
 @spatial()
 @timeseries()
 @cache(cache=False,
@@ -21,12 +44,26 @@ from sheerwater.interfaces import data as sheerwater_data, spatial
 })
 def chirps_raw_live(start_time=None, end_time=None, grid='source', mask=None, region='global'):  # noqa: ARG001
     """CHIRPS live from this year."""
-    year = datetime.datetime.now().year
-    prelim_url = f'https://data.chc.ucsb.edu/products/CHIRPS/v3.0/daily/prelim/sat/netcdf/byYear/chirps-v3.0.sat.{year}.days_p05.nc'
-    fs = fsspec.filesystem("https", timeout=7200)
-    fprelim = fs.open(prelim_url)
-    ds = xr.open_dataset(fprelim, chunks={})
-    ds = ds.sortby('lat', ascending=True)
+    days = pd.date_range(start_time, end_time)
+
+    datasets = []
+    for day in days:
+        try:
+            ds = chirps_raw_live_daily(day, filepath_only=True)
+            datasets.append(ds)
+        except FileNotFoundError:
+            print(f"No data available for {day}.")
+
+    datasets = [d for d in datasets if d is not None]
+
+    ds = xr.open_mfdataset(datasets,
+                           engine='zarr',
+                           parallel=True,
+                           chunks={})
+
+    if "spatial_ref" in ds:
+        ds = ds.drop_vars(["spatial_ref"])
+
     return ds
 
 
@@ -200,7 +237,7 @@ def _chirps_unified(start_time, end_time, variable, agg_days, grid='global0_25',
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
-def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
+def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=1,
              event=None, event_kwargs=None,  # noqa: ARG001
              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP2."""
@@ -212,7 +249,7 @@ def chirp_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 @sheerwater_data()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
-def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
+def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=1,
              event=None, event_kwargs=None,  # noqa: ARG001
              grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRP3."""
@@ -223,7 +260,7 @@ def chirp_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
-def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
+def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=1,
               event=None, event_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS2."""
@@ -234,7 +271,7 @@ def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=5,
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'])
-def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
+def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=1,
               event=None, event_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
     """A chirps interface for CHIRPS3."""
@@ -246,7 +283,7 @@ def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=5,
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def chirps(start_time=None, end_time=None, variable='precip', agg_days=5,
+def chirps(start_time=None, end_time=None, variable='precip', agg_days=1,
            event=None, event_kwargs=None,  # noqa: ARG001
            grid='global0_25', mask='lsm', region='global'):  # noqa: ARG001
     """Final access function for chirps."""
