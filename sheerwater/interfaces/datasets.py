@@ -96,15 +96,16 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             self.processors = processors_arg
 
+        self.processor_fns = [get_processor_fn(processor) for processor in self.processors]
+
         processor_kwargs_arg = bound_args.arguments.get('processor_kwargs', None)
         if processor_kwargs_arg is None:
-            self.processor_kwargs = []
+            self.processor_kwargs = [{}] * len(self.processor_fns)
         elif not isinstance(processor_kwargs_arg, list):
             self.processor_kwargs = [processor_kwargs_arg]
         else:
             self.processor_kwargs = processor_kwargs_arg
 
-        self.processor_fns = [get_processor_fn(processor) for processor in self.processors]
 
         if len(self.processor_fns) != len(self.processor_kwargs):
             raise ValueError("Number of processor kwarg dicts must match number of processor functions")
