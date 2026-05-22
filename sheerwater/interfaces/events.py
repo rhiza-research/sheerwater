@@ -326,7 +326,7 @@ def has_onset_conditions(ds, spells=['below', 'above', 'above'], agg_days=[20, 1
         if agg_type[i] == 'mean':
             spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold)
         elif agg_type[i] == 'sum':
-            spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold)
+            spell = above_threshold(ds, agg_days=spell_agg_days, threshold=spell_event_threshold / spell_agg_days)
         elif agg_type[i] == 'count':
             spell = has_days_above_threshold(ds, agg_days=spell_agg_days,
                                              threshold=spell_event_threshold, above_days=counts[i])

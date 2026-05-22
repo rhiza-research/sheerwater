@@ -192,8 +192,10 @@ class data(SheerwaterDataset):
             daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(),
                                          stride='day', return_string=False)
             if len(daily_timeseries) != len(ds.time.values):
-                raise ValueError(
+                missing_dates = set(daily_timeseries) - set(ds.time.values)
+                warnings.warn(
                     "Datasources must have a complete daily time index to enable valid windowing. "
+                    f"The following dates are missing: {missing_dates} "
                     "Please reindex your data source in time.")
             ds = self.event_fn(ds, **self.event_kwargs)
 
