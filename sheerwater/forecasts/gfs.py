@@ -18,6 +18,7 @@ from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 def gfs_raw(start_time, end_time, variable='precip', prob_type='deterministic', grid='global1_5', # noqa: ARG001
             mask=None, region='global'):  # noqa: ARG001
     """Access GFS/GEFS raw."""
+    # Fetched from earthmover directly into our bucket. Already meaned across members
     ds = xr.open_zarr('gs://sheerwater-datalake/gefs/gefs.zarr/')
 
     # Select the variable

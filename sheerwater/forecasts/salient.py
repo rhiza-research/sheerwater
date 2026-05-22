@@ -112,23 +112,15 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
 @dask_remote
 @timeseries(timeseries='forecast_date')
 @spatial()
-@cache(cache_args=['variable', 'grid'],
+@cache(cache=False,
+       cache_args=['variable'],
        backend_kwargs={
            'chunking': {"lat": 73, "lon": 77, "forecast_date": 4, 'lead': 7, 'sample': 200}
 })
-def salient_gem_raw(start_time, end_time, variable, grid='global0_25', # noqa: ARG001
+def salient_gem_raw(start_time, end_time, variable, # noqa: ARG001
                     mask=None, region=None):  # noqa: ARG001
     """Salient GEM raw data."""
-    # Your credentials are needed to access the store
-    storage_options = dict(
-        key="8121a8558bc21d1452c22291f8853bc8",
-        secret="10c9d8a28aa65d48a9b211cca19f9e1a17c23d3950643dc3ad0969fd93fb6113",
-        client_kwargs={"endpoint_url": "https://f9921545a0bfa802eb169b5408437b5f.r2.cloudflarestorage.com"},
-        s3_additional_kwargs={"ACL": "private"}
-    )
-    fs_kwargs = {"storage_options": storage_options}
-    ds = xr.open_zarr("s3://nimbus-gemv2/east_africa.zarr", **fs_kwargs)
-
+    ds = xr.open_zarr("gs://sheerwater-datalake/salient-data/gem/east_africa.zarr")
     var = get_variable(variable, 'salient')
     ds = ds[var].to_dataset()
     ds = ds.rename({var: variable})
@@ -149,7 +141,7 @@ def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deter
                           mask=None, region=None): # noqa: ARG001
     """A cache of salient GEM that means the samples."""
     # Get the data with the right days
-    ds = salient_gem_raw(start_time, end_time, variable, grid='global0_25', mask=mask, region=region)
+    ds = salient_gem_raw(start_time, end_time, variable, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.mean(dim='sample')
         ds = ds.assign_attrs(prob_type="deterministic")

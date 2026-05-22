@@ -34,38 +34,32 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
     # Convert to base180 longitude
     ds = lon_base_change(ds, to_base="base180")
 
-    # Select the right variable
-    if variable:
-        var = get_variable(variable, 'ecmwf_ifs_er')
-        ds = ds[[var]]
+    var = get_variable(variable, 'ecmwf_ifs_er')
+    ds = ds[[var]]
 
+    variable = get_variable(var, 'sheerwater')
+    ds = ds.rename_vars(name_dict={var: variable})
 
-    # Perform variable renaming if a variable is reuqested
-    for var in ds.variables:
-        try:
-            variable = get_variable(var, 'sheerwater')
-            ds = ds.rename_vars(name_dict={var: variable})
+    # Perform unit conversions if a specific variable is requested
+    if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
+        ds[variable] = ds[variable] - 273.15
+        ds[variable].attrs.update(units='C')
+        ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
+    elif variable == 'precip':
+        ds[variable] = ds[variable] * 1000.0
+        ds[variable].attrs.update(units='mm')
+        ds = np.maximum(ds, 0)
 
-            # Perform unit conversions if a specific variable is requested
-            if variable in ['tmp2m', 'tmax2m', 'tmin2m']:
-                ds[variable] = ds[variable] - 273.15
-                ds[variable].attrs.update(units='C')
-                ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
-            elif variable == 'precip':
-                ds[variable] = ds[variable] * 1000.0
-                ds[variable].attrs.update(units='mm')
-                ds = np.maximum(ds, 0)
-
-                # We need to select the 15 days discretely here
-                # Sicne we are getting the 24 hr precip variable
-                ds = ds.isel(prediction_timedelta=slice(0, None, 4))
-            elif variable == 'ssrd':
-                ds[variable].attrs.update(units='Joules/m^2')
-                ds = np.maximum(ds, 0)
-                ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
-        except ValueError:
-            # Just do a daily average for variables we don't know
-            ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
+        # We need to select the 15 days discretely here
+        # Sicne we are getting the 24 hr precip variable
+        ds = ds.isel(prediction_timedelta=slice(0, None, 4))
+    elif variable == 'ssrd':
+        ds[variable].attrs.update(units='Joules/m^2')
+        ds = np.maximum(ds, 0)
+        ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
+    else:
+        # Just do a daily average for variables we don't know
+        ds = ds.resample(prediction_timedelta='1D').mean(dim='prediction_timedelta')
 
 
     # Shift lead time to the right by 1 day
@@ -100,6 +94,10 @@ def ecmwf_ifs_ens(start_time=None, end_time=None, variable="precip", agg_days=1,
                 lookback_source=None, densify=False,  # noqa: ARG001
                  grid='global0_25', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
-    return ifs_ens_raw(start_time=start_time, end_time=end_time, variable=variable,
+    # The earliest and latest forecast dates for the set of all leads
+    forecast_start = shift_by_days(start_time, -15) if start_time is not None else None
+    forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
+
+    return ifs_ens_raw(start_time=forecast_start, end_time=forecast_end, variable=variable,
                        prob_type=prob_type,
                        grid=grid, mask=mask, region=region)
