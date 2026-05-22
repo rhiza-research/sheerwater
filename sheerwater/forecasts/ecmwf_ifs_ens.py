@@ -74,7 +74,6 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
     if grid == 'global0_25':
         pass
     else:
-        # Need all lats / lons in a single chunk for the output to be reasonable
         ds = regrid(ds, grid, base='base180', method='conservative')
 
     return ds

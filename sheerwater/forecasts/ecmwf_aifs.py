@@ -21,13 +21,11 @@ def aifs_raw(start_time, end_time, variable='precip', prob_type='deterministic',
                 grid="global0_25", mask=None, region='global'): # noqa: ARG001
     """Fetches AIFS from our cloud."""
     def add_time(ds):
-        """Preprocess the dataset to add the member dimension."""
+        """Preprocess the dataset to add the time properly."""
         ff = ds.encoding["source"]
         time_str = ff.split('/')[-1].split('T')[0]
         dt = parser.parse(time_str)
         ds['time'] = [dt]
-        #ds = ds.drop_coords('time')
-        #ds = ds.assign_coords(time=dt)
         return ds
 
 
@@ -80,7 +78,6 @@ def aifs_raw(start_time, end_time, variable='precip', prob_type='deterministic',
     if grid == 'global0_25':
         pass
     else:
-        # Need all lats / lons in a single chunk for the output to be reasonable
         ds = regrid(ds, grid, base='base180', method='conservative')
 
     return ds

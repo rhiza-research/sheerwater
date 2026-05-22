@@ -65,6 +65,5 @@ def gfs(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type
     ds = ds.rename({'lead_time': 'prediction_timedelta'})
 
     # Assign probability label
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    ds = ds.assign_attrs(prob_type=prob_label)
+    ds = ds.assign_attrs(prob_type='deterministic')
     return ds
