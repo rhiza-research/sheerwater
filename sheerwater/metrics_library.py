@@ -9,7 +9,7 @@ from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_th
 from sheerwater.interfaces import get_data, get_forecast, get_event_fn
 from sheerwater.masks import spatial_mask
 from sheerwater.statistics_library import statistic_factory
-from sheerwater.utils import groupby_time, latitude_weights, detect_in_time
+from sheerwater.utils import groupby_time, latitude_weights
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
 # Global metric registry dictionary
@@ -526,10 +526,6 @@ class ContingencyMetric(Metric):  # noqa: N801
 
             # Reset the agg days to one and let the event handle the aggregation
             self.agg_days = 1
-
-        # If a metric is passed as, e.g., pod-5, with a specific value, the metrics factory
-        # will have added a 'config' key to the metric kwargs and set it equal to the values
-        # after the first '-'.
 
         if event == 'digitized':
             # We try to figure out the bins from the metric key

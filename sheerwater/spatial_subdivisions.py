@@ -800,7 +800,7 @@ def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
 
     if isinstance(mask, str):
         from .masks import spatial_mask
-        mask_ds = spatial_mask(mask, grid, memoize=False)
+        mask_ds = spatial_mask(mask, grid)
     else:
         mask_ds = mask
 
