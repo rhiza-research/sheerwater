@@ -11,6 +11,8 @@ import xarray as xr
 import shapely
 from shapely.geometry import box
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
+from shapely.geometry import GeometryCollection
+
 
 from nuthatch import cache
 from sheerwater.utils import get_grid, get_grid_ds, regrid, check_bases, load_object, is_station_grid
@@ -245,7 +247,7 @@ def multinational_gdf():
 custom_subdivisions_definitions = {
     'sheerwater_region': {
         'nimbus_east_africa': {
-            'countries': ['kenya', 'burundi', 'rwanda', 'tanzania', 'uganda'],
+            'countries': ['kenya', 'ethiopia', 'tanzania', 'uganda', 'somalia', 'eritrea', 'south_sudan', 'rwanda', 'burundi', 'djibouti', 'somaliland'],
         },
         'nimbus_west_africa': {
             'countries': ['benin', 'burkina_faso', 'cape_verde', 'ivory_coast', 'the_gambia', 'ghana', 'guinea', 'guinea-bissau', 'liberia', 'mali', 'mauritania', 'niger', 'nigeria', 'senegal', 'sierra_leone', 'togo'],
@@ -287,8 +289,8 @@ custom_subdivisions_definitions = {
 }
 
 
-@cache(cache_args=['level'])
-def polygon_subdivision_geodataframe(level):
+@cache(cache_args=['level', 'merged'])
+def polygon_subdivision_geodataframe(level, merged=True):
     """Get the boundary geodatarame for a given subdivision level defined by a set of polygons.
 
     Supports the following levels:
@@ -306,6 +308,9 @@ def polygon_subdivision_geodataframe(level):
     Args:
         level(str): The level to get the data for . Must be
             a level(e.g., 'country', 'admin_1', 'continent', 'meteorological_zone')
+        merged(bool): Whether to merge the countries into a single geometry.
+            If True, the countries are merged into a single geometry.
+            If False, the countries are kept as separate geometries. Default is True.
 
     Returns:
         gdf(gpd.GeoDataFrame): A GeoDataFrame for the level, with columns:
@@ -346,7 +351,10 @@ def polygon_subdivision_geodataframe(level):
         for reg in regions:
             countries = subdivision_to_countries[reg]
             region_gdf = country_gdf[country_gdf['country'].isin(countries)]
-            geometry = region_gdf.geometry.union_all()
+            if merged:
+                geometry = region_gdf.geometry.union_all()
+            else:
+                geometry = GeometryCollection(list(region_gdf.geometry.values))
             region_names.append(reg)
             region_geometries.append(geometry)
         gdf = gpd.GeoDataFrame({'region_name': region_names, 'region_geometry': region_geometries})
@@ -373,7 +381,10 @@ def polygon_subdivision_geodataframe(level):
                 if len(countries) != len(region_gdf):
                     raise ValueError(
                         f"Some countries were not found: {set(countries) - set(region_gdf['admin_name'])}")
-                geometry = region_gdf.geometry.union_all()
+                if merged:
+                    geometry = region_gdf.geometry.union_all()
+                else:
+                    geometry = GeometryCollection(list(region_gdf.geometry.values))
                 region_names.append(reg)
                 region_geometries.append(geometry)
             else:
@@ -869,6 +880,7 @@ def clip_station_grid(ds, geometry=None, drop=True):
 
     return ds
 
+
 def nonuniform_grid(ds, error_thresh=1e-5):
     """Check if a dataset has a nonuniform grid.
 
@@ -881,6 +893,7 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
+
 
 ##################################################################
 # Spatial subdivision definitions, including custom regions

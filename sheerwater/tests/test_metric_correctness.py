@@ -88,6 +88,8 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     test_case.setdefault("agg_days", 7)
     test_case.setdefault("event", None)
     test_case.setdefault("event_kwargs", None)
+    test_case.setdefault("filter_event", None)
+    test_case.setdefault("filter_event_kwargs", None)
     test_case.setdefault("time_grouping", None)
     test_case.setdefault("grid", "global1_5")
 
@@ -106,6 +108,8 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     agg_days = test_case["agg_days"]
     event = test_case["event"]
     event_kwargs = test_case["event_kwargs"]
+    filter_event = test_case["filter_event"]
+    filter_event_kwargs = test_case["filter_event_kwargs"]
     spatial = test_case["spatial"]
     mask = test_case["mask"]
     time_grouping = test_case["time_grouping"]
@@ -114,7 +118,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     print(
         f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | variable={variable} | "
         f"space_grouping={space_grouping} | region={region} | lead={lead} days | agg_days={agg_days} | "
-        f"event={event} | event_kwargs={event_kwargs} | spatial={spatial} | mask={mask} | "
+        f"event={event} | event_kwargs={event_kwargs} | filter_event={filter_event} | filter_event_kwargs={filter_event_kwargs} | spatial={spatial} | mask={mask} | "
         f"time_grouping={time_grouping} | grid={grid} | start_time={start_time} | end_time={end_time}"
     )
 
@@ -129,8 +133,6 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         "truth": truth,
         "metric_name": metric_name,
         "agg_days": agg_days,
-        "event": event,
-        "event_kwargs": event_kwargs,
         "time_grouping": time_grouping,
         "spatial": spatial,
         "space_grouping": space_grouping,
@@ -138,16 +140,27 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         "mask": mask,
         "grid": grid,
     }
+    pass_event_kwargs = {
+        "event": event,
+        "event_kwargs": event_kwargs,
+        "filter_event": filter_event,
+        "filter_event_kwargs": filter_event_kwargs,
+    }
+    gold_pass_event_kwargs = {
+        "event": event,
+        "event_kwargs": event_kwargs,
+    }
     if overwrite_gold_testing:
         # Run the new metric
-        ds_old = gold_testing_metric(
-            **kwargs, recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
+        ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
+                                     recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
         return ds_old, None, 0
     else:
         # Run gold_testing_metric (same call structure as archive)
-        ds_old = gold_testing_metric(**kwargs, recompute=False, cache_mode='read_only_strict')
+        ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
+                                     recompute=False, cache_mode='read_only_strict')
         # Run the new metric
-        ds_new = metric(**kwargs, recompute=recompute, cache_mode='read_only')
+        ds_new = metric(**kwargs, **pass_event_kwargs, recompute=recompute, cache_mode='read_only')
 
     # Convert from new metric format to old format by selection region and lead time (archive logic)
     if lead is not None:
