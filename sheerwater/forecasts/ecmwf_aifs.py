@@ -7,7 +7,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid
+from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, shift_by_days
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -66,7 +66,7 @@ def aifs_raw(start_time, end_time, variable='precip', prob_type='deterministic',
     elif variable == 'precip':
         ds[variable] = ds[variable] * 1000.0
         ds[variable].attrs.update(units='mm')
-        ds[variable] = np.maximum(ds[vairable], 0)
+        ds[variable] = np.maximum(ds[variable], 0)
     elif variable == 'ssrd':
         ds[variable].attrs.update(units='Joules/m^2')
         ds[variable] = np.maximum(ds[variable], 0)
