@@ -298,4 +298,8 @@ def get_dates(start_time, end_time, stride="day", return_string=True):
 
     if return_string:
         dates = [date.strftime(DATETIME_FORMAT) for date in dates]
+    else:
+        # Convert to nanosecond precision to avoid xarray warning
+        dates = np.array(dates, dtype='datetime64[ns]')
+
     return dates

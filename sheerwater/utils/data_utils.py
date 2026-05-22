@@ -4,6 +4,7 @@ These utility functions take as input an xarray dataset and return a modified
 dataset.
 """
 import dask
+import warnings
 import numpy as np
 import xarray_regrid  # noqa: F401, import needed for regridding
 
@@ -44,13 +45,17 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     }
     # Apply n-day rolling aggregation
     if agg_fn == "mean":
-        ds_agg = ds.rolling(**agg_kwargs).mean()
+        ds_agg = ds.rolling(**agg_kwargs).mean(skipna=True)
     elif agg_fn == "sum":
-        ds_agg = ds.rolling(**agg_kwargs).sum()
+        if agg_thresh < agg:
+            warnings.warn(f"Aggregation threshold {agg_thresh} is less than the aggregation period {agg}. "
+                          "This will result in a sum that is not equal to the mean * number of days. "
+                          "This is not recommended. Using the mean instead.")
+        ds_agg = ds.rolling(**agg_kwargs).sum(skipna=True)
     elif agg_fn == "max":
-        ds_agg = ds.rolling(**agg_kwargs).max()
+        ds_agg = ds.rolling(**agg_kwargs).max(skipna=True)
     elif agg_fn == "min":
-        ds_agg = ds.rolling(**agg_kwargs).min()
+        ds_agg = ds.rolling(**agg_kwargs).min(skipna=True)
     else:
         raise NotImplementedError(f"Aggregation function {agg_fn} not implemented.")
 

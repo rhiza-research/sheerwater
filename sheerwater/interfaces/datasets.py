@@ -8,7 +8,7 @@ from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days,
-                              desnify_fcst, detect_in_time, roll_and_agg)
+                              densify_fcst, detect_in_time, get_dates)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
@@ -65,10 +65,12 @@ class SheerwaterDataset(NuthatchProcessor):
         self.event = bound_args.arguments.get('event', None)
         if self.event is not None and self.agg_days != 1:
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
-        self.event_kwargs = bound_args.arguments.get('event_kwargs', {})
+        self.event_kwargs = bound_args.arguments.get('event_kwargs', None)
+        if self.event_kwargs is None:
+            self.event_kwargs = {}
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
 
-        if self.event_kwargs and 'detect_in_time' in self.event_kwargs:
+        if 'detect_in_time' in self.event_kwargs:
             self.detect_in_time = self.event_kwargs['detect_in_time']
             del self.event_kwargs['detect_in_time']
         else:
@@ -224,10 +226,14 @@ class data(SheerwaterDataset):
 
         # Run the events on the dataset
         if self.event is not None and 'processed' not in ds.attrs:
+            # Ensure that data are daily indexed before applying events
+            daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(),
+                                         stride='day', return_string=False)
+            if len(daily_timeseries) != len(ds.time.values):
+                raise ValueError(
+                    "Datasources must have a complete daily time index to enable valid windowing. "
+                    "Please reindex your data source in time.")
             ds = self.event_fn(ds, **self.event_kwargs)
-
-        if self.detect_in_time is not None:
-            ds = detect_in_time(ds, **self.detect_in_time)
 
 
         # If agg days are not equal to 1 we need to roll and agg
@@ -237,6 +243,9 @@ class data(SheerwaterDataset):
             ds = ds.assign_attrs({
                 'agg_days': float(self.agg_days),
             })
+
+        if self.detect_in_time is not None and 'processed' not in ds.attrs:
+            ds = detect_in_time(ds, **self.detect_in_time)
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
@@ -359,7 +368,7 @@ class forecast(SheerwaterDataset):
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             ##################################################################################################
             if self.densify or self.event_kwargs.get('densify', False):
-                ds = desnify_fcst(ds)
+                ds = densify_fcst(ds)
 
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
@@ -379,6 +388,7 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
+            # TODO: could add a daily data check here
             ds = self.event_fn(ds, **self.event_kwargs)
             ds = ds.rename({'time': 'prediction_timedelta'})
 
@@ -394,7 +404,7 @@ class forecast(SheerwaterDataset):
                 'agg_days': float(self.agg_days),
             })
 
-        if self.detect_in_time is not None:
+        if self.detect_in_time is not None and 'processed' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
 
         # Remove all unneeded dimensions

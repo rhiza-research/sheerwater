@@ -6,7 +6,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, snap_point_to_grid
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, snap_point_to_grid, get_dates
 from sheerwater.interfaces import data as sheerwater_data
 
 
@@ -136,6 +136,11 @@ def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+
+    # Reindex to ensure that TAHMO is a daily timeseries with NaNs for mixixng days
+    daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
     ds['precip_count'] = ds['precip_count'].fillna(0)
     return ds
 
@@ -147,6 +152,13 @@ def _tahmo_unified(start_time, end_time, variable,
         raise ValueError("TAHMO only supports precip")
 
     ds = tahmo_reindex(start_time, end_time, grid, cell_aggregation)
+
+    # TODO: remove this once we've updated caches for TAHMO reindex to do this in a more permanent way
+    # Reindex to ensure that TAHMO is a daily timeseries with NaNs
+    # TAHMO is missing 5 days in June 2024
+    daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
     ds = ds[[variable, f'{variable}_count']]
 
     # Note that this is sparse
