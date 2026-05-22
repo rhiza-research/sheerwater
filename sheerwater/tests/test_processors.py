@@ -15,13 +15,13 @@ def test_get_processor_fn_lookup_and_unknown():
         get_processor_fn("not_a_real_processor")
 
 @processor()
-def testing_processor(ds, **kwargs): #noqa: ARG001
+def return_diff_forecast(ds, **kwargs): #noqa: ARG001
     """A simple processor for testing."""
     return ecmwf_ifs_er("2021-01-01", "2021-01-05")
 
 def test_basic_processor(remote_dask_cluster): #noqa: ARG001
     """Make sure the processor runs."""
-    ds = ecmwf_ifs_er_debiased("2021-01-01", "2021-01-05", agg_days=1, processors=['testing_processor'])
+    ds = ecmwf_ifs_er_debiased("2021-01-01", "2021-01-05", agg_days=1, processors=['return_diff_forecast'])
     ds2 = ecmwf_ifs_er("2021-01-01", "2021-01-05")
 
     xr.testing.assert_equal(ds.drop_attrs(), ds2.drop_attrs())
