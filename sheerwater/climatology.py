@@ -377,13 +377,15 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
 
 
 @dask_remote
+@sheerwater_data()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'lookback_source', 'densify',
+                   'prob_type', 'grid', 'mask', 'region'],
 def climatology(start_time, end_time, variable, agg_days, data='era5',
                 first_year=1985, last_year=2014, trend=False,
                 prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
-    # Must shift here to adjust by the days cut off in the agg process,
-    # this is not a wrapped sheerwater datasource, so not done automatically.
-    end_time = shift_by_days(end_time, agg_days-1)
     if trend:
         ds = climatology_daily_trend(start_time, end_time, variable, data=data,
                                      first_year=first_year, last_year=last_year,
@@ -393,8 +395,6 @@ def climatology(start_time, end_time, variable, agg_days, data='era5',
                                first_year=first_year, last_year=last_year,
                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
-    # Roll by agg days
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
     return ds
 
 
