@@ -72,7 +72,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     """Check that events on the forecaster work."""
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='icpac_onset',
+        event='chc_onset',
         grid="global1_5",
         mask='lsm',
         region='kenya')
@@ -84,7 +84,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
 
     ds = ecmwf_ifs_er_debiased(
         "2022-01-01", "2022-12-31",
-        event='icpac_onset',
+        event='chc_onset',
         lookback_source='imerg',
         grid="global1_5",
         mask='lsm',
@@ -97,7 +97,7 @@ def test_event_on_forecaster(remote_dask_cluster):  # noqa: ARG001
     with pytest.raises(ValueError, match="requires agg_days to be 1."):
         ecmwf_ifs_er_debiased(
             "2022-01-01", "2022-12-31",
-            event='icpac_onset',
+            event='chc_onset',
             agg_days=10,
             lookback_source='imerg',
             grid="global1_5",

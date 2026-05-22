@@ -54,11 +54,11 @@ if __name__ == "__main__":
     # agg_days = 7
     # above_days = 1
     # event = 'has_onset_conditions'
-    event = 'above_threshold'
+    event = 'icpac_onset'
     # event = 'days_above_threshold'
     # event = 'count_days_above_threshold'
     # event = None
-    # event = 'seasonal_accumulation'
+    event = 'seasonal_accumulation'
     # event = 'continuous_days_above_threshold'
     # event = 'nimbus_start_of_season_not_dry'
     # event = 'wet_spell'
@@ -106,8 +106,8 @@ if __name__ == "__main__":
         fcst_event_kwargs = {'accumulation_threshold': 5.0}
         obs_event_kwargs = {'accumulation_threshold': 5.0}
     elif event == 'seasonal_accumulation':
-        fcst_event_kwargs = {'time_grouping': time_grouping, 'by_percent': True}
-        obs_event_kwargs = {'time_grouping': time_grouping, 'by_percent': True}
+        fcst_event_kwargs = {'time_grouping': time_grouping, 'by_percent': False}
+        obs_event_kwargs = {'time_grouping': time_grouping, 'by_percent': False}
     elif event == 'has_wet_not_dry_spells':
         fcst_event_kwargs = {'onset_definition': 'chc'}
         obs_event_kwargs = {'onset_definition': 'chc'}
@@ -117,13 +117,12 @@ if __name__ == "__main__":
 
     # filter_event = None
     # filter_event = 'start_of_season_by_accumulation'
-    filter_event = 'has_wet_not_dry_spells'
+    filter_event = 'icpac_onset'
     # filter_event_kwargs = {'agg_days': 7, 'threshold': 5.0}
     # filter_event_kwargs = {'accumulation_threshold': 200.0, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'accumulation_threshold': 0.75,  'by_percent': True, 'time_grouping': time_grouping}
     # filter_event_kwargs = {'time_grouping': time_grouping}
-    filter_event_kwargs = {'onset_definition': 'chc'}
-    soft_margin = 365  # the full year
+    filter_event_kwargs = {}
     detect_in_time = True
     if detect_in_time:
         # filter_event_kwargs.update({'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}})
@@ -133,7 +132,6 @@ if __name__ == "__main__":
 
     metric_kwargs = {
         'obs_filter': True, 'fcst_filter': False,
-        'soft_margin_in_days': 28,
     }
     if args.normalize:
         normalize = filter_event_kwargs.get('accumulation_threshold', 1.0)
@@ -143,8 +141,8 @@ if __name__ == "__main__":
     data = []
     # for mn in ['pod', 'far']:
     # metrics = ['pod', 'far']
-    metrics = ['far']
-    # metrics = ['mae']
+    # metrics = ['far']
+    metrics = ['mae']
     # metrics = []
     for mn in metrics:
         data.append(
