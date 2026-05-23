@@ -8,21 +8,12 @@ import unicodedata
 import logging
 import numpy as np
 import xarray as xr
-import shapely
-from shapely.geometry import box, Polygon
-from shapely.ops import unary_union
-from affine import Affine
-from rasterio import features
+from shapely.geometry import box, GeometryCollection
 import rioxarray  # noqa: F401 - needed to enable .rio attribute
-from shapely.geometry import GeometryCollection
 
-
-from sklearn.cluster import KMeans
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler
-
+from .rainfall_regions import get_rainfall_regions
 from nuthatch import cache
-from sheerwater.utils import get_grid, get_grid_ds, regrid, check_bases, load_object, is_station_grid
+from sheerwater.utils import get_grid_ds, regrid, load_object
 
 import warnings
 from rasterio.errors import ShapeSkipWarning
@@ -42,7 +33,6 @@ logger = logging.getLogger(__name__)
 ##############################################################################
 # Utility functions for spatial subdivisions
 ##############################################################################
-
 
 def reconcile_country_name(country_name):
     """Maps a country name variant to its standardized name.
@@ -132,7 +122,6 @@ def reconcile_country_name(country_name):
     else:
         return country_name
 
-
 def clean_spatial_subdivision_name(name):
     """Clean a spatial subdivision name to make matching easier and replace non-English characters."""
     name = str(name)  # convert to string
@@ -146,7 +135,6 @@ def clean_spatial_subdivision_name(name):
     # If region is country data, reconcile the name
     name = reconcile_country_name(name)
     return name
-
 
 @cache(cache_args=['admin_level'])
 def admin_level_gdf_legacy(admin_level=2):
@@ -541,6 +529,72 @@ def agroecological_subdivision_labels(grid='global1_5'):
     return ds
 
 
+@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+def rainfall_region_labels(grid='global0_25'):
+    """Gridded rainfall-regime labels for east and west Africa nimbus regions.
+
+    Args:
+        grid (str): spatial resolution of regions.
+
+    Returns:
+        xarray.Dataset: dataset with a string ``region`` coordinate per lat/lon.
+    """
+
+    def masks_to_labels(masks, idx2names):
+        labels = xr.DataArray(
+            np.full((len(masks.lat), len(masks.lon)), "", dtype=object),
+            coords={"lat": masks.lat, "lon": masks.lon},
+            dims = ["lat", "lon"],
+            name = "rainfall_region"
+        )
+        for region in masks.region.values:
+            name = idx2names[region]
+            labels = xr.where(masks.sel(region=region).masks.data, name, labels)
+        labels = labels.where(labels != "", "no_region")
+        labels = labels.to_dataset(name="region").set_coords("region")
+        return labels
+
+    rr_east = get_rainfall_regions(
+            data_source="imerg_final",
+            kregions=5,
+            region="nimbus_horn_and_east_africa",
+            grid=grid,
+            mask="lsm",
+            agg_days=1,
+            smooth_neighbors=50,
+            spatial_coherence=5.0,
+    )
+    rr_west = get_rainfall_regions(
+            data_source="imerg_final",
+            kregions=4,
+            region="nimbus_west_africa",
+            grid=grid,
+            mask="lsm",
+            agg_days=1,
+            smooth_neighbors=50,
+            spatial_coherence=5.0,
+    )
+    rr_west = rr_west.assign_coords(region=rr_west.region + rr_east.region.size)
+    rr_east_west = xr.concat([rr_east, rr_west], dim="region")
+
+    rr_names = {# east africa
+                0 : "east_africa_coastal_horn",
+                1 : "east_africa_lake_victoria_basin",
+                2 : "east_africa_coastal_savannah",
+                3 : "east_africa_sudanian",
+                4 : "east_africa_west_ethiopian_highlands",
+                # west africa
+                5 : "west_africa_western_sahel",
+                6 : "west_africa_eastern_sahel",
+                7 : "west_africa_sudanian",
+                8 : "west_africa_coastal"
+                }
+
+    rr_labels = masks_to_labels(rr_east_west, rr_names)
+    return rr_labels
+
+
+
 ##############################################################################
 # The final spatial subdivision interface
 ##############################################################################
@@ -654,441 +708,6 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
     ds = ds.assign_coords(region=(('lat', 'lon'), combined_region_coords.reshape(ds.lat.size, ds.lon.size)))
     return ds
 
-##############################################################################
-# Core clipping / masking utilities
-##############################################################################
-
-
-def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
-    """Clip a dataset to a region.
-
-    Args:
-        ds(xr.Dataset): The dataset to clip to a specific region.
-        region(str, list): The region to clip to. A str or list of strs.
-        grid(str): The grid to clip to.
-        coords_to_clip(list): The coordinates to clip to the region. Coordinates outside set to 'nan'.
-        drop(bool): Whether to drop the original coordinates that are NaN'd by clipping.
-    """
-    if region == 'global' or region is None or 'global' in region:
-        return ds
-
-    if ds.lat.size == 0 and ds.lon.size == 0:
-        # If the dataset is empty / dimensionless, return it untouched
-        return ds
-
-    if not isinstance(region, list):
-        region = [region]
-
-    # if coords_to_clip is not None or a list, convert to a list.
-    if coords_to_clip is not None and not isinstance(coords_to_clip, list):
-        coords_to_clip = [coords_to_clip]
-        for coord in coords_to_clip:
-            if ["lat", "lon"] not in ds[coord].dims:
-                raise ValueError(f"Coordinates to clip must be indexed by lat and lon: {coord}")
-
-    # Clean the region names
-    region = [clean_spatial_subdivision_name(x) for x in region]
-
-    # Get the high level region for each region in the list
-    promoted_levels = []
-    for level in region:
-        level, promoted = get_spatial_subdivision_level(level, grid=grid)
-        if promoted == 0:
-            raise ValueError("Must pass a single region into clip_region, not a subdivision.")
-        promoted_levels.append(level)
-
-    # Sort the region names by the promoted region levels alphabetically
-    sort_idx = np.argsort(promoted_levels)
-    promoted_levels = [promoted_levels[i] for i in sort_idx]
-    region = [region[i] for i in sort_idx]
-
-    # setting coordinates to variables allows them to be clipped to the region.
-    # these are then reset to coordinates so those outside the region are 'nan'.
-    if coords_to_clip is not None:
-        ds = ds.reset_coords(coords_to_clip, drop=False)
-
-    #########################################################
-    # Clip to geometry regions
-    #########################################################
-    clipped_regions = [(i, x) for i, x in enumerate(promoted_levels) if spatial_subdivisions[x][1] is not None]
-    if len(clipped_regions) > 1:
-        raise ValueError(f"Cannot clip to multiple geometry regions at the same time: {clipped_regions}.")
-
-    if len(clipped_regions) == 1:
-        i, region_name = clipped_regions[0]
-        region_idx = region[i]
-        gdf = spatial_subdivisions[region_name][1]()
-        sub = gdf[gdf['region_name'] == region_idx]
-        ds = clip_by_geometry(ds, sub.geometry, drop=drop)
-
-    #########################################################
-    # Select gridded regions
-    #########################################################
-    gridded_regions = [(i, x) for i, x in enumerate(promoted_levels) if spatial_subdivisions[x][1] is None]
-    if len(gridded_regions) > 0:
-        # Prepare string for select of gridded regions
-        region_str = '-'.join([region[i] for i, _ in gridded_regions])
-        region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
-        region_ds = region_ds.rename({'region': '_clip_region'})
-        ds = ds.where((region_ds._clip_region == region_str), drop=False)
-        ds = ds.drop_vars('_clip_region')
-
-    # restore coordinate variables to coordinates.
-    if coords_to_clip is not None:
-        ds = ds.set_coords(coords_to_clip)
-
-    return ds
-
-
-def clip_by_geometry(ds, geometry=None, lon_dim='lon', lat_dim='lat', drop=True):
-    """Clip a dataset to a passed geometry.
-
-    This is not used in our pipelines, as it doesn't support regions that are not defined
-    by geometries, such as the gridded agroecological zones.
-
-    Args:
-        ds (xr.Dataset): The dataset to clip to a specific region.
-        geometry (shapely.geometry.Polygon): The geometry to clip to.
-        lon_dim (str): The name of the longitude dimension.
-        lat_dim (str): The name of the latitude dimension.
-        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
-    """
-    # No clipping needed
-    if geometry is None:
-        return ds
-
-    if ds.lat.size == 0 and ds.lon.size == 0:
-        # If the dataset is empty / dimensionless, return it untouched
-        return ds
-
-    # check if the dataset has data variables
-    if len(ds.data_vars) == 0:
-        # Must have a data variable to clip
-        ds['mask'] = xr.ones_like(ds.lat * ds.lon, dtype=np.int32)
-    if is_station_grid(ds):
-        ds = clip_station_grid(ds, geometry=geometry, drop=drop)
-    elif nonuniform_grid(ds):
-        ds = clip_with_mask(ds, geometry, drop=drop)
-    else:
-        # Set up dataframe for clipping
-        ds = ds.rio.write_crs("EPSG:4326")
-        ds = ds.rio.set_spatial_dims(lon_dim, lat_dim)
-        # swap region coordinate to a data variables
-        # Clip the grid to the passed geometry
-        ds = ds.rio.clip(geometry, geometry.crs, drop=drop)
-    return ds
-
-
-def apply_mask(ds, mask, var=None, val=0.0, grid='global1_5'):
-    """Apply a mask to a dataset.
-
-    Args:
-        ds (xr.Dataset): Dataset to apply mask to.
-        mask (str): The mask to apply. One of: 'lsm', None
-        var (str): Variable to mask. If None, applies to apply to all variables.
-        val (int): Value to mask below (any value that is
-            strictly less than this value will be masked).
-        grid (str): The grid resolution of the dataset.
-    """
-    # No masking needed if mask is None or the dataset is empty / dimensionless
-    if mask is None:
-        return ds
-
-    if ds.lat.size == 0 and ds.lon.size == 0:
-        # If the dataset is empty / dimensionless, return it untouched
-        return ds
-
-    # If the grid doesn't exist throw a warning and return
-    try:
-        get_grid(grid)
-    except NotImplementedError:
-        logger.warning(f"Cannot apply mask for undefinied grid {grid}.")
-        return ds
-
-    if isinstance(mask, str):
-        from .masks import spatial_mask
-        mask_ds = spatial_mask(mask, grid)
-    else:
-        mask_ds = mask
-
-    # Check that the mask and dataset have the same dimensions
-    if not all([dim in ds.dims for dim in mask_ds.dims]):
-        raise ValueError("Mask and dataset must have the same dimensions.")
-
-    if check_bases(ds, mask_ds) == -1:
-        raise ValueError("Datasets have different longitude bases. Cannot mask.")
-
-    # Ensure that the mask and the dataset don't have different precision
-    # This MUST be np.float32 as of 4/28/25...unsure why?
-    # Otherwise the mask doesn't match and lat/lons get dropped
-    mask_ds['lon'] = np.round(mask_ds.lon, 5).astype(np.float32)
-    mask_ds['lat'] = np.round(mask_ds.lat, 5).astype(np.float32)
-    ds['lon'] = np.round(ds.lon, 5).astype(np.float32)
-    ds['lat'] = np.round(ds.lat, 5).astype(np.float32)
-
-    masking_ds = mask_ds['mask'] > val
-    if isinstance(var, str):
-        # Mask a single variable
-        ds[var] = ds[var].where(masking_ds, drop=False)
-    else:
-        # Mask multiple variables
-        ds = ds.where(masking_ds, drop=False)
-    return ds
-
-
-def clip_with_mask(ds, region_df, drop=True):
-    """Clip a dataset to a region using a mask.
-
-    Args:
-        ds (xr.Dataset): Dataset to clip to a region.
-        region_df (geopandas.GeoDataFrame): The region data to clip to.
-        drop (bool): Whether to drop the original coordinates that are NaN'd by clipping.
-    """
-    # create a mask on the ds grid corresponding to the region
-    # broadcasting gives us an explicit lat/lon for each grid cell
-    lon2d, lat2d = xr.broadcast(ds.lon, ds.lat)
-    mask = xr.zeros_like(lon2d, dtype=bool)
-
-    polygon = region_df.geometry.union_all()
-
-    # the mask can be large; two step filtering will be faster
-    # first filter to the bounding box of the region
-    lon_min, lat_min, lon_max, lat_max = polygon.bounds
-    bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
-
-    # then filter to the precise polygon
-    # use NumPy; lazy xarray breaks Shapely and needs tricky re-alignment
-    mask.values[bmask.values] = shapely.intersects_xy(polygon, lon2d.values[bmask.values], lat2d.values[bmask.values])
-
-    # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads
-    # to visually strange results. By cropping to the bounding box, we have a better result.
-    ds = ds.where(mask, drop=False)
-    if drop:
-        ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
-    return ds
-
-
-def clip_station_grid(ds, geometry=None, drop=True):
-    """Clip a station grid to a geometry.
-
-    A station grid is indexed by station_id and has lat/lon coordinates corresponding to
-    individual station locations. Each lat/lon point needs to be checked against the geometry to
-    determine if it is within the geometry.
-    """
-    if geometry is None:
-        return ds
-
-    def station_within(station_lons, station_lats):
-        buffer = 1e-5
-        return shapely.contains_xy(geometry.iloc[0].buffer(buffer), station_lons, station_lats)
-
-    mask = xr.apply_ufunc(station_within, ds["lon"], ds["lat"], dask="parallelized", output_dtypes=[bool])
-    ds = ds.where(mask.compute(), drop=drop)
-
-    return ds
-
-
-def nonuniform_grid(ds, error_thresh=1e-5):
-    """Check if a dataset has a nonuniform grid.
-
-    Threshold value has been chosen based on inconsistency in chirps source grid.
-    """
-    # if lat or lon are not 1d arrays this must be a nonuniform grid, like smap
-    if len(ds.lat.shape) > 1 or len(ds.lon.shape) > 1:
-        return True
-
-    lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
-    lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
-    return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
-
-
-@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
-def rainfall_region_labels(grid='global0_25'):
-    """Gridded rainfall-regime labels for east and west Africa nimbus regions.
-
-    Args:
-        grid (str): spatial resolution of regions.
-
-    Returns:
-        xarray.Dataset: dataset with a string ``region`` coordinate per lat/lon.
-    """
-
-    def masks_to_labels(masks, idx2names):
-        labels = xr.DataArray(
-            np.full((len(masks.lat), len(masks.lon)), "", dtype=object),
-            coords={"lat": masks.lat, "lon": masks.lon},
-            dims = ["lat", "lon"],
-            name = "rainfall_region"
-        )
-        for region in masks.region.values:
-            name = idx2names[region]
-            labels = xr.where(masks.sel(region=region).masks.data, name, labels)
-        labels = labels.where(labels != "", "no_region")
-        labels = labels.to_dataset(name="region").set_coords("region")
-        return labels
-
-    rr_east = get_rainfall_regions(
-            data_source="imerg_final",
-            kregions=5,
-            region="nimbus_horn_and_east_africa",
-            grid=grid,
-            mask="lsm",
-            agg_days=1,
-            smooth_neighbors=50,
-            spatial_coherence=5.0,
-    )
-    rr_west = get_rainfall_regions(
-            data_source="imerg_final",
-            kregions=4,
-            region="nimbus_west_africa",
-            grid=grid,
-            mask="lsm",
-            agg_days=1,
-            smooth_neighbors=50,
-            spatial_coherence=5.0,
-    )
-    rr_west = rr_west.assign_coords(region=rr_west.region + rr_east.region.size)
-    rr_east_west = xr.concat([rr_east, rr_west], dim="region")
-
-    rr_names = {# east africa
-                0 : "east_africa_coastal_horn",
-                1 : "east_africa_lake_victoria_basin",
-                2 : "east_africa_coastal_savannah",
-                3 : "east_africa_sudanian",
-                4 : "east_africa_west_ethiopian_highlands",
-                # west africa
-                5 : "west_africa_western_sahel",
-                6 : "west_africa_eastern_sahel",
-                7 : "west_africa_sudanian",
-                8 : "west_africa_coastal"
-                }
-
-    rr_labels = masks_to_labels(rr_east_west, rr_names)
-    return rr_labels
-
-
-@cache(cache_args=['data_source', 'kregions', 'region', 'grid'])
-def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0_25", mask="lsm", agg_days=1, smooth_neighbors=50, spatial_coherence=0.0):
-    """Cluster grid cells by precipitation climatology into kregions."""
-    from sheerwater.climatology import climatology
-    # time range of climatology (years don't matter)
-    start_time, end_time = "1979-01-01", "1979-12-31"
-    # years over which to compute the climatology
-    first_year, last_year = 2015, 2025
-    # get the annual climatology for the region
-    clim_ds = climatology(start_time, end_time, "precip", agg_days, data=data_source,
-                          first_year=first_year, last_year=last_year,
-                          grid=grid, mask=mask, region=region,
-                          prob_type='deterministic', trend=False)
-
-    # prepare data for clustering
-    df = clim_ds.to_dataframe()
-    df = df.reset_index()
-    df['time'] = pd.to_datetime(df['time'])
-    df['point_id'] = list(zip(df['lat'], df['lon']))
-    # pivot - rows are points, columns are times, values are precip
-    df = df.pivot_table(index='point_id', columns='time', values='precip').sort_index(axis=1)
-    df = df.fillna(0)
-
-    df = rescale(df, mode="min-max")
-
-    if spatial_coherence > 0.0:
-        # add lat, lon as features to encourage spatial coherence of clusters
-        # spatial features
-        lat = np.array([x[0] for x in df.index])
-        lon = np.array([x[1] for x in df.index])
-
-        spatial_features = np.column_stack([lat, lon])
-
-        # normalize spatial coords
-        spatial_features = StandardScaler().fit_transform(spatial_features)
-
-        # combine rainfall + spatial features
-        df["lat"] = spatial_features[:, 0]
-        df["lon"] = spatial_features[:, 1]
-
-
-    # run k-means clustering
-    kmeans = KMeans(n_clusters=kregions, random_state=42, n_init=10)
-    labels = kmeans.fit_predict(df.values)
-    # prepare cluster dataframe
-    lat = np.array([coords[0] for coords in df.index.tolist()])
-    lon = np.array([coords[1] for coords in df.index.tolist()])
-
-    # use k-nearest neighbors to make clusters more contiguous
-    knn = KNeighborsClassifier(n_neighbors=smooth_neighbors)
-    locs = np.column_stack([lat, lon])
-    knn.fit(locs, labels)
-    cleaned_labels = knn.predict(locs)
-
-    # create masks for each cluster
-    g_lons, g_lats, _, _ = get_grid(grid)
-    ds_regions = xr.DataArray(
-        np.zeros((len(g_lats), len(g_lons), kregions), dtype=bool),
-        coords={"lat": g_lats, "lon": g_lons, "region": range(kregions)},
-        dims=["lat", "lon", "region"],
-        name="masks"
-    )
-    for region_idx in range(kregions):
-        region_lat, region_lon = lat[cleaned_labels == region_idx], lon[cleaned_labels == region_idx]
-        for rlat, rlon in zip(region_lat, region_lon):
-            ds_regions.loc[{"lat": rlat, "lon": rlon, "region": region_idx}] = True
-
-    return ds_regions
-
-
-def rescale(df, mode="min-max"):
-    """Rescale the data to a range of 0-1 or -1-1."""
-    if mode == "min-max":
-        row_min = np.nanmin(df.values, axis=1, keepdims=True)
-        row_max = np.nanmax(df.values, axis=1, keepdims=True)
-        denom = np.where((row_max - row_min) == 0, 1, row_max - row_min)
-        scaled = (df.values - row_min) / denom
-
-    elif mode == "z-score":
-        mean = df.values.mean(axis=1, keepdims=True)
-        std = df.values.std(axis=1, keepdims=True)
-        std = np.where(std == 0, 1, std)
-        scaled = (df.values - mean) / std
-
-    else:
-        raise ValueError(f"Invalid mode: {mode}")
-
-    return pd.DataFrame(
-        scaled,
-        index=df.index,
-        columns=df.columns
-    )
-
-
-def masks_to_polygons(masks, crs="EPSG:4326"):
-    """Convert lat/lon mask into a multipolygon geodataframe."""
-    nregions = len(masks.region.values)
-    gdfs = []
-    for region in range(nregions):
-        mask = masks.sel(region=region).astype(np.int8)
-        lat, lon = mask.lat.values, mask.lon.values
-        # grid spacings
-        dlat, dlon = np.abs(np.mean(np.diff(lat))), np.abs(np.mean(np.diff(lon)))
-        # upper-left corner transform
-        tf = Affine.translation(
-            lon.min() - dlon / 2,
-            lat.min() - dlat / 2,
-        ) * Affine.scale(dlon, dlat)
-        polygons = []
-        for geom, values in features.shapes(mask, transform=tf):
-            # if polygon corresponds to masked area, keep it.
-            if values == 1:
-                polygons.append(Polygon(geom['coordinates'][0]))
-        if len(polygons) == 0:
-            gdf = gpd.GeoDataFrame(geometry=[], crs=crs)
-        else:
-            # dissolve
-            merged = unary_union(polygons)
-            gdf = gpd.GeoDataFrame(geometry=[merged],crs=crs)
-        gdf['region'] = region
-        gdfs.append(gdf)
-    return gdfs
 
 ##################################################################
 # Spatial subdivision definitions, including custom regions
