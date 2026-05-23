@@ -9,6 +9,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 
+
 def rescale(df, mode="min-max"):
     """Rescale the data to a range of 0-1 or -1-1."""
     if mode == "min-max":
@@ -37,21 +38,21 @@ def rescale(df, mode="min-max"):
 def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0_25", mask="lsm",
                          agg_days=1, smooth_neighbors=50, spatial_coherence=0.0):
     """Cluster grid cells by precipitation climatology into kregions."""
-    from sheerwater.climatology import climatology
-    # time range of climatology (years don't matter)
-    start_time, end_time = "1979-01-01", "1979-12-31"
+    from sheerwater.climatology import climatology_agg_raw
+
     # years over which to compute the climatology
     first_year, last_year = 2015, 2025
     # get the annual climatology for the region
-    clim_ds = climatology(start_time, end_time, "precip", agg_days, data=data_source,
+    clim_ds = climatology_agg_raw("precip", data=data_source,
                           first_year=first_year, last_year=last_year,
+                          agg_days=agg_days,
                           grid=grid, mask=mask, region=region,
                           prob_type='deterministic', trend=False)
 
     # prepare data for clustering
     df = clim_ds.to_dataframe()
     df = df.reset_index()
-    df['time'] = pd.to_datetime(df['time'])
+    df['time'] = pd.to_datetime(df['dayofyear'])
     df['point_id'] = list(zip(df['lat'], df['lon']))
     # pivot - rows are points, columns are times, values are precip
     df = df.pivot_table(index='point_id', columns='time', values='precip').sort_index(axis=1)
