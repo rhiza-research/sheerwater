@@ -5,6 +5,7 @@ from functools import partial
 import geopandas as gpd
 import pandas as pd
 import unicodedata
+import dask
 import logging
 import numpy as np
 import xarray as xr
@@ -921,3 +922,16 @@ spatial_subdivisions = {
     # Custom agroecological zones
     'agroecological_zone': [agroecological_subdivision_labels, None]
 }
+
+@cache(cache_args=["grid", "space_grouping", "region"], backend="sql")
+def spacegrouping_category_codes(grid, space_grouping, region="global"):
+    """Get mapping between categorical codes and string names of spatial subdivisions.
+
+    This allows for more efficient data frames where region name strings are not replicated over many rows.
+    """
+    labels = space_grouping_labels(grid=grid, space_grouping=space_grouping, region=region)
+    regions = dask.array.unique(labels.region.data).compute()
+    categories = pd.Categorical(regions)
+    # create pandas dataframe with region names and categories
+    df = pd.DataFrame({"region": categories.tolist(), "region_id": categories.codes})
+    return df
