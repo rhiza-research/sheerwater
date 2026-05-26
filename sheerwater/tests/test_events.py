@@ -203,6 +203,8 @@ def test_event_climatology(remote_dask_cluster):  # noqa: ARG001
         lookback_source='imerg',
         event=event_name, event_kwargs=event_kwargs,
     )
+    # Ensure the event has been run on the climatology dataset
+    assert ds.attrs.get("event") == event_name
     slice1 = ds.sel(time='2020-01-10').isel(prediction_timedelta=0)
     slice2 = ds.sel(time='2020-01-10').isel(prediction_timedelta=5)
     slice3 = ds.sel(time='2020-01-10').isel(prediction_timedelta=10)
