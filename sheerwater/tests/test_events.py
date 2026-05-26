@@ -229,3 +229,41 @@ def test_event_and_processor_tagging():
     regrid_fn = get_processor_fn("regrid")
     proc_out = regrid_fn(ds, target_grid="global1_5")
     assert proc_out.attrs.get("processor") == "regrid"
+
+
+def test_ecmwf_event_via_interface_matches_manual_application(remote_dask_cluster):  # noqa: ARG001
+    """Applying `above_threshold` via the forecast interface == calling it on the raw output."""
+    common_kwargs = dict(
+        start_time="2022-01-01", end_time="2022-12-31",
+        variable="precip", agg_days=1,
+        grid="global1_5", mask="lsm", region="kenya",
+    )
+
+    # Raw forecast, then apply the event manually. agg_days=1 makes the rolling step a
+    # per-cell identity, so axis choice (valid time vs. lead time) does not affect values.
+    raw = ecmwf_ifs_er_debiased(**common_kwargs)
+    manual = above_threshold(raw, agg_days=1, threshold=1.0)
+
+    via_interface = ecmwf_ifs_er_debiased(
+        **common_kwargs,
+        event="above_threshold",
+        event_kwargs={"agg_days": 1, "threshold": 1.0},
+    )
+
+    assert manual.equals(via_interface)
+
+    # The interface must stamp the event / post_processed attrs so downstream
+    # `post_process` calls know not to re-run the event or processor steps.
+    assert via_interface.attrs.get("event") == "above_threshold"
+    assert 'post_processed' not in via_interface.attrs
+
+    # Same call but with a processor configured: post_processed must flip to True.
+    with_proc = ecmwf_ifs_er_debiased(
+        **common_kwargs,
+        event="above_threshold",
+        event_kwargs={"agg_days": 1, "threshold": 1.0},
+        processors=["regrid"],
+        processor_kwargs=[{"target_grid": "global1_5"}],
+    )
+    assert with_proc.attrs.get("event") == "above_threshold"
+    assert with_proc.attrs.get("post_processed") is True

@@ -145,14 +145,18 @@ class SheerwaterDataset(NuthatchProcessor):
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
 
         # Run the processors on the dataset
-        if self.processors is not None and 'post_processed' not in ds.attrs:
+        if len(self.processors) > 0 and 'post_processed' not in ds.attrs:
             for i, processor_fn in enumerate(self.processor_fns):
                 packed_processor_kwargs = self.processor_kwargs[i]
                 packed_processor_kwargs['func_name'] = self.func_name
                 packed_processor_kwargs['variable'] = self.variable
                 packed_processor_kwargs['grid'] = self.grid
-                start = ds.time.values.min()
-                end = ds.time.values.max()
+                if 'time' in ds.coords:
+                    start = ds.time.values.min()
+                    end = ds.time.values.max()
+                else:
+                    start = ds.init_time.values.min()
+                    end = ds.init_time.values.max()
                 packed_processor_kwargs['start_time'] = start
                 packed_processor_kwargs['end_time'] = end
                 ds = processor_fn(ds, **packed_processor_kwargs)
@@ -262,12 +266,7 @@ class data(SheerwaterDataset):
 
         if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
-            ds = ds.assign_attrs({'detect_in_time': self.detect_in_time})
-        elif self.detect_in_time is not None and 'detect_in_time' in ds.attrs and \
-                ds.attrs['detect_in_time'] != self.detect_in_time:
-            raise ValueError(
-                f"Detect in time {ds.attrs['detect_in_time']} has already been applied to the dataset. "
-                f"Please do not apply it again.")
+            ds = ds.assign_attrs({'detect_in_time': True})
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
@@ -413,12 +412,7 @@ class forecast(SheerwaterDataset):
 
         if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
-            ds = ds.assign_attrs({'detect_in_time': self.detect_in_time})
-        elif self.detect_in_time is not None and 'detect_in_time' in ds.attrs and \
-                ds.attrs['detect_in_time'] != self.detect_in_time:
-            raise ValueError(
-                f"Detect in time {ds.attrs['detect_in_time']} has already been applied to the dataset. "
-                f"Please do not apply it again.")
+            ds = ds.assign_attrs({'detect_in_time': True})
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
