@@ -51,7 +51,7 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal",  # n
 
 
 @dask_remote
-@sheerwater_forecast(pre_aggregated=True)
+@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
@@ -70,6 +70,7 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
     timescale = lead_params.get(agg_days, None)
     if timescale is None:
         raise NotImplementedError(f"Agg days {agg_days} not implemented for Salient.")
+
 
     # Get the data with the right days
     forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
@@ -106,6 +107,9 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
     ds = ds.swap_dims({'lead': 'prediction_timedelta'})
     ds = ds.drop_vars('lead')
     ds = ds.rename({'forecast_date': 'init_time'})
+
+    # Assign agg days so decorator knows this is already aggregated
+    ds = ds.assign_attrs(agg_days=agg_days)
 
     return ds
 

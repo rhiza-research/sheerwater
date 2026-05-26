@@ -126,7 +126,8 @@ def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False):  
 @spatial()
 @cache(cache=False,
        cache_args=['variable', 'prob_type'],
-       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
+       backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}},
+       cache_disable_if={'prob_type': 'probabilistic'})
 def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic', mask=None, region='global'):
     """Roll and aggregate the FuXi data."""
     ds = fuxi_raw(start_time, end_time, mask=mask, region=region)

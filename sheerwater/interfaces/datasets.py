@@ -31,21 +31,17 @@ class SheerwaterDataset(NuthatchProcessor):
     It only supports xarray datasets.
     """
 
-    def __init__(self, region_dim=None, pre_aggregated=False, **kwargs):
+    def __init__(self, region_dim=None, **kwargs):
         """Initialize the spatial processor.
 
         Args:
             region_dim (str): The name of the region dimension. If None, the returned dataset will not be
                 assumed to have a region dimesion and region data will be fetched from the region registry
                 before clipping.
-            pre_aggregated (bool): A flag to set if a forecast or dataset has handled aggregation on its own.
-                requests the decorator not to aggregate again. Useful for Salient (which issues fundamentally
-                weekly forecasts.)
             kwargs: Additional keyword arguments to pass to the NuthatchProcessor.
         """
         NuthatchProcessor.__init__(self, **kwargs)
         self.region_dim = region_dim
-        self.pre_aggregated = pre_aggregated
 
     def process_arguments(self, sig, *args, **kwargs):
         """Process the arguments for the datasets decorator."""
@@ -128,6 +124,33 @@ class SheerwaterDataset(NuthatchProcessor):
         if not isinstance(ds, xr.Dataset):
             raise RuntimeError(
                 f"Sheerwater data and forecast decorators must return xarray datasets. Received {type(ds)}.")
+
+        # Run the processors on the dataset
+        # We do this before clipping and masking to allow processors
+        # to properly change resolution.
+        # Pass region and mask to processors so they can implement their
+        # own efficiency improvements
+        if 'processed' not in ds.attrs:
+            for i, processor_fn in enumerate(self.processor_fns):
+                packed_processor_kwargs = self.processor_kwargs[i]
+                packed_processor_kwargs['func_name'] = self.func_name
+                packed_processor_kwargs['variable'] = self.variable
+                packed_processor_kwargs['grid'] = self.grid
+                packed_processor_kwargs['region'] = self.region
+                packed_processor_kwargs['mask'] = self.mask
+                # It would be better to get these from the passed args
+                # but because forecasts often shift them
+                # for now we need to compute it.
+                start = ds.init_time.values.min()
+                end = ds.init_time.values.max()
+                packed_processor_kwargs['start_time'] = start
+                packed_processor_kwargs['end_time'] = end
+                ds = processor_fn(ds, **packed_processor_kwargs)
+
+                # If we have a new grid after this make sure we assign it
+                # this makes sure the we get the lookback on the correct grid
+                if 'grid' in ds.attrs:
+                    self.grid = ds.attrs['grid']
 
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):
@@ -250,10 +273,7 @@ class data(SheerwaterDataset):
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
-
-        # If agg days are not equal to 1 we need to roll and agg
-        if not self.pre_aggregated and \
-           self.agg_days != 1 and (('agg_days' not in ds.attrs) or
+        elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
                                    ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
@@ -395,13 +415,8 @@ class forecast(SheerwaterDataset):
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
-
-        if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
-            ds = convert_init_time_to_pred_time(ds)
-
         # If agg days are not equal to 1 we need to roll and agg
-        if not self.pre_aggregated and \
-           self.agg_days != 1 and (('agg_days' not in ds.attrs) or
+        elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
                                    ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
@@ -409,6 +424,12 @@ class forecast(SheerwaterDataset):
             ds = ds.assign_attrs({
                 'agg_days': float(self.agg_days),
             })
+        elif self.agg_days != 1 and 'agg_days' in ds.attrs and self.agg_days != ds.attrs['agg_days']:
+            raise ValueError(f"Requested aggregation {self.agg_days}, but underlying dataset has already been \
+                             aggregated to {ds.attrs['agg_days']}")
+
+        if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
+            ds = convert_init_time_to_pred_time(ds)
 
         if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
