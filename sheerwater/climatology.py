@@ -12,7 +12,8 @@ from nuthatch.processors import timeseries
 
 from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
 from sheerwater.reanalysis import era5
-from sheerwater.utils import add_dayofyear, dask_remote, get_dates, pad_with_leapdays
+from sheerwater.utils import (add_dayofyear, dask_remote, get_dates, pad_with_leapdays,
+                              convert_pred_time_to_init_time, shift_by_days)
 
 
 @dask_remote
@@ -412,8 +413,12 @@ def _climatology_unified(start_time, end_time, variable, data='era5',
         ds = ds.assign_attrs(prob_type="ensemble")
 
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})  # nanosecond precision
-    ds = ds.rename({"time": "init_time"})
+    ds = ds.expand_dims({
+        "prediction_timedelta": [np.timedelta64(x, "D").astype('timedelta64[ns]') for x in range(0, 46)]
+    })
+    ds = convert_pred_time_to_init_time(ds)
+    # Remove any init times introduces in the conversion
+    ds = ds.sel(init_time=slice(start_time, end_time))
     return ds
 
 

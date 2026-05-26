@@ -4,7 +4,9 @@ import pytest
 import xarray as xr
 
 from sheerwater.forecasts import graphcast
+from sheerwater.climatology import climatology_era5_1985_2015
 from sheerwater.interfaces.events import above_threshold, get_event_fn, has_onset_conditions
+from sheerwater.interfaces.processors import get_processor_fn
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
@@ -190,3 +192,40 @@ def test_event_duration_longer_than_available_leads(remote_dask_cluster):  # noq
         )
 
 
+def test_event_climatology(remote_dask_cluster):  # noqa: ARG001
+    """Check that climatology events work as expected with observational blending."""
+    event_name = "above_threshold"
+    event_kwargs = {"agg_days": 5, "threshold": 1.0}
+
+    ds = climatology_era5_1985_2015(
+        start_time="2020-01-01", end_time="2020-01-15",
+        variable="precip", agg_days=1, grid="global1_5",
+        mask='lsm', region='kenya',
+        lookback_source='imerg',
+        event=event_name, event_kwargs=event_kwargs,
+    )
+    slice1 = ds.sel(time='2020-01-10').isel(prediction_timedelta=0)
+    slice2 = ds.sel(time='2020-01-10').isel(prediction_timedelta=5)
+    slice3 = ds.sel(time='2020-01-10').isel(prediction_timedelta=10)
+
+    # Assert that the first and second slices are not equal, but the second and third are
+    # Climatology doesn't vary with lead, so once we're beyond obs blending, they will be equal
+    assert not np.array_equal(slice1.precip.values, slice2.precip.values, equal_nan=True)
+    assert np.array_equal(slice2.precip.values, slice3.precip.values, equal_nan=True)
+
+
+def test_event_and_processor_tagging():
+    """Calling an event / processor manually stamps the dataset with its own name.
+
+    These are the same flags `data.post_process` and `forecast.post_process` check to
+    avoid running events or processors twice, so this test pins down the contract.
+    """
+    ds = _tiny_precip_ds()
+
+    event_out = above_threshold(ds, agg_days=1, threshold=0.5)
+
+    assert event_out.attrs.get("event") == "above_threshold"
+
+    regrid_fn = get_processor_fn("regrid")
+    proc_out = regrid_fn(ds, target_grid="global1_5")
+    assert proc_out.attrs.get("processor") == "regrid"

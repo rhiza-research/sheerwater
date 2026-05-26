@@ -156,16 +156,11 @@ class SheerwaterDataset(NuthatchProcessor):
                 packed_processor_kwargs['start_time'] = start
                 packed_processor_kwargs['end_time'] = end
                 ds = processor_fn(ds, **packed_processor_kwargs)
-            ds = ds.assign_attrs({'post_processed': self.processors})
+            ds = ds.assign_attrs({'post_processed': True})
             # If we have a new grid after this make sure we assign it
             # this makes sure the we get the lookback on the correct grid
             if 'grid' in ds.attrs:
                 self.grid = ds.attrs['grid']
-        elif self.processors is not None and 'post_processed' in ds.attrs and \
-                ds.attrs['post_processed'] != self.processors:
-            raise ValueError(
-                f"Processors {ds.attrs['post_processed']} have already been applied to the dataset. "
-                f"Please do not apply them again.")
         return ds
 
     def update_args_or_kwargs(self, values, args, kwargs, bound_args):
