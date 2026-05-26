@@ -13,7 +13,7 @@ from nuthatch.processors import timeseries
 from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
 from sheerwater.reanalysis import era5
 from sheerwater.utils import (add_dayofyear, dask_remote, get_dates, pad_with_leapdays,
-                              convert_pred_time_to_init_time, shift_by_days)
+                              convert_pred_time_to_init_time)
 
 
 @dask_remote

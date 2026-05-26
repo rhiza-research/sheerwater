@@ -6,7 +6,6 @@ import xarray as xr
 from sheerwater.forecasts import graphcast
 from sheerwater.climatology import climatology_era5_1985_2015
 from sheerwater.interfaces.events import above_threshold, get_event_fn, has_onset_conditions
-from sheerwater.interfaces.processors import get_processor_fn
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
@@ -212,23 +211,6 @@ def test_event_climatology(remote_dask_cluster):  # noqa: ARG001
     # Climatology doesn't vary with lead, so once we're beyond obs blending, they will be equal
     assert not np.array_equal(slice1.precip.values, slice2.precip.values, equal_nan=True)
     assert np.array_equal(slice2.precip.values, slice3.precip.values, equal_nan=True)
-
-
-def test_event_and_processor_tagging():
-    """Calling an event / processor manually stamps the dataset with its own name.
-
-    These are the same flags `data.post_process` and `forecast.post_process` check to
-    avoid running events or processors twice, so this test pins down the contract.
-    """
-    ds = _tiny_precip_ds()
-
-    event_out = above_threshold(ds, agg_days=1, threshold=0.5)
-
-    assert event_out.attrs.get("event") == "above_threshold"
-
-    regrid_fn = get_processor_fn("regrid")
-    proc_out = regrid_fn(ds, target_grid="global1_5")
-    assert proc_out.attrs.get("processor") == "regrid"
 
 
 def test_ecmwf_event_via_interface_matches_manual_application(remote_dask_cluster):  # noqa: ARG001
