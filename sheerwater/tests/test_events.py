@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from sheerwater.forecasts import graphcast
 from sheerwater.interfaces.events import above_threshold, get_event_fn, has_onset_conditions
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
@@ -172,3 +173,20 @@ def test_start_of_season_by_spells(remote_dask_cluster):  # noqa: ARG001
         grid="global1_5",
         mask='lsm',
         region='kenya')
+
+
+def test_event_duration_longer_than_available_leads(remote_dask_cluster):  # noqa: ARG001
+    """Graphcast cannot evaluate events whose `duration` is longer than the available leads."""
+    event_name = "above_threshold"
+    event_kwargs = {"agg_days": 20, "threshold": 1.0}
+
+    # The event itself reports a duration larger than the single available lead.
+    with pytest.raises(ValueError, match="requires at least 20 lead days."):
+        graphcast(
+            start_time="2020-01-01", end_time="2020-01-15",
+            variable="precip", agg_days=1, grid="global1_5",
+            mask='lsm', region='kenya',
+            event=event_name, event_kwargs=event_kwargs,
+        )
+
+

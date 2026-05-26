@@ -110,7 +110,6 @@ class SheerwaterDataset(NuthatchProcessor):
         else:
             self.processor_kwargs = processor_kwargs_arg
 
-
         if len(self.processor_fns) != len(self.processor_kwargs):
             raise ValueError("Number of processor kwarg dicts must match number of processor functions")
 
@@ -144,6 +143,29 @@ class SheerwaterDataset(NuthatchProcessor):
             'units': self.units,
         })
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+
+        # Run the processors on the dataset
+        if self.processors is not None and 'post_processed' not in ds.attrs:
+            for i, processor_fn in enumerate(self.processor_fns):
+                packed_processor_kwargs = self.processor_kwargs[i]
+                packed_processor_kwargs['func_name'] = self.func_name
+                packed_processor_kwargs['variable'] = self.variable
+                packed_processor_kwargs['grid'] = self.grid
+                start = ds.time.values.min()
+                end = ds.time.values.max()
+                packed_processor_kwargs['start_time'] = start
+                packed_processor_kwargs['end_time'] = end
+                ds = processor_fn(ds, **packed_processor_kwargs)
+            ds = ds.assign_attrs({'post_processed': self.processors})
+            # If we have a new grid after this make sure we assign it
+            # this makes sure the we get the lookback on the correct grid
+            if 'grid' in ds.attrs:
+                self.grid = ds.attrs['grid']
+        elif self.processors is not None and 'post_processed' in ds.attrs and \
+                ds.attrs['post_processed'] != self.processors:
+            raise ValueError(
+                f"Processors {ds.attrs['post_processed']} have already been applied to the dataset. "
+                f"Please do not apply them again.")
         return ds
 
     def update_args_or_kwargs(self, values, args, kwargs, bound_args):
@@ -216,21 +238,8 @@ class data(SheerwaterDataset):
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
 
-        # Run the processors on the dataset
-        for i, processor_fn in enumerate(self.processor_fns):
-            if 'processed' not in ds.attrs:
-                packed_processor_kwargs = self.processor_kwargs[i]
-                packed_processor_kwargs['func_name'] = self.func_name
-                packed_processor_kwargs['variable'] = self.variable
-                packed_processor_kwargs['grid'] = self.grid
-                start = ds.time.values.min()
-                end = ds.time.values.max()
-                packed_processor_kwargs['start_time'] = start
-                packed_processor_kwargs['end_time'] = end
-                ds = processor_fn(ds, **packed_processor_kwargs)
-
         # Run the events on the dataset
-        if self.event is not None and 'processed' not in ds.attrs:
+        if self.event is not None and 'event' not in ds.attrs:
             # Ensure that data are daily indexed before applying events
             daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(),
                                          stride='day', return_string=False)
@@ -239,7 +248,9 @@ class data(SheerwaterDataset):
                     "Datasources must have a complete daily time index to enable valid windowing. "
                     "Please reindex your data source in time.")
             ds = self.event_fn(ds, **self.event_kwargs)
-
+        elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
+            raise ValueError(
+                f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
 
         # If agg days are not equal to 1 we need to roll and agg
         if not self.pre_aggregated and \
@@ -254,16 +265,20 @@ class data(SheerwaterDataset):
             raise ValueError(f"Requested aggregation {self.agg_days}, but underlying dataset has already been \
                              aggregated to {ds.attrs['agg_days']}")
 
-        if self.detect_in_time is not None and 'processed' not in ds.attrs:
+        if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
+            ds = ds.assign_attrs({'detect_in_time': self.detect_in_time})
+        elif self.detect_in_time is not None and 'detect_in_time' in ds.attrs and \
+                ds.attrs['detect_in_time'] != self.detect_in_time:
+            raise ValueError(
+                f"Detect in time {ds.attrs['detect_in_time']} has already been applied to the dataset. "
+                f"Please do not apply it again.")
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
                           'time', 'lat', 'lon', 'member', 'group', 'station_id']])
 
         # Add a flag to the dataset to indicate that it has been processed
-        ds = ds.assign_attrs({'processed': True})
-
         return ds
 
 
@@ -352,26 +367,8 @@ class forecast(SheerwaterDataset):
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
 
-        # Run the processors on the dataset
-        for i, processor_fn in enumerate(self.processor_fns):
-            if 'processed' not in ds.attrs:
-                packed_processor_kwargs = self.processor_kwargs[i]
-                packed_processor_kwargs['func_name'] = self.func_name
-                packed_processor_kwargs['variable'] = self.variable
-                packed_processor_kwargs['grid'] = self.grid
-                start = ds.init_time.values.min()
-                end = ds.init_time.values.max()
-                packed_processor_kwargs['start_time'] = start
-                packed_processor_kwargs['end_time'] = end
-                ds = processor_fn(ds, **packed_processor_kwargs)
-
-                # If we have a new grid after this make sure we assign it
-                # this makes sure the we get the lookback on the correct grid
-                if 'grid' in ds.attrs:
-                    self.grid = ds.attrs['grid']
-
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
-        if self.event is not None and 'processed' not in ds.attrs:
+        if self.event is not None and 'event' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
 
             #################################################################################################
@@ -401,6 +398,9 @@ class forecast(SheerwaterDataset):
             # TODO: could add a daily data check here
             ds = self.event_fn(ds, **self.event_kwargs)
             ds = ds.rename({'time': 'prediction_timedelta'})
+        elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
+            raise ValueError(
+                f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
 
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             ds = convert_init_time_to_pred_time(ds)
@@ -416,14 +416,19 @@ class forecast(SheerwaterDataset):
                 'agg_days': float(self.agg_days),
             })
 
-        if self.detect_in_time is not None and 'processed' not in ds.attrs:
+        if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
+            ds = ds.assign_attrs({'detect_in_time': self.detect_in_time})
+        elif self.detect_in_time is not None and 'detect_in_time' in ds.attrs and \
+                ds.attrs['detect_in_time'] != self.detect_in_time:
+            raise ValueError(
+                f"Detect in time {ds.attrs['detect_in_time']} has already been applied to the dataset. "
+                f"Please do not apply it again.")
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
                            var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member', 'group']])
 
-        ds = ds.assign_attrs({'processed': True})
         return ds
 
 
