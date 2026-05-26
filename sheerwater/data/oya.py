@@ -145,7 +145,7 @@ def oya_gridded(start_time, end_time, grid, mask=None,  # noqa: ARG001
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                                 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def oya(start_time, end_time, variable, agg_days, grid, # noqa: ARG001
+def oya(start_time, end_time, variable, agg_days, grid,  # noqa: ARG001
         event=None, event_kwargs=None,  # noqa: ARG001
         processors=None, processor_kwargs=None,  # noqa: ARG001
         mask=None, region='global'):

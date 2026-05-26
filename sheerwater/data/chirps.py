@@ -12,12 +12,13 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import dask_remote, regrid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
+
 @dask_remote
 @cache(cache=True,
        cache_args=['date'],
        backend_kwargs={
            'chunking': {'lat': 2400, 'lon': 7200, 'time': 1}
-})
+       })
 def chirps_raw_live_daily(date):  # noqa: ARG001
     """CHIRPS live from this year."""
     dt = pd.to_datetime(date)
@@ -34,14 +35,13 @@ def chirps_raw_live_daily(date):  # noqa: ARG001
     return ds
 
 
-
 @dask_remote
 @spatial()
 @timeseries()
 @cache(cache=False,
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-})
+       })
 def chirps_raw_live(start_time=None, end_time=None, grid='source', mask=None, region='global'):  # noqa: ARG001
     """CHIRPS live from this year."""
     days = pd.date_range(start_time, end_time)
@@ -192,7 +192,7 @@ def chirps_raw(year, grid, stations=True, version=2):  # noqa: ARG001
 @cache(cache_args=['grid', 'stations', 'version'],
        backend_kwargs={
            'chunking': {'lat': 300, 'lon': 300, 'time': 365}
-       }
+}
 )
 def chirps_gridded(start_time, end_time, grid, stations=True, version=2,
                    mask=None, region='global'):  # noqa: ARG001

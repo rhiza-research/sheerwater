@@ -176,7 +176,7 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1", mas
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5_land(start_time, end_time, variable, agg_days, #noqa: ARG001
+def era5_land(start_time, end_time, variable, agg_days,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
               processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001

@@ -211,7 +211,7 @@ def graphcast(start_time=None, end_time=None, variable="precip", agg_days=1,  # 
     # Get the data with the right days
     ds = graphcast_daily_wb(forecast_start, forecast_end, variable,
                             grid=grid, mask=mask,
-                             region=region)
+                            region=region)
     ds = ds.assign_attrs(prob_type="deterministic")
 
     # Rename to standard naming

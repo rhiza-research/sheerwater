@@ -381,9 +381,9 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'prob_type', 'grid', 'mask', 'region'])
-def climatology(start_time, end_time, variable, agg_days, data='era5', #noqa: ARG001
+def climatology(start_time, end_time, variable, agg_days, data='era5',  # noqa: ARG001
                 first_year=1985, last_year=2014, trend=False,
-                event=None, event_kwargs=None, processors=None, processor_kwargs=None, #noqa: ARG001
+                event=None, event_kwargs=None, processors=None, processor_kwargs=None,  # noqa: ARG001
                 prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
     if trend:
@@ -424,7 +424,7 @@ def _climatology_unified(start_time, end_time, variable, data='era5',
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic', # noqa: ARG001
+def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
                                event=None, event_kwargs=None,  # noqa: ARG001
                                processors=None, processor_kwargs=None,  # noqa: ARG001
                                lookback_source=None, densify=False,  # noqa: ARG001
@@ -442,7 +442,7 @@ def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=7, prob_
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic', # noqa: ARG001
+def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
                                 event=None, event_kwargs=None,  # noqa: ARG001
                                 processors=None, processor_kwargs=None,  # noqa: ARG001
                                 lookback_source=None, densify=False,  # noqa: ARG001
@@ -460,7 +460,7 @@ def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic', # noqa: ARG001
+def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
                                   event=None, event_kwargs=None,  # noqa: ARG001
                                   processors=None, processor_kwargs=None,  # noqa: ARG001
                                   lookback_source=None, densify=False,  # noqa: ARG001
@@ -478,7 +478,7 @@ def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=7, pr
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, prob_type='deterministic', # noqa: ARG001
+def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
                                    event=None, event_kwargs=None,  # noqa: ARG001
                                    processors=None, processor_kwargs=None,  # noqa: ARG001
                                    lookback_source=None, densify=False,  # noqa: ARG001
@@ -496,7 +496,7 @@ def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, p
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_1990_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic', # noqa: ARG001
+def climatology_era5_1990_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
                                event=None, event_kwargs=None,  # noqa: ARG001
                                processors=None, processor_kwargs=None,  # noqa: ARG001
                                lookback_source=None, densify=False,  # noqa: ARG001
@@ -514,7 +514,7 @@ def climatology_era5_1990_2020(start_time, end_time, variable, agg_days=7, prob_
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_trend_1985_2015(start_time, end_time, variable, agg_days, prob_type='deterministic', # noqa: ARG001
+def climatology_era5_trend_1985_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',  # noqa: ARG001
                                      event=None, event_kwargs=None,  # noqa: ARG001
                                      processors=None, processor_kwargs=None,  # noqa: ARG001
                                      lookback_source=None, densify=False,  # noqa: ARG001

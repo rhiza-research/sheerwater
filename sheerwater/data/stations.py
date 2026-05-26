@@ -61,7 +61,7 @@ def stations_aggregated(start_time, end_time, variable,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def stations(start_time=None, end_time=None, variable='precip', agg_days=1, # noqa: ARG001
+def stations(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
               processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001

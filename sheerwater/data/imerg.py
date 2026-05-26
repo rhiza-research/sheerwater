@@ -15,7 +15,7 @@ from .earthaccess_generic import earthaccess_dataset
 @spatial()
 @timeseries()
 @cache(cache=False, cache_args=["version"], backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def imerg_raw_live(start_time, end_time, version='late', delayed=False, grid='source', mask=None, region='global'): # noqa: ARG001
+def imerg_raw_live(start_time, end_time, version='late', delayed=False, grid='source', mask=None, region='global'):  # noqa: ARG001
     """GPM IMERG Final / Late Precipitation L3 1 day 0.1 degree x 0.1 degree V07 (GPM_3IMERGDF / GPM_3IMERGDL)."""
     def imerg_preprocessor(dt):
         ds = dt['precipitation'].to_dataset()

@@ -151,13 +151,13 @@ def gencast_daily(start_time, end_time, variable, grid='global0_25', mask=None, 
                    'global0_25': {"lat": 721, "lon": 1440, 'lead_time': 10, 'time': 1, 'member': 5}
                },
            }
-       },
-       cache_disable_if={
+},
+    cache_disable_if={
            'prob_type': 'probabilistic'
-       })
+})
 def gencast_processed(start_time, end_time, variable,
-                   prob_type='deterministic', grid='global0_25', mask=None,
-                   region='global'):
+                      prob_type='deterministic', grid='global0_25', mask=None,
+                      region='global'):
     """A rolled and aggregated gencast forecast."""
     ds = gencast_daily(start_time, end_time, variable, grid, mask=mask, region=region)
 
@@ -176,7 +176,7 @@ def gencast_processed(start_time, end_time, variable,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', #noqa: ARG001
+def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',  # noqa: ARG001
             event=None, event_kwargs=None,  # noqa: ARG001
             lookback_source=None, densify=False,  # noqa: ARG001
             grid='global1_5', mask='lsm', region="global"):  # noqa: ARG001
@@ -190,7 +190,7 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_
 
     # Get the data with the right days
     ds = gencast_processed(start_time=forecast_start, end_time=forecast_end, variable=variable,
-                        prob_type=prob_type, grid=grid, mask=mask, region=region)
+                           prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
     else:

@@ -131,7 +131,7 @@ def smap_gridded(start_time, end_time, grid='source', version='L3'):
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                                 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1, # noqa: ARG001
+def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,  # noqa: ARG001
             event=None, event_kwargs=None,  # noqa: ARG001
             processors=None, processor_kwargs=None,  # noqa: ARG001
             grid='source', mask=None, region='global'):  # noqa: ARG001
@@ -148,7 +148,7 @@ def smap_l3(start_time=None, end_time=None, variable='soil_moisture', agg_days=1
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                                 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1, # noqa: ARG001
+def smap_l4(start_time=None, end_time=None, variable='soil_moisture', agg_days=1,  # noqa: ARG001
             event=None, event_kwargs=None,  # noqa: ARG001
             processors=None, processor_kwargs=None,  # noqa: ARG001
             grid='source', mask=None, region='global'):  # noqa: ARG001
