@@ -270,6 +270,8 @@ class data(SheerwaterDataset):
                     "Datasources must have a complete daily time index to enable valid windowing. "
                     "Please reindex your data source in time.")
             ds = self.event_fn(ds, **self.event_kwargs)
+            # Add an attribute to the dataset to indicate the event name
+            ds = ds.assign_attrs({'event': self.event})
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
@@ -409,9 +411,10 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
-            # TODO: could add a daily data check here
             ds = self.event_fn(ds, **self.event_kwargs)
+            # Add an attribute to the dataset to indicate the event name
             ds = ds.rename({'time': 'prediction_timedelta'})
+            ds = ds.assign_attrs({'event': self.event})
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
