@@ -4,7 +4,7 @@ import xarray as xr
 
 from sheerwater.forecasts import ecmwf_ifs_er
 from sheerwater.data import chirps, ghcn
-from sheerwater.utils import roll_and_agg
+from sheerwater.utils import roll_and_agg, convert_pred_time_to_init_time, convert_init_time_to_pred_time
 
 pytestmark = pytest.mark.default
 
@@ -13,7 +13,11 @@ def test_forecast_roll(remote_dask_cluster): # noqa: ARG001
     """Test rolling forecast across prediction timedelta."""
     ds = ecmwf_ifs_er("2021-01-01", "2021-01-30", agg_days=7)
     ds2 = ecmwf_ifs_er("2021-01-01", "2021-01-30", agg_days=1)
+    ds2 = convert_pred_time_to_init_time(ds2)
     ds2 = roll_and_agg(ds2, 7, agg_col='prediction_timedelta')
+    ds2 = convert_init_time_to_pred_time(ds2)
+    # Conversions back and forth leave a bunch of null times
+    ds2 = ds2.dropna(dim='time', how='all')
 
     xr.testing.assert_equal(ds, ds2)
 
