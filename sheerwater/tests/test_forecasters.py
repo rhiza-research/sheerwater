@@ -1,7 +1,9 @@
 """Test forecasters functionality and interfaces."""
 import numpy as np
 
+import pandas as pd
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
+from sheerwater.climatology import climatology_era5_1985_2015
 from sheerwater.utils import densify_fcst, convert_pred_time_to_init_time
 
 
@@ -23,3 +25,14 @@ def test_densify_fcst(remote_dask_cluster):  # noqa: ARG001
     ds3 = ds_dense.sel(init_time="2016-01-06").isel(prediction_timedelta=-1)
     ds4 = ds_dense.sel(init_time="2016-01-06").isel(prediction_timedelta=-3)
     assert (ds3 - ds4).precip.max() < 1e-10
+
+def test_climatology(remote_dask_cluster):
+    """Test that climatolgoy expands properly."""
+    start_time = '2016-01-01'
+    end_time = '2016-03-30'
+    ds = climatology_era5_1985_2015(start_time, end_time, variable='precip', forecast_lead_days=2)
+    assert ds.time.max().compute() == pd.to_datetime("2016-03-31")
+
+    ds = climatology_era5_1985_2015(start_time, end_time, variable='precip')
+    assert len(ds.prediction_timedelta.values) == 46
+

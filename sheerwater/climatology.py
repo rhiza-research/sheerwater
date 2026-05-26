@@ -12,7 +12,13 @@ from nuthatch.processors import timeseries
 
 from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
 from sheerwater.reanalysis import era5
-from sheerwater.utils import add_dayofyear, dask_remote, get_dates, pad_with_leapdays
+from sheerwater.utils import (
+    add_dayofyear,
+    convert_pred_time_to_init_time,
+    dask_remote,
+    get_dates,
+    pad_with_leapdays,
+)
 
 
 @dask_remote
@@ -400,7 +406,8 @@ def climatology(start_time, end_time, variable, agg_days, data='era5',  # noqa: 
 
 @dask_remote
 def _climatology_unified(start_time, end_time, variable, data='era5',
-                         first_year=1985, last_year=2014, trend=False, prob_type='deterministic',
+                         first_year=1985, last_year=2014, trend=False,
+                         forecast_lead_days=46, prob_type='deterministic',
                          grid='global0_25', mask=None, region='global'):
     """Standard conversion of daily climatology to a forecast."""
     ds = climatology(start_time, end_time, variable, agg_days=1, data=data,
@@ -412,8 +419,9 @@ def _climatology_unified(start_time, end_time, variable, data='era5',
         ds = ds.assign_attrs(prob_type="ensemble")
 
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})  # nanosecond precision
-    ds = ds.rename({"time": "init_time"})
+    expanded_days = pd.timedelta_range(start="0D", end=f"{forecast_lead_days-1}D", freq='D')
+    ds = ds.expand_dims({"prediction_timedelta": expanded_days})
+    ds = convert_pred_time_to_init_time(ds)
     return ds
 
 
@@ -421,10 +429,11 @@ def _climatology_unified(start_time, end_time, variable, data='era5',
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
+def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+                               forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                event=None, event_kwargs=None,  # noqa: ARG001
                                processors=None, processor_kwargs=None,  # noqa: ARG001
                                lookback_source=None, densify=False,  # noqa: ARG001
@@ -432,17 +441,19 @@ def climatology_era5_1985_2015(start_time, end_time, variable, agg_days=7, prob_
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, data='era5',
                                 first_year=1985, last_year=2014,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                trend=False, forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
+def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+                                forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                 event=None, event_kwargs=None,  # noqa: ARG001
                                 processors=None, processor_kwargs=None,  # noqa: ARG001
                                 lookback_source=None, densify=False,  # noqa: ARG001
@@ -450,17 +461,19 @@ def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=7, prob
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, data='imerg_final',
                                 first_year=1998, last_year=2023,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                trend=False, forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
+def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+                                  forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                   event=None, event_kwargs=None,  # noqa: ARG001
                                   processors=None, processor_kwargs=None,  # noqa: ARG001
                                   lookback_source=None, densify=False,  # noqa: ARG001
@@ -468,71 +481,79 @@ def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=7, pr
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, data='chirps_v3',
                                 first_year=1998, last_year=2023,
-                                trend=False, prob_type=prob_type, grid=grid, mask=mask, region=region)
+                                trend=False, forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
+def climatology_stations_2015_2025(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+                                    forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                    event=None, event_kwargs=None,  # noqa: ARG001
                                    processors=None, processor_kwargs=None,  # noqa: ARG001
                                    lookback_source=None, densify=False,  # noqa: ARG001
                                    grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, data='stations',
-                                first_year=2015, last_year=2024, trend=False, prob_type=prob_type,
-                                grid=grid, mask=mask, region=region)
+                                first_year=2015, last_year=2024, trend=False,
+                                forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_1990_2020(start_time, end_time, variable, agg_days=7, prob_type='deterministic',  # noqa: ARG001
+def climatology_era5_1990_2020(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+                               forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                event=None, event_kwargs=None,  # noqa: ARG001
                                processors=None, processor_kwargs=None,  # noqa: ARG001
                                lookback_source=None, densify=False,  # noqa: ARG001
                                grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, data='era5',
-                                first_year=1990, last_year=2019, trend=False, prob_type=prob_type,
-                                grid=grid, mask=mask, region=region)
+                                first_year=1990, last_year=2019, trend=False,
+                                forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_trend_1985_2015(start_time, end_time, variable, agg_days, prob_type='deterministic',  # noqa: ARG001
+def climatology_era5_trend_1985_2015(start_time, end_time, variable, agg_days,  # noqa: ARG001
+                                     forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                      event=None, event_kwargs=None,  # noqa: ARG001
                                      processors=None, processor_kwargs=None,  # noqa: ARG001
                                      lookback_source=None, densify=False,  # noqa: ARG001
                                      grid='global0_25', mask='lsm', region='global'):
     """Standard format forecast data for climatology forecast."""
     return _climatology_unified(start_time, end_time, variable, data='era5',
-                                first_year=1985, last_year=2014, trend=True, prob_type=prob_type,
-                                grid=grid, mask=mask, region=region)
+                                first_year=1985, last_year=2014, trend=True,
+                                forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
+                   'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def climatology_era5_rolling(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def climatology_era5_rolling(start_time, end_time, variable, agg_days,  # noqa: ARG001
+                             forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                              event=None, event_kwargs=None,  # noqa: ARG001
                              processors=None, processor_kwargs=None,  # noqa: ARG001
                              lookback_source=None, densify=False,  # noqa: ARG001
@@ -561,6 +582,7 @@ def climatology_era5_rolling(start_time, end_time, variable, agg_days, prob_type
     # TODO: need to think through the padding with leap days, as we're getting duplicates
     ds = ds.drop_duplicates('time')
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    ds = ds.expand_dims({"prediction_timedelta": [np.timedelta64(0, "ns")]})
-    ds = ds.rename({"time": "init_time"})
+    expanded_days = pd.timedelta_range(start="0D", end=f"{forecast_lead_days-1}D", freq='D')
+    ds = ds.expand_dims({"prediction_timedelta": expanded_days})
+    ds = convert_pred_time_to_init_time(ds)
     return ds
