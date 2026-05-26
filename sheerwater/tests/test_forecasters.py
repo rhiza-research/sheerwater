@@ -26,7 +26,7 @@ def test_densify_fcst(remote_dask_cluster):  # noqa: ARG001
     ds4 = ds_dense.sel(init_time="2016-01-06").isel(prediction_timedelta=-3)
     assert (ds3 - ds4).precip.max() < 1e-10
 
-def test_climatology(remote_dask_cluster):
+def test_climatology(remote_dask_cluster):  # noqa: ARG001
     """Test that climatolgoy expands properly."""
     start_time = '2016-01-01'
     end_time = '2016-03-30'
