@@ -45,6 +45,13 @@ def event(default_variable=None, duration=0, filter=False):
             if 'agg_days' in ds.attrs and ds.attrs['agg_days'] != 1:
                 raise ValueError(f"Event {name} requires agg_days to be 1.")
 
+            if callable(duration):
+                dur = duration(kwargs)
+            else:
+                dur = duration
+            if len(ds.time) < dur:
+                raise ValueError(f"Event {name} requires at least {dur} lead days.")
+
             try:
                 ds = fn(ds, *args, **kwargs)
             except TypeError as e:

@@ -417,11 +417,12 @@ def _climatology_unified(start_time, end_time, variable, data='era5',
         ds = ds.assign_attrs(prob_type="deterministic")
     else:
         ds = ds.assign_attrs(prob_type="ensemble")
-
+    leads = [np.timedelta64(x, "D").astype('timedelta64[ns]') for x in range(0, forecast_lead_days)]
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    expanded_days = pd.timedelta_range(start="0D", end=f"{forecast_lead_days-1}D", freq='D')
-    ds = ds.expand_dims({"prediction_timedelta": expanded_days})
+    ds = ds.expand_dims({"prediction_timedelta": leads})
     ds = convert_pred_time_to_init_time(ds)
+    # Remove any init times introduces in the conversion
+    ds = ds.sel(init_time=slice(start_time, end_time))
     return ds
 
 
@@ -582,7 +583,8 @@ def climatology_era5_rolling(start_time, end_time, variable, agg_days,  # noqa: 
     # TODO: need to think through the padding with leap days, as we're getting duplicates
     ds = ds.drop_duplicates('time')
     # To match the standard forecast format, add a prediction_timedelta coordinate
-    expanded_days = pd.timedelta_range(start="0D", end=f"{forecast_lead_days-1}D", freq='D')
-    ds = ds.expand_dims({"prediction_timedelta": expanded_days})
+    leads = [np.timedelta64(x, "D").astype('timedelta64[ns]') for x in range(0, forecast_lead_days)]
+    ds = ds.expand_dims({"prediction_timedelta": leads})
     ds = convert_pred_time_to_init_time(ds)
+    ds = ds.sel(init_time=slice(start_time, end_time))
     return ds
