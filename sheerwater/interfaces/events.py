@@ -45,6 +45,13 @@ def event(default_variable=None, duration=0, filter=False):
             if 'agg_days' in ds.attrs and ds.attrs['agg_days'] != 1:
                 raise ValueError(f"Event {name} requires agg_days to be 1.")
 
+            if callable(duration):
+                dur = duration(kwargs)
+            else:
+                dur = duration
+            if len(ds.time) < dur:
+                raise ValueError(f"Event {name} requires at least {dur} lead days.")
+
             try:
                 ds = fn(ds, *args, **kwargs)
             except TypeError as e:
@@ -252,11 +259,11 @@ def wet_not_dry_count_onset(ds):
                                 agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
 
 
-@event(default_variable="precip", duration=60, filter=True)
+@event(default_variable="precip", duration=40, filter=True)
 def dry_wet_not_dry_onset(ds):
     """An event to calculate the dry wet not dry onset conditions."""
     spells = ['below', 'above', 'above']
-    agg_days = [20, 10, 20]
+    agg_days = [20, 10, 10]
     thresholds = [1.0, 2.5, 2.0]
     agg_type = ['mean', 'mean', 'mean']
     counts = [None, None, None]

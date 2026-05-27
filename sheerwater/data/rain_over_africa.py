@@ -7,7 +7,7 @@ import dask
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, regrid, roll_and_agg, run_in_parallel
+from sheerwater.utils import dask_remote, regrid, run_in_parallel
 
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
@@ -86,10 +86,12 @@ def roa_gridded(start_time, end_time, grid, mask=None, region='global'):  # noqa
 
 @dask_remote
 @sheerwater_data()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days=1,
+def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
                 event=None, event_kwargs=None,  # noqa: ARG001
+                processors=None, processor_kwargs=None,  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
     """Standard data interface for Rain over Africa data."""
     if variable not in ['precip']:
@@ -101,4 +103,4 @@ def rain_over_africa(start_time=None, end_time=None, variable='precip', agg_days
     # Before rolling, filter out all values great than 350 mm/day. There seem to be bad values that made it in?
     ds = ds.where(ds.max(dim=["lat", "lon"]) <= 350, np.nan)
 
-    return roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    return ds

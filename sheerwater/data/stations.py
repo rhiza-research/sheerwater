@@ -1,11 +1,10 @@
 """One station datasource to rule them all."""
-import math
 import numpy as np
 import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, roll_and_agg
+from sheerwater.utils import dask_remote
 from sheerwater.interfaces import data as sheerwater_data, spatial, get_data
 
 
@@ -59,10 +58,12 @@ def stations_aggregated(start_time, end_time, variable,
 @sheerwater_data()
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def stations(start_time=None, end_time=None, variable='precip', agg_days=1,
+def stations(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
               missing_thresh=0.9):
     """Standard interface for all station data."""
@@ -70,8 +71,6 @@ def stations(start_time=None, end_time=None, variable='precip', agg_days=1,
                              missing_thresh=missing_thresh, cell_aggregation='mean',
                              mask=mask, region=region)
 
-    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
     # Note that this is sparse
     ds = ds.assign_attrs(sparse=True)
     return ds

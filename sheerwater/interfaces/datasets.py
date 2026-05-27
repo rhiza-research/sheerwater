@@ -1,4 +1,5 @@
 """A decorator for identifying data sources."""
+import math
 
 import xarray as xr
 import pandas as pd
@@ -7,10 +8,11 @@ from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
                               add_spatial_attrs, check_spatial_attr, shift_by_days,
-                              densify_fcst, detect_in_time, get_dates)
+                              densify_fcst, detect_in_time, get_dates, roll_and_agg)
 from sheerwater.spatial_subdivisions import clip_region, apply_mask
 
 from .events import get_event_fn
+from .processors import get_processor_fn
 from .spatial import spatial
 
 import logging
@@ -57,6 +59,7 @@ class SheerwaterDataset(NuthatchProcessor):
         self.region = bound_args.arguments.get('region', 'global')
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
+        self.missing_thresh = bound_args.arguments.get('missing_thresh', 1)
 
         # Event handling
         self.event = bound_args.arguments.get('event', None)
@@ -84,6 +87,28 @@ class SheerwaterDataset(NuthatchProcessor):
                 args, kwargs = self.update_args_or_kwargs(
                     values={'variable': self.variable}, args=args, kwargs=kwargs, bound_args=bound_args)
 
+        # Processor handling
+        processors_arg = bound_args.arguments.get('processors', None)
+        if processors_arg is None:
+            self.processors = []
+        elif not isinstance(processors_arg, list):
+            self.processors = [processors_arg]
+        else:
+            self.processors = processors_arg
+
+        self.processor_fns = [get_processor_fn(processor) for processor in self.processors]
+
+        processor_kwargs_arg = bound_args.arguments.get('processor_kwargs', None)
+        if processor_kwargs_arg is None:
+            self.processor_kwargs = [{}] * len(self.processor_fns)
+        elif not isinstance(processor_kwargs_arg, list):
+            self.processor_kwargs = [processor_kwargs_arg]
+        else:
+            self.processor_kwargs = processor_kwargs_arg
+
+        if len(self.processor_fns) != len(self.processor_kwargs):
+            raise ValueError("Number of processor kwarg dicts must match number of processor functions")
+
         # Units
         if self.variable == 'precip':
             self.units = 'mm / day'
@@ -100,6 +125,33 @@ class SheerwaterDataset(NuthatchProcessor):
             raise RuntimeError(
                 f"Sheerwater data and forecast decorators must return xarray datasets. Received {type(ds)}.")
 
+        # Run the processors on the dataset
+        # We do this before clipping and masking to allow processors
+        # to properly change resolution.
+        # Pass region and mask to processors so they can implement their
+        # own efficiency improvements
+        # Run the processors on the dataset
+        if len(self.processors) > 0 and 'post_processed' not in ds.attrs:
+            for i, processor_fn in enumerate(self.processor_fns):
+                packed_processor_kwargs = self.processor_kwargs[i]
+                packed_processor_kwargs['func_name'] = self.func_name
+                packed_processor_kwargs['variable'] = self.variable
+                packed_processor_kwargs['grid'] = self.grid
+                if 'time' in ds.coords:
+                    start = ds.time.values.min()
+                    end = ds.time.values.max()
+                else:
+                    start = ds.init_time.values.min()
+                    end = ds.init_time.values.max()
+                packed_processor_kwargs['start_time'] = start
+                packed_processor_kwargs['end_time'] = end
+                ds = processor_fn(ds, **packed_processor_kwargs)
+            ds = ds.assign_attrs({'post_processed': True})
+            # If we have a new grid after this make sure we assign it
+            # this makes sure the we get the lookback on the correct grid
+            if 'grid' in ds.attrs:
+                self.grid = ds.attrs['grid']
+
         # Clip to specified region
         if not check_spatial_attr(ds, region=self.region):
             # Only clip region if the dataframe hasn't already been clipped
@@ -110,11 +162,11 @@ class SheerwaterDataset(NuthatchProcessor):
 
         # Assign attributes, preserving any existing ones (especially 'prob_type')
         ds = ds.assign_attrs({
-            'agg_days': float(self.agg_days),
             'variable': self.variable,
             'units': self.units,
         })
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+
         return ds
 
     def update_args_or_kwargs(self, values, args, kwargs, bound_args):
@@ -159,6 +211,7 @@ class data(SheerwaterDataset):
     def __call__(self, func):
         """Call the parent class and register the data in the global data registry."""
         wrapped = SheerwaterDataset.__call__(self, func)
+        self.func_name = func.__name__
         DATA_REGISTRY[func.__name__] = wrapped
         return wrapped
 
@@ -187,7 +240,7 @@ class data(SheerwaterDataset):
         ds = SheerwaterDataset.post_process(self, ds)
 
         # Run the events on the dataset
-        if self.event is not None and 'processed' not in ds.attrs:
+        if self.event is not None and 'event' not in ds.attrs:
             # Ensure that data are daily indexed before applying events
             daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(),
                                          stride='day', return_string=False)
@@ -198,17 +251,31 @@ class data(SheerwaterDataset):
                     f"The following dates are missing: {missing_dates} "
                     "Please reindex your data source in time.")
             ds = self.event_fn(ds, **self.event_kwargs)
+            # Add an attribute to the dataset to indicate the event name
+            ds = ds.assign_attrs({'event': self.event})
+        elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
+            raise ValueError(
+                f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
+        elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
+                                     ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
+            agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
+            ds = ds.assign_attrs({
+                'agg_days': float(self.agg_days),
+            })
+        elif self.agg_days != 1 and 'agg_days' in ds.attrs and self.agg_days != ds.attrs['agg_days']:
+            raise ValueError(f"Requested aggregation {self.agg_days}, but underlying dataset has already been \
+                             aggregated to {ds.attrs['agg_days']}")
 
-        if self.detect_in_time is not None and 'processed' not in ds.attrs:
+        if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
+            ds = ds.assign_attrs({'detect_in_time': True})
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if var not in [
                           'time', 'lat', 'lon', 'member', 'group', 'station_id']])
 
         # Add a flag to the dataset to indicate that it has been processed
-        ds = ds.assign_attrs({'processed': True})
-
         return ds
 
 
@@ -241,6 +308,7 @@ class forecast(SheerwaterDataset):
     def __call__(self, func):
         """Call the forecast decorator and register it in the global forecast registry."""
         wrapped = SheerwaterDataset.__call__(self, func)
+        self.func_name = func.__name__
         FORECAST_REGISTRY[func.__name__] = wrapped
         return wrapped
 
@@ -297,7 +365,7 @@ class forecast(SheerwaterDataset):
         ds = SheerwaterDataset.post_process(self, ds)
 
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
-        if self.event is not None and 'processed' not in ds.attrs:
+        if self.event is not None and 'event' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
 
             #################################################################################################
@@ -324,21 +392,37 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
-            # TODO: could add a daily data check here
             ds = self.event_fn(ds, **self.event_kwargs)
+            # Add an attribute to the dataset to indicate the event name
             ds = ds.rename({'time': 'prediction_timedelta'})
+            ds = ds.assign_attrs({'event': self.event})
+        elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
+            raise ValueError(
+                f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
+        # If agg days are not equal to 1 we need to roll and agg
+        elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
+                                     ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
+            agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
+                              agg_fn='mean', agg_thresh=agg_thresh)
+            ds = ds.assign_attrs({
+                'agg_days': float(self.agg_days),
+            })
+        elif self.agg_days != 1 and 'agg_days' in ds.attrs and self.agg_days != ds.attrs['agg_days']:
+            raise ValueError(f"Requested aggregation {self.agg_days}, but underlying dataset has already been \
+                             aggregated to {ds.attrs['agg_days']}")
 
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
             ds = convert_init_time_to_pred_time(ds)
 
-        if self.detect_in_time is not None and 'processed' not in ds.attrs:
+        if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
             ds = detect_in_time(ds, **self.detect_in_time)
+            ds = ds.assign_attrs({'detect_in_time': True})
 
         # Remove all unneeded dimensions
         ds = ds.drop_vars([var for var in ds.coords if
                            var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member', 'group']])
 
-        ds = ds.assign_attrs({'processed': True})
         return ds
 
 

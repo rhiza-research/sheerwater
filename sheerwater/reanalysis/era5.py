@@ -16,9 +16,7 @@ from sheerwater.utils import (
     get_grid_ds,
     get_variable,
     lon_base_change,
-    regrid,
-    roll_and_agg,
-)
+    regrid)
 from sheerwater.utils.secrets import earth_data_hub_token
 
 
@@ -175,24 +173,14 @@ def era5_land_daily_regrid(start_time, end_time, variable, grid="global0_1", mas
 @sheerwater_data()
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def era5_land(start_time, end_time, variable, agg_days,
+def era5_land(start_time, end_time, variable, agg_days,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_1', mask='lsm', region='global'):  # noqa: ARG001
-    """Standard format task data for ERA5 Reanalysis.
-
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        agg_days (int): The aggregation period, in days. Ignored if variable is 'rainy_onset'.
-        event (str): The event to apply to the data.
-        event_kwargs (dict): The keyword arguments to pass to the event.
-        grid (str): The grid resolution to fetch the data at.
-        mask (str): The mask to apply to the data.
-        region (str): The region to clip the data to.
-    """
+    """Standard format task data for ERA5 Reanalysis."""
     _, _, size, _ = get_grid(grid)
 
     if size < 0.1 or (size == 0.1 and grid != 'global0_1'):
@@ -200,7 +188,6 @@ def era5_land(start_time, end_time, variable, agg_days,
 
     # Get daily data
     ds = era5_land_daily_regrid(start_time, end_time, variable, grid=grid, mask=mask, region=region)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
 
 
@@ -349,9 +336,11 @@ def era5_daily_regrid(start_time, end_time, variable, grid="global0_25", mask=No
 @dask_remote
 @sheerwater_data()
 @timeseries()
-@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region'],
+@cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                                'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def era5(start_time=None, end_time=None, variable='precip', agg_days=1, event=None, event_kwargs=None,  # noqa: ARG001
+         processors=None, processor_kwargs=None,  # noqa: ARG001
          grid='global0_25', mask='lsm', region='global'):
     """Standard format task data for ERA5 Reanalysis."""
     # Read and combine all the data into an array
@@ -364,5 +353,4 @@ def era5(start_time=None, end_time=None, variable='precip', agg_days=1, event=No
     # Temporary fix for the rh2m variable, which was cached incorrectly
     if variable == 'rh2m':
         ds['rh2m'] = (100.0 ** 2) / ds['rh2m']
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn="mean")
     return ds
