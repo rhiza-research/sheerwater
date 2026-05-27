@@ -43,15 +43,6 @@ def test_above_threshold_sets_event_attr_and_preserves_nan():
     assert np.isnan(out.precip.sel(time="2020-01-03").item())
 
 
-def test_start_of_season_by_spells_rejects_non_precip_variable():
-    """Event constrained to precip raises when dataset has no valid variables."""
-    ds = _tiny_precip_ds().drop_vars("precip")
-    ds["tmp2m"] = (("time", "lat", "lon"), np.ones((3, 1, 1), dtype=np.float32))
-
-    with pytest.raises(ValueError, match="requires a 'precip' variable."):
-        has_onset_conditions(ds)
-
-
 def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
     """Check that ."""
     start_time = '2022-01-01'

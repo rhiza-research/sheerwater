@@ -130,43 +130,6 @@ class SheerwaterDataset(NuthatchProcessor):
         # to properly change resolution.
         # Pass region and mask to processors so they can implement their
         # own efficiency improvements
-        if 'processed' not in ds.attrs:
-            for i, processor_fn in enumerate(self.processor_fns):
-                packed_processor_kwargs = self.processor_kwargs[i]
-                packed_processor_kwargs['func_name'] = self.func_name
-                packed_processor_kwargs['variable'] = self.variable
-                packed_processor_kwargs['grid'] = self.grid
-                packed_processor_kwargs['region'] = self.region
-                packed_processor_kwargs['mask'] = self.mask
-                # It would be better to get these from the passed args
-                # but because forecasts often shift them
-                # for now we need to compute it.
-                start = ds.init_time.values.min()
-                end = ds.init_time.values.max()
-                packed_processor_kwargs['start_time'] = start
-                packed_processor_kwargs['end_time'] = end
-                ds = processor_fn(ds, **packed_processor_kwargs)
-
-                # If we have a new grid after this make sure we assign it
-                # this makes sure the we get the lookback on the correct grid
-                if 'grid' in ds.attrs:
-                    self.grid = ds.attrs['grid']
-
-        # Clip to specified region
-        if not check_spatial_attr(ds, region=self.region):
-            # Only clip region if the dataframe hasn't already been clipped
-            ds = clip_region(ds, grid=self.grid, region=self.region)
-        if not check_spatial_attr(ds, mask=self.mask):
-            # Only apply mask if this dataframe has not already been masked
-            ds = apply_mask(ds, self.mask, grid=self.grid)
-
-        # Assign attributes, preserving any existing ones (especially 'prob_type')
-        ds = ds.assign_attrs({
-            'variable': self.variable,
-            'units': self.units,
-        })
-        ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
-
         # Run the processors on the dataset
         if len(self.processors) > 0 and 'post_processed' not in ds.attrs:
             for i, processor_fn in enumerate(self.processor_fns):
@@ -188,6 +151,22 @@ class SheerwaterDataset(NuthatchProcessor):
             # this makes sure the we get the lookback on the correct grid
             if 'grid' in ds.attrs:
                 self.grid = ds.attrs['grid']
+
+        # Clip to specified region
+        if not check_spatial_attr(ds, region=self.region):
+            # Only clip region if the dataframe hasn't already been clipped
+            ds = clip_region(ds, grid=self.grid, region=self.region)
+        if not check_spatial_attr(ds, mask=self.mask):
+            # Only apply mask if this dataframe has not already been masked
+            ds = apply_mask(ds, self.mask, grid=self.grid)
+
+        # Assign attributes, preserving any existing ones (especially 'prob_type')
+        ds = ds.assign_attrs({
+            'variable': self.variable,
+            'units': self.units,
+        })
+        ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+
         return ds
 
     def update_args_or_kwargs(self, values, args, kwargs, bound_args):
@@ -276,7 +255,7 @@ class data(SheerwaterDataset):
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
         elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
-                                   ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
+                                     ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
             ds = ds.assign_attrs({
@@ -420,7 +399,7 @@ class forecast(SheerwaterDataset):
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
         # If agg days are not equal to 1 we need to roll and agg
         elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
-                                   ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
+                                     ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
             agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
             ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
                               agg_fn='mean', agg_thresh=agg_thresh)
