@@ -1,12 +1,11 @@
 """Get knust data."""
-import math
 from functools import partial
 import numpy as np
 import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, snap_point_to_grid
 from sheerwater.interfaces import data as sheerwater_data, spatial
 
 
@@ -21,7 +20,7 @@ def knust_ashanti():
 
     # We need to convert from base 360 to base 180 but we can't
     # use the standard function because lat and lon must be dims not just coords
-    ashanti = ashanti.assign_coords(lon = ("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
+    ashanti = ashanti.assign_coords(lon=("station_id", [x - 360.0 if x >= 180.0 else x for x in ashanti['lon']]))
     ashanti = ashanti.reset_coords('lat')
     ashanti = ashanti.reset_coords('lon')
     return ashanti
@@ -88,13 +87,12 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
         ds = ds.set_coords("lat")
         ds = ds.set_coords("lon")
 
-
         if cell_aggregation == 'mean':
-            ds_grouped = ds.groupby(['lat','lon']).mean()
+            ds_grouped = ds.groupby(['lat', 'lon']).mean()
             # Add the station count of non-null values
             ds_grouped['precip_count'] = ds.precip.groupby(['lat', 'lon']).count()
         elif cell_aggregation == 'first':
-            ds_grouped = ds.groupby(['lat','lon']).first()
+            ds_grouped = ds.groupby(['lat', 'lon']).first()
 
             # Add the station count of non-null values
             ds_grouped['precip_count'] = ds_grouped['precip'].notnull().astype(int)
@@ -102,11 +100,11 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
             raise ValueError("Cell aggregation must be 'first' or 'mean'")
 
         # Return the xarray
-        ds_grouped = ds_grouped.chunk({'time':365, 'lat': 300, 'lon': 300})
+        ds_grouped = ds_grouped.chunk({'time': 365, 'lat': 300, 'lon': 300})
 
         return ds_grouped
     else:
-        ds = ds.chunk({'time':365, 'station_id': 50})
+        ds = ds.chunk({'time': 365, 'station_id': 50})
         ds = ds.set_coords("lat")
         ds = ds.set_coords("lon")
         ds['precip_count'] = ds['precip'].notnull().astype(int)
@@ -118,10 +116,10 @@ def knust_raw(start_time, end_time, grid='global0_25', cell_aggregation='first')
 @cache(cache_args=['grid', 'cell_aggregation'],
        backend_kwargs={
            'chunking': {'time': 365, 'lat': 300, 'lon': 300}
-       },
-       cache_disable_if={
+},
+    cache_disable_if={
            'grid': 'source'
-       })
+})
 def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='first'):  # noqa: ARG001
     """Reindex the KNUST data to the requested grid.
 
@@ -139,17 +137,13 @@ def knust_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
     return ds
 
 
-
 @dask_remote
 @timeseries()
 @spatial()
-def _knust_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
+def _knust_unified(start_time, end_time, variable,
+                   grid='global0_25', cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     """Standard interface for knust data."""
     ds = knust_reindex(start_time, end_time, grid, cell_aggregation)
-
-    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
 
     if variable != 'precip':
         raise ValueError("knust only supports precip")
@@ -165,28 +159,32 @@ def _knust_unified(start_time, end_time, variable, agg_days,
 @sheerwater_data()
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def knust(start_time=None, end_time=None, variable='precip', agg_days=1,
+def knust(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
           event=None, event_kwargs=None,  # noqa: ARG001
+          processors=None, processor_kwargs=None,  # noqa: ARG001
           grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-          missing_thresh=0.9):
+          missing_thresh=0.9):  # noqa: ARG001
     """Standard interface for knust data."""
-    return _knust_unified(start_time, end_time, variable, agg_days,
+    return _knust_unified(start_time, end_time, variable,
                           grid=grid,
-                          missing_thresh=missing_thresh, cell_aggregation='first', mask=mask, region=region)
+                          cell_aggregation='first', mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_data()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
+def knust_avg(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-              missing_thresh=0.9):
+              missing_thresh=0.9):  # noqa: ARG001
     """Standard interface for knust data."""
-    return _knust_unified(start_time, end_time, variable, agg_days,
+    return _knust_unified(start_time, end_time, variable,
                           grid=grid,
-                          missing_thresh=missing_thresh, cell_aggregation='mean', mask=mask, region=region)
+                          cell_aggregation='mean', mask=mask, region=region)

@@ -1,5 +1,4 @@
 """Get Tahmo data."""
-import math
 import numpy as np
 import dask
 import dask.dataframe as dd
@@ -7,7 +6,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_grid, get_grid_ds, roll_and_agg, snap_point_to_grid
+from sheerwater.utils import dask_remote, get_grid, get_grid_ds, snap_point_to_grid, get_dates
 from sheerwater.interfaces import data as sheerwater_data
 
 
@@ -137,21 +136,28 @@ def tahmo_reindex(start_time, end_time, grid='global0_25', cell_aggregation='fir
 
     grid_ds = get_grid_ds(grid)
     ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
+
+    # Reindex to ensure that TAHMO is a daily timeseries with NaNs for mixixng days
+    daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
     ds['precip_count'] = ds['precip_count'].fillna(0)
     return ds
 
 
 @dask_remote
-def _tahmo_unified(start_time, end_time, variable, agg_days,
-                   grid='global0_25', missing_thresh=0.9, cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
+def _tahmo_unified(start_time, end_time, variable,
+                   grid='global0_25', cell_aggregation='first', mask='lsm', region='global'):  # noqa: ARG001
     if variable != 'precip':
         raise ValueError("TAHMO only supports precip")
 
     ds = tahmo_reindex(start_time, end_time, grid, cell_aggregation)
 
-    # Roll and agg
-    agg_thresh = max(math.ceil(agg_days*missing_thresh), 1)
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', agg_thresh=agg_thresh)
+    # TODO: remove this once we've updated caches for TAHMO reindex to do this in a more permanent way
+    # Reindex to ensure that TAHMO is a daily timeseries with NaNs
+    # TAHMO is missing 5 days in June 2024
+    daily_timeseries = get_dates(ds.time.values.min(), ds.time.values.max(), stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
 
     ds = ds[[variable, f'{variable}_count']]
 
@@ -164,28 +170,29 @@ def _tahmo_unified(start_time, end_time, variable, agg_days,
 @sheerwater_data()
 @timeseries()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,
+def tahmo(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
           event=None, event_kwargs=None,  # noqa: ARG001
-          grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-          missing_thresh=0.9):
+          processors=None, processor_kwargs=None,  # noqa: ARG001
+          grid='global0_25', mask='lsm', region='global', missing_thresh=0.9):  # noqa: ARG001
     """Standard interface for TAHMO data."""
-    return _tahmo_unified(start_time, end_time, variable, agg_days,
-                          grid=grid,
-                          missing_thresh=missing_thresh, cell_aggregation='first', mask=mask, region=region)
+    return _tahmo_unified(start_time, end_time, variable,
+                          grid=grid, cell_aggregation='first', mask=mask, region=region)
 
 
 @dask_remote
 @sheerwater_data()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'grid', 'mask', 'region', 'missing_thresh'],
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'grid', 'mask', 'region', 'missing_thresh'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
-def tahmo_avg(start_time=None, end_time=None, variable='precip', agg_days=1,
+def tahmo_avg(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
+              processors=None, processor_kwargs=None,  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global',  # noqa: ARG001
-              missing_thresh=0.9):
+              missing_thresh=0.9):  # noqa: ARG001
     """Standard interface for TAHMO data."""
-    return _tahmo_unified(start_time, end_time, variable, agg_days,
-                          grid=grid,
-                          missing_thresh=missing_thresh, cell_aggregation='mean', mask=mask, region=region)
+    return _tahmo_unified(start_time, end_time, variable,
+                          grid=grid, cell_aggregation='mean', mask=mask, region=region)

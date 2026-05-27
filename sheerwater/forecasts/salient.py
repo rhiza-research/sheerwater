@@ -53,11 +53,12 @@ def salient_blend(start_time, end_time, variable, timescale="sub-seasonal",  # n
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_type='deterministic',
             event=None, event_kwargs=None,  # noqa: ARG001
+            processors=None, processor_kwargs=None,  # noqa: ARG001
             lookback_source=None, densify=False,  # noqa: ARG001
             grid='global0_25', mask='lsm', region='africa'):  # noqa: ARG001
     """Standard format forecast data for Salient."""
@@ -69,6 +70,7 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
     timescale = lead_params.get(agg_days, None)
     if timescale is None:
         raise NotImplementedError(f"Agg days {agg_days} not implemented for Salient.")
+
 
     # Get the data with the right days
     forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
@@ -106,6 +108,9 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
     ds = ds.drop_vars('lead')
     ds = ds.rename({'forecast_date': 'init_time'})
 
+    # Assign agg days so decorator knows this is already aggregated
+    ds = ds.assign_attrs(agg_days=agg_days)
+
     return ds
 
 
@@ -136,6 +141,7 @@ def salient_gem_raw(start_time, end_time, variable, # noqa: ARG001
        },
        cache_disable_if={
            'prob_type': 'probabilistic',
+           'grid': 'global0_25'
        })
 def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deterministic',
                           mask=None, region=None): # noqa: ARG001
@@ -166,53 +172,26 @@ def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deter
 
     return ds
 
-@dask_remote
-@timeseries(timeseries='forecast_date')
-@spatial()
-@cache(cache_args=['variable', 'grid', 'prob_type'],
-       backend_kwargs={
-           'chunking': {"lat": 73, "lon": 77, "forecast_date": 50, 'lead': 125}
-       },
-       cache_disable_if={
-           'grid': 'global0_25',
-       })
-def salient_gem_regrid(start_time, end_time, variable, grid, prob_type='deterministic',
-                          mask=None, region=None): # noqa: ARG001
-    """A cache of salient GEM that means the samples."""
-    # Get the data with the right days
-    ds = salient_gem_processed(start_time, end_time, variable, grid='global0_25', prob_type=prob_type,
-                               mask=mask, region=region)
-
-    if 'spatial_ref' in ds:
-        ds = ds.drop_vars('spatial_ref')
-
-    if 'number' in ds:
-        ds = ds.drop_vars('number')
-
-    if grid != 'global0_25':
-        # Regrid the data
-        ds = regrid(ds, grid, base='base180', method='conservative', region=region)
-
-    return ds
-
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs',
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', # noqa: ARG001
-              event=None, event_kwargs=None,  # noqa: ARG001
-              lookback_source=None, densify=False,  # noqa: ARG001
-              grid='global0_25', mask='lsm', region=None):  # noqa: ARG001
+def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+                prob_type='deterministic',
+                event=None, event_kwargs=None,  # noqa: ARG001
+                processors=None, processor_kwargs=None,  # noqa: ARG001
+                lookback_source=None, densify=False,  # noqa: ARG001
+                grid='global1_5', mask='lsm', region="eastern_africa"):  # noqa: ARG001
     """Final Salient GEM interface."""
     # Get the data with the right days - the forecast is 126 days long, so pull before and after
     forecast_start = shift_by_days(start_time, -126) if start_time is not None else None
     forecast_end = shift_by_days(end_time, 126) if end_time is not None else None
 
-    ds = salient_gem_regrid(forecast_start, forecast_end, variable, grid=grid,
-                            prob_type=prob_type, mask=mask, region=region)
+    ds = salient_gem_processed(forecast_start, forecast_end, variable, grid=grid,
+                               prob_type=prob_type, mask=mask, region=region)
 
     # Rename to standard naming
     ds = ds.rename({'forecast_date': 'init_time', 'lead': 'prediction_timedelta'})

@@ -9,7 +9,7 @@ import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
 from sheerwater.interfaces import spatial
-from sheerwater.utils import add_spatial_attrs
+from sheerwater.utils import add_spatial_attrs, roll_and_agg
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -18,8 +18,8 @@ SHEERWATER_STATISTIC_REGISTRY = {}
 def statistic(cache=False, name=None,
               timeseries='time',
               cache_args=['variable', 'agg_days', 'forecast', 'truth',
-                          'event', 'event_kwargs',
-                          'data_key', 'grid', 'statistic'],
+                          'metric_kwargs', 'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
+                          'grid', 'statistic'],
               chunking={"lat": 121, "lon": 240, "time": 30, 'region': 300, 'prediction_timedelta': -1},
               chunk_by_arg={
                   'grid': {
@@ -45,20 +45,23 @@ def statistic(cache=False, name=None,
                              'chunk_by_arg': chunk_by_arg
                          })
         def global_statistic(
-            data, data_key,
+            data, metric_kwargs,
             start_time, end_time,
             variable, agg_days, forecast, truth,
-            event, event_kwargs,
+            event, event_kwargs, filter_event, filter_event_kwargs,
             statistic, grid,
             mask=None, region='global',
             **cache_kwargs
         ):
             # Pass the cache kwargs through to the statistics function
             cache_kwargs = {
-                'data_key': data_key,
+                'metric_kwargs': metric_kwargs,
+                'event': event,
+                'event_kwargs': event_kwargs,
+                'filter_event': filter_event,
+                'filter_event_kwargs': filter_event_kwargs,
                 'start_time': start_time, 'end_time': end_time,
                 'variable': variable, 'agg_days': agg_days, 'forecast': forecast, 'truth': truth,
-                'event': event, 'event_kwargs': event_kwargs,
                 'grid': grid, 'mask': mask, 'region': region,
                 'statistic': statistic,
             }
@@ -158,26 +161,63 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] < 0.5) & (data['fcst'] >= 0.5)
+    # If soft_margin_in_days, will soften the observations by the given number of days before
+    # computing false positives, using a square, max window function. The result of this is that
+    # if there is an observation anywhere within the soft margin when a forecast has made a positive
+    # detection, then the false positive is discounted.
+    if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+        obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, agg_thresh=1,
+                           align="center", agg_col="time", agg_fn='max')
+    else:
+        obs = data['obs']
+    fcst = data['fcst']
+    # This subtraction removes the forecasted errors from the observed values, and discounts
+    # negative values, where the forecaster said postivite and the observation was negative.
+    error = fcst - obs
+    return np.maximum(error, 0)
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] >= 0.5) & (data['fcst'] < 0.5)
+    # If soft_margin_in_days, will soften the forecast by the given number of days before
+    # computing false negatives, using a square, max window function. The result of this is that
+    # if there is an forecast anywhere within the soft margin when a observation has made a positive
+    # detection, then the false negative is discounted.
+    if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
+        fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
+                            align="center", agg_col="time", agg_fn='max')
+    else:
+        fcst = data['fcst']
+    obs = data['obs']
 
-
-@statistic(cache=False, name='true_positives')
-def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] >= 0.5) & (data['fcst'] >= 0.5)
+    # This subtraction removes the forecasted errors from the observed values, and discounts
+    # negative values, where the forecaster said postivite and the observation was negative.
+    diff = obs - fcst
+    return np.maximum(diff, 0)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    # Assumes the data is digitized and the bins are [0, 1]
-    return (data['obs'] < 0.5) & (data['fcst'] < 0.5)
+    """Calculate true negatives as the difference between the observation and false positives.
+
+    This is a softening-safe way of computing the number of true negatives, as it gets the number
+    of negative events after a soft-version of false positives are subtracted.
+    """
+    # Get the negative observations by inverting the observations
+    neg_obs = 1.0 - data['obs']
+    return neg_obs - fn_false_positives(data, **cache_kwargs)
+
+
+@statistic(cache=False, name='true_positives')
+def fn_true_positives(data, **cache_kwargs):  # noqa: F821
+    """Calculate true positives as the difference between the observation and false negatives.
+
+    This is a softening-safe way of computing the number of true positives, as it gets the number
+    of positive events after a soft-version of false negatives are subtracted.
+    """
+    return data['obs'] - fn_false_negatives(data, **cache_kwargs)
 
 
 @statistic(cache=False, name='n_correct')
