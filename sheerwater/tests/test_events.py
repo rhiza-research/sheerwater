@@ -5,7 +5,7 @@ import xarray as xr
 
 from sheerwater.forecasts import graphcast
 from sheerwater.climatology import climatology_era5_1985_2015
-from sheerwater.interfaces.events import above_threshold, get_event_fn, has_onset_conditions
+from sheerwater.interfaces.events import above_threshold, get_event_fn
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
