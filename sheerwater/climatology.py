@@ -586,4 +586,5 @@ def climatology_era5_rolling(start_time, end_time, variable, agg_days,  # noqa: 
     leads = [np.timedelta64(x, "D").astype('timedelta64[ns]') for x in range(0, forecast_lead_days)]
     ds = ds.expand_dims({"prediction_timedelta": leads})
     ds = convert_pred_time_to_init_time(ds)
+    ds = ds.sel(init_time=slice(start_time, end_time))
     return ds
