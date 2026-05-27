@@ -259,11 +259,11 @@ def wet_not_dry_count_onset(ds):
                                 agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
 
 
-@event(default_variable="precip", duration=60, filter=True)
+@event(default_variable="precip", duration=40, filter=True)
 def dry_wet_not_dry_onset(ds):
     """An event to calculate the dry wet not dry onset conditions."""
     spells = ['below', 'above', 'above']
-    agg_days = [20, 10, 20]
+    agg_days = [20, 10, 10]
     thresholds = [1.0, 2.5, 2.0]
     agg_type = ['mean', 'mean', 'mean']
     counts = [None, None, None]
