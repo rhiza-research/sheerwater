@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Utility functions for spatial subdivisions
 ##############################################################################
 
+
 def reconcile_country_name(country_name):
     """Maps a country name variant to its standardized name.
 
@@ -122,6 +123,7 @@ def reconcile_country_name(country_name):
     else:
         return country_name
 
+
 def clean_spatial_subdivision_name(name):
     """Clean a spatial subdivision name to make matching easier and replace non-English characters."""
     name = str(name)  # convert to string
@@ -135,6 +137,7 @@ def clean_spatial_subdivision_name(name):
     # If region is country data, reconcile the name
     name = reconcile_country_name(name)
     return name
+
 
 @cache(cache_args=['admin_level'])
 def admin_level_gdf_legacy(admin_level=2):
@@ -544,8 +547,8 @@ def rainfall_region_labels(grid='global0_25'):
         labels = xr.DataArray(
             np.full((len(masks.lat), len(masks.lon)), "", dtype=object),
             coords={"lat": masks.lat, "lon": masks.lon},
-            dims = ["lat", "lon"],
-            name = "rainfall_region"
+            dims=["lat", "lon"],
+            name="rainfall_region"
         )
         for region in masks.region.values:
             name = idx2names[region]
@@ -555,44 +558,43 @@ def rainfall_region_labels(grid='global0_25'):
         return labels
 
     rr_east = get_rainfall_regions(
-            data_source="imerg_final",
-            kregions=5,
-            region="nimbus_east_africa",
-            grid=grid,
-            mask="lsm",
-            agg_days=1,
-            smooth_neighbors=50,
-            spatial_coherence=5.0,
+        data_source="imerg_final",
+        kregions=5,
+        region="nimbus_east_africa",
+        grid=grid,
+        mask="lsm",
+        agg_days=1,
+        smooth_neighbors=50,
+        spatial_coherence=5.0,
     )
     rr_west = get_rainfall_regions(
-            data_source="imerg_final",
-            kregions=4,
-            region="nimbus_west_africa",
-            grid=grid,
-            mask="lsm",
-            agg_days=1,
-            smooth_neighbors=50,
-            spatial_coherence=5.0,
+        data_source="imerg_final",
+        kregions=4,
+        region="nimbus_west_africa",
+        grid=grid,
+        mask="lsm",
+        agg_days=1,
+        smooth_neighbors=50,
+        spatial_coherence=5.0,
     )
     rr_west = rr_west.assign_coords(region=rr_west.region + rr_east.region.size)
     rr_east_west = xr.concat([rr_east, rr_west], dim="region")
 
-    rr_names = {# east africa
-                0 : "east_africa_coastal_horn",
-                1 : "east_africa_lake_victoria_basin",
-                2 : "east_africa_coastal_savannah",
-                3 : "east_africa_sudanian",
-                4 : "east_africa_west_ethiopian_highlands",
-                # west africa
-                5 : "west_africa_western_sahel",
-                6 : "west_africa_eastern_sahel",
-                7 : "west_africa_sudanian",
-                8 : "west_africa_coastal"
-                }
+    rr_names = {  # east africa
+        0: "east_africa_coastal_horn",
+        1: "east_africa_lake_victoria_basin",
+        2: "east_africa_coastal_savannah",
+        3: "east_africa_sudanian",
+        4: "east_africa_west_ethiopian_highlands",
+        # west africa
+        5: "west_africa_western_sahel",
+        6: "west_africa_eastern_sahel",
+        7: "west_africa_sudanian",
+        8: "west_africa_coastal"
+    }
 
     rr_labels = masks_to_labels(rr_east_west, rr_names)
     return rr_labels
-
 
 
 ##############################################################################

@@ -18,6 +18,7 @@ from sheerwater.utils import (
     dask_remote,
     get_dates,
     pad_with_leapdays,
+    groupby_time,
 )
 
 
@@ -50,6 +51,41 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
     ds['dayofyear'] = ds.dayofyear.dt.dayofyear
 
     return ds
+
+
+@dask_remote
+@spatial()
+@cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'time_grouping', 'agg_days', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "group": 1000},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, 'group': 30}
+               }
+           }
+})
+def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014, time_grouping="month_of_year",
+                   agg_days=7, grid="global1_5", mask=None, region='global'):
+    """Generates quantile ranks of a dataset."""
+    data_fn = get_data(data)
+    start_time = f"{first_year}-01-01"
+    end_time = f"{last_year}-12-31"
+    ds = data_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    # Select only the variable of interest
+    ds = ds[[variable]]
+
+    # ds = assign_grouping_coordinates(ds, time_grouping)
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+
+    ranks = np.arange(0, 1, 0.1)
+    # round ranks to 1 decimal place
+    ranks = np.round(ranks, 1)
+    ds = ds.chunk({"time": -1})
+    if 'prediction_timedelta' in ds.coords:
+        qs = ds.groupby("group", "prediction_timedelta").quantile(q=ranks, dim="time", skipna=True)
+    else:
+        qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    return qs
 
 
 @dask_remote
