@@ -10,8 +10,10 @@ from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
+from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data, get_forecast
+from sheerwater.forecasts.ecmwf_er import ifs_extended_range, ifs_extended_range_debiased
 from sheerwater.reanalysis import era5
+from sheerwater.spatial_subdivisions import clip_to_region_envelope
 from sheerwater.utils import (
     add_dayofyear,
     convert_pred_time_to_init_time,
@@ -19,6 +21,7 @@ from sheerwater.utils import (
     get_dates,
     pad_with_leapdays,
     groupby_time,
+    get_grid,
 )
 
 
@@ -54,8 +57,7 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
 
 
 @dask_remote
-@spatial()
-@cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'time_grouping', 'agg_days', 'grid'],
+@cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'time_grouping', 'agg_days', 'grid', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "group": 1000},
            'chunk_by_arg': {
@@ -65,14 +67,24 @@ def seeps_dry_fraction(first_year=1985, last_year=2014, agg_days=7, grid='global
            }
 })
 def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014, time_grouping="month_of_year",
-                   agg_days=7, grid="global1_5", mask=None, region='global'):
+                   agg_days=7, grid="global1_5", region='global'):
     """Generates quantile ranks of a dataset."""
-    data_fn = get_data(data)
     start_time = f"{first_year}-01-01"
     end_time = f"{last_year}-12-31"
-    ds = data_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=mask, region=region)
+    try:
+        data_fn = get_data(data)
+        ds = data_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=None, region='global')
+    except ValueError:
+        # TODO: temporary fix for ECMWF reforecasts
+        ds = ifs_extended_range(None, None, variable, forecast_type='reforecast', run_type='average', time_group='daily', grid=grid, mask=None, region='global')
+        # forecast_fn = get_forecast(data)
+        # ds = forecast_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=None, region='global')
     # Select only the variable of interest
     ds = ds[[variable]]
+
+    # Clip to region envelope before computing ranks
+    _, _, grid_res, _ = get_grid(grid)
+    ds = clip_to_region_envelope(ds, region, padding=grid_res)
 
     # ds = assign_grouping_coordinates(ds, time_grouping)
     ds = groupby_time(ds, time_grouping, agg_fn=None)

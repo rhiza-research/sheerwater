@@ -306,10 +306,7 @@ def nonuniform_grid(ds, error_thresh=1e-5):
 
 def get_region_envelope(region, padding=1e-6):
     """Get the envelope of a region, padded with a small epsilon."""
-    import pdb; pdb.set_trace()
-    level, promoted = get_spatial_subdivision_level(region)
-    if promoted != 1: 
-        raise ValueError(f"Region {region} is not a specific region, cannot get envelope.")
+    level, _ = get_spatial_subdivision_level(region)
     gdf = polygon_subdivision_geodataframe(level=level)
     gdf = gdf[gdf['region_name'] == region]
     bounds = gdf.geometry.bounds
@@ -319,3 +316,10 @@ def get_region_envelope(region, padding=1e-6):
     bounds['maxx'] += padding
     bounds['maxy'] += padding
     return bounds
+
+
+def clip_to_region_envelope(ds, region, padding=1e-6):
+    """Clip a dataset to a region envelope."""
+    min_lon, min_lat, max_lon, max_lat = get_region_envelope(region, padding=padding).iloc[0]
+    ds = ds.sel(lon=slice(min_lon, max_lon), lat=slice(min_lat, max_lat))
+    return ds

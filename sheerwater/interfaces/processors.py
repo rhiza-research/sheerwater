@@ -7,8 +7,8 @@ import xarray as xr
 
 from nuthatch import cache
 
-from sheerwater.utils import regrid as regrid_util, assign_grouping_coordinates, groupby_time, dask_remote
-from sheerwater.spatial_subdivisions import apply_mask, get_region_envelope
+from sheerwater.utils import regrid as regrid_util, assign_grouping_coordinates, groupby_time, dask_remote, get_grid
+from sheerwater.spatial_subdivisions import apply_mask, clip_to_region_envelope
 
 
 PROCESSOR_REGISTRY = {}
@@ -58,29 +58,29 @@ def qqmap_outputs(variable, data, time_grouping, agg_days, grid, region):
 
 
 @processor()
-def qqmap(ds, source, target, target_grid, time_grouping="month_of_year", variable="precip", **kwargs):
+def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year", variable="precip", **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
     # get data attributes
-    region = kwargs['region']
+    source = kwargs['func_name']
     source_grid = kwargs['grid']
+    _, _, grid_res, _ = get_grid(source_grid)
 
-    import pdb; pdb.set_trace()
-    source_envelope = get_region_envelope(region)
+    ds = clip_to_region_envelope(ds, target_region, padding=grid_res)
+
+    # Select ds within the source envelope
 
     # get the source and target quantile values
     if 'prediction_timedelta' in ds.coords:
-        forecast_or_data = 'forecast'
         input_core_dims = [["prediction_timedelta"], ["quantile"]]
     else:
-        forecast_or_data = 'data'
         input_core_dims = [[], ["quantile"]]
 
     from sheerwater.climatology import quantile_ranks
     # Question: are we always QQ-mapping the daily data?
     source_q = quantile_ranks(variable=variable, data=source, time_grouping=time_grouping,
-                              agg_days=1, grid=source_grid, region=region)
+                              agg_days=1, grid=source_grid, region=target_region)
     target_q = quantile_ranks(variable=variable, data=target, time_grouping=time_grouping,
-                              agg_days=1, grid=source_grid, region=region)
+                              agg_days=1, grid=target_grid, region=target_region)
 
     # add time group
     ds = groupby_time(ds, time_grouping, agg_fn=None)
@@ -100,7 +100,8 @@ def qqmap(ds, source, target, target_grid, time_grouping="month_of_year", variab
                                 vectorize=True, dask="parallelized", output_dtypes=[float])
 
     """Step 2: Regrid source quantiles to target grid"""
-    source_dsq_regrid = regrid(source_dsq, target_grid, method="linear", region=region)
+    source_dsq = source_dsq.sortby('lat')
+    source_dsq_regrid = regrid_util(source_dsq, target_grid, method="linear", region=target_region)
 
     """Step 3: Convert quantiles to corresponding values in target distribution"""
     target_qvalues = target_q['quantile'].values
@@ -112,16 +113,21 @@ def qqmap(ds, source, target, target_grid, time_grouping="month_of_year", variab
         value = qvalues[int(idx)]
         return value
 
+    # After regridding, we need to ensure that the lat/lon values are the same between target_q and source_dsq_regrid
+    target_q['lat'] = np.round(target_q['lat'], 5).astype(np.float32)
+    target_q['lon'] = np.round(target_q['lon'], 5).astype(np.float32)
+    source_dsq_regrid['lat'] = np.round(source_dsq_regrid['lat'], 5).astype(np.float32)
+    source_dsq_regrid['lon'] = np.round(source_dsq_regrid['lon'], 5).astype(np.float32)
+    target_q = target_q.sel(lat=source_dsq_regrid['lat'].values, lon=source_dsq_regrid['lon'].values)
+
+    # Select target_q to match the dimensions of source_dsq_regrid
     source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
                                       source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
-                                      input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
+                                      input_core_dims=input_core_dims, output_core_dims=[[]],
                                       vectorize=True, dask="parallelized", output_dtypes=[float])
 
     # cleanup
     source_ds_mapped = source_ds_mapped.drop_vars("group")
     # make into a dataset
     source_ds_mapped = source_ds_mapped.to_dataset(name=variable)
-    # apply the mask after downscaling
-    import pdb
-    pdb.set_trace()
     return source_ds_mapped
