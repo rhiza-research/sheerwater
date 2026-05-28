@@ -134,6 +134,7 @@ def _metric_kwargs(overrides=None):
         "forecast": "ecmwf_ifs_er_debiased",
         "truth": "era5",
         "metric_name": "mae",
+        "metric_kwargs": {},
         "time_grouping": None,
         "space_grouping": None,
         "spatial": False,
@@ -207,6 +208,8 @@ PERFORMANCE_TEST_CASES = [
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
     {"name": "15_crps", "metric_name": "crps", "variable": "precip",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    {"name": "16_pod_global_soft", "grid": "global1_5", "metric_name": "pod-5",
+     "metric_kwargs": {"soft_margin_in_days": 10}},
 ]
 
 
