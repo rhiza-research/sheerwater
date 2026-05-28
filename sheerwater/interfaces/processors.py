@@ -7,7 +7,7 @@ import xarray as xr
 
 from nuthatch import cache
 
-from sheerwater.utils import regrid as regrid_util, assign_grouping_coordinates, groupby_time, dask_remote, get_grid
+from sheerwater.utils import regrid as regrid_util, assign_grouping_coordinates, groupby_time, dask_remote, get_grid, convert_init_time_to_pred_time
 from sheerwater.spatial_subdivisions import apply_mask, clip_to_region_envelope
 
 
@@ -52,11 +52,6 @@ def regrid(ds, target_grid, method='conservative', **kwargs):  # noqa: ARG001
     return regrid_util(ds, target_grid, method=method)
 
 
-@cache(cache_args=['variable', 'data', 'time_grouping', 'agg_days', 'grid', 'region'])
-def qqmap_outputs(variable, data, time_grouping, agg_days, grid, region):
-    return source_q, target_q
-
-
 @processor()
 def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year", variable="precip", **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
@@ -67,13 +62,18 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
 
     ds = clip_to_region_envelope(ds, target_region, padding=grid_res)
 
-    # Select ds within the source envelope
+    # If this is a forecast with lead time, switch to valid-time indexing so we
+    # can group by month-of-year (or similar) on the valid time. `prediction_timedelta`
+    # stays as a broadcast dim and gets auto-aligned by apply_ufunc against the
+    # lead-time-resolved source quantiles (and broadcast against the lead-free target).
+    is_forecast = 'prediction_timedelta' in ds.coords
+    if is_forecast:
+        ds = convert_init_time_to_pred_time(ds)
 
-    # get the source and target quantile values
-    if 'prediction_timedelta' in ds.coords:
-        input_core_dims = [["prediction_timedelta"], ["quantile"]]
-    else:
-        input_core_dims = [[], ["quantile"]]
+    # x is a scalar value, `values` is a 1-D array over quantile ranks.
+    # prediction_timedelta is left as a broadcast dim on purpose: when present
+    # on both operands xarray aligns it; when present on only one side it broadcasts.
+    input_core_dims = [[], ["quantile"]]
 
     from sheerwater.climatology import quantile_ranks
     # Question: are we always QQ-mapping the daily data?
@@ -93,6 +93,8 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
             return np.nan
         idx = np.argmin(np.abs(values - x))
         return qvalues[idx]
+    import pdb
+    pdb.set_trace()
 
     source_dsq = xr.apply_ufunc(value_to_quantile,
                                 ds[variable], source_q[variable].sel(group=ds.group),
@@ -121,6 +123,8 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
     target_q = target_q.sel(lat=source_dsq_regrid['lat'].values, lon=source_dsq_regrid['lon'].values)
 
     # Select target_q to match the dimensions of source_dsq_regrid
+    import pdb
+    pdb.set_trace()
     source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
                                       source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
                                       input_core_dims=input_core_dims, output_core_dims=[[]],
