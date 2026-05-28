@@ -7,7 +7,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5
-from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, roll_and_agg, shift_by_days
+from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, shift_by_days
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -130,10 +130,10 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
             elif variable == 'precip':
                 ds[variable] = ds[variable] * 1000.0
                 ds[variable].attrs.update(units='mm')
-                ds = np.maximum(ds, 0)
+                ds[variable] = np.maximum(ds[variable], 0)
             elif variable == 'ssrd':
                 ds[variable].attrs.update(units='Joules/m^2')
-                ds = np.maximum(ds, 0)
+                ds[variable] = np.maximum(ds[variable], 0)
         except ValueError:
             # Don't rename variables we haven't registered/don't use
             pass
@@ -345,7 +345,7 @@ def ifs_extended_range_debiased_regrid(start_time, end_time, variable,
 
 
 @dask_remote
-def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='deterministic',
+def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='deterministic',
                           grid="global1_5", mask='lsm', region="global", debiased=True):  # noqa: ARG001
     """Unified API accessor for ECMWF raw and debiased forecasts."""
     # The earliest and latest forecast dates for the set of all leads
@@ -364,9 +364,6 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
                                 forecast_type='forecast', run_type=run_type, time_group='daily',
                                 grid=grid, mask=mask, region=region)
 
-    # Roll over the lead-time dimension
-    ds = roll_and_agg(ds, agg=agg_days, agg_col='lead_time', agg_fn='mean')
-
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
@@ -381,30 +378,36 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, agg_days, prob_type='d
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
+def ecmwf_ifs_er(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+                prob_type='deterministic',
                 event=None, event_kwargs=None,  # noqa: ARG001
+                processors=None, processor_kwargs=None,  # noqa: ARG001
                 lookback_source=None, densify=False,  # noqa: ARG001
                  grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
     return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
-                                 agg_days=agg_days, prob_type=prob_type,
+                                 prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=False)
 
 
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic',
+def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+                          prob_type='deterministic',
                           event=None, event_kwargs=None,  # noqa: ARG001
+                          processors=None, processor_kwargs=None,  # noqa: ARG001
                           lookback_source=None, densify=False,  # noqa: ARG001
                           grid='global1_5', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
     return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
-                                 agg_days=agg_days, prob_type=prob_type,
+                                 prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=True)

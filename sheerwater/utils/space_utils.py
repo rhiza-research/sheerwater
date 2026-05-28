@@ -230,9 +230,9 @@ def add_spatial_attrs(ds, grid, mask, region):
     """Add spatial processing attributes to a dataset."""
     attrs = dict(ds.attrs) if hasattr(ds, "attrs") else {}
     attrs.update({
-        'post_processed_grid': grid,
-        'post_processed_mask': mask,
-        'post_processed_region': region
+        'grid': grid,
+        'mask': mask,
+        'region': region
     })
     return ds.assign_attrs(attrs)
 
@@ -244,10 +244,10 @@ def check_spatial_attr(ds, grid=None, mask=None, region=None):
     """
     if ds is None:
         return False
-    if grid is not None and ds.attrs.get('post_processed_grid', None) == grid:
+    if grid is not None and ds.attrs.get('grid', None) == grid:
         return True
-    if mask is not None and ds.attrs.get('post_processed_mask', None) == mask:
+    if mask is not None and ds.attrs.get('mask', None) == mask:
         return True
-    if region is not None and ds.attrs.get('post_processed_region', None) == region:
+    if region is not None and ds.attrs.get('region', None) == region:
         return True
     return False
