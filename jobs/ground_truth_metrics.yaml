@@ -39,6 +39,33 @@ station_metrics:
   dry:
     agg_days: [7, 10]
     metric: ['pod-1.5', 'far-1.5', 'ets-1.5', 'csi-1.5', 'heidke-1.5-7.6']
+station_table_metrics:
+  function: ground_truth_metric_table
+  _all:
+    start_time: "1998-01-01"
+    end_time: "2024-12-31"
+    truth:
+      - ghcn
+      - ghcn_avg
+      - tahmo
+      - tahmo_avg
+      - knust
+      - knust_avg
+      - stations
+    space_grouping: ['country', 'subregion']
+    grid: ['global0_25', 'global1_5']
+    variable: ['precip']
+    time_grouping: ['None', 'month_of_year']
+  combined_metrics:
+    metric: ['mae', 'rmse', 'bias', 'pearson', 'acc']
+  wet_11_day:
+    metric: ['pod-3.6', 'far-3.6', 'ets-3.6', 'csi-3.6', 'frequencybias-3.6']
+  wet_5_day:
+    metric: ['pod-7.6', 'far-7.6', 'ets-7.6', 'csi-7.6', 'frequencybias-7.6']
+  wet_3_day:
+    metric: ['pod-6.6', 'far-6.6', 'ets-6.6', 'csi-6.6', 'frequencybias-6.6']
+  dry:
+    metric: ['pod-1.5', 'far-1.5', 'ets-1.5', 'csi-1.5', 'heidke-1.5-7.6']
 station_spatial_metrics:
   function: metric
   _all:
