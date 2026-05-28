@@ -38,6 +38,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     if agg_thresh is None:
         # If no agg_thresh is provided, use the full aggregation period by default
         agg_thresh = agg
+
     agg_kwargs = {
         f"{agg_col}": agg,
         "min_periods": agg_thresh,
@@ -62,9 +63,6 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     # Check to see if coord is a time value
     assert np.issubdtype(ds[agg_col].dtype, np.timedelta64) or np.issubdtype(ds[agg_col].dtype, np.datetime64)
 
-    # Chop off the first agg-1 days, which will be all NaNs
-    ds_agg = ds_agg.isel(**{f"{agg_col}": slice(agg-1, None)})
-
     # Correct coords to left-align or center-align the aggregated forecast window
     # (default is right aligned)
     if align == "center":
@@ -73,6 +71,14 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
         shift = np.timedelta64(0, 'D')
     elif align == "left":
         shift = np.timedelta64(agg-1, 'D')
+        ds_agg
+
+    # We need to remove these first days, which will all be NaNs in this left-aligned,
+    # full-window aggregation case, so that we don't introduce leadning NaNs that make
+    # joining challenging
+    if agg_thresh == agg and align == "left":
+        # Chop off the first agg-1 days, which will be all NaNs
+        ds_agg = ds_agg.isel(**{f"{agg_col}": slice(agg-1, None)})
     ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-shift})
 
     if stride is not None:
@@ -82,7 +88,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
             start_time = ds_agg[agg_col].values[0]
             end_time = ds_agg[agg_col].values[-1]
             times = get_dates(start_time, end_time, stride=stride)
-            ds_agg = ds_agg.sel(time=times)
+            ds_agg = ds_agg.sel(**{agg_col: times})
 
     return ds_agg
 

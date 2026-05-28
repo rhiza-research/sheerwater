@@ -9,7 +9,9 @@ import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
 from sheerwater.interfaces import spatial
-from sheerwater.utils import add_spatial_attrs, roll_and_agg
+from sheerwater.utils import (add_spatial_attrs, roll_and_agg,
+                              convert_pred_time_to_init_time,
+                              convert_init_time_to_pred_time)
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -165,6 +167,7 @@ def fn_false_positives(data, **cache_kwargs):  # noqa: F821
     # computing false positives, using a square, max window function. The result of this is that
     # if there is an observation anywhere within the soft margin when a forecast has made a positive
     # detection, then the false positive is discounted.
+    # We don't need to anything complex in lead time here, b/c we're not rolling on the obs
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
         obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, agg_thresh=1,
@@ -185,9 +188,24 @@ def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
     # if there is an forecast anywhere within the soft margin when a observation has made a positive
     # detection, then the false negative is discounted.
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        # If we have a forecast, we need to do softening along the lead dimension,
+        # so do that conversion here
+        if 'prediction_timedelta' in data['fcst'].coords:
+            forecast_or_data = 'forecast'
+            fcst = convert_pred_time_to_init_time(data['fcst'])
+            fcst = fcst.rename({'prediction_timedelta': 'time'})
+        else:
+            fcst = data['fcst']
+            forecast_or_data = 'data'
+
+        # Apply the soft margin to the forecast or data
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
-        fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
+        fcst = roll_and_agg(fcst, agg=soft_margin_in_days, agg_thresh=1,
                             align="center", agg_col="time", agg_fn='max')
+
+        if forecast_or_data == 'forecast':
+            fcst = fcst.rename({'time': 'prediction_timedelta'})
+            fcst = convert_init_time_to_pred_time(fcst)
     else:
         fcst = data['fcst']
     obs = data['obs']
