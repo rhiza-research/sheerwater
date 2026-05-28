@@ -44,6 +44,14 @@ station_table_metrics:
   _all:
     start_time: "1998-01-01"
     end_time: "2024-12-31"
+    -forecast:
+      - chirp_v3
+      - chirps_v3
+      - imerg_late
+      - imerg_final
+      - rain_over_africa
+      - tamsat
+      - era5
     truth:
       - ghcn
       - ghcn_avg
