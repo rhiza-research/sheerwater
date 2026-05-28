@@ -76,7 +76,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     # We need to remove these first days, which will all be NaNs in this left-aligned,
     # full-window aggregation case, so that we don't introduce leadning NaNs that make
     # joining challenging
-    if agg_thresh == agg and align == "left":
+    if agg_thresh == agg:
         # Chop off the first agg-1 days, which will be all NaNs
         ds_agg = ds_agg.isel(**{f"{agg_col}": slice(agg-1, None)})
     ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-shift})
