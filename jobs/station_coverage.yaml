@@ -1,0 +1,18 @@
+coverage_metrics:
+  function: station_coverage
+  _all:
+    start_time: "1998-01-01"
+    end_time: "2024-12-31"
+    station_data:
+      - ghcn
+      - ghcn_avg
+      - tahmo
+      - tahmo_avg
+      - knust
+      - knust_avg
+      - stations
+    space_grouping: ['country', 'subregion']
+    grid: ['global0_25', 'global1_5']
+    variable: ['precip']
+    time_grouping: ['None', 'month_of_year']
+    agg_days: [1, 3, 5, 7, 10, 11]
