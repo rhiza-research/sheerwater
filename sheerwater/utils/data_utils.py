@@ -69,16 +69,12 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     # Correct coords to left-align or center-align the aggregated forecast window
     # (default is right aligned)
     if align == "center":
-        shift = np.timedelta64(agg-1, 'D') / 2
+        shift = np.timedelta64((agg - 1) // 2, 'D')
     elif align == "right":
         shift = np.timedelta64(0, 'D')
     elif align == "left":
         shift = np.timedelta64(agg-1, 'D')
-        ds_agg
 
-    # We need to remove these first days, which will all be NaNs in this left-aligned,
-    # full-window aggregation case, so that we don't introduce leadning NaNs that make
-    # joining challenging
     ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-shift})
 
     if stride is not None:
