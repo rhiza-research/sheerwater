@@ -53,7 +53,8 @@ def regrid(ds, target_grid, method='conservative', **kwargs):  # noqa: ARG001
 
 
 @processor()
-def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year", variable="precip", **kwargs):
+def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year", margin_in_days=None,
+          variable="precip", **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
     # get data attributes
     source = kwargs['func_name']
@@ -75,12 +76,12 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
     # on both operands xarray aligns it; when present on only one side it broadcasts.
     input_core_dims = [[], ["quantile"]]
 
-    from sheerwater.climatology import quantile_ranks
+    from sheerwater.datasets import quantile_ranks
     # Question: are we always QQ-mapping the daily data?
     source_q = quantile_ranks(variable=variable, data=source, time_grouping=time_grouping,
-                              agg_days=1, grid=source_grid, region=target_region)
+                              margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=target_region)
     target_q = quantile_ranks(variable=variable, data=target, time_grouping=time_grouping,
-                              agg_days=1, grid=target_grid, region=target_region)
+                              margin_in_days=margin_in_days, agg_days=1, grid=target_grid, region=target_region)
 
     # add time group
     ds = groupby_time(ds, time_grouping, agg_fn=None)
