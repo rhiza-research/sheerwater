@@ -26,6 +26,60 @@ pytestmark = pytest.mark.correctness
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
                    'forecast', 'truth',
+                   'metric_name', 'metric_kwargs',
+                   'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
+                   'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, "time": 30}
+               },
+           }
+})
+def gold_testing_metric_new(start_time, end_time, variable, forecast, truth,
+                            metric_name, metric_kwargs=None,
+                            event=None, event_kwargs=None, filter_event=None, filter_event_kwargs=None,
+                            agg_days=1,
+                            time_grouping=None, space_grouping=None,
+                            spatial=False, grid="global1_5", mask='lsm', region='global'):
+    """Compute a grouped metric for a forecast at a specific lead."""
+    """Stub function providing gold standard reference for testing.
+
+    The following code enables us to call this with recompute=True and replace the old
+    metric value with a new metric value. This can be used if we want to change the gold
+    standard metric value because a methodology or data source has changed.
+
+    To use this, disable the fail_if_no_cache flag above and call with recompute=True.
+    """
+    # Run grouped_metric_new (same call structure as archive)
+    ds_new = metric(
+        start_time=start_time,
+        end_time=end_time,
+        variable=variable,
+        forecast=forecast,
+        truth=truth,
+        metric_name=metric_name,
+        metric_kwargs=metric_kwargs,
+        agg_days=agg_days,
+        event=event,
+        event_kwargs=event_kwargs,
+        filter_event=filter_event,
+        filter_event_kwargs=filter_event_kwargs,
+        time_grouping=time_grouping,
+        space_grouping=space_grouping,
+        spatial=spatial,
+        region=region,
+        mask=mask,
+        grid=grid,
+    )
+    return ds_new
+
+
+# Stub providing gold standard reference: same cache signature as legacy grouped_metric.
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
+                   'forecast', 'truth',
                    'metric_name', 'event', 'event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
@@ -81,6 +135,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     test_case.setdefault("forecast", "ecmwf_ifs_er_debiased")
     test_case.setdefault("truth", "era5")
     test_case.setdefault("metric_name", "mae")
+    test_case.setdefault("metric_kwargs", None)
     test_case.setdefault("variable", "precip")
     test_case.setdefault("lead", 21)  # 3 week lead by default
     test_case.setdefault("spatial", True)
@@ -96,6 +151,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     forecast = test_case["forecast"]
     truth = test_case["truth"]
     metric_name = test_case["metric_name"]
+    metric_kwargs = test_case["metric_kwargs"]
     variable = test_case["variable"]
     space_grouping = test_case["space_grouping"]
     region = test_case["region"]
@@ -116,7 +172,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     grid = test_case["grid"]
 
     print(
-        f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | variable={variable} | "
+        f"Testing: forecast={forecast} | truth={truth} | metric_name={metric_name} | metric_kwargs={metric_kwargs} | variable={variable} | "
         f"space_grouping={space_grouping} | region={region} | lead={lead} days | agg_days={agg_days} | "
         f"event={event} | event_kwargs={event_kwargs} | filter_event={filter_event} | filter_event_kwargs={filter_event_kwargs} | spatial={spatial} | mask={mask} | "
         f"time_grouping={time_grouping} | grid={grid} | start_time={start_time} | end_time={end_time}"
@@ -141,6 +197,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         "grid": grid,
     }
     pass_event_kwargs = {
+        "metric_kwargs": metric_kwargs,
         "event": event,
         "event_kwargs": event_kwargs,
         "filter_event": filter_event,
@@ -152,13 +209,24 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
     }
     if overwrite_gold_testing:
         # Run the new metric
-        ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
-                                     recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
+        if metric_kwargs is not None or filter_event is not None or filter_event_kwargs is not None:
+            # Run the new form metrics
+            ds_old = gold_testing_metric_new(**kwargs, **pass_event_kwargs,
+                                             recompute=['global_statistic', 'metric', 'gold_testing_metric_new'], cache_mode='overwrite')
+        else:
+            # Run the old form metrics
+            ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
+                                         recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
         return ds_old, None, 0
     else:
-        # Run gold_testing_metric (same call structure as archive)
-        ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
-                                     recompute=False, cache_mode='read_only_strict')
+        if metric_kwargs is not None or filter_event is not None or filter_event_kwargs is not None:
+            # Run gold_testing_metric (same call structure as archive)
+            ds_old = gold_testing_metric_new(**kwargs, **pass_event_kwargs,
+                                             recompute=False, cache_mode='read_only_strict')
+        else:
+            # Run gold_testing_metric (same call structure as archive)
+            ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
+                                         recompute=False, cache_mode='read_only_strict')
         # Run the new metric
         ds_new = metric(**kwargs, **pass_event_kwargs, recompute=recompute, cache_mode='read_only')
 
@@ -281,6 +349,12 @@ METRIC_TEST_CASES = [
     {"name": "27_brier", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "brier-10", "variable": "precip", "spatial": False,
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    {"name": "28_pod_10_soft", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "pod-10", "variable": "precip", "spatial": True,
+        "metric_kwargs": {"soft_margin_in_days": 10}},
+    {"name": "29_far_10_soft", "forecast": "ecmwf_ifs_er_debiased",
+        "metric_name": "far-10", "variable": "precip", "spatial": True,
+        "metric_kwargs": {"soft_margin_in_days": 10}},
 ]
 
 
