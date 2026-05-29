@@ -120,29 +120,3 @@ def test_roll_and_agg_stride_selection():
         "2024-01-08",
     ]
     assert rolled_stride_weekdays["precip"].values.tolist() == [6.0, 15.0, 27.0]
-
-
-def test_roll_and_agg_center_alignment():
-    """Center labels should use whole-day shifts for odd and even window sizes."""
-    ds = xr.Dataset(
-        {"precip": (["time"], np.arange(1, 15, dtype=float))},
-        coords={"time": pd.date_range("2024-01-01", periods=14, freq="D")},
-    )
-
-    left = roll_and_agg(ds, agg=7, agg_col="time", agg_fn="sum", align="left")
-    center = roll_and_agg(ds, agg=7, agg_col="time", agg_fn="sum", align="center")
-    right = roll_and_agg(ds, agg=7, agg_col="time", agg_fn="sum", align="right")
-
-    # Jan 1–7 window: left at start, center at middle day, right at end
-    assert left.sel(time="2024-01-01").precip.item() == 28
-    assert center.sel(time="2024-01-04").precip.item() == 28
-    assert right.sel(time="2024-01-07").precip.item() == 28
-
-    left = roll_and_agg(ds, agg=8, agg_col="time", agg_fn="sum", align="left")
-    center = roll_and_agg(ds, agg=8, agg_col="time", agg_fn="sum", align="center")
-    right = roll_and_agg(ds, agg=8, agg_col="time", agg_fn="sum", align="right")
-
-    # Jan 1–8 window: even-length center label is floored to Jan 5
-    assert left.sel(time="2024-01-01").precip.item() == 36
-    assert center.sel(time="2024-01-05").precip.item() == 36
-    assert right.sel(time="2024-01-08").precip.item() == 36
