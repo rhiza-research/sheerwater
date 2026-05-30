@@ -26,9 +26,9 @@ scatter_data:
     agg_days: [1, 5, 10]
     grid: ['global0_25', 'global1_5']
     sources:
-    - - !!python/tuple ['rain_over_africa', 'precip']
-      - !!python/tuple ['chirps_v3', 'precip']
-      - !!python/tuple ['imerg_final', 'precip']
-      - !!python/tuple ['tahmo_avg', 'precip']
+      - - !!python/tuple ['rain_over_africa', 'precip']
+        - !!python/tuple ['chirps_v3', 'precip']
+        - !!python/tuple ['imerg_final', 'precip']
+        - !!python/tuple ['tahmo_avg', 'precip']
     mask: ['lsm']
     region: ['ghana', 'kenya']

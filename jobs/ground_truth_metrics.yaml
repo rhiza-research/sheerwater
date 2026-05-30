@@ -19,7 +19,7 @@ station_metrics:
       - knust
       - knust_avg
       - stations
-    spatial: False
+    spatial: false
     space_grouping: ['country', 'subregion']
     grid: ['global0_25', 'global1_5']
     variable: ['precip']
@@ -44,14 +44,14 @@ station_table_metrics:
   _all:
     start_time: "1998-01-01"
     end_time: "2024-12-31"
-    -forecast:
-      - chirp_v3
-      - chirps_v3
-      - imerg_late
-      - imerg_final
-      - rain_over_africa
-      - tamsat
-      - era5
+    forecast:
+      - - chirp_v3
+        - chirps_v3
+        - imerg_late
+        - imerg_final
+        - rain_over_africa
+        - tamsat
+        - era5
     truth:
       - ghcn
       - ghcn_avg
@@ -89,7 +89,7 @@ station_spatial_metrics:
       - era5
     truth:
       - stations
-    spatial: True
+    spatial: true
     grid: ['global0_25', 'global1_5']
     variable: ['precip']
     time_grouping: ['None', 'month_of_year']
