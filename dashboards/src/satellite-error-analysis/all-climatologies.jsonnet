@@ -388,8 +388,8 @@
     "list": [
       {
         "current": {
-          "text": "4",
-          "value": "4"
+          "text": "2.25",
+          "value": "2.25"
         },
         "label": "lat",
         "name": "lat",
@@ -399,8 +399,8 @@
       },
       {
         "current": {
-          "text": "40.5",
-          "value": "40.5"
+          "text": "41.75",
+          "value": "41.75"
         },
         "label": "lon",
         "name": "lon",
