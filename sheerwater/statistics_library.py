@@ -200,40 +200,46 @@ def fn_softened_fcst(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    # Following the implementation in Parasuraman et al.,
-    # PARASURAMAN, R., MASALONIS, A. J. and HANCOCK, P. A. 2000, Fuzzy signal detection:
-    # basic postulates and formulas for analyzing human and machine performance.
-    # Human Factors, 42, in press.
+    """This implementation of true positives is based on fuzzy detection.
+
+    It reverts to the standard POD and FAR in the case where no soft margin is applied.
+
+    We follow the implementation in Parasuraman et al.,
+        PARASURAMAN, R., MASALONIS, A. J. and HANCOCK, P. A. 2000, Fuzzy signal detection:
+        basic postulates and formulas for analyzing human and machine performance.
+        Human Factors, 42, in press.
+
+        In this paper:
+        - TP = Hit = min(obs, fcst)
+            This will be 1 only if the observation and forecast are both 1, otherwise 0.
+        - FN = Miss = max(obs - fcst, 0)
+            This will be 1 only if the observation is 1 and the forecast is 0, otherwise 0.
+        - FP = False alarm = max(fcst - obs, 0)
+            This will be 1 only if the forecast is 1 and the observation is 0, otherwise 0.
+        - TN = Correct rejection = min(1 - obs, 1 - fcst)
+            This will be 1 only if the observation and forecast are both 0, otherwise 0.
+    """
     softened_fcst = fn_softened_fcst(data, **cache_kwargs)
     return np.minimum(softened_fcst, data['obs'])
 
 
 @statistic(cache=False, name='false_negatives')
 def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    # Following the implementation in Parasuraman et al.,
-    # PARASURAMAN, R., MASALONIS, A. J. and HANCOCK, P. A. 2000, Fuzzy signal detection:
-    # basic postulates and formulas for analyzing human and machine performance.
-    # Human Factors, 42, in press.
+    """This implementation of false negatives is based on fuzzy detection. See above."""
     softened_fcst = fn_softened_fcst(data, **cache_kwargs)
     return np.maximum(data['obs'] - softened_fcst, 0)
 
 
 @statistic(cache=False, name='true_negatives')
 def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    # Following the implementation in Parasuraman et al.,
-    # PARASURAMAN, R., MASALONIS, A. J. and HANCOCK, P. A. 2000, Fuzzy signal detection:
-    # basic postulates and formulas for analyzing human and machine performance.
-    # Human Factors, 42, in press.
+    """This implementation of true negatives is based on fuzzy detection. See above."""
     softened_obs = fn_softened_obs(data, **cache_kwargs)
     return np.minimum(1.0 - data['fcst'], 1.0 - softened_obs)
 
 
 @statistic(cache=False, name='false_positives')
 def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # Following the implementation in Parasuraman et al.,
-    # PARASURAMAN, R., MASALONIS, A. J. and HANCOCK, P. A. 2000, Fuzzy signal detection:
-    # basic postulates and formulas for analyzing human and machine performance.
-    # Human Factors, 42, in press.
+    """This implementation of false positives is based on fuzzy detection. See above."""
     softened_obs = fn_softened_obs(data, **cache_kwargs)
     return np.maximum(data['fcst'] - softened_obs, 0)
 
