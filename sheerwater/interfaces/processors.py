@@ -124,8 +124,6 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
     target_q = target_q.sel(lat=source_dsq_regrid['lat'].values, lon=source_dsq_regrid['lon'].values)
 
     # Select target_q to match the dimensions of source_dsq_regrid
-    import pdb
-    pdb.set_trace()
     source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
                                       source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
                                       input_core_dims=input_core_dims, output_core_dims=[[]],

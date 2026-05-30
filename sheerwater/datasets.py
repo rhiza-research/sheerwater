@@ -36,7 +36,7 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
     except ValueError:
         if data == 'ecmwf_ifs_er':
             # TODO: temporary fix for ECMWF reforecasts, make this a generic reforecast getter
-            ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
+            ds = ifs_extended_range(start_time, end_time, variable, forecast_type='reforecast',
                                     run_type='average', time_group='daily', grid=grid, mask=None, region='global')
             ds = ds.rename({'lead_time': 'prediction_timedelta'})
         else:
@@ -48,59 +48,73 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
     _, _, grid_res, _ = get_grid(grid)
     ds = clip_to_region_envelope(ds, region, padding=grid_res)
 
+    is_forecast = 'prediction_timedelta' in ds.coords
+
     def compute_quantiles(x, ranks):
-        if isinstance(time_grouping, int):
-            qs = x.rolling(time=margin_in_days).quantile(q=ranks, dim="time", skipna=True)
-        else:
-            qs = x.groupby("group").quantile(q=ranks, dim="time", skipna=True)
-        return qs
+        return x.groupby("group").quantile(q=ranks, dim="time", skipna=True)
 
     import pdb
     pdb.set_trace()
     ranks = np.arange(0, 1.1, 0.1)
     # round ranks to 1 decimal place
     ranks = np.round(ranks, 1)
-    if 'prediction_timedelta' in ds.coords:
-        # Model issuance date determines the day of year, so can add the grouping coordinate based on that
-        if time_grouping is not None:
-            # If time grouping is a grouping, add the label to the model_issuance_date dimension
+
+    if time_grouping is not None:
+        if is_forecast:
+            # Model issuance date determines the calendar grouping for reforecasts
             ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='model_issuance_date')
             ds = ds.stack(time=("model_issuance_date", "start_year"))
-            ds = ds.chunk({"time": -1})
-        qs = ds.groupby("prediction_timedelta").map(compute_quantiles, ranks=ranks)
-    else:
-        if time_grouping is not None:
-            # If time grouping is a grouping, add the label to the time dimension
+        else:
             ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='time')
-            ds = ds.chunk({"time": -1})
+        ds = ds.chunk({"time": -1})
+        if is_forecast:
+            qs = ds.groupby("prediction_timedelta").map(compute_quantiles, ranks=ranks)
+        else:
             qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    else:
+        if is_forecast:
+            ds = add_dayofyear(ds, time_dim='model_issuance_date')
+            ds = pad_with_leapdays(ds, time_dim='model_issuance_date')
+            ds = ds.rename({'dayofyear': 'group'})
+            ds = ds.assign_coords(year=ds.model_issuance_date.dt.year)
+            ds = ds.set_index(model_issuance_date=['group', 'year']).unstack('model_issuance_date')
         else:
             ds = add_dayofyear(ds, time_dim='time')
             ds = pad_with_leapdays(ds, time_dim='time')
+            ds = ds.rename({'dayofyear': 'group'})
             ds = ds.assign_coords(year=ds.time.dt.year)
-            ds = ds.set_index(time=['dayofyear', 'year']).unstack('time')
-            ds = ds.sortby('dayofyear')
+            ds = ds.set_index(time=['group', 'year']).unstack('time')
 
-            half = margin_in_days // 2
-            window = 2 * half + 1
+        ds = ds.sortby('group')
 
-            if half > 0:
-                # Create a padded dataset with the missing days at the start and end
-                ds_pad = xr.concat([
-                    ds.isel(dayofyear=slice(-half, None)),   # late December wraps to early January
-                    ds,
-                    ds.isel(dayofyear=slice(0, half)),
-                ], dim='dayofyear')
-                ds_pad = ds_pad.chunk({'dayofyear': -1, 'year': -1})
-            else:
-                ds_pad = ds
+        half = margin_in_days // 2
+        window = 2 * half + 1
 
-            windowed = ds_pad.rolling(dayofyear=window, center=True, min_periods=1).construct('doy_window')
-            windowed = windowed.isel(dayofyear=slice(half, -half))
+        chunk_dims = {'group': -1, 'year': -1}
+        if is_forecast:
+            chunk_dims['start_year'] = -1
 
-            samples = windowed.stack(sample=('year', 'doy_window'))
-            qs = samples.quantile(ranks, dim='sample', skipna=True)
-            qs = qs.assign_coords(group=('dayofyear', [f'D{d.dt.dayofyear:03d}' for d in qs.dayofyear]))
+        if half > 0:
+            # Create a padded dataset with the missing days at the start and end
+            ds_pad = xr.concat([
+                ds.isel(group=slice(-half, None)),   # late December wraps to early January
+                ds,
+                ds.isel(group=slice(0, half)),
+            ], dim='group')
+            ds_pad = ds_pad.chunk(chunk_dims)
+        else:
+            ds_pad = ds
+
+        windowed = ds_pad.rolling(group=window, center=True, min_periods=1).construct('group_window')
+        windowed = windowed.isel(group=slice(half, -half))
+
+        if is_forecast:
+            samples = windowed.stack(sample=('year', 'start_year', 'group_window'))
+        else:
+            samples = windowed.stack(sample=('year', 'group_window'))
+        qs = samples.quantile(ranks, dim='sample', skipna=True)
+        qs = qs.assign_coords(group=('group', [f'D{d.dt.dayofyear:03d}' for d in qs.group]))
+
     return qs
 
 
