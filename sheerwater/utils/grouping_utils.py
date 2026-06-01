@@ -27,7 +27,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean', time_dim='time'):
         3: 'first',
         4: 'first',
         5: 'first',
-        6: 'first',
+        6: 'second',
         7: 'second',
         8: 'second',
         9: 'second',
@@ -39,6 +39,10 @@ def groupby_time(ds, time_grouping, agg_fn='mean', time_dim='time'):
     if time_grouping is not None:
         if time_grouping == 'month_of_year':
             coords = [f'M{x:02d}' for x in ds[time_dim].dt.month.values]
+        elif time_grouping == 'dekad_of_year':
+            coords = [f'D{x:02d}' for x in ds[time_dim].dt.dayofyear.values // 10]
+        elif time_grouping == 'week_of_year':
+            coords = [f'W{x:02d}' for x in ds[time_dim].dt.weekofyear.values]
         elif time_grouping == 'year':
             coords = [f'Y{x:04d}' for x in ds[time_dim].dt.year.values]
         elif time_grouping == 'quarter_of_year':

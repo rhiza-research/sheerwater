@@ -53,7 +53,8 @@ def regrid(ds, target_grid, method='conservative', **kwargs):  # noqa: ARG001
 
 
 @processor()
-def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year", margin_in_days=None,
+def qqmap(ds, target, target_grid, target_region,
+          time_grouping="month_of_year", margin_in_days=None,
           variable="precip", **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
     # get data attributes
@@ -78,7 +79,7 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
 
     from sheerwater.datasets import quantile_ranks
     # Question: are we always QQ-mapping the daily data?
-    source_q = quantile_ranks(variable=variable, data=source, time_grouping=time_grouping,
+    source_q = quantile_ranks(variable=variable, data=source, time_grouping=time_grouping, recompute=True,
                               margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=target_region)
     target_q = quantile_ranks(variable=variable, data=target, time_grouping=time_grouping,
                               margin_in_days=margin_in_days, agg_days=1, grid=target_grid, region=target_region)
@@ -94,8 +95,6 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
             return np.nan
         idx = np.argmin(np.abs(values - x))
         return qvalues[idx]
-    import pdb
-    pdb.set_trace()
 
     source_dsq = xr.apply_ufunc(value_to_quantile,
                                 ds[variable], source_q[variable].sel(group=ds.group),
@@ -104,6 +103,7 @@ def qqmap(ds, target, target_grid, target_region, time_grouping="month_of_year",
 
     """Step 2: Regrid source quantiles to target grid"""
     source_dsq = source_dsq.sortby('lat')
+    import pdb; pdb.set_trace()
     source_dsq_regrid = regrid_util(source_dsq, target_grid, method="linear", region=target_region)
 
     """Step 3: Convert quantiles to corresponding values in target distribution"""

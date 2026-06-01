@@ -160,7 +160,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         ds_old = gold_testing_metric(**kwargs, **gold_pass_event_kwargs,
                                      recompute=False, cache_mode='read_only_strict')
         # Run the new metric
-        ds_new = metric(**kwargs, **pass_event_kwargs, recompute=recompute, cache_mode='read_only')
+        ds_new = metric(**kwargs, **pass_event_kwargs, recompute=False, cache_mode='read_only')
 
     # Convert from new metric format to old format by selection region and lead time (archive logic)
     if lead is not None:
