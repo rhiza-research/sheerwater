@@ -1,15 +1,91 @@
-"""A combined runner utility that reads metrics.yaml, and allows the running and monitoring of multiple metrics"""
+"""A combined runner utility that reads metrics.yaml, and allows the running and monitoring of multiple metrics."""
 #!/usr/bin/env python
-
 import argparse
+import dask
+import time
 import yaml
 import copy
 import itertools
 import sheerwater.metrics as metrics
 import dashboard_data
 from sheerwater.utils import start_remote
-from jobs.job_utils import run_in_parallel
 import multiprocessing
+
+def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
+    """Run a function in parallel with dask delayed.
+
+    Args:
+        func(callable): A function to call. Must take one of iterable as an argument.
+        iterable (iterable): Any iterable object to pass to func.
+        parallelism (int): Number of func(iterables) to run in parallel at a time.
+        skip (int): Number of iterables to skip.
+        name (str): Name of the runner for printing.
+    """
+    iterable, copy = itertools.tee(iterable)
+    length = len(list(copy))
+    counter = 0
+    success_count = 0
+    failed = []
+    if parallelism <= 1:
+        for i, it in enumerate(iterable):
+            if i < skip:
+                continue
+
+            if name:
+                print(f"{name}: Running {i+1}/{length}")
+            else:
+                print(f"Running {i+1}/{length}")
+
+            out = func(it)
+            if out is not None:
+                success_count += 1
+            else:
+                failed.append(it)
+    else:
+        for it in itertools.batched(iterable, parallelism):
+            if counter < skip:
+                counter = counter + parallelism
+                continue
+
+            output = []
+
+            if name:
+                print(f"{name}: Running {counter+1}...{counter+parallelism}/{length}")
+            else:
+                print(f"Running {counter+1}...{counter+parallelism}/{length}")
+
+            for i in it:
+                out = dask.delayed(func)(i)
+                if out is None:
+                    failed.append(i)
+
+                output.append(out)
+
+            results = dask.compute(output)[0]
+            ls_count = 0
+            for i, r in enumerate(results):
+                if r is not None:
+                    ls_count += 1
+                    success_count += 1
+                else:
+                    failed.append(it[i])
+                    if name:
+                        print(f"{name}: Failed metric: {it[i]}")
+                    else:
+                        print(f"Failed metric: {it[i]}")
+
+            if name:
+                print(f"{name}: {ls_count} succeeded.")
+            else:
+                print(f"{ls_count} succeeded.")
+
+            counter = counter + parallelism
+
+    if name:
+        print(f"{name}: {success_count}/{length} returned non-null values. Runs that failed: {failed}")
+    else:
+        print(f"{success_count}/{length} returned non-null values. Runs that failed: {failed}")
+
 
 def extract_combos_from_args(args):
     """Extracts combinations of metrics to run from the arguments."""
@@ -38,7 +114,7 @@ def extract_combos_from_args(args):
     return product_of_args
 
 def extract_combos_from_file(file, metric_group):
-
+    """Extract all metric combinations from a section of a metrics file."""
     function = None
     data = None
     with open(file, 'r') as f:
@@ -62,31 +138,39 @@ def extract_combos_from_file(file, metric_group):
 
     for key, value in data.items():
         current_combo = copy.deepcopy(all_combos)
-
-        print(current_combo)
-        print(data[key])
+        #print(current_combo)
+        #print(data[key])
 
         # Update and add section-specific options
         current_combo.update(data[key])
 
-        # Extract parts of the dict that are lists to product-them
-        to_product = {key: value for key, value in current_combo.items() if isinstance(value, list)}
-        apply_to_all = {key: value for key, value in current_combo.items() if isinstance(value, str)}
+        # Anything that is a string should be turned into a list for the product
+        for k, v in current_combo.items():
+            if not isinstance(v, list):
+                current_combo[k] = [v]
 
         def product_dict(**kwargs):
             keys = kwargs.keys()
             for instance in itertools.product(*kwargs.values()):
                 yield dict(zip(keys, instance))
 
-        products = list(product_dict(**to_product))
-
-        for v in products:
-            for key, value in apply_to_all.items():
-                v[key] = value
+        products = list(product_dict(**current_combo))
 
         combos.extend(products)
 
     return function, combos
+
+
+def start_and_run_group(combos, parallelism, skip, remote_name, remote_config, function):
+    """Start a cluster and run a set of function combinations on that cluster."""
+    iterable, copy = itertools.tee(combos)
+    length = len(list(copy))
+    print(f"Starting cluster {remote_name} to run {length} metrics with {parallelism} parallelism.\n \
+            \tcluster_config: {remote_config}")
+
+    start_remote(remote_name=remote_name, remote_config=remote_config)
+    combos = copy.deepcopy(combos)
+    run_in_parallel(function, combos, parallelism, skip=skip, name=remote_name)
 
 
 if __name__ == "__main__":
@@ -107,11 +191,13 @@ if __name__ == "__main__":
     parser.add_argument("--time-grouping", type=str, nargs='*', help="Time groupings to evaluate.")
 
     # Instead of passing the arguments in a bespoke way, you can also get combinations from metrics.yaml
-    parser.add_argument("--from-file", type=str, help="A file that defines combinations of metrics to run")
-    parser.add_argument("--metric-group", type=str, help="The section of metrics.yaml to run")
+    parser.add_argument("--from-file", "-f", type=str, help="A file that defines combinations of metrics to run")
+    parser.add_argument("--metric-group", "-m",  type=str, help="The section of metrics.yaml to run")
 
     # These control how the metrics are run
-    parser.add_argument("--divide-by", type=str, nargs='*', help="A sub-property to device the metrics by for running. Will start a cluster for each value.")
+    parser.add_argument("--divide-by", type=str, nargs='*',
+                        help="A sub-property to device the metrics by for running. \
+                        Will start a cluster for each value.")
     parser.add_argument("--backend", type=str, default=None, help="Backend to use for evaluation.")
     parser.add_argument("--recompute", action=argparse.BooleanOptionalAction,
                         default=False, help="Whether to recompute existing metrics.")
@@ -120,21 +206,29 @@ if __name__ == "__main__":
     parser.add_argument("--memoize-truth", action=argparse.BooleanOptionalAction,
                         default=False, help="Whether to memoize the truth.")
     parser.add_argument("--target-read-chunk-size", type=int, default=1000, help="Number of runs to run in parallel.")
+    parser.add_argument("--filepath-only", action=argparse.BooleanOptionalAction, default=True,
+                        help="Whether to run the nuthatch cache with filepath only.")
     parser.add_argument("--remote", action=argparse.BooleanOptionalAction,
                         default=True, help="Whether to run on remote cluster.")
     parser.add_argument("--remote-order", type=str, action='append',
-                        help="Order of remote clusters to use. Finds corresponding remote name and config for each divide by group.")
+                        help="Order of remote clusters to use. Finds corresponding remote name and \
+                        config for each divide by group.")
     parser.add_argument("--remote-name", type=str, action='append',
-                        help="Name of remote cluster to use. If using divide by, pass multiple times.")
+                        help="Name of remote cluster to use. If using divide by can be passed \
+                        once for all clusters or for each divide by group.")
     parser.add_argument("--parallelism", type=int, action='append',
-                        help="Number of runs to run in parallel per cluster. If using divide by, pass multiple times.")
+                        help="Number of runs to run in parallel. If using divide by can be passed \
+                        once for all clusters or for each divide by group.")
     parser.add_argument("--remote-config", type=str, action='append', nargs='*',
-                        help="Remote configuration to use. If using divide by pass multiple times.")
+                        help="Remote configuration to use. If using divide by can be passed \
+                        once for all clusters or for each divide by group.")
     parser.add_argument("--skip", type=int, action='append',
-                        help="Start runs at this index by skipping the first N runs. If using divide by pass multiple times.")
+                        help="Start runs at this index by skipping the first N runs. If using divide by can be passed \
+                        once for all clusters or for each divide by group.")
     args = parser.parse_args()
 
-    #### Get all the combinations of metrics to run - either through a product of passed options - or by resolving the yaml file
+    #### Get all the combinations of metrics to run -
+    # either through a product of passed options - or by resolving the yaml file
     combos_to_run = []
     if args.from_file:
         # Use the file
@@ -150,12 +244,18 @@ if __name__ == "__main__":
         function = args.function
         combos_to_run = extract_combos_from_args(args)
 
-    # Resolve extra variables to good defaults (filepath_only, recompute, storage_backend, target_read_chunk_size, memoize_forecast, memoize_truth)
+    if args.metric_group is not None:
+        name_prefix = args.metric_group
+    else:
+        name_prefix = args.function
+
+    # Resolve extra variables to good defaults (filepath_only, recompute, storage_backend,
+    # target_read_chunk_size, memoize_forecast, memoize_truth)
     # Insert in each combo so that combo can be passed as **kwargs
     for combo in combos_to_run:
         combo.setdefault('filepath_only', args.filepath_only)
         combo.setdefault('recompute', args.recompute)
-        combo.setdefault('storage_backend', args.storage_backend)
+        combo.setdefault('storage_backend', args.backend)
         combo.setdefault('target_read_chunk_size', args.target_read_chunk_size)
         combo.setdefault('memoize_forecast', args.memoize_forecast)
         combo.setdefault('memoize_truth', args.memoize_truth)
@@ -169,29 +269,32 @@ if __name__ == "__main__":
                 if divide_by not in combo:
                     raise ValueError(f"Divide by argument {divide_by} not found in combination {combo}")
 
-                key += f"{combo[divide_by]}-"
+                key += f"{name_prefix}-{combo[divide_by]}"
 
             if key not in dict_of_combos_to_run:
                 dict_of_combos_to_run[key] = []
 
             dict_of_combos_to_run[key].append(combo)
     else:
-        dict_of_combos_to_run['all_metrics'] = combos_to_run
+        dict_of_combos_to_run[f'{name_prefix}'] = combos_to_run
 
     # Check that the cluster arguments match the number of divide by groups
-    if args.remote_name is not None and len(args.remote_name) != len(dict_of_combos_to_run):
+    if (args.remote_name is not None and len(args.remote_name) != len(dict_of_combos_to_run)
+                                     and len(args.remote_name) != 1):
         raise ValueError(f"Number of remote names ({len(args.remote_name)}) \
         does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
-    if args.remote_config is not None and len(args.remote_config) != len(dict_of_combos_to_run):
+    if (args.remote_config is not None and len(args.remote_config) != len(dict_of_combos_to_run)
+                                       and len(args.remote_config) != 1):
         raise ValueError(f"Number of remote configs ({len(args.remote_config)}) \
-                does not match number of divide by groups ({len(dict_of_combos_to_run)})")  
+                does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
-    if args.parallelism is not None and len(args.parallelism) != len(dict_of_combos_to_run):
+    if (args.parallelism is not None and len(args.parallelism) != len(dict_of_combos_to_run)
+                                     and len(args.parallelism) != 1):
         raise ValueError(f"Number of parallelism ({len(args.parallelism)}) \
         does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
-    if args.skip is not None and len(args.skip) != len(dict_of_combos_to_run):
+    if args.skip is not None and len(args.skip) != len(dict_of_combos_to_run) and len(args.skip) != 1:
         raise ValueError(f"Number of skip ({len(args.skip)}) \
         does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
@@ -208,10 +311,6 @@ if __name__ == "__main__":
         except AttributeError:
             raise ValueError(f"Function {function} not found in metrics or dashboard_data modules")
 
-    def start_and_run_group(combos, parallelism, skip, remote_name, remote_config, function):
-        start_remote(remote_name=remote_name, remote_config=remote_config)
-        combos = copy.deepcopy(combos)
-        run_in_parallel(function, combos, parallelism, skip=skip)
 
 
     # Start threads for each divide by group
@@ -232,7 +331,7 @@ if __name__ == "__main__":
             skip = args.skip[0]
 
         if args.remote_name is None:
-            remote_name = None
+            remote_name = list(dict_of_combos_to_run.keys())[0]
         else:
             remote_name = args.remote_name[0]
 
@@ -241,38 +340,58 @@ if __name__ == "__main__":
         else:
             remote_config = args.remote_config[0]
 
-        processes.append(multiprocessing.Process(target=start_and_run_group, args=(combos, parallelism, skip, remote_name, remote_config, function)))
+        processes.append(multiprocessing.Process(target=start_and_run_group,
+                                                 args=(combos, parallelism, skip,
+                                                       remote_name, remote_config, function)))
     else:
         for key, value in dict_of_combos_to_run.items():
-            if not args.remote_order and (args.remote_name is not None or args.remote_config is not None or args.parallelism is not None or args.skip is not None):
-                raise ValueError("If passing remote name, remote config, parallelism, and skip, remote order must be specified.")
-
-            if args.remote_order and key not in args.remote_order:
-                raise ValueError(f"Divide by group {key} not found in remote order.")
-            else:
+            if args.parallelism is None:
+                parallelism = 1
+            elif len(args.parallelism) == 1:
+                parallelism = args.parallelism[0]
+            elif args.remote_order and key in args.remote_order:
                 index = args.remote_order.index(key)
+                parallelism = args.parallelism[index]
+            else:
+                raise ValueError("Multiple parallelism arguments passed but no value remote \
+                                 order passed to index the parallelism arguments.")
 
-                if args.parallelism is None:
-                    parallelism = 1
-                else:
-                    parallelism = args.parallelism[index]
+            if args.skip is None:
+                skip = 1
+            elif len(args.skip) == 1:
+                skip = args.skip[0]
+            elif args.remote_order and key in args.remote_order:
+                index = args.remote_order.index(key)
+                skip = args.skip[index]
+            else:
+                raise ValueError("Multiple skip arguments passed but no value remote order \
+                                 passed to index the skip arguments.")
 
-                if args.skip is None:
-                    skip = 0
-                else:
-                    skip = args.skip[index]
+            if args.remote_name is None:
+                remote_name = 'metrics-' + key
+            elif len(args.remote_name) == 1:
+                remote_name = args.remote_name[0] + '-' + key
+            elif args.remote_order and key in args.remote_order:
+                index = args.remote_order.index(key)
+                remote_name = args.remote_name[index] + '-' + key
+            else:
+                raise ValueError("Multiple remote_name arguments passed but no value remote order \
+                                 passed to index the remote_name arguments.")
 
-                if args.remote_name is None:
-                    remote_name = 'metrics-' + key
-                else:
-                    remote_name = args.remote_name[index]
+            if args.remote_config is None:
+                remote_config = []
+            elif len(args.remote_config) == 1:
+                remote_config = args.remote_config[0]
+            elif args.remote_order and key in args.remote_order:
+                index = args.remote_order.index(key)
+                remote_config = args.remote_config[index]
+            else:
+                raise ValueError("Multiple remote_config arguments passed but no value remote order \
+                                 passed to index the remote_config arguments.")
 
-                if args.remote_config is None:
-                    remote_config = []
-                else:
-                    remote_config = args.remote_config[index]
-
-            processes.append(multiprocessing.Process(target=start_and_run_group, args=(value, parallelism, skip, remote_name, remote_config, function)))
+            processes.append(multiprocessing.Process(target=start_and_run_group,
+                                                     args=(value, parallelism, skip,
+                                                           remote_name, remote_config, function)))
 
 
     # Start all the processes
@@ -287,20 +406,12 @@ if __name__ == "__main__":
                 all_complete = False
                 break
 
-        # Print the output from each process in a table format
-        output = []
-        for process in processes:
-            
-            output.append([process.name, 'running' if process.is_alive() else 'done'])
-
-        print(tabulate.tabulate(output, headers=['Process', 'Progress'], tablefmt='grid'))
-
         if all_complete:
             break
 
         time.sleep(1)
 
-
-
     for process in processes:
         process.join()
+
+    print("All processes completed!")
