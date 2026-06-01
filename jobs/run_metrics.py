@@ -36,7 +36,7 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
             else:
                 print(f"Running {i+1}/{length}")
 
-            out = func(it)
+            out = func(**it)
             if out is not None:
                 success_count += 1
             else:
@@ -55,7 +55,7 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
                 print(f"Running {counter+1}...{counter+parallelism}/{length}")
 
             for i in it:
-                out = dask.delayed(func)(i)
+                out = dask.delayed(func)(**i)
                 if out is None:
                     failed.append(i)
 
@@ -163,8 +163,8 @@ def extract_combos_from_file(file, metric_group):
 
 def start_and_run_group(combos, parallelism, skip, remote_name, remote_config, function):
     """Start a cluster and run a set of function combinations on that cluster."""
-    iterable, copy = itertools.tee(combos)
-    length = len(list(copy))
+    iterable, combos_copy = itertools.tee(combos)
+    length = len(list(combos_copy))
     print(f"Starting cluster {remote_name} to run {length} metrics with {parallelism} parallelism.\n \
             \tcluster_config: {remote_config}")
 
@@ -256,7 +256,7 @@ if __name__ == "__main__":
         combo.setdefault('filepath_only', args.filepath_only)
         combo.setdefault('recompute', args.recompute)
         combo.setdefault('storage_backend', args.backend)
-        combo.setdefault('target_read_chunk_size', args.target_read_chunk_size)
+        combo.setdefault('backend_kwargs', {'target_read_chunk_size': args.target_read_chunk_size})
         combo.setdefault('memoize_forecast', args.memoize_forecast)
         combo.setdefault('memoize_truth', args.memoize_truth)
 
