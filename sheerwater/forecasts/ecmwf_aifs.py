@@ -47,7 +47,8 @@ def aifs_raw(start_time, end_time, variable='precip', prob_type='deterministic',
 
     # Fix up prediction timedelta
     if 'prediction_timedelta_daily' in ds.coords:
-        ds['prediction_timedelta'] = pd.to_timedelta(ds.coords['prediction_timedelta_daily'], unit="d")
+        ds = ds.rename({'prediction_timedelta_daily': 'prediction_timedelta'})
+        ds['prediction_timedelta'] = pd.to_timedelta(ds.coords['prediction_timedelta'], unit="d")
     else:
         ds['prediction_timedelta'] = pd.to_timedelta(ds.coords['prediction_timedelta'], unit="s")
 
