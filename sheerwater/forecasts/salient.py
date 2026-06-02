@@ -196,4 +196,7 @@ def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1,  
     # Rename to standard naming
     ds = ds.rename({'forecast_date': 'init_time', 'lead': 'prediction_timedelta'})
 
+    # Slice to the first 46 leads because we aren't doing a seasonal evaluation (right now)
+    ds = ds.isel(prediction_timedelta=slice(0,46))
+
     return ds
