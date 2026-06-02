@@ -58,53 +58,25 @@ def qqmap(ds, target, target_grid, target_region,
           variable="precip", **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
     # get data attributes
+    from sheerwater.datasets import data_quantile_regridded, quantile_ranks
+
     source = kwargs['func_name']
     source_grid = kwargs['grid']
-    _, _, grid_res, _ = get_grid(source_grid)
+    start_time = kwargs['start_time']
+    end_time = kwargs['end_time']
+    prob_type = ds.attrs['prob_type']
 
-    ds = clip_to_region_envelope(ds, target_region, padding=grid_res)
+    # Call the regridded data quantile mapper
+    source_dsq_regrid = data_quantile_regridded(
+        start_time=start_time, end_time=end_time, data=source, variable=variable,
+        prob_type=prob_type, time_grouping=time_grouping, margin_in_days=margin_in_days,
+        source_grid=source_grid, grid=target_grid,
+        mask=None, region=target_region)
 
-    # If this is a forecast with lead time, switch to valid-time indexing so we
-    # can group by month-of-year (or similar) on the valid time. `prediction_timedelta`
-    # stays as a broadcast dim and gets auto-aligned by apply_ufunc against the
-    # lead-time-resolved source quantiles (and broadcast against the lead-free target).
-    is_forecast = 'prediction_timedelta' in ds.coords
-    if is_forecast:
-        ds = convert_init_time_to_pred_time(ds)
-
-    # x is a scalar value, `values` is a 1-D array over quantile ranks.
-    # prediction_timedelta is left as a broadcast dim on purpose: when present
-    # on both operands xarray aligns it; when present on only one side it broadcasts.
-    input_core_dims = [[], ["quantile"]]
-
-    from sheerwater.datasets import quantile_ranks
     # Question: are we always QQ-mapping the daily data?
-    source_q = quantile_ranks(variable=variable, data=source, time_grouping=time_grouping, recompute=True,
-                              margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=target_region)
     target_q = quantile_ranks(variable=variable, data=target, time_grouping=time_grouping,
-                              margin_in_days=margin_in_days, agg_days=1, grid=target_grid, region=target_region)
-
-    # add time group
-    ds = groupby_time(ds, time_grouping, agg_fn=None)
-
-    """Step 1: Convert precip values to quantiles based on source distribution"""
-    qvalues = source_q['quantile'].values
-
-    def value_to_quantile(x, values):
-        if np.all(np.isnan(values)) or np.isnan(x):
-            return np.nan
-        idx = np.argmin(np.abs(values - x))
-        return qvalues[idx]
-
-    source_dsq = xr.apply_ufunc(value_to_quantile,
-                                ds[variable], source_q[variable].sel(group=ds.group),
-                                input_core_dims=input_core_dims, output_core_dims=[[]],
-                                vectorize=True, dask="parallelized", output_dtypes=[float])
-
-    """Step 2: Regrid source quantiles to target grid"""
-    source_dsq = source_dsq.sortby('lat')
-    import pdb; pdb.set_trace()
-    source_dsq_regrid = regrid_util(source_dsq, target_grid, method="linear", region=target_region)
+                              margin_in_days=margin_in_days, agg_days=1, grid=target_grid,
+                              region=target_region)
 
     """Step 3: Convert quantiles to corresponding values in target distribution"""
     target_qvalues = target_q['quantile'].values
@@ -126,7 +98,7 @@ def qqmap(ds, target, target_grid, target_region,
     # Select target_q to match the dimensions of source_dsq_regrid
     source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
                                       source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
-                                      input_core_dims=input_core_dims, output_core_dims=[[]],
+                                      input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
                                       vectorize=True, dask="parallelized", output_dtypes=[float])
 
     # cleanup

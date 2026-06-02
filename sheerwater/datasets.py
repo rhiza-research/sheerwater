@@ -5,9 +5,95 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.interfaces import spatial, get_data, get_forecast
-from sheerwater.utils import (dask_remote, get_grid, groupby_time, regrid, add_dayofyear, pad_with_leapdays, convert_init_time_to_pred_time)
+from sheerwater.utils import (dask_remote, get_grid, groupby_time, regrid, add_dayofyear,
+                              pad_with_leapdays, convert_init_time_to_pred_time)
 from sheerwater.spatial_subdivisions import clip_to_region_envelope
 from sheerwater.forecasts.ecmwf_er import ifs_extended_range
+
+
+def quantile_ranks_by_group(ds, ranks, time_grouping=None, is_forecast=False):
+    """Computes the quantile ranks by a time grouping."""
+    if is_forecast:
+        # Model issuance date determines the calendar grouping for reforecasts
+        ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='model_issuance_date')
+        # Time is uniquely determined by model issuance data and start year
+        ds = ds.stack(time=("model_issuance_date", "start_year"))
+        ds = ds.chunk({"time": -1})
+
+        def compute_quantiles(x, ranks, group_dim='group', time_dim='time'):
+            # Define a lambda to compute the quantile ranks in each group.
+            return x.groupby(group_dim).quantile(q=ranks, dim=time_dim, skipna=True)
+
+        qs = ds.groupby("prediction_timedelta").map(compute_quantiles, ranks=ranks)
+    else:
+        ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='time')
+        ds = ds.chunk({"time": -1})
+        qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    return qs
+
+
+def quantile_ranks_by_margin(ds, ranks, margin_in_days=None, is_forecast=False):
+    """Computes the quantile ranks with a margin in days."""
+    if is_forecast:
+        time_dim = 'model_issuance_date'
+        chunk_dims = {'dayofyear': -1, 'year': -1, 'start_year': -1}
+    else:
+        time_dim = 'time'
+        chunk_dims = {'dayofyear': -1, 'year': -1}
+
+    # Add day of year and pad with leap days
+    ds = add_dayofyear(ds, time_dim=time_dim)
+    try:
+        ds = pad_with_leapdays(ds, time_dim=time_dim)
+    except KeyError:
+        # Note: pad with leapdays will fail if the time dim is not dense
+        pass
+    # We will group by day of year, with margin in days padding
+    ds = ds.assign_coords(year=ds[time_dim].dt.year)
+    # Day of year and year uniquely determine the time index, and enable us to roll in the dayofyear dimension
+    ds = ds.set_index({time_dim: ['dayofyear', 'year']}).unstack(time_dim)
+
+    # Make sure the days of year are sorted
+    ds = ds.sortby('dayofyear')
+
+    # Construct a concatted dataframe that rolls around the end of year
+    half = margin_in_days // 2
+    window = 2 * half + 1
+
+    if half > 0:  # if we have a margin in days padding, we need to pad the dataset
+        # Create a padded dataset with the missing days at the start and end
+        ds_pad = xr.concat([
+            ds.isel(dayofyear=slice(-half, None)),   # late December wraps to early January
+            ds,
+            ds.isel(dayofyear=slice(0, half)),
+        ], dim='dayofyear')
+        ds_pad = ds_pad.chunk(chunk_dims)
+    else:
+        ds_pad = ds
+
+    # Next, roll over the margin in days and construct the window for quantiles
+    windowed = ds_pad.rolling(dayofyear=window, center=True, min_periods=1).construct('dayofyear_window')
+    # Finally, drop the padding
+    windowed = windowed.isel(dayofyear=slice(half, -half))
+
+    # Apply the quantiles over the window
+    if is_forecast:
+        samples = windowed.stack(sample=('year', 'start_year', 'dayofyear_window'))
+        # Handle the forecast case, where we need to compute the quantiles for each prediction timedelta
+
+        def compute_quantiles(x, ranks, dim='sample'):
+            # Define a lambda to compute the quantile ranks in each group.
+            return x.quantile(q=ranks, dim=dim, skipna=True)
+
+        qs = samples.groupby("prediction_timedelta").map(compute_quantiles, ranks=ranks, dim='sample')
+    else:
+        samples = windowed.stack(sample=('year', 'dayofyear_window'))
+        qs = samples.quantile(ranks, dim='sample', skipna=True)
+    # Assign the day of year coordinates
+    qs = qs.assign_coords(group=('dayofyear', [f'D{d.dt.dayofyear:03d}' for d in qs.dayofyear]))
+    qs = qs.swap_dims({'dayofyear': 'group'}).drop_vars('dayofyear')
+
+    return qs
 
 
 @dask_remote
@@ -60,84 +146,22 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
 
     is_forecast = 'prediction_timedelta' in ds.coords
 
-    def compute_quantiles(x, ranks):
-        # Define a lambda to compute the quantile ranks in each group.
-        return x.groupby("group").quantile(q=ranks, dim="time", skipna=True)
-
     ranks = np.arange(0, 1.1, 0.1)
     # round ranks to 1 decimal place
     ranks = np.round(ranks, 1)
 
-    if time_grouping is not None:  # a time_grouping style group is passed, versus a margin in days
-        if is_forecast:
-            # Model issuance date determines the calendar grouping for reforecasts
-            ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='model_issuance_date')
-            # Time is uniquely determined by model issuance data and start year
-            ds = ds.stack(time=("model_issuance_date", "start_year"))
-            ds = ds.chunk({"time": -1})
-            qs = ds.groupby("prediction_timedelta").map(compute_quantiles, ranks=ranks)
-        else:
-            ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='time')
-            ds = ds.chunk({"time": -1})
-            qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
-    else:  # a margin in days is passed, versus a time_grouping style group
-        if is_forecast:
-            time_dim = 'model_issuance_date'
-            chunk_dims = {'dayofyear': -1, 'year': -1, 'start_year': -1}
-        else:
-            time_dim = 'time'
-            chunk_dims = {'dayofyear': -1, 'year': -1}
-
-        # Add day of year and pad with leap days
-        ds = add_dayofyear(ds, time_dim=time_dim)
-        ds = pad_with_leapdays(ds, time_dim=time_dim)
-        # We will group by day of year, with margin in days padding
-        ds = ds.assign_coords(year=ds[time_dim].dt.year)
-        # Day of year and year uniquely determine the time index, and enable us to roll in the dayofyear dimension
-        ds = ds.set_index(time_dim=['dayofyear', 'year']).unstack(time_dim)
-
-        # Make sure the days of year are sorted
-        ds = ds.sortby('dayofyear')
-
-        # Construct a concatted dataframe that rolls around the end of year
-        half = margin_in_days // 2
-        window = 2 * half + 1
-
-        if half > 0:  # if we have a margin in days padding, we need to pad the dataset
-            # Create a padded dataset with the missing days at the start and end
-            ds_pad = xr.concat([
-                ds.isel(dayofyear=slice(-half, None)),   # late December wraps to early January
-                ds,
-                ds.isel(dayofyear=slice(0, half)),
-            ], dim='dayofyear')
-            ds_pad = ds_pad.chunk(chunk_dims)
-        else:
-            ds_pad = ds
-
-        # Next, roll over the margin in days and construct the window for quantiles
-        windowed = ds_pad.rolling(dayofyear=window, center=True, min_periods=1).construct('dayofyear_window')
-        # Finally, drop the padding
-        windowed = windowed.isel(dayofyear=slice(half, -half))
-
-        # Apply the quantiles over the window
-        if is_forecast:
-            samples = windowed.stack(sample=('year', 'start_year', 'dayofyear_window'))
-            # Handle the forecast case, where we need to compute the quantiles for each prediction timedelta
-            qs = samples.groupby("prediction_timedelta").map(compute_quantiles, ranks=ranks)
-        else:
-            samples = windowed.stack(sample=('year', 'dayofyear_window'))
-            qs = samples.quantile(ranks, dim='sample', skipna=True)
-        # Assign the day of year coordinates
-        qs = qs.assign_coords(group=('dayofyear', [f'D{d.dt.dayofyear:03d}' for d in qs.dayofyear]))
-
+    if time_grouping is not None:
+        qs = quantile_ranks_by_group(ds, ranks, time_grouping=time_grouping, is_forecast=is_forecast)
+    else:
+        qs = quantile_ranks_by_margin(ds, ranks, margin_in_days=margin_in_days, is_forecast=is_forecast)
     return qs
 
 
 @dask_remote
 @timeseries()
 @spatial()
-@cache(cache=False,
-       cache_args=['variable', 'data', 'time_grouping', 'margin_in_days', 'prob_type', 'grid'],
+@cache(cache=True,
+       cache_args=['data', 'variable', 'prob_type', 'time_grouping', 'margin_in_days', 'source_grid', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 1000},
            'chunk_by_arg': {
@@ -146,29 +170,32 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
                }
            }
        })
-def data_quantile_regridded(start_time, end_time, variable,
-                            data='era5',
+def data_quantile_regridded(start_time=None, end_time=None, data='era5',
+                            variable='precip',
+                            prob_type='deterministic',
                             time_grouping=None, margin_in_days=6,
-                            prob_type='deterministic', grid="global1_5",
-                            mask=None, region='global'):
-    """Computes the quantile regridded unerlying data sources"""
+                            source_grid="global1_5", grid="global1_5",
+                            mask=None, region='global'):  # noqa: ARG001
+    """Computes the quantile regridded unerlying data sources."""
     try:
-        ds = get_data(data)
-        is_forecast = False
+        data_fn = get_data(data)
+        ds = data_fn(start_time, end_time, variable=variable,
+                     agg_days=1, grid=source_grid, mask=None, region='global')
     except ValueError:
-        ds = get_forecast(data)
-        is_forecast = True
+        forecast_fn = get_forecast(data)
+        ds = forecast_fn(start_time, end_time, variable=variable, prob_type=prob_type,
+                         agg_days=1, grid=source_grid, mask=None, region='global')
 
-    _, _, grid_res, _ = get_grid(grid)
+    _, _, grid_res, _ = get_grid(source_grid)
     ds = clip_to_region_envelope(ds, region, padding=grid_res)
 
-    
-    if is_forecast:
+    # The forecast outputs will have been converted
+    if 'init_time' in ds.coords:
         ds = convert_init_time_to_pred_time(ds)
 
+    # Call the quantiles with the passed region to get already clipped to envelope
     source_q = quantile_ranks(variable=variable, data=data, time_grouping=time_grouping, recompute=True,
-                              margin_in_days=margin_in_days, agg_days=1, grid=grid, region=region)
-    
+                              margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=region)
 
     # add time group
     ds = groupby_time(ds, time_grouping, agg_fn=None)
@@ -184,10 +211,10 @@ def data_quantile_regridded(start_time, end_time, variable,
 
     source_dsq = xr.apply_ufunc(value_to_quantile,
                                 ds[variable], source_q[variable].sel(group=ds.group),
-                                input_core_dims=input_core_dims, output_core_dims=[[]],
+                                input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
                                 vectorize=True, dask="parallelized", output_dtypes=[float])
 
     """Step 2: Regrid source quantiles to target grid"""
     source_dsq = source_dsq.sortby('lat')
-    import pdb; pdb.set_trace()
-    source_dsq_regrid = regrid_util(source_dsq, target_grid, method="linear", region=target_region)
+    source_dsq_regrid = regrid(source_dsq, grid, method="linear")
+    return source_dsq_regrid
