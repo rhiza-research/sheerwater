@@ -82,13 +82,15 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
 @dask_remote
 @sheerwater_forecast()
 @cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'lookback_source', 'densify',
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs',  'processors', 'processor_kwargs',
+                   'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def ecmwf_ifs_ens(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', # noqa: ARG001
-                event=None, event_kwargs=None,  # noqa: ARG001
-                lookback_source=None, densify=False,  # noqa: ARG001
-                 grid='global0_25', mask='lsm', region="global"):
+                  event=None, event_kwargs=None,  # noqa: ARG001
+                  processors=None, processor_kwargs=None,  # noqa: ARG001
+                  lookback_source=None, densify=False,  # noqa: ARG001
+                  grid='global0_25', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
     # The earliest and latest forecast dates for the set of all leads
     forecast_start = shift_by_days(start_time, -15) if start_time is not None else None

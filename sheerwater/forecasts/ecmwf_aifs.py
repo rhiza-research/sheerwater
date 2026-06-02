@@ -92,10 +92,10 @@ def aifs_raw(start_time, end_time, variable='precip', prob_type='deterministic',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def ecmwf_aifs(start_time=None, end_time=None, variable="precip", agg_days=1, prob_type='deterministic', # noqa: ARG001
-                event=None, event_kwargs=None,  # noqa: ARG001
-                processors=None, processor_kwargs=None,  # noqa: ARG001
-                lookback_source=None, densify=False,  # noqa: ARG001
-                 grid='global0_25', mask='lsm', region="global"):
+               event=None, event_kwargs=None,  # noqa: ARG001
+               processors=None, processor_kwargs=None,  # noqa: ARG001
+               lookback_source=None, densify=False,  # noqa: ARG001
+               grid='global0_25', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
     forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
     forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
