@@ -33,6 +33,7 @@ forecast_metrics:
       - salient
       - salient_gem
       - gfs
+      - ecmwf_aifs
     grid: ['global0_25']
 forecast_table_metrics:
   function: metric_table
@@ -70,6 +71,7 @@ forecast_table_metrics:
       - - salient
         - salient_gem
         - gfs
+        - ecmwf_aifs
     grid: ['global0_25']
 forecast_spatial_metrics:
   function: metric
@@ -106,4 +108,5 @@ forecast_spatial_metrics:
       - salient
       - salient_gem
       - gfs
+      - ecmwf_aifs
     grid: ['global0_25']
