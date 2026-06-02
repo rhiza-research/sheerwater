@@ -188,18 +188,39 @@ def data_quantile_regridded(start_time=None, end_time=None, data='era5',
     source_q = quantile_ranks(variable=variable, data=data, time_grouping=time_grouping, recompute=False,
                               margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=region)
 
-
     """Step 1: Convert precip values to quantiles based on source distribution"""
-    # For each cell, find the source-quantile bin closest to the data value and
-    # return the corresponding quantile probability. xarray broadcasts by dim
-    # name, so subtracting along `quantile` is automatic.
-    src_vals = source_q[variable].sel(group=ds.group)  # has dim 'quantile'
-    diff = abs(src_vals - ds[variable]).fillna(np.inf)
-    source_dsq = diff.idxmin(dim='quantile')
+    # qvalues = source_q['quantile'].values
 
-    # Restore NaNs where the input or the entire quantile row was NaN.
-    valid = ds[variable].notnull() & src_vals.notnull().any(dim='quantile')
-    source_dsq = source_dsq.where(valid)
+    # def value_to_quantile(x, values):
+    #     if np.all(np.isnan(values)) or np.isnan(x):
+    #         return np.nan
+    #     idx = np.argmin(np.abs(values - x))
+    #     return qvalues[idx]
+
+    # source_dsq = xr.apply_ufunc(value_to_quantile,
+    #                             ds[variable], source_q[variable].sel(group=ds.group),
+    #                             input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
+    #                             dask="parallelized", output_dtypes=[float])
+
+    qvalues = source_q['quantile'].values  # (Q,) probability levels
+
+    def value_to_quantile(x, values):
+        # x:      (...)      precip values
+        # values: (..., Q)   source distribution values at each level
+        idx = np.abs(values - x[..., None]).argmin(axis=-1)   # (...)
+        out = qvalues[idx]                                    # gather probability level
+        bad = np.isnan(x) | np.all(np.isnan(values), axis=-1)
+        return np.where(bad, np.nan, out)
+
+    source_dsq = xr.apply_ufunc(
+        value_to_quantile,
+        ds[variable],
+        source_q[variable].sel(group=ds.group),
+        input_core_dims=[[], ["quantile"]],
+        output_core_dims=[[]],
+        dask="parallelized",
+        output_dtypes=[np.float32],
+    )
 
     """Step 2: Regrid source quantiles to target grid"""
     source_dsq = source_dsq.sortby('lat')

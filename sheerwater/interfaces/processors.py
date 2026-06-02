@@ -67,6 +67,7 @@ def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days
     region = kwargs['region']
     variable = kwargs['variable']
     prob_type = ds.attrs.get('prob_type', 'deterministic')  # datasets do not have a prob_type attribute
+    attrs = ds.attrs
 
     # Call the regridded data quantile mapper
     source_dsq_regrid = data_quantile_regridded(
@@ -99,21 +100,47 @@ def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days
     target_q = target_q.sel(lat=source_dsq_regrid['lat'].values, lon=source_dsq_regrid['lon'].values)
 
     """Step 3: Convert quantiles to corresponding values in target distribution"""
-    import pdb; pdb.set_trace()
-    # For each cell, find the target quantile probability closest to the source
-    # quantile, then look up the corresponding target value at that quantile.
-    tgt_vals = target_q.sel(group=source_dsq_regrid.group)  # has dim 'quantile'
-    # closest_q = abs(target_q['quantile'] - source_dsq_regrid).fillna(np.inf).idxmin(dim='quantile')
-    diff = abs(target_q['quantile'] - source_dsq_regrid[variable]).fillna(np.inf)
-    quantile_idx = diff.argmin(dim='quantile')
-    source_ds_mapped = target_q.isel(quantile=quantile_idx)
+    # target_qvalues = target_q['quantile'].values
 
+    # def quantiles_to_values(quantile, qvalues):
+    #     if np.all(np.isnan(qvalues)) or np.isnan(quantile):
+    #         return np.nan
+    #     idx = np.argmin(np.abs(target_qvalues - quantile))
+    #     value = qvalues[int(idx)]
+    #     return value
 
-    # source_ds_mapped = tgt_vals.sel(quantile=closest_q[variable].compute())
+    #     # Select target_q to match the dimensions of source_dsq_regrid
+    # source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
+    #                                   source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
+    #                                   input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
+    #                                   dask="parallelized", output_dtypes=[float])
 
-    # Restore NaNs where input was NaN or the entire target row was NaN.
-    valid = source_dsq_regrid.notnull() & tgt_vals.notnull().any(dim='quantile')
-    source_ds_mapped = source_ds_mapped.where(valid, drop=False)
+    target_qvalues = target_q['quantile'].values  # (Q,) probability levels, sorted
+
+    def quantiles_to_values(rank, qvals):
+        # rank:  (...)      source quantile rank
+        # qvals: (..., Q)   target values at each level
+        idx = np.abs(target_qvalues - rank[..., None]).argmin(axis=-1)   # (...)
+        out = np.take_along_axis(qvals, idx[..., None], axis=-1)[..., 0]  # (...)
+        bad = np.isnan(rank) | np.all(np.isnan(qvals), axis=-1)
+        return np.where(bad, np.nan, out)
+
+    source_ds_mapped = xr.apply_ufunc(
+        quantiles_to_values,
+        source_dsq_regrid[variable],
+        target_q[variable].sel(group=source_dsq_regrid.group),
+        input_core_dims=[[], ["quantile"]],
+        output_core_dims=[[]],
+        dask="parallelized",
+        output_dtypes=[np.float32],
+    )
+
+    # Clean up
+    source_ds_mapped = source_ds_mapped.to_dataset(name=variable)
+    # ensure attributes pass through 
+    source_ds_mapped = source_ds_mapped.assign_attrs(attrs)
+    # Update the grid attribute
+    source_ds_mapped = source_ds_mapped.assign_attrs({'grid': target_grid})
 
     # make into a dataset
     return source_ds_mapped
