@@ -100,28 +100,14 @@ def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days
     target_q = target_q.sel(lat=source_dsq_regrid['lat'].values, lon=source_dsq_regrid['lon'].values)
 
     """Step 3: Convert quantiles to corresponding values in target distribution"""
-    # target_qvalues = target_q['quantile'].values
-
-    # def quantiles_to_values(quantile, qvalues):
-    #     if np.all(np.isnan(qvalues)) or np.isnan(quantile):
-    #         return np.nan
-    #     idx = np.argmin(np.abs(target_qvalues - quantile))
-    #     value = qvalues[int(idx)]
-    #     return value
-
-    #     # Select target_q to match the dimensions of source_dsq_regrid
-    # source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
-    #                                   source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
-    #                                   input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
-    #                                   dask="parallelized", output_dtypes=[float])
-
     target_qvalues = target_q['quantile'].values  # (Q,) probability levels, sorted
 
     def quantiles_to_values(rank, qvals):
-        # rank:  (...)      source quantile rank
-        # qvals: (..., Q)   target values at each level
-        idx = np.abs(target_qvalues - rank[..., None]).argmin(axis=-1)   # (...)
-        out = np.take_along_axis(qvals, idx[..., None], axis=-1)[..., 0]  # (...)
+        # Find the index of the closest target quantile to the source quantile
+        idx = np.abs(target_qvalues - rank[..., None]).argmin(axis=-1)
+        # Take the target value at the closest quantile
+        out = np.take_along_axis(qvals, idx[..., None], axis=-1)[..., 0]
+        # If the source quantile is nan, or all the target values are nan, return nan
         bad = np.isnan(rank) | np.all(np.isnan(qvals), axis=-1)
         return np.where(bad, np.nan, out)
 
@@ -137,7 +123,11 @@ def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days
 
     # Clean up
     source_ds_mapped = source_ds_mapped.to_dataset(name=variable)
-    # ensure attributes pass through 
+    # ensure attributes pass through, but not region and mask, as we've removed them from the source dataset
+    if 'region' in attrs:
+        del attrs['region']
+    if 'mask' in attrs:
+        del attrs['mask']
     source_ds_mapped = source_ds_mapped.assign_attrs(attrs)
     # Update the grid attribute
     source_ds_mapped = source_ds_mapped.assign_attrs({'grid': target_grid})

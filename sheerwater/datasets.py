@@ -189,25 +189,11 @@ def data_quantile_regridded(start_time=None, end_time=None, data='era5',
                               margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=region)
 
     """Step 1: Convert precip values to quantiles based on source distribution"""
-    # qvalues = source_q['quantile'].values
-
-    # def value_to_quantile(x, values):
-    #     if np.all(np.isnan(values)) or np.isnan(x):
-    #         return np.nan
-    #     idx = np.argmin(np.abs(values - x))
-    #     return qvalues[idx]
-
-    # source_dsq = xr.apply_ufunc(value_to_quantile,
-    #                             ds[variable], source_q[variable].sel(group=ds.group),
-    #                             input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
-    #                             dask="parallelized", output_dtypes=[float])
 
     qvalues = source_q['quantile'].values  # (Q,) probability levels
 
     def value_to_quantile(x, values):
-        # x:      (...)      precip values
-        # values: (..., Q)   source distribution values at each level
-        idx = np.abs(values - x[..., None]).argmin(axis=-1)   # (...)
+        idx = np.abs(values - x[..., None]).argmin(axis=-1)
         out = qvalues[idx]                                    # gather probability level
         bad = np.isnan(x) | np.all(np.isnan(values), axis=-1)
         return np.where(bad, np.nan, out)
