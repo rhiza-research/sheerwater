@@ -24,6 +24,8 @@ def processor():
             try:
                 ds = fn(*args, **kwargs)
             except TypeError as e:
+                import pdb
+                pdb.set_trace()
                 raise ValueError(f"Processor {name} requires missing processor_kwargs key. \n{e}") from e
 
             # Add an attribute to the dataset to indicate the event name
@@ -53,9 +55,7 @@ def regrid(ds, target_grid, method='conservative', **kwargs):  # noqa: ARG001
 
 
 @processor()
-def qqmap(ds, target, target_grid, target_region,
-          time_grouping="month_of_year", margin_in_days=None,
-          variable="precip", **kwargs):
+def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days=None, **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
     # get data attributes
     from sheerwater.datasets import data_quantile_regridded, quantile_ranks
@@ -64,45 +64,56 @@ def qqmap(ds, target, target_grid, target_region,
     source_grid = kwargs['grid']
     start_time = kwargs['start_time']
     end_time = kwargs['end_time']
-    prob_type = ds.attrs['prob_type']
+    region = kwargs['region']
+    variable = kwargs['variable']
+    prob_type = ds.attrs.get('prob_type', 'deterministic')  # datasets do not have a prob_type attribute
 
     # Call the regridded data quantile mapper
     source_dsq_regrid = data_quantile_regridded(
         start_time=start_time, end_time=end_time, data=source, variable=variable,
         prob_type=prob_type, time_grouping=time_grouping, margin_in_days=margin_in_days,
         source_grid=source_grid, grid=target_grid,
-        mask=None, region=target_region)
+        region=region, recompute=False)
+
+    # Add the grouping coordinate
+    # TODO: this exists in the computation, but I'm having problems caching it, so re-adding it here
+    if time_grouping is not None:
+        source_dsq_regrid = groupby_time(source_dsq_regrid, time_grouping, agg_fn=None)
+    elif margin_in_days is not None:
+        source_dsq_regrid = groupby_time(source_dsq_regrid, 'day_of_year', agg_fn=None)
 
     # Question: are we always QQ-mapping the daily data?
     target_q = quantile_ranks(variable=variable, data=target, time_grouping=time_grouping,
                               margin_in_days=margin_in_days, agg_days=1, grid=target_grid,
-                              region=target_region)
-
-    """Step 3: Convert quantiles to corresponding values in target distribution"""
-    target_qvalues = target_q['quantile'].values
-
-    def quantiles_to_values(quantile, qvalues):
-        if np.all(np.isnan(qvalues)) or np.isnan(quantile):
-            return np.nan
-        idx = np.argmin(np.abs(target_qvalues - quantile))
-        value = qvalues[int(idx)]
-        return value
+                              region=region, recompute=False)
 
     # After regridding, we need to ensure that the lat/lon values are the same between target_q and source_dsq_regrid
-    target_q['lat'] = np.round(target_q['lat'], 5).astype(np.float32)
-    target_q['lon'] = np.round(target_q['lon'], 5).astype(np.float32)
-    source_dsq_regrid['lat'] = np.round(source_dsq_regrid['lat'], 5).astype(np.float32)
-    source_dsq_regrid['lon'] = np.round(source_dsq_regrid['lon'], 5).astype(np.float32)
+    target_q = target_q.assign_coords(
+        lat=np.round(target_q['lat'].values, 5).astype(np.float32),
+        lon=np.round(target_q['lon'].values, 5).astype(np.float32),
+    )
+    source_dsq_regrid = source_dsq_regrid.assign_coords(
+        lat=np.round(source_dsq_regrid['lat'].values, 5).astype(np.float32),
+        lon=np.round(source_dsq_regrid['lon'].values, 5).astype(np.float32),
+    )
     target_q = target_q.sel(lat=source_dsq_regrid['lat'].values, lon=source_dsq_regrid['lon'].values)
 
-    # Select target_q to match the dimensions of source_dsq_regrid
-    source_ds_mapped = xr.apply_ufunc(quantiles_to_values,
-                                      source_dsq_regrid, target_q[variable].sel(group=source_dsq_regrid.group),
-                                      input_core_dims=[[], ["quantile"]], output_core_dims=[[]],
-                                      vectorize=True, dask="parallelized", output_dtypes=[float])
+    """Step 3: Convert quantiles to corresponding values in target distribution"""
+    import pdb; pdb.set_trace()
+    # For each cell, find the target quantile probability closest to the source
+    # quantile, then look up the corresponding target value at that quantile.
+    tgt_vals = target_q.sel(group=source_dsq_regrid.group)  # has dim 'quantile'
+    # closest_q = abs(target_q['quantile'] - source_dsq_regrid).fillna(np.inf).idxmin(dim='quantile')
+    diff = abs(target_q['quantile'] - source_dsq_regrid[variable]).fillna(np.inf)
+    quantile_idx = diff.argmin(dim='quantile')
+    source_ds_mapped = target_q.isel(quantile=quantile_idx)
 
-    # cleanup
-    source_ds_mapped = source_ds_mapped.drop_vars("group")
+
+    # source_ds_mapped = tgt_vals.sel(quantile=closest_q[variable].compute())
+
+    # Restore NaNs where input was NaN or the entire target row was NaN.
+    valid = source_dsq_regrid.notnull() & tgt_vals.notnull().any(dim='quantile')
+    source_ds_mapped = source_ds_mapped.where(valid, drop=False)
+
     # make into a dataset
-    source_ds_mapped = source_ds_mapped.to_dataset(name=variable)
     return source_ds_mapped
