@@ -5,6 +5,7 @@ import dask
 import time
 import yaml
 import copy
+import sys
 import itertools
 import sheerwater.metrics as metrics
 import dashboard_data
@@ -50,9 +51,11 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
             output = []
 
             if name:
-                print(f"{name}: Running {counter+1}...{counter+parallelism}/{length}")
+                print(f"{name}: Running {counter+1}...{counter+parallelism}/{length}", end="")
             else:
-                print(f"Running {counter+1}...{counter+parallelism}/{length}")
+                print(f"Running {counter+1}...{counter+parallelism}/{length}", end="")
+
+            sys.stdout.flush()
 
             for i in it:
                 out = dask.delayed(func)(**i)
@@ -61,7 +64,11 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
 
                 output.append(out)
 
+            start_time = time.perf_counter()
             results = dask.compute(output)[0]
+            end_time = time.perf_counter()
+            execution_time = end_time - start_time
+
             ls_count = 0
             for i, r in enumerate(results):
                 if r is not None:
@@ -69,15 +76,9 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
                     success_count += 1
                 else:
                     failed.append(it[i])
-                    if name:
-                        print(f"{name}: Failed metric: {it[i]}")
-                    else:
-                        print(f"Failed metric: {it[i]}")
+                    print(f" -- Failed metric: {it[i]} -- ")
 
-            if name:
-                print(f"{name}: {ls_count} succeeded.")
-            else:
-                print(f"{ls_count} succeeded.")
+            print(f" -- {ls_count} succeeded in {(int)(execution_time/parallelism)}s per metric.")
 
             counter = counter + parallelism
 
