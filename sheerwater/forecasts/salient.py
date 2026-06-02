@@ -133,8 +133,8 @@ def salient_gem_raw(start_time, end_time, variable, # noqa: ARG001
     return ds
 
 @dask_remote
-@timeseries(timeseries='forecast_date')
 @spatial()
+@timeseries(timeseries='forecast_date')
 @cache(cache_args=['variable', 'grid', 'prob_type'],
        backend_kwargs={
            'chunking': {"lat": 73, "lon": 77, "forecast_date": 50, 'lead': 125}
