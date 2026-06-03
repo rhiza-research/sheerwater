@@ -51,7 +51,7 @@ def regrid(ds, target_grid, method='conservative', **kwargs):  # noqa: ARG001
 def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days=None, n_quantiles=20, **kwargs):
     """Map source data onto the target statistics and grid with quantile-quantile mapping."""
     # get data attributes
-    from sheerwater.datasets import data_quantile_regridded, quantile_ranks
+    from sheerwater.downscale_data import data_quantile_regridded, quantile_ranks
 
     source = kwargs['func_name']
     source_grid = kwargs['grid']
@@ -72,13 +72,13 @@ def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days
         region=region, recompute=False)
 
     # Add the grouping coordinate
-    # TODO: this exists in the computation, but I'm having problems caching it, so re-adding it here
+    # TODO: this exists in the computation, but I'm having problems caching it, so I
+    # dropped it and am re-adding it here
     if margin_in_days is None:
         source_dsq_regrid = groupby_time(source_dsq_regrid, time_grouping, agg_fn=None)
     else:
         source_dsq_regrid = groupby_time(source_dsq_regrid, 'day_of_year', agg_fn=None)
 
-    # Question: are we always QQ-mapping the daily data?
     target_q = quantile_ranks(variable=variable, data=target, time_grouping=time_grouping,
                               agg_days=agg_days,
                               margin_in_days=margin_in_days, grid=target_grid,
@@ -133,7 +133,7 @@ def qqmap(ds, target, target_grid, time_grouping="month_of_year", margin_in_days
     if 'mask' in attrs:
         del attrs['mask']
     source_ds_mapped = source_ds_mapped.assign_attrs(attrs)
-    # Update the grid attribute
+    # Update the grid and agg attribute
     source_ds_mapped = source_ds_mapped.assign_attrs({'grid': target_grid, 'agg_days': agg_days})
 
     # make into a dataset
