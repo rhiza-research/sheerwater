@@ -414,22 +414,23 @@ def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg
 
 
 @dask_remote
-@sheerwater_forecast()
+@spatial()
+@timeseries(timeseries='model_issuance_date')
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def ecmwf_ifs_er_reforecast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
-                          prob_type='deterministic',
-                          event=None, event_kwargs=None,  # noqa: ARG001
-                          processors=None, processor_kwargs=None,  # noqa: ARG001
-                          lookback_source=None, densify=False,  # noqa: ARG001
-                          grid='global1_5', mask='lsm', region="global"):
-    # TODO: temporary fix for ECMWF reforecasts, make this a generic reforecast getter
-    # TODO: need to handle the first year and last year challenge
+                          prob_type='deterministic', grid='global1_5', mask='lsm', region="global"):
+    """Temporary getter for ECMWF reforecasts."""
+    if prob_type == 'deterministic':
+        run_type = 'average'
+    else:
+        run_type = 'perturbed'
+
     ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
-                            run_type='average', time_group='daily', grid=grid, mask=None, region='global')
+                            run_type=run_type, time_group='daily', grid=grid, mask=None, region='global')
     ds = ds.rename({'lead_time': 'prediction_timedelta'})
     # Nan out all timestamps that are outside of the start and end time.
     # start_year is a year offset from model_issuance_date (see ifs_er_reforecast_lead_bias).

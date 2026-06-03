@@ -12,22 +12,22 @@ from sheerwater.forecasts.ecmwf_er import ifs_extended_range
 
 
 @dask_remote
-@cache(cache_args=['variable', 'data', 'first_year', 'last_year',
-                   'time_grouping', 'margin_in_days',
-                   'agg_days', 'grid', 'region'],
+@cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'agg_days',
+                   'time_grouping', 'margin_in_days', 'n_quantiles',
+                   'grid', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 500, "lon": 500, "group": 12, 'quantile': 11},
+           'chunking': {"lat": 500, "lon": 500, "group": 15, 'quantile': 25},
            'chunk_by_arg': {
                'data': {
-                   'ecmwf_ifs_er': {"lat": 100, "lon": 100, 'group': 12, 'prediction_timedelta': 50, 'quantile': 11}
+                   'ecmwf_ifs_er': {"lat": 500, "lon": 500, 'group': 15, 'prediction_timedelta': 1, 'quantile': 25}
                }
            }
 })
-def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
-                   time_grouping="month_of_year", margin_in_days=None,
-                   agg_days=7, grid="global1_5", region='global'):
+def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014, agg_days=1,
+                   time_grouping="month_of_year", margin_in_days=None, n_quantiles=20,
+                   grid="global1_5", region='global'):
     """Generates quantile ranks of a dataset."""
-    if (margin_in_days is not None and time_grouping is not None) or (margin_in_days is None and time_grouping is None):
+    if (margin_in_days is not None and time_grouping is not None):
         raise ValueError("margin_in_days and time_grouping cannot be used together. One must be passed as None.")
 
     start_time = f"{first_year}-01-01"
@@ -41,15 +41,21 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
         if data == 'ecmwf_ifs_er':
             # TODO: temporary fix for ECMWF reforecasts, make this a generic reforecast getter
             # TODO: need to handle the first year and last year challenge
+            if agg_days == 1:
+                time_group = 'daily'
+            elif agg_days == 7:
+                time_group = 'weekly'
+            else:
+                raise ValueError(f"Unsupported aggregation days: {agg_days}")
             ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
-                                    run_type='average', time_group='daily', grid=grid, mask=None, region='global')
+                                    run_type='average', time_group=time_group, grid=grid, mask=None, region='global')
             ds = ds.rename({'lead_time': 'prediction_timedelta'})
             # Nan out all timestamps that are outside of the start and end time.
             # start_year is a year offset from model_issuance_date (see ifs_er_reforecast_lead_bias).
-            init_times = ds.model_issuance_date + ds.start_year.astype('timedelta64[Y]')
-            valid_times = init_times + ds.prediction_timedelta
-            in_range = (valid_times >= np.datetime64(start_time)) & (valid_times <= np.datetime64(end_time))
-            ds = ds.where(in_range, other=np.nan)
+            # init_times = ds.model_issuance_date + ds.start_year.astype('timedelta64[Y]')
+            # valid_times = init_times + ds.prediction_timedelta
+            # in_range = (valid_times >= np.datetime64(start_time)) & (valid_times <= np.datetime64(end_time))
+            # ds = ds.where(in_range, other=np.nan)
         else:
             raise ValueError(f"Unsupported data source: {data}")
     # Select only the variable of interest
@@ -61,14 +67,15 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014,
 
     is_forecast = 'prediction_timedelta' in ds.coords
 
-    ranks = np.arange(0, 1.1, 0.1)
-    # round ranks to 1 decimal place
-    ranks = np.round(ranks, 1)
+    # Add one to account for the end point in the quantile calculation
+    ranks = np.linspace(0, 1, n_quantiles+1, endpoint=True)  # Includes 1
+    ranks = np.round(ranks, 5)  # round to 5 decimal places fori more stable merging
 
-    if time_grouping is not None:
+    if margin_in_days is None:
         qs = quantile_ranks_by_group(ds, ranks, time_grouping=time_grouping, is_forecast=is_forecast)
     else:
         qs = quantile_ranks_by_margin(ds, ranks, margin_in_days=margin_in_days, is_forecast=is_forecast)
+
     return qs
 
 
@@ -153,24 +160,27 @@ def quantile_ranks_by_margin(ds, ranks, margin_in_days=None, is_forecast=False):
 @dask_remote
 @timeseries()
 @cache(cache=True,
-       cache_args=['data', 'variable', 'prob_type', 'time_grouping', 'margin_in_days', 'source_grid', 'grid', 'region'],
+       cache_args=['data', 'variable', 'prob_type', 'agg_days',
+                   'time_grouping', 'margin_in_days', 'n_quantiles',
+                   'source_grid', 'grid', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 500, "lon": 500, "time": 120},
+           'chunking': {"lat": 100, "lon": 100, "time": 120, "prediction_timedelta": 46},
        })
 def data_quantile_regridded(start_time=None, end_time=None, data='era5',
                             variable='precip',
                             prob_type='deterministic',
-                            time_grouping=None, margin_in_days=6,
+                            agg_days=1,
+                            time_grouping=None, margin_in_days=6, n_quantiles=20,
                             source_grid="global1_5", grid="global1_5", region='global'):
     """Computes the quantile regridded unerlying data sources."""
     try:
         data_fn = get_data(data)
         ds = data_fn(start_time, end_time, variable=variable,
-                     agg_days=1, grid=source_grid, mask=None, region='global')
+                     agg_days=agg_days, grid=source_grid, mask=None, region='global')
     except ValueError:
         forecast_fn = get_forecast(data)
         ds = forecast_fn(start_time, end_time, variable=variable, prob_type=prob_type,
-                         agg_days=1, grid=source_grid, mask=None, region='global')
+                         agg_days=agg_days, grid=source_grid, mask=None, region='global')
 
     _, _, grid_res, _ = get_grid(source_grid)
     ds = clip_to_region_envelope(ds, region, padding=grid_res)
@@ -185,8 +195,10 @@ def data_quantile_regridded(start_time=None, end_time=None, data='era5',
         ds = groupby_time(ds, time_grouping, agg_fn=None)
 
     # Call the quantiles with the passed region to get already clipped to envelope
-    source_q = quantile_ranks(variable=variable, data=data, time_grouping=time_grouping, recompute=False,
-                              margin_in_days=margin_in_days, agg_days=1, grid=source_grid, region=region)
+    source_q = quantile_ranks(variable=variable, data=data, time_grouping=time_grouping,
+                              agg_days=agg_days,
+                              margin_in_days=margin_in_days, n_quantiles=n_quantiles,
+                              grid=source_grid, region=region, recompute=False)
 
     """Step 1: Convert precip values to quantiles based on source distribution"""
 
@@ -198,10 +210,17 @@ def data_quantile_regridded(start_time=None, end_time=None, data='era5',
         bad = np.isnan(x) | np.all(np.isnan(values), axis=-1)
         return np.where(bad, np.nan, out)
 
+    # Align the broadcast quantile-table to ds's chunking so apply_ufunc doesn't
+    # have to rebroadcast a single big spatial chunk into many small ones (which
+    # was triggering "Increasing chunks by factor of N" warnings).
+    src_table = source_q[variable].sel(group=ds.group)
+    chunks_align = {d: ds.chunks[d] for d in ("time", "lat", "lon") if d in ds.chunks}
+    src_table = src_table.chunk({**chunks_align, "quantile": -1})
+
     source_dsq = xr.apply_ufunc(
         value_to_quantile,
         ds[variable],
-        source_q[variable].sel(group=ds.group),
+        src_table,
         input_core_dims=[[], ["quantile"]],
         output_core_dims=[[]],
         dask="parallelized",
