@@ -155,7 +155,10 @@ def extract_combos_from_file(file, metric_group):
             for instance in itertools.product(*kwargs.values()):
                 yield dict(zip(keys, instance))
 
-        products = list(product_dict(**current_combo))
+        order = ['start_time', 'end_time', 'forecast', 'truth', 'variable', 'grid', 'agg_days', 'metric_name', 'space_grouping', 'time_grouping']
+        ordered_combo = {key: current_combo[key] for key in order if key in current_combo}
+
+        products = list(product_dict(**ordered_combo))
 
         combos.extend(products)
 
@@ -206,24 +209,24 @@ if __name__ == "__main__":
                         default=False, help="Whether to memoize the forecast.")
     parser.add_argument("--memoize-truth", action=argparse.BooleanOptionalAction,
                         default=False, help="Whether to memoize the truth.")
-    parser.add_argument("--target-read-chunk-size", type=int, default=1000, help="Number of runs to run in parallel.")
+    parser.add_argument("--target-read-chunk-size-mb", type=int, help="Number of runs to run in parallel.")
     parser.add_argument("--filepath-only", action=argparse.BooleanOptionalAction, default=True,
                         help="Whether to run the nuthatch cache with filepath only.")
     parser.add_argument("--remote", action=argparse.BooleanOptionalAction,
                         default=True, help="Whether to run on remote cluster.")
-    parser.add_argument("--remote-order", type=str, action='append',
+    parser.add_argument("--remote-order", type=str, nargs='*',
                         help="Order of remote clusters to use. Finds corresponding remote name and \
                         config for each divide by group.")
-    parser.add_argument("--remote-name", type=str, action='append',
+    parser.add_argument("--remote-name", type=str, nargs='*',
                         help="Name of remote cluster to use. If using divide by can be passed \
                         once for all clusters or for each divide by group.")
-    parser.add_argument("--parallelism", type=int, action='append',
+    parser.add_argument("--parallelism", type=int, nargs='*',
                         help="Number of runs to run in parallel. If using divide by can be passed \
                         once for all clusters or for each divide by group.")
     parser.add_argument("--remote-config", type=str, action='append', nargs='*',
                         help="Remote configuration to use. If using divide by can be passed \
                         once for all clusters or for each divide by group.")
-    parser.add_argument("--skip", type=int, action='append',
+    parser.add_argument("--skip", type=int, nargs='*',
                         help="Start runs at this index by skipping the first N runs. If using divide by can be passed \
                         once for all clusters or for each divide by group.")
     args = parser.parse_args()
@@ -257,7 +260,10 @@ if __name__ == "__main__":
         combo.setdefault('filepath_only', args.filepath_only)
         combo.setdefault('recompute', args.recompute)
         combo.setdefault('storage_backend', args.backend)
-        combo.setdefault('backend_kwargs', {'target_read_chunk_size': args.target_read_chunk_size})
+        if args.target_read_chunk_size_mb:
+            combo.setdefault('backend_kwargs', {'target_read_chunk_size_mb': args.target_read_chunk_size_mb})
+        else:
+            combo.setdefault('backend_kwargs', None)
         combo.setdefault('memoize_forecast', args.memoize_forecast)
         combo.setdefault('memoize_truth', args.memoize_truth)
 
@@ -270,7 +276,8 @@ if __name__ == "__main__":
                 if divide_by not in combo:
                     raise ValueError(f"Divide by argument {divide_by} not found in combination {combo}")
 
-                key += f"{name_prefix}-{combo[divide_by]}"
+                #key += f"{name_prefix}-{combo[divide_by]}"
+                key = f"{combo[divide_by]}"
 
             if key not in dict_of_combos_to_run:
                 dict_of_combos_to_run[key] = []
@@ -332,7 +339,7 @@ if __name__ == "__main__":
             skip = args.skip[0]
 
         if args.remote_name is None:
-            remote_name = list(dict_of_combos_to_run.keys())[0]
+            remote_name = name_prefix + '-' + list(dict_of_combos_to_run.keys())[0]
         else:
             remote_name = args.remote_name[0]
 
@@ -369,12 +376,12 @@ if __name__ == "__main__":
                                  passed to index the skip arguments.")
 
             if args.remote_name is None:
-                remote_name = 'metrics-' + key
+                remote_name = 'metrics-' + name_prefix + '-' + key
             elif len(args.remote_name) == 1:
-                remote_name = args.remote_name[0] + '-' + key
+                remote_name = args.remote_name[0] + '-' + name_prefix + '-' + key
             elif args.remote_order and key in args.remote_order:
                 index = args.remote_order.index(key)
-                remote_name = args.remote_name[index] + '-' + key
+                remote_name = args.remote_name[index] + '-' + name_prefix + '-' + key
             else:
                 raise ValueError("Multiple remote_name arguments passed but no value remote order \
                                  passed to index the remote_name arguments.")

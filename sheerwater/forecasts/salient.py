@@ -4,7 +4,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
+from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days, get_grid_ds
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -138,10 +138,6 @@ def salient_gem_raw(start_time, end_time, variable, # noqa: ARG001
 @cache(cache_args=['variable', 'grid', 'prob_type'],
        backend_kwargs={
            'chunking': {"lat": 73, "lon": 77, "forecast_date": 50, 'lead': 125}
-       },
-       cache_disable_if={
-           'prob_type': 'probabilistic',
-           'grid': 'global0_25'
        })
 def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deterministic',
                           mask=None, region=None): # noqa: ARG001
@@ -169,6 +165,11 @@ def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deter
     if grid != 'global0_25':
         # Regrid the data
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
+    else:
+        # We must reindex to the full grid for our 0.25 evals to work
+        ds = ds.chunk(chunks={"lat": 73, "lon": 77, "forecast_date": 50, 'lead': 125})
+        grid_ds = get_grid_ds(grid)
+        ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
 
     return ds
 
