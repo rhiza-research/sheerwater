@@ -1,14 +1,15 @@
+"""Downscaling datasets."""
 import numpy as np
 import xarray as xr
 
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.interfaces import spatial, get_data, get_forecast
+from sheerwater.interfaces import get_data, get_forecast
 from sheerwater.utils import (dask_remote, get_grid, groupby_time, regrid, add_dayofyear,
                               pad_with_leapdays, convert_init_time_to_pred_time)
 from sheerwater.spatial_subdivisions import clip_to_region_envelope
-from sheerwater.forecasts.ecmwf_er import ifs_extended_range
+from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_er_reforecast
 
 
 @dask_remote
@@ -41,21 +42,9 @@ def quantile_ranks(variable, data='era5', first_year=1985, last_year=2014, agg_d
         if data == 'ecmwf_ifs_er':
             # TODO: temporary fix for ECMWF reforecasts, make this a generic reforecast getter
             # TODO: need to handle the first year and last year challenge
-            if agg_days == 1:
-                time_group = 'daily'
-            elif agg_days == 7:
-                time_group = 'weekly'
-            else:
-                raise ValueError(f"Unsupported aggregation days: {agg_days}")
-            ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
-                                    run_type='average', time_group=time_group, grid=grid, mask=None, region='global')
-            ds = ds.rename({'lead_time': 'prediction_timedelta'})
-            # Nan out all timestamps that are outside of the start and end time.
-            # start_year is a year offset from model_issuance_date (see ifs_er_reforecast_lead_bias).
-            # init_times = ds.model_issuance_date + ds.start_year.astype('timedelta64[Y]')
-            # valid_times = init_times + ds.prediction_timedelta
-            # in_range = (valid_times >= np.datetime64(start_time)) & (valid_times <= np.datetime64(end_time))
-            # ds = ds.where(in_range, other=np.nan)
+            ds = ecmwf_ifs_er_reforecast(start_time=start_time, end_time=end_time,
+                                         variable=variable, agg_days=agg_days,
+                                         grid=grid, mask=None, region='global')
         else:
             raise ValueError(f"Unsupported data source: {data}")
     # Select only the variable of interest

@@ -1,14 +1,9 @@
 """A decorator for processors definitions."""
 from functools import wraps
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import xarray as xr
 
-from nuthatch import cache
-
-from sheerwater.utils import regrid as regrid_util, assign_grouping_coordinates, groupby_time, dask_remote, get_grid, convert_init_time_to_pred_time
-from sheerwater.spatial_subdivisions import apply_mask, clip_to_region_envelope
+from sheerwater.utils import regrid as regrid_util, groupby_time
 
 
 PROCESSOR_REGISTRY = {}
@@ -24,8 +19,6 @@ def processor():
             try:
                 ds = fn(*args, **kwargs)
             except TypeError as e:
-                import pdb
-                pdb.set_trace()
                 raise ValueError(f"Processor {name} requires missing processor_kwargs key. \n{e}") from e
 
             # Add an attribute to the dataset to indicate the event name
