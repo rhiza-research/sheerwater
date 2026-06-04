@@ -591,6 +591,7 @@ def rainfall_region_labels(grid='global0_25'):
                 }
 
     rr_labels = masks_to_labels(rr_east_west, rr_names)
+    rr_labels['region'] = rr_labels['region'].astype('U40')
     return rr_labels
 
 
