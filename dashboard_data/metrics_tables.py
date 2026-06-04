@@ -116,32 +116,15 @@ def _metric_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
+@cache(cache_args=['start_time', 'end_time', 'variable',  'forecasts', 'truth', 'agg_days',
+                   'metric_name', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
-def weekly_metric_table(start_time, end_time, variable,
-                        truth, metric_name, time_grouping=None,
-                        grid='global1_5', space_grouping=None):
+def forecast_metric_table(start_time, end_time, variable,
+                          forecasts, truth, agg_days, metric_name, time_grouping=None,
+                          grid='global1_5', space_grouping=None):
     """Runs metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['fuxi', 'salient', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_2015',
-                 'climatology_trend_2015', 'climatology_rolling', 'gencast', 'graphcast']
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
-                       agg_days=7, forecasts=forecasts,
-                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
-
-    print(df)
-    return df
-
-
-@dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
-       backend='sql', backend_kwargs={'hash_table_name': True})
-def monthly_metric_table(start_time, end_time, variable,
-                         truth, metric_name, time_grouping=None,
-                         grid='global1_5', space_grouping=None):
-    """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['salient', 'climatology_2015']
-    df = _metric_table(start_time, end_time, variable, truth, metric_name,
-                       agg_days=30, forecasts=forecasts,
+                       agg_days=agg_days, forecasts=forecasts,
                        time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
 
     print(df)
@@ -173,23 +156,6 @@ def ground_truth_metric_table(start_time, end_time, variable,
         agg_days = [1, 5, 7, 10]
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
                        agg_days, forecasts,
-                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
-
-    print(df)
-    return df
-
-
-@dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'truth', 'metric_name', 'time_grouping', 'grid', 'space_grouping'],
-       backend='sql', backend_kwargs={'hash_table_name': True})
-def biweekly_metric_table(start_time, end_time, variable,
-                          truth, metric_name, time_grouping=None,
-                          grid='global1_5', space_grouping=None):
-    """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = ['perpp', 'ecmwf_ifs_er', 'ecmwf_ifs_er_debiased', 'climatology_era5_1985_2015',
-                 'climatology_era5_trend_1985_2015', 'climatology_era5_rolling']
-    df = _metric_table(start_time, end_time, variable, truth, metric_name,
-                       agg_days=14, forecasts=forecasts,
                        time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
 
     print(df)
