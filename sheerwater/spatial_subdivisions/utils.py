@@ -15,7 +15,8 @@ from sheerwater.utils import get_grid, check_bases, is_station_grid
 import warnings
 from rasterio.errors import ShapeSkipWarning
 
-from .spatial_subdivisions import (spatial_subdivisions, get_spatial_subdivision_level,
+from .spatial_subdivisions import (polygon_subdivision_geodataframe, spatial_subdivisions,
+                                   get_spatial_subdivision_level,
                                    clean_spatial_subdivision_name, space_grouping_labels)
 
 
@@ -29,6 +30,7 @@ warnings.filterwarnings(
 ##############################################################################
 # Core clipping / masking utilities
 ##############################################################################
+
 
 def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
     """Clip a dataset to a region.
@@ -258,6 +260,7 @@ def clip_station_grid(ds, geometry=None, drop=True):
 
     return ds
 
+
 def masks_to_polygons(masks, crs="EPSG:4326"):
     """Convert lat/lon mask into a multipolygon geodataframe."""
     nregions = len(masks.region.values)
@@ -282,10 +285,11 @@ def masks_to_polygons(masks, crs="EPSG:4326"):
         else:
             # dissolve
             merged = unary_union(polygons)
-            gdf = gpd.GeoDataFrame(geometry=[merged],crs=crs)
+            gdf = gpd.GeoDataFrame(geometry=[merged], crs=crs)
         gdf['region'] = region
         gdfs.append(gdf)
     return gdfs
+
 
 def nonuniform_grid(ds, error_thresh=1e-5):
     """Check if a dataset has a nonuniform grid.
@@ -301,3 +305,22 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
 
 
+def get_region_envelope(region, padding=1e-6):
+    """Get the envelope of a region, padded with a small epsilon."""
+    level, _ = get_spatial_subdivision_level(region)
+    gdf = polygon_subdivision_geodataframe(level=level)
+    gdf = gdf[gdf['region_name'] == region]
+    bounds = gdf.geometry.bounds
+    # pad minx, miny, maxx, maxy
+    bounds['minx'] -= padding
+    bounds['miny'] -= padding
+    bounds['maxx'] += padding
+    bounds['maxy'] += padding
+    return bounds
+
+
+def clip_to_region_envelope(ds, region, padding=1e-6):
+    """Clip a dataset to a region envelope."""
+    min_lon, min_lat, max_lon, max_lat = get_region_envelope(region, padding=padding).iloc[0]
+    ds = ds.sel(lon=slice(min_lon, max_lon), lat=slice(min_lat, max_lat))
+    return ds

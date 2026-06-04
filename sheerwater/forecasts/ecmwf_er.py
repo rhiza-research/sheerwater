@@ -7,7 +7,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5
-from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, shift_by_days
+from sheerwater.utils import (dask_remote, get_grid, get_variable, lon_base_change, regrid, shift_by_days, roll_and_agg)
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -411,3 +411,44 @@ def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg
     return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
                                  prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=True)
+
+
+@dask_remote
+@spatial()
+@timeseries(timeseries='model_issuance_date')
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'lookback_source', 'densify',
+                   'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def ecmwf_ifs_er_reforecast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+                          prob_type='deterministic', grid='global1_5', mask='lsm', region="global"):
+    """Temporary getter for ECMWF reforecasts.
+
+    Enables filtering by start time and end time in the hindcast dates.
+    """
+    if prob_type == 'deterministic':
+        run_type = 'average'
+    else:
+        run_type = 'perturbed'
+
+    if agg_days == 7:
+        time_group = 'weekly'
+    else:
+        time_group = 'daily'
+
+    ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
+                            run_type=run_type, time_group=time_group, grid=grid,
+                            mask=mask, region=region)
+    ds = ds.rename({'lead_time': 'prediction_timedelta'})
+
+    # Nan out all timestamps that are outside of the start and end time.
+    # start_year is a year offset from model_issuance_date (see ifs_er_reforecast_lead_bias).
+    init_times = ds.model_issuance_date + ds.start_year.astype('timedelta64[Y]')
+    valid_times = init_times + ds.prediction_timedelta
+    in_range = (valid_times >= np.datetime64(start_time)) & (valid_times <= np.datetime64(end_time))
+    ds = ds.where(in_range, other=np.nan)
+
+    if agg_days != 1 and agg_days != 7:
+        ds = roll_and_agg(ds, agg=agg_days, agg_col="prediction_timedelta", agg_fn="mean")
+    return ds
