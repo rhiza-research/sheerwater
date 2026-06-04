@@ -55,25 +55,35 @@ def _metric_table(start_time, end_time, variable,
             if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
+            if 'prediction_timedelta' in ds.coords:
+                table_type = 'forecast'
+            else:
+                table_type = 'ground_truth'
+
+
             if ds:
                 # Get the metric name to rename the variable
-                if '-' in metric_name:
-                    met_name = metric_name.split('-')[0].lower()
-                else:
-                    met_name = metric_name.lower()
-                ds = ds.rename({met_name: agg})
+                if table_type == 'ground_truth':
+                    if '-' in metric_name:
+                        met_name = metric_name.split('-')[0].lower()
+                    else:
+                        met_name = metric_name.lower()
+
+
+                    ds = ds.rename({met_name: agg})
 
                 ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
+
                 # For climatology forecasts, we need to expand the prediction_timedelta coordinate
-                if 'prediction_timedelta' in ds.coords and 'climatology' in forecast:
-                    ds = ds.squeeze('prediction_timedelta')
-                    ds = ds.expand_dims({'lead_day': np.arange(100)})  # 100 lead days for climatology forecasts
-                elif 'prediction_timedelta' in ds.coords:
+                if 'prediction_timedelta' in ds.coords:
                     lead_values = ds.prediction_timedelta.values / np.timedelta64(1, 'D')
+                    lead_values = lead_values.astype('int64')
                     ds = ds.assign_coords(prediction_timedelta=lead_values)
                     ds = ds.rename({'prediction_timedelta': 'lead_day'})
                 # results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
+
                 results_ds = results_ds.merge(ds)
+                print(results_ds)
 
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)
@@ -87,23 +97,28 @@ def _metric_table(start_time, end_time, variable,
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
-    order = ['forecast', 'time_grouping', 'region'] + agg_days
+    if 'lead_day' in df.columns:
+        order = ['forecast', 'time_grouping', 'region', 'lead_day', f'{metric_name}']
+    else:
+        order = ['forecast', 'time_grouping', 'region'] + agg_days
 
     # Reorder the columns if necessary
     if 'time' in df.columns:
         df = df.rename(columns={'time': 'time_grouping'})
-        df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
-                                                       'M02': 'February',
-                                                       'M03': 'March',
-                                                       'M04': 'April',
-                                                       'M05': 'May',
-                                                       'M06': 'June',
-                                                       'M07': 'July',
-                                                       'M08': 'August',
-                                                       'M09': 'September',
-                                                       'M10': 'October',
-                                                       'M11': 'November',
-                                                       'M12': 'December'})
+        if time_grouping == 'month_of_year':
+            df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
+                                                           'M02': 'February',
+                                                           'M03': 'March',
+                                                           'M04': 'April',
+                                                           'M05': 'May',
+                                                           'M06': 'June',
+                                                           'M07': 'July',
+                                                           'M08': 'August',
+                                                           'M09': 'September',
+                                                           'M10': 'October',
+                                                           'M11': 'November',
+                                                           'M12': 'December'})
+
     else:
         df['time_grouping'] = None
 
@@ -116,7 +131,7 @@ def _metric_table(start_time, end_time, variable,
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable',  'forecasts', 'truth', 'agg_days',
+@cache(cache_args=['start_time', 'end_time', 'variable',  'truth', 'agg_days',
                    'metric_name', 'time_grouping', 'grid', 'space_grouping'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def forecast_metric_table(start_time, end_time, variable,

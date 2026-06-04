@@ -5,7 +5,7 @@ forecast_metrics:
     end_time: "2024-12-31"
     forecast:
       - climatology_era5_1985_2015
-      - climatology_imerg_1998_2024
+      - climatology_imerg_1998_2016
       - ecmwf_ifs_er
       - ecmwf_ifs_er_debiased
       - ecmwf_aifs
@@ -38,13 +38,13 @@ forecast_metrics:
       - ecmwf_hres
     grid: ['global0_25']
 forecast_table_metrics:
-  function: metric_table
+  function: forecast_metric_table
   _all:
     start_time: "2016-01-01"
     end_time: "2024-12-31"
-    forecast:
+    forecasts:
       - - climatology_era5_1985_2015
-        - climatology_imerg_1998_2024
+        - climatology_imerg_1998_2016
         - ecmwf_ifs_er
         - ecmwf_ifs_er_debiased
         - ecmwf_ifs_ens
@@ -59,7 +59,6 @@ forecast_table_metrics:
     truth:
       - era5
       - imerg_final
-    spatial: false
     space_grouping: ['country', 'subregion', 'rainfall_region', ['rainfall_region', 'country']]
     grid: ['global1_5']
     variable: ['precip']
@@ -69,7 +68,7 @@ forecast_table_metrics:
   global1_5_metrics:
     grid: ['global1_5']
   global0_25_metrics:
-    forecast:
+    forecasts:
       - - salient
         - salient_gem
         - gfs
@@ -84,7 +83,7 @@ forecast_spatial_metrics:
     end_time: "2024-12-31"
     forecast:
       - climatology_era5_1985_2015
-      - climatology_imerg_1998_2024
+      - climatology_imerg_1998_2016
       - ecmwf_ifs_er
       - ecmwf_ifs_er_debiased
       - ecmwf_ifs_ens

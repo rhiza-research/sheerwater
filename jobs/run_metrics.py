@@ -157,6 +157,9 @@ def extract_combos_from_file(file, metric_group):
 
         order = ['start_time', 'end_time', 'forecast', 'truth', 'variable', 'grid', 'agg_days', 'metric_name', 'space_grouping', 'time_grouping']
         ordered_combo = {key: current_combo[key] for key in order if key in current_combo}
+        ordered_combo.update({
+            key: current_combo[key] for key in current_combo if key not in order
+        })
 
         products = list(product_dict(**ordered_combo))
 
@@ -264,8 +267,9 @@ if __name__ == "__main__":
             combo.setdefault('backend_kwargs', {'target_read_chunk_size_mb': args.target_read_chunk_size_mb})
         else:
             combo.setdefault('backend_kwargs', None)
-        combo.setdefault('memoize_forecast', args.memoize_forecast)
-        combo.setdefault('memoize_truth', args.memoize_truth)
+        if args.function == 'metric':
+            combo.setdefault('memoize_forecast', args.memoize_forecast)
+            combo.setdefault('memoize_truth', args.memoize_truth)
 
     # Now we have al list of combinations, we need to split it into lists based on the divide by arguments
     dict_of_combos_to_run = {}

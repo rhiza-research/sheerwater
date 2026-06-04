@@ -690,9 +690,15 @@ class ACC(Metric):
         assert self.event is None, "ACC metric does not support events."
 
         # Get the appropriate climatology dataframe for metric calculation
-        first_year = 1990
-        last_year = 2019
-        clim_source = 'era5'
+        if self.truth == 'imerg_final':
+            first_year = 1998
+            last_year = 2015
+            clim_source = 'imerg_final'
+        else:
+            first_year = 1985
+            last_year = 2014
+            clim_source = 'era5'
+
         clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
                               **self.fcst_obs_kwargs, prob_type='deterministic')
 
