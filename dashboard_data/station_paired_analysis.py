@@ -4,8 +4,8 @@ import numpy as np
 from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote, get_grid
-from sheerwater.spatial_subdivisions import nonuniform_grid, is_station_grid
+from sheerwater.utils import (dask_remote, get_grid, is_station_grid)
+from sheerwater.spatial_subdivisions import nonuniform_grid
 from sheerwater.interfaces import get_data
 
 
@@ -56,6 +56,7 @@ def data_at_stations(start_time, end_time, data='imerg', variable='precip', agg_
 
         if nonuniform_grid(ds):
             # Set the index for lat and lon in a nonuniform grid
+            # This requires xarray version 2025.07.01 - set this in the pyproject.toml file before running
             ds = ds.set_xindex(("lat", "lon"), xr.indexes.NDPointIndex)
 
         # We want to get the nearest grid point to the station, so we set tolerance
