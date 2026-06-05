@@ -235,7 +235,22 @@ def clip_with_mask(ds, region_df, drop=True):
     # to visually strange results. By cropping to the bounding box, we have a better result.
     ds = ds.where(mask, drop=False)
     if drop:
-        ds = ds.sel(lon=slice(lon_min, lon_max), lat=slice(lat_min, lat_max))
+        if "lat" in ds.dims and "lon" in ds.dims:
+            # regular rectilinear grid
+            ds = ds.sel(
+                lon=slice(lon_min, lon_max),
+                lat=slice(lat_min, lat_max)
+            )
+        else:
+            # curvilinear grid (lat/lon are coordinates, e.g. (y, x))
+            mask = (
+                (ds.lon >= lon_min) &
+                (ds.lon <= lon_max) &
+                (ds.lat >= lat_min) &
+                (ds.lat <= lat_max)
+            )
+
+            ds = ds.where(mask)
     return ds
 
 
@@ -257,6 +272,49 @@ def clip_station_grid(ds, geometry=None, drop=True):
     ds = ds.where(mask.compute(), drop=drop)
 
     return ds
+
+
+def regrid_region_masks(masks, output_grid, base="base180"):
+    """Regrid boolean region masks using most_common.
+
+    Collapses (lat, lon, region) bool masks to an integer label map, regrids with
+    most_common, then expands back to bool masks. Region indices are shifted up by
+    one during regridding so that 0 unambiguously represents background.
+
+    Args:
+        masks: xr.DataArray or xr.Dataset with ``masks`` of shape (lat, lon, region).
+        output_grid: Target grid name, e.g. ``"global1_5"``.
+        base: Longitude convention (``"base180"`` or ``"base360"``).
+        region: Region to clip to during regridding.
+
+    Returns:
+        Regridded masks in the same type as the input (DataArray or Dataset).
+    """
+    from sheerwater.utils.data_utils import regrid
+
+    masks['region'] = masks['region'] + 1
+    region_coords = masks.region.values
+
+    # increment regions by 1
+    label_map = (masks.astype(np.int8) * masks.region).sum("region")
+
+    label_map = regrid(label_map.masks, output_grid, base=base, method="most_common", 
+        regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
+    )
+
+    regridded = label_map == xr.DataArray(region_coords, dims="region")
+    regridded = (
+        regridded.transpose("lat", "lon", "region")
+        .assign_coords(region=region_coords)
+        .astype(bool)
+    )
+
+    # decrement regions by 1
+    regridded['region'] = regridded['region'] - 1
+    regridded = regridded.to_dataset(name="masks")
+
+    return regridded
+
 
 def masks_to_polygons(masks, crs="EPSG:4326"):
     """Convert lat/lon mask into a multipolygon geodataframe."""
