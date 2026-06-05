@@ -595,6 +595,31 @@ def rainfall_region_labels(grid='global0_25'):
     return rr_labels
 
 
+@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+def season_region_labels(grid='global0_25'):
+    ds = rainfall_region_labels(grid)
+    season_regions = xr.where(ds.coords["region"].isin(['east_africa_coastal_horn',
+                                                         'east_africa_west_ethiopian_highlands']),
+                               'africa_bimodal_season', ds.coords["region"])
+
+    ds = ds.assign_coords(region=season_regions)
+
+    season_regions = xr.where(ds.coords["region"].isin(['east_africa_sudanian',
+                                                          'east_africa_coastal_savannah',
+                                                          'west_africa_western_sahel',
+                                                          'west_africa_eastern_sahel',
+                                                          'west_africa_sudanian']),
+                              'africa_unimodal_season', ds.coords["region"])
+    ds = ds.assign_coords(region=season_regions)
+
+    season_regions = xr.where(ds.coords["region"].isin(['africa_unimodal_season', 'africa_bimodal_season']),
+                               ds.coords["region"], "no_region")
+
+    ds = ds.assign_coords(region=season_regions)
+
+    ds['region'] = ds['region'].astype('U40')
+    return ds
+
 
 ##############################################################################
 # The final spatial subdivision interface
@@ -737,4 +762,5 @@ spatial_subdivisions = {
     'agroecological_zone': [agroecological_subdivision_labels, None],
     # Custom regions with similar rainy season patterns in nimbus regions of interest
     'rainfall_region': [rainfall_region_labels, None],
+    'season_regions': [season_region_labels, None],
 }
