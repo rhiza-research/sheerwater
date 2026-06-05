@@ -12,7 +12,6 @@ forecast_metrics:
       - ecmwf_ifs_ens
       - ecmwf_hres
       - salient
-      - salient_gem
       - fuxi
       - gfs
       - gencast
@@ -31,7 +30,6 @@ forecast_metrics:
   global0_25_metrics:
     forecast:
       - salient
-      - salient_gem
       - gfs
       - ecmwf_aifs
       - ecmwf_ifs_ens
@@ -51,7 +49,6 @@ forecast_table_metrics:
         - ecmwf_hres
         - ecmwf_aifs
         - salient
-        - salient_gem
         - fuxi
         - gfs
         - gencast
@@ -70,7 +67,6 @@ forecast_table_metrics:
   global0_25_metrics:
     forecasts:
       - - salient
-        - salient_gem
         - gfs
         - ecmwf_aifs
         - ecmwf_ifs_ens
@@ -90,7 +86,6 @@ forecast_spatial_metrics:
       - ecmwf_hres
       - ecmwf_aifs
       - salient
-      - salient_gem
       - fuxi
       - gfs
       - gencast
@@ -109,7 +104,6 @@ forecast_spatial_metrics:
   global0_25_metrics:
     forecast:
       - salient
-      - salient_gem
       - gfs
       - ecmwf_aifs
       - ecmwf_ifs_ens

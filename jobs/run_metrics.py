@@ -261,7 +261,12 @@ if __name__ == "__main__":
     # Insert in each combo so that combo can be passed as **kwargs
     for combo in combos_to_run:
         combo.setdefault('filepath_only', args.filepath_only)
+
+        # If recompute we likely want to overwrite
         combo.setdefault('recompute', args.recompute)
+        if args.recompute:
+            combo.setdefault('cache_mode', 'overwrite')
+
         combo.setdefault('storage_backend', args.backend)
         if args.target_read_chunk_size_mb:
             combo.setdefault('backend_kwargs', {'target_read_chunk_size_mb': args.target_read_chunk_size_mb})
