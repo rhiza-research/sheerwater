@@ -47,7 +47,7 @@ def get_rainfall_regions(data_source, kregions=5, region="africa", grid="global0
                           first_year=first_year, last_year=last_year,
                           agg_days=agg_days,
                           grid=grid, mask=mask, region=region,
-                          prob_type='deterministic', trend=False)
+                          prob_type='deterministic')
 
     # prepare data for clustering
     df = clim_ds.to_dataframe()

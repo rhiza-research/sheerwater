@@ -539,7 +539,7 @@ def rainfall_region_labels(grid='global0_25'):
     Returns:
         xarray.Dataset: dataset with a string ``region`` coordinate per lat/lon.
     """
-
+    from .utils import regrid_region_masks
     def masks_to_labels(masks, idx2names):
         labels = xr.DataArray(
             np.full((len(masks.lat), len(masks.lon)), "", dtype=object),
@@ -558,7 +558,7 @@ def rainfall_region_labels(grid='global0_25'):
             data_source="imerg_final",
             kregions=5,
             region="nimbus_east_africa",
-            grid=grid,
+            grid='global0_25',
             mask="lsm",
             agg_days=1,
             smooth_neighbors=50,
@@ -568,7 +568,7 @@ def rainfall_region_labels(grid='global0_25'):
             data_source="imerg_final",
             kregions=4,
             region="nimbus_west_africa",
-            grid=grid,
+            grid='global0_25',
             mask="lsm",
             agg_days=1,
             smooth_neighbors=50,
@@ -576,13 +576,16 @@ def rainfall_region_labels(grid='global0_25'):
     )
     rr_west = rr_west.assign_coords(region=rr_west.region + rr_east.region.size)
     rr_east_west = xr.concat([rr_east, rr_west], dim="region")
+    if grid != 'global0_25':
+        rr_east_west = regrid_region_masks(rr_east_west, output_grid=grid)
+
 
     rr_names = {# east africa
-                0 : "east_africa_coastal_horn",
+                0 : "east_africa_sudanian",
                 1 : "east_africa_lake_victoria_basin",
                 2 : "east_africa_coastal_savannah",
-                3 : "east_africa_sudanian",
-                4 : "east_africa_west_ethiopian_highlands",
+                3 : "east_africa_west_ethiopian_highlands",
+                4 : "east_africa_coastal_horn",
                 # west africa
                 5 : "west_africa_western_sahel",
                 6 : "west_africa_eastern_sahel",
@@ -654,7 +657,7 @@ def get_spatial_subdivision_level(name, grid='global0_25'):
     for subdivision, regions in vals.items():
         if name in regions:
             return subdivision, 1
-
+    import pdb; pdb.set_trace()
     raise ValueError(f"Invalid spatial subdivision: {name}")
 
 
