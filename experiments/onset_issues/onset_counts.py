@@ -1,93 +1,35 @@
-"""Show that onset does not trigger the same number of times across different datasources and definitions"""
+"""Plot maps showing total onset counts sensitivity to product"""
 
 from sheerwater.utils import start_remote
 from sheerwater.interfaces import get_data
 from sheerwater.spatial_subdivisions import polygon_subdivision_geodataframe, get_spatial_subdivision_level
-
-import get_onset as go
+from sheerwater.tasks.onset_dates import onset_dates
 
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    start_remote(remote_config='xlarge_cluster', remote_name='onset_issues')
+    start_remote(remote_name='onset_counts')
 
-    onset_definition = 'chc'
-    if onset_definition == 'chc':
-        wet_spell_agg_days = 10
-        wet_spell_threshold = 20.0
-        dry_spell_agg_days = 20
-        dry_spell_threshold = 25.0
-    elif onset_definition == 'icpac':
-        wet_spell_agg_days = 3
-        wet_spell_threshold = 21.0
-        dry_spell_agg_days = 7
-        dry_spell_threshold = 10.5
-    elif onset_definition == 'moron-robertson':
-        wet_spell_agg_days = 5
-        wet_spell_threshold = 38.0
-        dry_spell_agg_days = 10
-        dry_spell_threshold = 5.0
-
-    # various fixed parameters
-    start_time = "2000-01-01"
+    start_time = "2015-01-01"
     end_time = "2025-12-31"
-    mask = "lsm"
-    region = "nimbus_horn_and_east_africa"
     grid = "global0_25"
+    region = "nimbus_west_africa"
+    onset_def = "moron_and_robertson_onset"
+    time_grouping = "year"
 
-    imerg_dates = go.get_sos_dates(datasource="imerg_final", event="planting_suitability", event_kwargs={
-        "wet_spell_threshold": wet_spell_threshold,
-        "dry_spell_threshold": dry_spell_threshold,
-        "wet_spell_agg_days": wet_spell_agg_days,
-        "dry_spell_agg_days": dry_spell_agg_days,
-    }, start_time=start_time, end_time=end_time, grid=grid, mask=mask, region=region)
-    chirps_dates = go.get_sos_dates(datasource="chirps_v3", event="planting_suitability", event_kwargs={
-        "wet_spell_threshold": wet_spell_threshold,
-        "dry_spell_threshold": dry_spell_threshold,
-        "wet_spell_agg_days": wet_spell_agg_days,
-        "dry_spell_agg_days": dry_spell_agg_days,
-    }, start_time=start_time, end_time=end_time, grid=grid, mask=mask, region=region)
-    tahmo_dates = go.get_sos_dates(datasource="tahmo_avg", event="planting_suitability", event_kwargs={
-        "wet_spell_threshold": wet_spell_threshold,
-        "dry_spell_threshold": dry_spell_threshold,
-        "wet_spell_agg_days": wet_spell_agg_days,
-        "dry_spell_agg_days": dry_spell_agg_days,
-    }, start_time=start_time, end_time=end_time, grid=grid, mask=mask, region=region)
+    imerg_dates = onset_dates(start_time, end_time, "imerg_final", grid, region, onset_def, time_grouping)
+    chirps_dates = onset_dates(start_time, end_time, "chirps_v3", grid, region, onset_def, time_grouping)
 
+    imerg_counts = imerg_dates.doy.notnull().sum(dim="group")
+    chirps_counts = chirps_dates.doy.notnull().sum(dim="group")
 
-    # get counts of onset for each season
-    mam_groups = [g for g in imerg_dates.group.values if 'MAM' in str(g)]
-    ond_groups = [g for g in imerg_dates.group.values if 'OND' in str(g)]
-
-    import pdb; pdb.set_trace()
-
-    imerg_mam_counts = imerg_dates.sel(group=mam_groups).doy.notnull().sum(dim="group")
-    imerg_ond_counts = imerg_dates.sel(group=ond_groups).doy.notnull().sum(dim="group")
-    chirps_mam_counts = chirps_dates.sel(group=mam_groups).doy.notnull().sum(dim="group")
-    chirps_ond_counts = chirps_dates.sel(group=ond_groups).doy.notnull().sum(dim="group")
-    tahmo_mam_counts = tahmo_dates.reindex(group=mam_groups).doy.notnull().sum(dim="group")
-    tahmo_ond_counts = tahmo_dates.reindex(group=ond_groups).doy.notnull().sum(dim="group")
 
     # plot counts
-    fig, axs = plt.subplots(2, 2, figsize=(10, 5), constrained_layout=True)
-    cmap = "turbo"
-    vmin = 0
-    vmax = 25
-    imerg_mam_counts.plot(ax=axs[0, 0], x="lon", cmap=cmap, add_colorbar=False, vmin=vmin, vmax=vmax)
-    imerg_ond_counts.plot(ax=axs[0, 1], x="lon", cmap=cmap, add_colorbar=False, vmin=vmin, vmax=vmax)
-    chirps_mam_counts.plot(ax=axs[1, 0], x="lon", cmap=cmap, add_colorbar=False, vmin=vmin, vmax=vmax)
-    im = chirps_ond_counts.plot(ax=axs[1, 1], x="lon", cmap=cmap, add_colorbar=False, vmin=vmin, vmax=vmax)
-
-    # turn off all axis labels
-    for ax in axs.flatten():
-        ax.set_xlabel('')
-        ax.set_ylabel('')
-        ax.set_title('')
-    axs[0, 0].set_ylabel('IMERG')
-    axs[1, 0].set_ylabel('CHIRPS')
-    axs[0, 0].set_title('MAM')
-    axs[0, 1].set_title('OND')
-
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5), constrained_layout=True)
+    imerg_counts.plot(ax=axs[0], x="lon", cmap="viridis", vmin=0, vmax=25, add_colorbar=False, add_labels=False)
+    im = chirps_counts.plot(ax=axs[1], x="lon", cmap="viridis", vmin=0, vmax=25, add_colorbar=False, add_labels=False)
+    axs[0].set_title("IMERG")
+    axs[1].set_title("CHIRPS")
 
     # add country boundaries to each axis
     try:

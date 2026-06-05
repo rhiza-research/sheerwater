@@ -1,17 +1,15 @@
 """Plot maps showing change in smap statistics before and after an onset date."""
 
-from sheerwater.utils import start_remote
-from sheerwater.interfaces import get_data
 import matplotlib.pyplot as plt
-from sheerwater.utils.data_utils import roll_and_agg
 import xarray as xr
 import numpy as np
 import pandas as pd
 
+from sheerwater.utils import start_remote
+from sheerwater.interfaces import get_data
+from sheerwater.utils.data_utils import roll_and_agg
 from sheerwater.tasks.onset_dates import onset_dates
-from sheerwater.utils.data_utils import regrid
 from sheerwater.spatial_subdivisions import get_spatial_subdivision_level, polygon_subdivision_geodataframe
-
 from sheerwater.utils.space_utils import get_grid
 
 import matplotlib.pyplot as plt
