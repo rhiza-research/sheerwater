@@ -12,6 +12,8 @@ from sheerwater.statistics_library import statistic_factory
 from sheerwater.utils import groupby_time, latitude_weights
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
+from .advanced_metrics import get_experiment_kwargs
+
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
 
@@ -851,6 +853,17 @@ class FrequencyBias(ContingencyMetric):
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
+        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'])
+        exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
+        # Add runtime metric configuration to the metric class
+        return metric(metric_kwargs=exp_metric_kwargs,
+                      event=event,
+                      event_kwargs=event_kwargs,
+                      filter_event=filter_event,
+                      filter_event_kwargs=filter_event_kwargs,
+                      **init_kwargs)
+    except ValueError:
         if metric_kwargs is None:
             metric_kwargs = {}
         # Convert
