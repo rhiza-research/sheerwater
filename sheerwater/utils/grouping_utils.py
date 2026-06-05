@@ -36,6 +36,11 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         12: 'second',
 
     }
+    imd_season = {
+        1: 'preimd', 2: 'preimd', 3: 'preimd', 4: 'preimd', 5: 'preimd',
+        6: 'imd', 7: 'imd', 8: 'imd', 9: 'imd', 10: 'imd', 11: 'imd', 12: 'imd',
+    }
+
     if time_grouping is not None:
         if time_grouping == 'month_of_year':
             coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
@@ -69,6 +74,8 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
             coords = [
                 f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
                 for x in ds.time.values]
+        elif time_grouping == 'imd_season':
+            coords = [f"{imd_season.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}" for x in ds.time.values]
         else:
             raise ValueError(f"Invalid time groupingi {time_grouping}")
 
