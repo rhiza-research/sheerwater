@@ -9,7 +9,7 @@ supported in a more general way.
 from functools import wraps
 import numpy as np
 import xarray as xr
-from sheerwater.utils import detect_in_time, roll_and_agg, groupby_time
+from sheerwater.utils import roll_and_agg, groupby_time
 
 EVENT_REGISTRY = {}
 
@@ -75,9 +75,9 @@ def event(default_variable=None, duration=0, filter=False):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
-def digitized(ds, agg_days, bins):
+def digitized(ds, agg_days, bins, align='left'):
     """An event to digitize a dataset into bins."""
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', align=align)
 
     # Save and restore the null pattern, which is removed by the boolean operations
     null_mask = ds.isnull()
@@ -97,20 +97,32 @@ def digitized(ds, agg_days, bins):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
-def above_threshold(ds, agg_days, threshold):
+def above_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, margin_align='center'):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
-    ds = digitized(ds, agg_days=agg_days, bins=bins)
+    ds = digitized(ds, agg_days=agg_days, bins=bins, align=align)
     # Convert from the outptut of digitized (1,2) to floating (0, 1)
+
     ds = ds.astype(float) - 1.0
+    if margin_in_days > 0:
+        # Soften the detections by margin in days
+        ds = roll_and_agg(ds, agg=margin_in_days, agg_col="time", align=margin_align, agg_fn='max')
     return ds
 
 
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
+def below_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, margin_align='center'):
+    """An event to calculate the above threshold of a dataset."""
+    above = above_threshold(ds, agg_days=agg_days, threshold=threshold, align=align,
+                            margin_in_days=margin_in_days, margin_align=margin_align)
+    return 1.0 - above
+
+
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
-def accumulated_rain(ds, agg_days):
-    """An event to calculate the accumulated rain over a sliding, right-aligned window."""
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", align='right', agg_fn='sum')
+def accumulated_rain(ds, agg_days, align='right'):
+    """An event to calculate the accumulated rain over a sliding, aligned window."""
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", align=align, agg_fn='sum')
     return ds
 
 
@@ -208,10 +220,53 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
 
 
 @event(default_variable="precip", duration=120, filter=False)
-def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accumulation_threshold=200.0):
-    """Calculate the seasonal accumulation of a dataset.
+def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_season_accumulation=0.8, by_percent=True):
+    """Calculate the in season period of a dataset.
 
-    Marks all times where the cumulative sum crosses any of the specified accumulation thresholds with 1.
+    Marks all times where the cumulative sum is between the start and end season accumulation thresholds with 1.
+
+    Args:
+        ds: The input xarray.Dataset
+        time_grouping: How to group time ("year" by default)
+        start_season_accumulation: Threshold (value) in the cumsum to start the season
+        end_season_accumulation: Threshold (value) in the cumsum to end the season
+        by_percent: Whether to compute cumsum as percent of max in season
+    """
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    nanmask = ds.isnull()
+
+    # Set all times to NaN where season/group is None
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
+
+    def in_season(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+        if by_percent:
+            cumsum = cumsum / cumsum.max(dim="time")
+
+        season = (cumsum >= start_season_accumulation) & (cumsum <= end_season_accumulation)
+        season = season.astype(int)
+        return season
+
+    # Ensure that the time dimension is sorted
+    ds = ds.sortby("time")
+    ret = ds.groupby("group").map(in_season)
+
+    # Restore the null pattern and attributes, which are lost during the grouping
+    ret = ret.where(~nanmask, other=np.nan)
+    ret = ret.assign_attrs(ds.attrs)
+    return ret
+
+
+@event(default_variable="precip", duration=120, filter=False)
+def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accumulation_threshold=200.0):
+    """Calculate the first time(s) a seasonal accumulation threshholds(s) is crossed.
+
+    Marks all times where the cumulative sum crosses any of the specified accumulation thresholds with a 1.
 
     Args:
         ds: The input xarray.Dataset

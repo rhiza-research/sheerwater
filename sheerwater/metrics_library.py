@@ -598,6 +598,15 @@ class MAE(Metric):
     statistics = ['mae']
 
 
+class ForecastAbsoluteValue(Metric):
+    """Mean Absolute Error metric."""
+    sparse = False
+    prob_type = 'deterministic'
+    valid_variables = None  # all variables are valid
+    default_event = None
+    statistics = ['forecast_absolute_value']
+
+
 class MSE(Metric):
     """Mean Squared Error metric."""
     sparse = False

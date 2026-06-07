@@ -93,13 +93,14 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     early_season_accumulation_by_percent = 0.10
     first_rain_threshold_mm = 7.0
     pre_period_in_days = 45
-    period_in_days = 60 # look 2 months after the first rain
-    drying_day_threshold_mm = 20.0 # this is a sum
+    period_in_days = 60  # look 2 months after the first rain
+    drying_day_threshold_mm = 10.0  # this is a sum
     drying_day_agg_in_days = 10
     # drying_day_margin_in_days = 5
 
     # Compute the MAE
-    metric = 'mae'
+    metric = 'forecastabsolutevalue'
+    # metric = 'mae'
     # metric = 'bias'
     # metric = 'smape'
     # Filter on a specific threshhold of seasonal accumulation.
@@ -141,6 +142,133 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
+def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
+    """Agg day accumulation at a specific point in the seasonal accumulation.
+
+    Experiment should be in the form:
+    bi
+        ... and so forth. 
+    """
+    # Configure the big rain thresholds.
+    big_rain_threshold_mm = 35.0
+    big_rain_agg_days = 1
+    big_rain_margin_in_days = 5
+
+    # Compute the MAE
+    # metric = 'mae'
+    # metric = 'forecastabsolutevalue'
+    metric = 'smape'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'above_threshold'
+    filter_event_kwargs = {
+        'agg_days': big_rain_agg_days,
+        'threshold': big_rain_threshold_mm,
+        'margin_in_days': 0,
+        # 'margin_in_days': big_rain_margin_in_days,
+        # 'margin_align': 'center',
+    }
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': True,
+        'fcst_filter': False,
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'accumulated_rain'
+    event_kwargs = {
+        'fcst': {
+            'agg_days': big_rain_margin_in_days,
+            'align': 'center',
+            'densify': True
+
+        },
+        'obs': {
+            'agg_days': big_rain_margin_in_days,
+            'align': 'center',
+        },
+    }
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
+def get_rain_days_soft_kwargs(experiment, region):  # noqa: ARG001
+    """Rain days with a soft probability of detection."""
+    # Configure the big rain thresholds.
+    rain_threshold_mm = 5.0
+    rain_agg_days = 1
+    rain_margin_in_days = 5
+
+    # Compute the MAE
+    # metric = 'mae'
+    # metric = 'forecastabsolutevalue'
+    metric = 'pod'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'in_season'
+    filter_event_kwargs = {
+        'time_grouping': 'year',
+        'start_season_accumulation': 0.1,
+        'end_season_accumulation': 0.9,
+        'by_percent': True,
+    }
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': True,
+        'fcst_filter': False,
+        'soft_margin_in_days': rain_margin_in_days,
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'above_threshold'
+    event_kwargs = {
+        'fcst': {
+            'agg_days': rain_agg_days,
+            'threshold': rain_threshold_mm,
+            'densify': True
+
+        },
+        'obs': {
+            'agg_days': rain_agg_days,
+            'threshold': rain_threshold_mm,
+        },
+    }
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
+def get_dry_spell_days_kwargs(experiment, region):  # noqa: ARG001
+    """Dry spell performance at any point in the year."""
+    # Configure the big rain thresholds.
+    dry_spell_threshold_mm = 1.5  # Average daily rain
+    dry_spell_agg_days = 5
+
+    # Compute the MAE
+    # metric = 'mae'
+    metric = 'forecastabsolutevalue'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'below_threshold'
+    filter_event_kwargs = {
+        'agg_days': dry_spell_agg_days,
+        'threshold': dry_spell_threshold_mm,
+        'align': 'right'
+    }
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': True,
+        'fcst_filter': False,
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'accumulated_rain'
+    event_kwargs = {
+        'fcst': {
+            'agg_days': dry_spell_agg_days,
+            'align': 'right',
+            'densify': True
+
+        },
+        'obs': {
+            'agg_days': dry_spell_agg_days,
+            'align': 'right',
+        },
+    }
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
 def get_experiment_kwargs(experiment, region):
     """Returns metrics configruations needed to run an advanced agricultural metric."""
     if 'season_accumulation' in experiment:
@@ -149,6 +277,15 @@ def get_experiment_kwargs(experiment, region):
     elif 'in_season_dry_spell' in experiment:
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_in_season_dry_spell_kwargs(experiment, region)
+    elif 'big_rain_days' in experiment:
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_big_rain_days_kwargs(experiment, region)
+    elif 'rain_days_soft' in experiment:
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_rain_days_soft_kwargs(experiment, region)
+    elif 'dry_spells' in experiment:
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_dry_spell_days_kwargs(experiment, region)
     else:
         raise ValueError(f"Experiment {experiment} not supported.")
 
