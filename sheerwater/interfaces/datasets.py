@@ -317,8 +317,11 @@ class forecast(SheerwaterDataset):
         args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
         bound_args = self.bind_signature(sig, *args, **kwargs)
         self.lookback_source = bound_args.arguments.get('lookback_source', None)
-        self.densify = bound_args.arguments.get('densify', False)
+        self.densify = bound_args.arguments.get('densify', False) or self.event_kwargs.get('densify', False)
+        if 'densify' in self.event_kwargs:
+            del self.event_kwargs['densify']
         return args, kwargs
+
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
         """Blend the forecast and observations.
@@ -371,7 +374,7 @@ class forecast(SheerwaterDataset):
             #################################################################################################
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             ##################################################################################################
-            if self.densify or self.event_kwargs.get('densify', False):
+            if self.densify:
                 ds = densify_fcst(ds)
 
             ##################################################################################################
