@@ -99,10 +99,11 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     # drying_day_margin_in_days = 5
 
     # Compute the MAE
-    metric = 'forecastabsolutevalue'
+    # metric = 'forecastabsolutevalue'
     # metric = 'mae'
     # metric = 'bias'
     # metric = 'smape'
+    metric = 'mape'
     # Filter on a specific threshhold of seasonal accumulation.
     filter_event = 'drying_spells_in_initial_growing_period'
     # Choose seasonal accumluation time group based on the region.
@@ -192,7 +193,7 @@ def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
 def get_rain_days_soft_kwargs(experiment, region):  # noqa: ARG001
     """Rain days with a soft probability of detection."""
     # Configure the big rain thresholds.
-    rain_threshold_mm = 5.0
+    rain_threshold_mm = 3.0
     rain_agg_days = 1
     rain_margin_in_days = 5
 
@@ -201,27 +202,20 @@ def get_rain_days_soft_kwargs(experiment, region):  # noqa: ARG001
     # metric = 'forecastabsolutevalue'
     metric = 'pod'
     # Filter on a specific threshhold of seasonal accumulation.
-    filter_event = 'in_season'
-    filter_event_kwargs = {
-        'time_grouping': 'year',
-        'start_season_accumulation': 0.1,
-        'end_season_accumulation': 0.9,
-        'by_percent': True,
-    }
+    filter_event = None
+    filter_event_kwargs = {}
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
-        'obs_filter': True,
+        'obs_filter': False,
         'fcst_filter': False,
         'soft_margin_in_days': rain_margin_in_days,
     }
-    # Compare accumulated rain on the right-aligned window over the past 30 days
     event = 'above_threshold'
     event_kwargs = {
         'fcst': {
             'agg_days': rain_agg_days,
             'threshold': rain_threshold_mm,
             'densify': True
-
         },
         'obs': {
             'agg_days': rain_agg_days,
@@ -231,7 +225,7 @@ def get_rain_days_soft_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_dry_spell_days_kwargs(experiment, region):  # noqa: ARG001
+def get_dry_spells_kwargs(experiment, region):  # noqa: ARG001
     """Dry spell performance at any point in the year."""
     # Configure the big rain thresholds.
     dry_spell_threshold_mm = 1.5  # Average daily rain
@@ -269,23 +263,61 @@ def get_dry_spell_days_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
+def get_dry_spells_soft_kwargs(experiment, region):  # noqa: ARG001
+    """Rain days with a soft probability of detection."""
+    # Configure the big rain thresholds.
+    dry_day_threshold_mm = 1.0
+    dry_day_agg_days = 5
+    margin_in_days = 5
+
+    # Compute the MAE
+    metric = 'pod'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = None
+    filter_event_kwargs = {}
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': False,
+        'fcst_filter': False,
+        'soft_margin_in_days': margin_in_days,
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'below_threshold'
+    event_kwargs = {
+        'fcst': {
+            'agg_days': dry_day_agg_days,
+            'threshold': dry_day_threshold_mm,
+            'densify': True
+
+        },
+        'obs': {
+            'agg_days': dry_day_agg_days,
+            'threshold': dry_day_threshold_mm,
+        },
+    }
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
 def get_experiment_kwargs(experiment, region):
     """Returns metrics configruations needed to run an advanced agricultural metric."""
     if 'season_accumulation' in experiment:
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_seasonal_accumulation_kwargs(experiment, region)
-    elif 'in_season_dry_spell' in experiment:
+    elif experiment == 'in_season_dry_spell':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_in_season_dry_spell_kwargs(experiment, region)
-    elif 'big_rain_days' in experiment:
+    elif experiment == 'big_rain_days':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_big_rain_days_kwargs(experiment, region)
-    elif 'rain_days_soft' in experiment:
+    elif experiment == 'rain_days_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_rain_days_soft_kwargs(experiment, region)
-    elif 'dry_spells' in experiment:
+    elif experiment == 'dry_spells':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spell_days_kwargs(experiment, region)
+            get_dry_spells_kwargs(experiment, region)
+    elif experiment == 'dry_spells_soft':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_dry_spells_soft_kwargs(experiment, region)
     else:
         raise ValueError(f"Experiment {experiment} not supported.")
 

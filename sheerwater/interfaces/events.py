@@ -219,7 +219,7 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
     return ds_suitable.assign_attrs(attrs)
 
 
-@event(default_variable="precip", duration=120, filter=False)
+@event(default_variable="precip", duration=120, filter=True)
 def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_season_accumulation=0.8, by_percent=True):
     """Calculate the in season period of a dataset.
 
