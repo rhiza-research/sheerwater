@@ -287,16 +287,16 @@ class Metric(ABC):
         # properly compute the climatology
         self.metric_data['valid_times'] = valid_times
 
-        lat = 12.0
-        lon = -1.5
-        import matplotlib.pyplot as plt
-        import pdb; pdb.set_trace()
-        (filter_obs*50.0).sel(lat=lat, lon=lon).isel(prediction_timedelta=0).precip.plot(color='blue')
-        obs.sel(lat=lat, lon=lon).isel(prediction_timedelta=0).precip.plot(color='green')
-        fcst.sel(lat=lat, lon=lon).isel(prediction_timedelta=11).precip.plot(color='orange')
-        fcst.sel(lat=lat, lon=lon).isel(prediction_timedelta=25).precip.plot(color='red')
-        plt.show()
-        import pdb; pdb.set_trace()
+        # lat = 12.0
+        # lon = -1.5
+        # import matplotlib.pyplot as plt
+        # import pdb; pdb.set_trace()
+        # (filter_obs*50.0).sel(lat=lat, lon=lon).isel(prediction_timedelta=0).precip.plot(color='blue')
+        # obs.sel(lat=lat, lon=lon).isel(prediction_timedelta=0).precip.plot(color='green')
+        # fcst.sel(lat=lat, lon=lon).isel(prediction_timedelta=11).precip.plot(color='orange')
+        # fcst.sel(lat=lat, lon=lon).isel(prediction_timedelta=25).precip.plot(color='red')
+        # plt.show()
+        # import pdb; pdb.set_trace()
 
     @property
     @abstractmethod
