@@ -877,7 +877,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
         # Update the experiment kwargs with their values in init_kwargs if passed
-        exp_metric_kwargs.update(init_kwargs.get('metric_kwargs', {}))
+        exp_metric_kwargs.update(metric_kwargs)
         # Remove the experiment kwargs from the init kwargs
         for key in ['event', 'event_kwargs', 'filter_event', 'filter_event_kwargs']:
             if key in init_kwargs:
