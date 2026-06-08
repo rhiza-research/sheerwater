@@ -94,8 +94,7 @@ def ecmwf_ifs_ens(start_time=None, end_time=None, variable="precip", agg_days=1,
     """Standard format forecast data for ECMWF forecasts."""
     # The earliest and latest forecast dates for the set of all leads
     forecast_start = shift_by_days(start_time, -15) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
-    return ifs_ens_raw(start_time=forecast_start, end_time=forecast_end, variable=variable,
+    return ifs_ens_raw(start_time=forecast_start, end_time=end_time, variable=variable,
                        prob_type=prob_type,
                        grid=grid, mask=mask, region=region)

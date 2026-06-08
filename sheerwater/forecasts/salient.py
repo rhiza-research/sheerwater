@@ -74,9 +74,8 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
 
     # Get the data with the right days
     forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 366) if end_time is not None else None
 
-    ds = salient_blend(forecast_start, forecast_end, variable, timescale=timescale, grid=grid, mask=mask, region=region)
+    ds = salient_blend(forecast_start, end_time, variable, timescale=timescale, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         # Get the median forecast
         ds = ds.sel(quantiles=0.5)
@@ -189,9 +188,8 @@ def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1,  
     """Final Salient GEM interface."""
     # Get the data with the right days - the forecast is 126 days long, so pull before and after
     forecast_start = shift_by_days(start_time, -126) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 126) if end_time is not None else None
 
-    ds = salient_gem_processed(forecast_start, forecast_end, variable, grid=grid,
+    ds = salient_gem_processed(forecast_start, end_time, variable, grid=grid,
                                prob_type=prob_type, mask=mask, region=region)
 
     # Rename to standard naming
