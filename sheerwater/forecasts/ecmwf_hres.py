@@ -88,9 +88,8 @@ def ecmwf_hres(start_time=None, end_time=None, variable="precip", agg_days=1, pr
                  grid='global0_25', mask='lsm', region="global"):
     """Standard format forecast data for ECMWF forecasts."""
     forecast_start = shift_by_days(start_time, -10) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 10) if end_time is not None else None
 
-    ds = hres_raw(start_time=forecast_start, end_time=forecast_end, variable=variable,
+    ds = hres_raw(start_time=forecast_start, end_time=end_time, variable=variable,
                        prob_type=prob_type,
                        grid=grid, mask=mask, region=region)
 
