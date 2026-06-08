@@ -5199,7 +5199,7 @@ requires-dist = [
     { name = "netcdf4" },
     { name = "numcodecs", specifier = "<0.16.0" },
     { name = "numpy", specifier = ">=2.3.5" },
-    { name = "nuthatch" },
+    { name = "nuthatch", specifier = ">=0.4.10" },
     { name = "opt-einsum", specifier = ">=3.4.0" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "properscoring" },

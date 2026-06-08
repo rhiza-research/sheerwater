@@ -213,7 +213,7 @@ def remove_partial_seasons(ds, time_grouping='year', coverage_threshold=0.95):
 
 
 @event(default_variable="precip", duration=120, filter=False)
-def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
+def seasonal_accumulation(ds, time_grouping='year', by_percent=False, minimum_accumulation_mm=0.0):
     """A function to calculate the seasonal accumulation of a dataset."""
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
@@ -230,8 +230,12 @@ def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
         # There is a bug in xarray cumsum that causes the time coordinate to be lost
         # https://github.com/pydata/xarray/issues/6528
         cumsum = cumsum.assign_coords(time=x['time'])
+        low_season_rain = (cumsum.max(dim="time") < minimum_accumulation_mm).astype(int)
         if by_percent:
             cumsum = cumsum / cumsum.max(dim="time")
+        # Remove low rain seasons
+        cumsum = xr.where(low_season_rain == 1, 0, cumsum)
+        cumsum = cumsum.astype(int)
         return cumsum
 
     # Ensure that the timedimension is sorted
@@ -374,8 +378,8 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False,
 @event(default_variable="precip", duration=120, filter=True)
 def initial_growing_period(ds, time_grouping='year',
                            early_season_accumulation_by_percent=0.10,
-                           early_season_accumulation_minimum_mm=30.0,
                            mid_season_accumulation_by_percent=0.30,
+                           season_accumulation_minimum_mm=300.0,
                            first_rain_threshold_mm=5.0,
                            pre_period_in_days=30):
     """A function to calculate the initial growing period of a dataset."""
@@ -388,7 +392,7 @@ def initial_growing_period(ds, time_grouping='year',
                        start_season_accumulation=early_season_accumulation_by_percent,
                        end_season_accumulation=mid_season_accumulation_by_percent,
                        by_percent=True,
-                       minimum_accumulation_mm=early_season_accumulation_minimum_mm)
+                       minimum_accumulation_mm=season_accumulation_minimum_mm)
     season = season.persist()
 
     # Expand the season by detection period in days
@@ -421,8 +425,8 @@ def drying_spells_in_initial_growing_period(
         ds,
         time_grouping='year',
         early_season_accumulation_by_percent=0.10,
-        early_season_accumulation_minimum_mm=30.0,
         mid_season_accumulation_by_percent=0.30,
+        season_accumulation_minimum_mm=300.0,
         first_rain_threshold_mm=5.0,
         pre_period_in_days=30,
         drying_day_threshold_mm=2.0, drying_day_agg_in_days=5):
@@ -431,8 +435,8 @@ def drying_spells_in_initial_growing_period(
     igp = initial_growing_period(
         ds, time_grouping=time_grouping,
         early_season_accumulation_by_percent=early_season_accumulation_by_percent,
-        early_season_accumulation_minimum_mm=early_season_accumulation_minimum_mm,
         mid_season_accumulation_by_percent=mid_season_accumulation_by_percent,
+        season_accumulation_minimum_mm=season_accumulation_minimum_mm,
         first_rain_threshold_mm=first_rain_threshold_mm,
         pre_period_in_days=pre_period_in_days)
 
