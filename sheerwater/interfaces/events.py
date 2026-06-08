@@ -260,7 +260,11 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
 
 
 @event(default_variable="precip", duration=120, filter=True)
-def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_season_accumulation=0.8, by_percent=True):
+def in_season(ds, time_grouping='year',
+              start_season_accumulation=0.2,
+              end_season_accumulation=0.8,
+              by_percent=True,
+              minimum_accumulation_mm=0.0):
     """Calculate the in season period of a dataset.
 
     Marks all times where the cumulative sum is between the start and end season accumulation thresholds with 1.
@@ -271,6 +275,7 @@ def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_seaso
         start_season_accumulation: Threshold (value) in the cumsum to start the season
         end_season_accumulation: Threshold (value) in the cumsum to end the season
         by_percent: Whether to compute cumsum as percent of max in season
+        minimum_accumulation_mm: Minimum accumulation value to use if using by percent accumulation.
     """
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
@@ -286,10 +291,12 @@ def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_seaso
         # There is a bug in xarray cumsum that causes the time coordinate to be lost
         # https://github.com/pydata/xarray/issues/6528
         cumsum = cumsum.assign_coords(time=x['time'])
+
+        low_season_rain = (cumsum.max(dim="time") < minimum_accumulation_mm).astype(int)
         if by_percent:
             cumsum = cumsum / cumsum.max(dim="time")
-
         season = (cumsum >= start_season_accumulation) & (cumsum <= end_season_accumulation)
+        season = season & ~low_season_rain
         season = season.astype(int)
         return season
 
@@ -304,7 +311,8 @@ def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_seaso
 
 
 @event(default_variable="precip", duration=120, filter=True)
-def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accumulation_threshold=200.0):
+def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False,
+                                accumulation_threshold=200.0):
     """Calculate the first time(s) a seasonal accumulation threshholds(s) is crossed.
 
     Marks all times where the cumulative sum crosses any of the specified accumulation thresholds with a 1.
@@ -314,6 +322,7 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accu
         time_grouping: How to group time ("year" by default)
         by_percent: Whether to compute cumsum as percent of max in season
         accumulation_threshold: Threshold (value) in the cumsum to flag.
+        by_percent_minimum_accumulation: Minimum accumulation value to use if using by percent accumulation.
     """
     if not isinstance(accumulation_threshold, list):
         accumulation_threshold = [accumulation_threshold]
@@ -363,23 +372,27 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accu
 
 
 @event(default_variable="precip", duration=120, filter=True)
-def initial_growing_period(ds, time_grouping='year', accumulation_threshold=200.0, by_percent=False,
-                           first_rain_threshold_mm=5.0, pre_period_in_days=30, period_in_days=60):
+def initial_growing_period(ds, time_grouping='year',
+                           early_season_accumulation_by_percent=0.10,
+                           early_season_accumulation_minimum_mm=30.0,
+                           mid_season_accumulation_by_percent=0.30,
+                           first_rain_threshold_mm=5.0,
+                           pre_period_in_days=30):
     """A function to calculate the initial growing period of a dataset."""
     if 'precip' not in ds.data_vars:
         raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
 
-    if pre_period_in_days > period_in_days:
-        raise ValueError("The detection method in this event is not correct if the pre period is longer than the period.")
     null_mask = ds.isnull()
 
-    first_in_season = first_seasonal_accumulation(
-        ds, time_grouping=time_grouping,
-        accumulation_threshold=accumulation_threshold, by_percent=by_percent)
-    first_in_season = first_in_season.persist()
+    season = in_season(ds, time_grouping=time_grouping,
+                       start_season_accumulation=early_season_accumulation_by_percent,
+                       end_season_accumulation=mid_season_accumulation_by_percent,
+                       by_percent=True,
+                       minimum_accumulation_mm=early_season_accumulation_minimum_mm)
+    season = season.persist()
 
     # Expand the season by detection period in days
-    pre_season = roll_and_agg(first_in_season, agg=pre_period_in_days, agg_col="time", align="left", agg_fn='max')
+    pre_season = roll_and_agg(season, agg=pre_period_in_days, agg_col="time", align="left", agg_fn='max')
     has_rain = above_threshold(ds, agg_days=1, threshold=first_rain_threshold_mm)
 
     # Find the first time where the precipitation is greater than the first rain threshold and the season is active.
@@ -388,13 +401,12 @@ def initial_growing_period(ds, time_grouping='year', accumulation_threshold=200.
     pre_season_rain = pre_season * has_rain
     # Continue forward from first rain through the initial growing period
     # Okay to fill past the first date, becuase we're going to look at a period of
-    # length period_in_days after the first day, which is bigger than the pre period
-    pre_season_period = roll_and_agg(pre_season_rain, agg=pre_period_in_days,
+    # length period_in_days after the first day, which is bigger than the pre perioj
+    first_rain_period = roll_and_agg(pre_season_rain, agg=pre_period_in_days,
                                      agg_col="time", align="right", agg_fn='max')
 
-    # Fill backward the end of the initial growing period
-    post_season = roll_and_agg(first_in_season, agg=period_in_days, agg_col="time", align="right", agg_fn='max')
-    full_period = pre_season_period + post_season
+    # Clip the first rain period back down to the pre-season + season
+    full_period = first_rain_period * pre_season
     full_period = full_period.clip(0, 1)
     # Some times have been lost in the rollings, so we will update the null mask to valid times
     null_mask = null_mask.sel(time=full_period.time.values)
@@ -404,18 +416,25 @@ def initial_growing_period(ds, time_grouping='year', accumulation_threshold=200.
     return full_period.assign_attrs(attrs)
 
 
-@event(default_variable="precip", duration=lambda kwargs: kwargs["pre_period_in_days"] + kwargs["period_in_days"], filter=True)
+@event(default_variable="precip", duration=lambda kwargs: kwargs["pre_period_in_days"] + 45, filter=True)
 def drying_spells_in_initial_growing_period(
         ds,
-        time_grouping='year', accumulation_threshold=200.0, by_percent=False,
-        first_rain_threshold_mm=5.0, pre_period_in_days=30, period_in_days=60,
+        time_grouping='year',
+        early_season_accumulation_by_percent=0.10,
+        early_season_accumulation_minimum_mm=30.0,
+        mid_season_accumulation_by_percent=0.30,
+        first_rain_threshold_mm=5.0,
+        pre_period_in_days=30,
         drying_day_threshold_mm=2.0, drying_day_agg_in_days=5):
     """A function to calculate the initial growing period of a dataset."""
     null_mask = ds.isnull()
     igp = initial_growing_period(
-        ds, time_grouping=time_grouping, accumulation_threshold=accumulation_threshold,
-        by_percent=by_percent, first_rain_threshold_mm=first_rain_threshold_mm,
-        pre_period_in_days=pre_period_in_days, period_in_days=period_in_days)
+        ds, time_grouping=time_grouping,
+        early_season_accumulation_by_percent=early_season_accumulation_by_percent,
+        early_season_accumulation_minimum_mm=early_season_accumulation_minimum_mm,
+        mid_season_accumulation_by_percent=mid_season_accumulation_by_percent,
+        first_rain_threshold_mm=first_rain_threshold_mm,
+        pre_period_in_days=pre_period_in_days)
 
     drying_spells = (accumulated_rain(ds, agg_days=drying_day_agg_in_days) < drying_day_threshold_mm).astype(int)
 
