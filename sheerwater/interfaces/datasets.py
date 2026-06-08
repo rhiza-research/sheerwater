@@ -232,6 +232,10 @@ class data(SheerwaterDataset):
             end_time = shift_by_days(end_time, duration-1)
         args, kwargs = self.update_args_or_kwargs(
             values={'end_time': end_time}, args=args, kwargs=kwargs, bound_args=bound_args)
+
+        # Remove the densify flag from the event kwargs fro obs
+        if 'densify' in self.event_kwargs:
+            del self.event_kwargs['densify']
         return args, kwargs
 
     def post_process(self, ds):
@@ -321,7 +325,6 @@ class forecast(SheerwaterDataset):
         if 'densify' in self.event_kwargs:
             del self.event_kwargs['densify']
         return args, kwargs
-
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
         """Blend the forecast and observations.
@@ -463,3 +466,13 @@ def list_data():
     import sheerwater.climatology  # noqa: F401
     import sheerwater.reanalysis  # noqa: F401
     return list(DATA_REGISTRY.keys())
+
+
+def get_forecast_or_data(forecast_or_data_name):
+    """Get a forecast or data from the global forecast or data registry."""
+    if forecast_or_data_name in FORECAST_REGISTRY:
+        return get_forecast(forecast_or_data_name)
+    elif forecast_or_data_name in DATA_REGISTRY:
+        return get_data(forecast_or_data_name)
+    else:
+        raise ValueError(f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")

@@ -27,7 +27,6 @@ def get_seasonal_accumulation_kwargs(experiment, region):
     # Compute the MAE
     metric = 'mae'
     # Filter on a specific threshhold of seasonal accumulation.
-    filter_event = 'has_seasonal_accumulation'
     # Choose seasonal accumluation time group based on the region.
     if region in ['eastern_africa', 'kenya', 'ethiopia']:
         time_grouping = 'two_seasons'
@@ -54,6 +53,7 @@ def get_seasonal_accumulation_kwargs(experiment, region):
         by_percent = False
     else:
         raise ValueError(f"Experiment {experiment} not supported.")
+    filter_event = 'has_seasonal_accumulation'
     filter_event_kwargs = {
         'time_grouping': time_grouping,
         'accumulation_threshold': accumulation_threshold,
@@ -96,14 +96,10 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     period_in_days = 60  # look 2 months after the first rain
     drying_day_threshold_mm = 10.0  # this is a sum
     drying_day_agg_in_days = 10
-    # drying_day_margin_in_days = 5
 
-    # Compute the MAE
-    # metric = 'forecastabsolutevalue'
-    # metric = 'mae'
-    # metric = 'bias'
-    # metric = 'smape'
-    metric = 'mape'
+    # Compute the amount of forecasted rain during the dry period
+    metric = 'forecastvalue'
+
     # Filter on a specific threshhold of seasonal accumulation.
     filter_event = 'drying_spells_in_initial_growing_period'
     # Choose seasonal accumluation time group based on the region.
@@ -155,18 +151,14 @@ def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
     big_rain_agg_days = 1
     big_rain_margin_in_days = 5
 
-    # Compute the MAE
-    # metric = 'mae'
-    # metric = 'forecastabsolutevalue'
+    # Compute the SMAPE of the forecasted rain during the big rain days
     metric = 'smape'
     # Filter on a specific threshhold of seasonal accumulation.
     filter_event = 'above_threshold'
     filter_event_kwargs = {
         'agg_days': big_rain_agg_days,
         'threshold': big_rain_threshold_mm,
-        'margin_in_days': 0,
-        # 'margin_in_days': big_rain_margin_in_days,
-        # 'margin_align': 'center',
+        'align': 'center',
     }
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {

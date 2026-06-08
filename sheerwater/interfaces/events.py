@@ -8,8 +8,9 @@ supported in a more general way.
 """
 from functools import wraps
 import numpy as np
+import pandas as pd
 import xarray as xr
-from sheerwater.utils import roll_and_agg, groupby_time
+from sheerwater.utils import roll_and_agg, groupby_time, get_dates
 
 EVENT_REGISTRY = {}
 
@@ -174,11 +175,50 @@ def has_continuous_days_above_threshold(ds, threshold, smoothing, continuous_day
     return ret
 
 
+def remove_partial_seasons(ds, time_grouping='year', coverage_threshold=0.95):
+    """Remove seasons that don't have enough coverage."""
+    # Pad the dataset with lagging and leading time to ensure that all partial seasons
+    # are dropped properly, even those that are misaligned with the start and end
+    # of the year
+    years = pd.to_datetime(ds.time.values).year
+    min_year = years.min()
+    max_year = years.max()
+    start_time = pd.Timestamp(f"{min_year-1}-09-01")
+    end_time = pd.Timestamp(f"{max_year+1}-02-28")
+    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+
+    # Add indicator and non-null variables to the dataset
+    var = list(ds.data_vars)[0]
+    ds['indicator'] = xr.ones_like(ds[var])
+    ds['non_null'] = ds[var].notnull()
+
+    # Coverage per group: fraction of timesteps with non-null data
+    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
+    group_coverage = group_sums['non_null'] / group_sums['indicator']
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, other=np.nan)
+
+    # Remove groups that don't have enough coverage
+    coverage_at_time = group_coverage.sel(group=ds['group'])
+    ds = ds.where(coverage_at_time >= coverage_threshold, other=np.nan)
+    ds = ds.drop_vars(['indicator', 'non_null'])
+
+    return ds
+
+
 @event(default_variable="precip", duration=120, filter=False)
 def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
     """A function to calculate the seasonal accumulation of a dataset."""
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_seasons(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+
     nanmask = ds.isnull()
 
     # Set all times to zero where the group in the null mask (i.e., season was None)
@@ -234,6 +274,7 @@ def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_seaso
     """
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_seasons(ds, time_grouping=time_grouping, coverage_threshold=0.95)
     nanmask = ds.isnull()
 
     # Set all times to NaN where season/group is None
@@ -262,7 +303,7 @@ def in_season(ds, time_grouping='year', start_season_accumulation=0.2, end_seaso
     return ret
 
 
-@event(default_variable="precip", duration=120, filter=False)
+@event(default_variable="precip", duration=120, filter=True)
 def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accumulation_threshold=200.0):
     """Calculate the first time(s) a seasonal accumulation threshholds(s) is crossed.
 
@@ -279,6 +320,7 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False, accu
 
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_seasons(ds, time_grouping=time_grouping, coverage_threshold=0.95)
     nanmask = ds.isnull()
 
     # Set all times to NaN where season/group is None
