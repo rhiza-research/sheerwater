@@ -155,7 +155,7 @@ class Metric(ABC):
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast)
+                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
@@ -175,7 +175,7 @@ class Metric(ABC):
                 if self.do_fcst_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          memoize=self.memoize_forecast)
+                                          memoize=self.memoize_forecast, cache=True)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.fcst_obs_kwargs,
@@ -203,7 +203,7 @@ class Metric(ABC):
             if self.do_obs_filter:
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
-                                      memoize=self.memoize_truth)
+                                      memoize=self.memoize_truth, cache=True)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
