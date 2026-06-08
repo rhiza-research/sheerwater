@@ -23,6 +23,7 @@ advanced_forecast_metrics:
     variable: ['precip']
     region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     grid: ['global1_5']
+    time_grouping: ['None', 'year']
   obs_only:
     metric_name: ['early_season_accumulation-30d']
     metric_kwargs:
