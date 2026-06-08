@@ -21,22 +21,20 @@ advanced_forecast_metrics:
       - chirps_v3
     spatial: true
     variable: ['precip']
-    metric_name: ['early_season_accumulation-30d', 'in_season_dry_spell', 'big_rain_days']
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     grid: ['global1_5']
+  obs_only:
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+  fcst_obs:
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
-  africa_bimodal:
-    time_grouping: ['two_seasons']
-    region: ['africa_bimodal_season']
-  africa_unimodal:
-    time_grouping: ['year']
-    region: ['africa_unimodal_season']
-  africa_unimodal_shifted:
-    time_grouping: ['shifted_season']
-    region: ['africa_unimodal_shifted_season']
 advanced_groundtruth_metrics:
   function: metric
   _all:
@@ -59,11 +57,8 @@ advanced_groundtruth_metrics:
       - obs_filter: false
         forecast_filter: true
   africa_bimodal:
-    time_grouping: ['two_seasons']
     region: ['africa_bimodal_season']
   africa_unimodal:
-    time_grouping: ['year']
     region: ['africa_unimodal_season']
   africa_unimodal_shifted:
-    time_grouping: ['shifted_season']
     region: ['africa_unimodal_shifted_season']
