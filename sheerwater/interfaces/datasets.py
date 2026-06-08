@@ -390,20 +390,18 @@ class forecast(SheerwaterDataset):
         and general spatial postprocessing, including region clipping and masking.
         """
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
-        if self.event is not None and 'event' not in ds.attrs:
+        if self.event is not None and 'event' not in ds.attrs and self.densify:
             #################################################################################################
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             # Run this first, as we will re-get the forecast from dense cache, so post processors will be lost
             ##################################################################################################
-            if self.densify:
-                # ds = densify_fcst(ds)
-                # Get the observations for forecast period + the lookback period
-                new_start = ds.init_time.values.min()
-                new_end = ds.init_time.values.max()
-                attrs = ds.attrs.copy()
-                ds = dense_fcst(new_start, new_end, fcst=self.func_name, variable=self.variable,
-                                grid=self.grid, mask=self.mask, region=self.region)
-                ds = ds.assign_attrs(attrs)
+            # Get the observations for forecast period + the lookback period
+            new_start = ds.init_time.values.min()
+            new_end = ds.init_time.values.max()
+            attrs = ds.attrs.copy()
+            ds = dense_fcst(new_start, new_end, fcst=self.func_name, variable=self.variable,
+                            grid=self.grid, mask=self.mask, region=self.region, memoize=True)
+            ds = ds.assign_attrs(attrs)
 
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
@@ -411,7 +409,6 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'event' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
-
 
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
