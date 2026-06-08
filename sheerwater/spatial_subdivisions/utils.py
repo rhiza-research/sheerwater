@@ -292,15 +292,19 @@ def regrid_region_masks(masks, output_grid, base="base180"):
     """
     from sheerwater.utils.data_utils import regrid
 
+    # incremement regions by 1 - 0 becomes background
     masks['region'] = masks['region'] + 1
     region_coords = masks.region.values
-
-    # increment regions by 1
     label_map = (masks.astype(np.int8) * masks.region).sum("region")
 
-    label_map = regrid(label_map.masks, output_grid, base=base, method="most_common",
+    label_map_comm = regrid(label_map.masks, output_grid, base=base, method="most_common", 
         regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
     )
+    label_map_fill = regrid(label_map.masks, output_grid, base=base, method="stat",
+        regridder_kwargs={"method": "max"})
+    # if a cell has a label but is mostly background, comm=0, but fill!=0
+    fillin = (label_map_fill != 0) & (label_map_comm == 0)
+    label_map = label_map_comm.where(~fillin, label_map_fill)
 
     regridded = label_map == xr.DataArray(region_coords, dims="region")
     regridded = (
