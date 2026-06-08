@@ -298,7 +298,7 @@ def regrid_region_masks(masks, output_grid, base="base180"):
     # increment regions by 1
     label_map = (masks.astype(np.int8) * masks.region).sum("region")
 
-    label_map = regrid(label_map.masks, output_grid, base=base, method="most_common", 
+    label_map = regrid(label_map.masks, output_grid, base=base, method="most_common",
         regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
     )
 

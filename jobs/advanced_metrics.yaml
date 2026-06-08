@@ -1,0 +1,59 @@
+advanced_forecast_metrics:
+  function: metric
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecast:
+      - climatology_era5_1985_2015
+      - climatology_imerg_1998_2016
+      - ecmwf_ifs_er
+      - ecmwf_ifs_er_debiased
+      - ecmwf_aifs
+      - ecmwf_ifs_ens
+      - ecmwf_hres
+      - fuxi
+      - gfs
+      - gencast
+      - graphcast
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    spatial: true
+    variable: ['precip']
+    metric_name: ['', 'bias']
+    grid: ['global1_5']
+  africa_bimodal:
+    time_grouping: ['two_seasons']
+    region: ['africa_bimodal_season']
+  africa_unimodal:
+    time_grouping: ['year']
+    region: ['africa_unimodal_season']
+  africa_unimodal_shifted:
+    time_grouping: ['shifted_season']
+    region: ['africa_unimodal_shifted_season']
+advanced_groundtruth_metrics:
+  function: metric
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecast:
+      - imerg_final
+      - chirps_v3
+      - era5
+      - oya
+    truth:
+      - tahmo_avg
+    spatial: true
+    variable: ['precip']
+    metric_name: []
+    grid: ['global1_5']
+  africa_bimodal:
+    time_grouping: ['two_seasons']
+    region: ['africa_bimodal_season']
+  africa_unimodal:
+    time_grouping: ['year']
+    region: ['africa_unimodal_season']
+  africa_unimodal_shifted:
+    time_grouping: ['shifted_season']
+    region: ['africa_unimodal_shifted_season']

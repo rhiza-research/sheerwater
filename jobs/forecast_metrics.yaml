@@ -19,6 +19,7 @@ forecast_metrics:
     truth:
       - era5
       - imerg_final
+      - chirps_v3
     spatial: false
     space_grouping: ['country', 'subregion', 'rainfall_region', ['rainfall_region', 'country']]
     variable: ['precip']
@@ -56,6 +57,7 @@ forecast_table_metrics:
     truth:
       - era5
       - imerg_final
+      - chirps_v3
     space_grouping: ['country', 'subregion', 'rainfall_region', ['rainfall_region', 'country']]
     grid: ['global1_5']
     variable: ['precip']
@@ -93,6 +95,7 @@ forecast_spatial_metrics:
     truth:
       - era5
       - imerg_final
+      - chirps_v3
     spatial: true
     grid: ['global1_5']
     variable: ['precip']
