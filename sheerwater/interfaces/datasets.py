@@ -4,6 +4,7 @@ import math
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
+from nuthatch.processors import timeseries
 from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
@@ -307,6 +308,7 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
 
 
 @spatial()
+@timeseries(timeseries='init_time')
 @cache(cache=True, cache_args=['fcst', 'variable', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
@@ -387,6 +389,22 @@ class forecast(SheerwaterDataset):
         Enables blending the forecast and observations, event definition, conversion of init time to valid time,
         and general spatial postprocessing, including region clipping and masking.
         """
+        # Run the events on the forecast: requires blending in lookback obs and renaming time labels
+        if self.event is not None and 'event' not in ds.attrs:
+            #################################################################################################
+            # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
+            # Run this first, as we will re-get the forecast from dense cache, so post processors will be lost
+            ##################################################################################################
+            if self.densify:
+                # ds = densify_fcst(ds)
+                # Get the observations for forecast period + the lookback period
+                new_start = ds.init_time.values.min()
+                new_end = ds.init_time.values.max()
+                attrs = ds.attrs.copy()
+                ds = dense_fcst(new_start, new_end, fcst=self.func_name, variable=self.variable,
+                                grid=self.grid, mask=self.mask, region=self.region)
+                ds = ds.assign_attrs(attrs)
+
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
 
@@ -394,18 +412,7 @@ class forecast(SheerwaterDataset):
         if self.event is not None and 'event' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
 
-            #################################################################################################
-            # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
-            ##################################################################################################
-            if self.densify:
-                ds = densify_fcst(ds)
-                # Get the observations for forecast period + the lookback period
-                # new_start = ds.init_time.values.min()
-                # new_end = ds.init_time.values.max()
-                # ds = dense_fcst(new_start, new_end, fcst=self.fcst, variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
 
-        # Concat with forecast on prediction_timedelta
-        # Transpose both to have the same dimensions
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
             ##################################################################################################
