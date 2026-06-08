@@ -869,6 +869,11 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'])
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
+        # Remove the experiment kwargs from the init kwargs
+        for key in ['metric_kwargs', 'event', 'event_kwargs',
+                    'filter_event', 'filter_event_kwargs']:
+            if key in init_kwargs:
+                del init_kwargs[key]
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,
