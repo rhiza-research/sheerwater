@@ -119,12 +119,14 @@ def detect_in_time(ds, time_grouping=None, detect='first', coverage_threshold=0.
     else:
         raise ValueError(f"Invalid criteria {criteria}")
 
-    # Fill in any missing times between the start and end of the year for the dataset
+    # Pad the dataset with lagging and leading time to ensure that all partial seasons
+    # are dropped properly, even those that are misaligned with the start and end
+    # of the year
     years = pd.to_datetime(ds.time.values).year
     min_year = years.min()
     max_year = years.max()
-    start_time = pd.Timestamp(f"{min_year}-01-01")
-    end_time = pd.Timestamp(f"{max_year}-12-31")
+    start_time = pd.Timestamp(f"{min_year-1}-09-01")
+    end_time = pd.Timestamp(f"{max_year+1}-02-28")
     daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
     ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
 

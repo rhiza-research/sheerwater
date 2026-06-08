@@ -232,6 +232,10 @@ class data(SheerwaterDataset):
             end_time = shift_by_days(end_time, duration-1)
         args, kwargs = self.update_args_or_kwargs(
             values={'end_time': end_time}, args=args, kwargs=kwargs, bound_args=bound_args)
+
+        # Remove the densify flag from the event kwargs fro obs
+        if 'densify' in self.event_kwargs:
+            del self.event_kwargs['densify']
         return args, kwargs
 
     def post_process(self, ds):
@@ -317,7 +321,9 @@ class forecast(SheerwaterDataset):
         args, kwargs = SheerwaterDataset.process_arguments(self, sig, *args, **kwargs)
         bound_args = self.bind_signature(sig, *args, **kwargs)
         self.lookback_source = bound_args.arguments.get('lookback_source', None)
-        self.densify = bound_args.arguments.get('densify', False)
+        self.densify = bound_args.arguments.get('densify', False) or self.event_kwargs.get('densify', False)
+        if 'densify' in self.event_kwargs:
+            del self.event_kwargs['densify']
         return args, kwargs
 
     def blend_fcst_and_obs(self, fcst, lookback_source, lookback_days=0):
@@ -371,7 +377,7 @@ class forecast(SheerwaterDataset):
             #################################################################################################
             # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
             ##################################################################################################
-            if self.densify or self.event_kwargs.get('densify', False):
+            if self.densify:
                 ds = densify_fcst(ds)
 
             ##################################################################################################
@@ -460,3 +466,13 @@ def list_data():
     import sheerwater.climatology  # noqa: F401
     import sheerwater.reanalysis  # noqa: F401
     return list(DATA_REGISTRY.keys())
+
+
+def get_forecast_or_data(forecast_or_data_name):
+    """Get a forecast or data from the global forecast or data registry."""
+    if forecast_or_data_name in FORECAST_REGISTRY:
+        return get_forecast(forecast_or_data_name)
+    elif forecast_or_data_name in DATA_REGISTRY:
+        return get_data(forecast_or_data_name)
+    else:
+        raise ValueError(f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")
