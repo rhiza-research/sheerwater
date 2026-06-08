@@ -23,6 +23,11 @@ advanced_forecast_metrics:
     variable: ['precip']
     metric_name: ['early_season_accumulation-30d', 'in_season_dry_spell', 'big_rain_days']
     grid: ['global1_5']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
   africa_bimodal:
     time_grouping: ['two_seasons']
     region: ['africa_bimodal_season']
@@ -48,6 +53,11 @@ advanced_groundtruth_metrics:
     variable: ['precip']
     metric_name: ['early_season_accumulation-30d', 'in_season_dry_spell', 'big_rain_days']
     grid: ['global1_5']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
   africa_bimodal:
     time_grouping: ['two_seasons']
     region: ['africa_bimodal_season']
