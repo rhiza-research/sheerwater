@@ -182,7 +182,7 @@ def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
         'fcst': {
             'agg_days': big_rain_margin_in_days,
             'align': 'center',
-            'densify': False
+            'densify': True
 
         },
         'obs': {
