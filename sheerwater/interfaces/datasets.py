@@ -375,10 +375,7 @@ class forecast(SheerwaterDataset):
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
-        try:
-            obs = obs.sel(init_time=fcst.init_time, prediction_timedelta=lookbacks)
-        except ValueError:
-            import pdb; pdb.set_trace()
+        obs = obs.sel(init_time=fcst.init_time, prediction_timedelta=lookbacks)
 
         # Concat with forecast on prediction_timedelta
         # Transpose both to have the same dimensions
