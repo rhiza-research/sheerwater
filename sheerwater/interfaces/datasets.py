@@ -306,6 +306,26 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
     return ds_obs
 
 
+@spatial()
+@cache(cache=True, cache_args=['fcst', 'variable', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1}
+               },
+           }
+})
+def dense_fcst(start_time, end_time, fcst, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
+    """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
+    # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
+    ds = get_forecast(fcst)(start_time=start_time, end_time=end_time,
+                            variable=variable, grid=grid,
+                            mask=None, region='global')
+    ds = densify_fcst(ds)
+    return ds
+
+
 class forecast(SheerwaterDataset):
     """Processor for a Sheerwater forecast. It supports xarray datasets."""
 
@@ -348,8 +368,8 @@ class forecast(SheerwaterDataset):
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
-        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source, variable=self.variable,
-                                grid=self.grid, mask=self.mask, region=self.region)
+        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source,
+                                variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
@@ -379,7 +399,13 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             if self.densify:
                 ds = densify_fcst(ds)
+                # Get the observations for forecast period + the lookback period
+                # new_start = ds.init_time.values.min()
+                # new_end = ds.init_time.values.max()
+                # ds = dense_fcst(new_start, new_end, fcst=self.fcst, variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
 
+        # Concat with forecast on prediction_timedelta
+        # Transpose both to have the same dimensions
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
             ##################################################################################################
@@ -476,4 +502,5 @@ def get_forecast_or_data(forecast_or_data_name):
         try:
             return get_data(forecast_or_data_name), "data"
         except KeyError:
-            raise ValueError(f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")
+            raise ValueError(
+                f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")
