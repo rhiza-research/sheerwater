@@ -348,8 +348,8 @@ class forecast(SheerwaterDataset):
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
-        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source, variable=self.variable,
-                                grid=self.grid, mask=self.mask, region=self.region)
+        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source,
+                                variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
@@ -476,4 +476,5 @@ def get_forecast_or_data(forecast_or_data_name):
         try:
             return get_data(forecast_or_data_name), "data"
         except KeyError:
-            raise ValueError(f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")
+            raise ValueError(
+                f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")

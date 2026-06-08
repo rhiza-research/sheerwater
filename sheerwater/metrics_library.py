@@ -872,7 +872,7 @@ class FrequencyBias(ContingencyMetric):
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
-        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['time_grouping'])
+        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'])
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
