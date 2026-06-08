@@ -1,7 +1,7 @@
 """Advanced metrics for agricultural applications."""
 
 
-def get_seasonal_accumulation_kwargs(experiment, region):
+def get_seasonal_accumulation_kwargs(experiment, time_grouping):
     """Agg day accumulation at a specific point in the seasonal accumulation.
 
     Experiment should be in the form:
@@ -14,7 +14,7 @@ def get_seasonal_accumulation_kwargs(experiment, region):
 
     or with a differnt number of days evaluated before the event:
         early_season_accumulation-14d
-        ... and so forth. 
+        ... and so forth.
     """
     # Configure the seasonal accumulation thresholds.
     early_season_accumulation_mm = 150.0
@@ -27,11 +27,6 @@ def get_seasonal_accumulation_kwargs(experiment, region):
     # Compute the MAE
     metric = 'mae'
     # Filter on a specific threshhold of seasonal accumulation.
-    # Choose seasonal accumluation time group based on the region.
-    if region in ['eastern_africa', 'kenya', 'ethiopia']:
-        time_grouping = 'two_seasons'
-    else:
-        time_grouping = 'year'
     # Early season accumulation threshold.
     if 'early_season_accumulation_by_percent' in experiment:
         accumulation_threshold = early_season_accumulation_by_percent
@@ -81,13 +76,13 @@ def get_seasonal_accumulation_kwargs(experiment, region):
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
+def get_in_season_dry_spell_kwargs(experiment, time_grouping):  # noqa: ARG001
     """Agg day accumulation at a specific point in the seasonal accumulation.
 
     Experiment should be in the form:
         in_season_dry_spell-14d
         in_season_dry_spell-30d
-        ... and so forth. 
+        ... and so forth.
     """
     # Configure the seasonal accumulation thresholds.
     early_season_accumulation_by_percent = 0.10
@@ -102,13 +97,8 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
 
     # Filter on a specific threshhold of seasonal accumulation.
     filter_event = 'drying_spells_in_initial_growing_period'
-    # Choose seasonal accumluation time group based on the region.
-    if region == 'eastern_africa':
-        time_grouping = 'two_seasons'
-    else:
-        time_grouping = 'year'
-    # Early season accumulation threshold.
 
+    # Early season accumulation threshold.
     filter_event_kwargs = {
         'time_grouping': time_grouping,
         'accumulation_threshold': early_season_accumulation_by_percent,
@@ -139,12 +129,12 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
+def get_big_rain_days_kwargs(experiment, time_grouping):  # noqa: ARG001
     """Agg day accumulation at a specific point in the seasonal accumulation.
 
     Experiment should be in the form:
     bi
-        ... and so forth. 
+        ... and so forth.
     """
     # Configure the big rain thresholds.
     big_rain_threshold_mm = 35.0
@@ -182,7 +172,7 @@ def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_rain_days_soft_kwargs(experiment, region):  # noqa: ARG001
+def get_rain_days_soft_kwargs(experiment, time_grouping):  # noqa: ARG001
     """Rain days with a soft probability of detection."""
     # Configure the big rain thresholds.
     rain_threshold_mm = 3.0
@@ -217,7 +207,7 @@ def get_rain_days_soft_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_dry_spells_kwargs(experiment, region):  # noqa: ARG001
+def get_dry_spells_kwargs(experiment, time_grouping):  # noqa: ARG001
     """Dry spell performance at any point in the year."""
     # Configure the big rain thresholds.
     dry_spell_threshold_mm = 1.5  # Average daily rain
@@ -255,7 +245,7 @@ def get_dry_spells_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_dry_spells_soft_kwargs(experiment, region):  # noqa: ARG001
+def get_dry_spells_soft_kwargs(experiment, time_grouping):  # noqa: ARG001
     """Rain days with a soft probability of detection."""
     # Configure the big rain thresholds.
     dry_day_threshold_mm = 1.0
@@ -290,26 +280,26 @@ def get_dry_spells_soft_kwargs(experiment, region):  # noqa: ARG001
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
-def get_experiment_kwargs(experiment, region):
+def get_experiment_kwargs(experiment, time_grouping):
     """Returns metrics configruations needed to run an advanced agricultural metric."""
     if 'season_accumulation' in experiment:
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_seasonal_accumulation_kwargs(experiment, region)
+            get_seasonal_accumulation_kwargs(experiment, time_grouping)
     elif experiment == 'in_season_dry_spell':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_in_season_dry_spell_kwargs(experiment, region)
+            get_in_season_dry_spell_kwargs(experiment, time_grouping)
     elif experiment == 'big_rain_days':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_big_rain_days_kwargs(experiment, region)
+            get_big_rain_days_kwargs(experiment, time_grouping)
     elif experiment == 'rain_days_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_rain_days_soft_kwargs(experiment, region)
+            get_rain_days_soft_kwargs(experiment, time_grouping)
     elif experiment == 'dry_spells':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spells_kwargs(experiment, region)
+            get_dry_spells_kwargs(experiment, time_grouping)
     elif experiment == 'dry_spells_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spells_soft_kwargs(experiment, region)
+            get_dry_spells_soft_kwargs(experiment, time_grouping)
     else:
         raise ValueError(f"Experiment {experiment} not supported.")
 

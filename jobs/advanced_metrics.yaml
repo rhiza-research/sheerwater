@@ -21,7 +21,7 @@ advanced_forecast_metrics:
       - chirps_v3
     spatial: true
     variable: ['precip']
-    metric_name: ['', 'bias']
+    metric_name: ['early_season_accumulation-30d', 'in_season_dry_spell', 'big_rain_days']
     grid: ['global1_5']
   africa_bimodal:
     time_grouping: ['two_seasons']
@@ -46,7 +46,7 @@ advanced_groundtruth_metrics:
       - tahmo_avg
     spatial: true
     variable: ['precip']
-    metric_name: []
+    metric_name: ['early_season_accumulation-30d', 'in_season_dry_spell', 'big_rain_days']
     grid: ['global1_5']
   africa_bimodal:
     time_grouping: ['two_seasons']
