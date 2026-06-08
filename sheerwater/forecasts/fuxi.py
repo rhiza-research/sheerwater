@@ -87,7 +87,7 @@ def fuxi_single_forecast(date):
 @spatial()
 @cache(cache_args=[],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}})
-def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False):  # noqa: ARG001
+def fuxi_raw(start_time, end_time, grid='global1_5', mask=None, region='global', delayed=False):  # noqa: ARG001
     """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries.
 
     TODO: we should ad a regriddring / gridding step here.
@@ -124,13 +124,13 @@ def fuxi_raw(start_time, end_time, mask=None, region='global', delayed=False):  
 @dask_remote
 @timeseries()
 @spatial()
-@cache(cache=False,
-       cache_args=['variable', 'prob_type'],
+@cache(cache=True,
+       cache_args=['variable', 'prob_type', 'grid'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}},
        cache_disable_if={'prob_type': 'probabilistic'})
-def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic', mask=None, region='global'):
+def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic', grid='global1_5', mask=None, region='global'):
     """Roll and aggregate the FuXi data."""
-    ds = fuxi_raw(start_time, end_time, mask=mask, region=region)
+    ds = fuxi_raw(start_time, end_time, grid=grid, mask=mask, region=region)
 
     # sort the lat dim and change the lon dim
     ds = lon_base_change(ds)
@@ -165,8 +165,7 @@ def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic', ma
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+                   'lookback_source', 'densify', 'prob_type', 'grid', 'mask', 'region'])
 def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
          prob_type='deterministic',
          event=None, event_kwargs=None,  # noqa: ARG001
@@ -179,9 +178,8 @@ def fuxi(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa:
 
     # The earliest and latest forecast dates for the set of all leads
     forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
-    ds = fuxi_processed(forecast_start, forecast_end, variable,
+    ds = fuxi_processed(forecast_start, end_time, variable,
                         prob_type=prob_type, mask=mask,
                         region=region)
 

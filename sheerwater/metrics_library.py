@@ -12,6 +12,8 @@ from sheerwater.statistics_library import statistic_factory
 from sheerwater.utils import groupby_time, latitude_weights
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
+from .advanced_metrics import get_experiment_kwargs
+
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
 
@@ -153,7 +155,7 @@ class Metric(ABC):
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast)
+                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
@@ -173,7 +175,7 @@ class Metric(ABC):
                 if self.do_fcst_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          memoize=self.memoize_forecast)
+                                          memoize=self.memoize_forecast, cache=True)
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.fcst_obs_kwargs,
@@ -201,7 +203,7 @@ class Metric(ABC):
             if self.do_obs_filter:
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
-                                      memoize=self.memoize_truth)
+                                      memoize=self.memoize_truth, cache=True)
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
@@ -381,6 +383,10 @@ class Metric(ABC):
         else:
             filter = no_null
 
+        # lat = 12.0
+        # lon = -1.5
+        # import matplotlib.pyplot as plt
+        # import pdb; pdb.set_trace()
         # Apply the filter to each statistic
         for stat in self.statistics:
             self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
@@ -581,6 +587,15 @@ class MAE(Metric):
     statistics = ['mae']
 
 
+class ForecastValue(Metric):
+    """Mean Absolute Error metric."""
+    sparse = False
+    prob_type = 'deterministic'
+    valid_variables = None  # all variables are valid
+    default_event = None
+    statistics = ['forecast_absolute_value']
+
+
 class MSE(Metric):
     """Mean Squared Error metric."""
     sparse = False
@@ -690,9 +705,15 @@ class ACC(Metric):
         assert self.event is None, "ACC metric does not support events."
 
         # Get the appropriate climatology dataframe for metric calculation
-        first_year = 1990
-        last_year = 2019
-        clim_source = 'era5'
+        if self.truth == 'imerg_final':
+            first_year = 1998
+            last_year = 2015
+            clim_source = 'imerg_final'
+        else:
+            first_year = 1985
+            last_year = 2014
+            clim_source = 'era5'
+
         clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
                               **self.fcst_obs_kwargs, prob_type='deterministic')
 
@@ -851,6 +872,25 @@ class FrequencyBias(ContingencyMetric):
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
+        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'])
+        exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
+
+        # Update the experiment kwargs with their values in init_kwargs if passed
+        exp_metric_kwargs.update(metric_kwargs)
+        # Remove the experiment kwargs from the init kwargs
+        for key in ['event', 'event_kwargs', 'filter_event', 'filter_event_kwargs']:
+            if key in init_kwargs:
+                del init_kwargs[key]
+
+        # Add runtime metric configuration to the metric class
+        return metric(metric_kwargs=exp_metric_kwargs,
+                      event=event,
+                      event_kwargs=event_kwargs,
+                      filter_event=filter_event,
+                      filter_event_kwargs=filter_event_kwargs,
+                      **init_kwargs)
+    except ValueError:
         if metric_kwargs is None:
             metric_kwargs = {}
         # Convert

@@ -130,10 +130,10 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
             elif variable == 'precip':
                 ds[variable] = ds[variable] * 1000.0
                 ds[variable].attrs.update(units='mm')
-                ds = np.maximum(ds, 0)
+                ds[variable] = np.maximum(ds[variable], 0)
             elif variable == 'ssrd':
                 ds[variable].attrs.update(units='Joules/m^2')
-                ds = np.maximum(ds, 0)
+                ds[variable] = np.maximum(ds[variable], 0)
         except ValueError:
             # Don't rename variables we haven't registered/don't use
             pass
@@ -352,15 +352,14 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
     # ECMWF extended range forecasts have 46 days, so we shift to include all forecasters who could
     # overlaps with the start and end period
     forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 46) if end_time is not None else None
 
     run_type = 'perturbed' if prob_type == 'probabilistic' else 'average'
     if debiased:
-        ds = ifs_extended_range_debiased_regrid(forecast_start, forecast_end, variable,
+        ds = ifs_extended_range_debiased_regrid(forecast_start, end_time, variable,
                                                 margin_in_days=6, run_type=run_type, time_group='daily',
                                                 grid=grid, mask=mask, region=region)
     else:
-        ds = ifs_extended_range(forecast_start, forecast_end, variable,
+        ds = ifs_extended_range(forecast_start, end_time, variable,
                                 forecast_type='forecast', run_type=run_type, time_group='daily',
                                 grid=grid, mask=mask, region=region)
 

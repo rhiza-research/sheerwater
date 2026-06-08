@@ -1,8 +1,6 @@
 """Dashboard data for the Sheerwater Benchmarking project."""
-from .metrics_tables import (weekly_metric_table, monthly_metric_table,
-                             ground_truth_metric_table, biweekly_metric_table)
+from .metrics_tables import forecast_metric_table, ground_truth_metric_table
 
 from .coverage_tables import coverage_table
 
-__all__ = ['weekly_metric_table', 'monthly_metric_table',
-           'ground_truth_metric_table', 'biweekly_metric_table', 'coverage_table']
+__all__ = ['forecast_metric_table', 'ground_truth_metric_table']

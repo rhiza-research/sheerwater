@@ -1,13 +1,14 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
+import numpy as np
 from nuthatch import cache
 import warnings
 
 from sheerwater.metrics_library import metric_factory
-from sheerwater.interfaces import get_data
+from sheerwater.interfaces import get_data, get_forecast_or_data
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from sheerwater.masks import spatial_mask
-from sheerwater.utils import dask_remote, groupby_region, groupby_time
+from sheerwater.utils import dask_remote, groupby_region, groupby_time, latitude_weights
 
 
 @dask_remote
@@ -33,7 +34,8 @@ def metric(start_time, end_time, variable, forecast, truth,
            memoize_forecast=True, memoize_truth=True):
     """Compute a grouped metric for a forecast at a specific lead."""
     # Use the metric registry to get the metric class
-    metric_obj = metric_factory(metric_name, metric_kwargs=metric_kwargs,
+    metric_obj = metric_factory(metric_name,
+                                metric_kwargs=metric_kwargs,
                                 event=event,
                                 event_kwargs=event_kwargs,
                                 filter_event=filter_event,
@@ -125,6 +127,87 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
             data[coord] = data[coord].astype(str).str.replace('global', region)
 
     return data
+
+
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable', 'data', 'prob_type',
+                   'event', 'event_kwargs',
+                   'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, "time": 30}
+               },
+           }
+})
+def event_count(start_time, end_time, variable, data, prob_type='deterministic',
+                event=None, event_kwargs=None,
+                time_grouping=None, space_grouping=None,
+                spatial=False, grid="global1_5", mask='lsm', region='global'):
+    """Compute the count of events in a dataset.
+
+    Returns a dataset with the following variables:
+    - total_cells: count of grid cells in each space_group
+    - total_periods: count of agg_days periods per time_group
+    - cells_covered: the number of cells within the space_grouping which meet a temporal coverage threshold
+    - average_periods_covered: the average number of time periods of coverage of cells that are sufficiently covered.
+    """
+    # Get the forecast or data over the desired period
+    # data will have dimensions time (# of agg_days periods) x space (# grid cells)
+    data_fn, data_type = get_forecast_or_data(data)
+    if data_type == "forecast":
+        ds = data_fn(start_time, end_time, variable,
+                     event=event, event_kwargs=event_kwargs,
+                     prob_type=prob_type,
+                     grid=grid, mask=mask, region=region)
+    else:
+        ds = data_fn(start_time, end_time, variable,
+                     event=event, event_kwargs=event_kwargs,
+                     grid=grid, mask=mask, region=region)
+
+    # Add additional variables to the dataset
+    ds['total_periods'] = xr.ones_like(ds[variable])
+    # Remove the original variable
+
+    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping)
+    mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
+
+    space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
+    mask_ds = clip_region(mask_ds, grid=grid, region=region)
+
+    ############################################################
+    # 2. Aggregate in time
+    ############################################################
+
+    # Drop any extra random coordinates that shouldn't be there
+    for coord in ds.coords:
+        if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
+            ds = ds.reset_coords(coord, drop=True)
+
+    # Create a non_null indicator and add it to the statistic
+    # Group by time
+    ds = groupby_time(ds, time_grouping, agg_fn='sum')
+
+    # Put evertyhing on the same chunk before spatial aggregation
+    ds = ds.chunk({dim: -1 for dim in ds.dims})
+
+    # Add the region coordinate to the statistic
+    ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
+
+    ############################################################
+    # 3. Aggregate in space and apply spatial weighting
+    ############################################################
+    ds = ds.where(mask_ds.mask, np.nan, drop=False)
+    if not spatial:
+        if space_grouping is None:
+            ds = ds.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+        elif ds.space_grouping.size > 0:
+            ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+        else:
+            pass
+
+    return ds
 
 
 __all__ = ['metric']

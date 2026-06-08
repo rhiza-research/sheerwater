@@ -473,6 +473,26 @@ def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=1,  # n
                    'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def climatology_imerg_1998_2016(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+                                forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
+                                event=None, event_kwargs=None,  # noqa: ARG001
+                                processors=None, processor_kwargs=None,  # noqa: ARG001
+                                lookback_source=None, densify=False,  # noqa: ARG001
+                                grid='global0_25', mask='lsm', region='global'):
+    """Standard format forecast data for climatology forecast."""
+    return _climatology_unified(start_time, end_time, variable, data='imerg_final',
+                                first_year=1998, last_year=2015,
+                                trend=False, forecast_lead_days=forecast_lead_days,
+                                prob_type=prob_type, grid=grid, mask=mask, region=region)
+
+
+@dask_remote
+@sheerwater_forecast()
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'lookback_source', 'densify', 'forecast_lead_days',
+                   'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def climatology_chirps3_1998_2024(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
                                   forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                   event=None, event_kwargs=None,  # noqa: ARG001
