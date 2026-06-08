@@ -95,11 +95,11 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
         in_season_dry_spell-30d
         ... and so forth.
     """
-    if region == 'africa_unimodal' or region == 'western_africa':
+    if region == 'africa_unimodal_season' or region == 'western_africa':
         time_grouping = 'year'
-    elif region == 'africa_bimodal' or region == 'eastern_africa':
+    elif region == 'africa_bimodal_season' or region == 'eastern_africa':
         time_grouping = 'two_seasons'
-    elif region == 'africa_unimodal_shifted':
+    elif region == 'africa_unimodal_shifted_season':
         time_grouping = 'shifted_season'
     else:
         warnings.warn(f"Region {region} not supported. Using year as time grouping.")
