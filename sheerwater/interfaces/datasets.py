@@ -470,9 +470,10 @@ def list_data():
 
 def get_forecast_or_data(forecast_or_data_name):
     """Get a forecast or data from the global forecast or data registry."""
-    if forecast_or_data_name in FORECAST_REGISTRY:
-        return get_forecast(forecast_or_data_name)
-    elif forecast_or_data_name in DATA_REGISTRY:
-        return get_data(forecast_or_data_name)
-    else:
-        raise ValueError(f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")
+    try:
+        return get_forecast(forecast_or_data_name), "forecast"
+    except KeyError:
+        try:
+            return get_data(forecast_or_data_name), "data"
+        except KeyError:
+            raise ValueError(f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")

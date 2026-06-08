@@ -1,5 +1,6 @@
 """Verification metrics for forecasters and reanalyses."""
 import xarray as xr
+import numpy as np
 from nuthatch import cache
 import warnings
 
@@ -7,7 +8,7 @@ from sheerwater.metrics_library import metric_factory
 from sheerwater.interfaces import get_data, get_forecast_or_data
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from sheerwater.masks import spatial_mask
-from sheerwater.utils import dask_remote, groupby_region, groupby_time
+from sheerwater.utils import dask_remote, groupby_region, groupby_time, latitude_weights
 
 
 @dask_remote
@@ -128,10 +129,8 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
-                   'forecast', 'truth',
-                   'metric_name', 'metric_kwargs',
-                   'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
+@cache(cache_args=['start_time', 'end_time', 'variable', 'data', 'prob_type',
+                   'event', 'event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
@@ -155,52 +154,59 @@ def event_count(start_time, end_time, variable, data, prob_type='deterministic',
     """
     # Get the forecast or data over the desired period
     # data will have dimensions time (# of agg_days periods) x space (# grid cells)
-    data_fn = get_forecast_or_data(data)
-    ds = data_fn(start_time, end_time, variable,
-                 event=event, event_kwargs=event_kwargs,
-                 prob_type=prob_type,
-                 grid=grid, mask=mask, region=region)
+    data_fn, data_type = get_forecast_or_data(data)
+    if data_type == "forecast":
+        ds = data_fn(start_time, end_time, variable,
+                     event=event, event_kwargs=event_kwargs,
+                     prob_type=prob_type,
+                     grid=grid, mask=mask, region=region)
+    else:
+        ds = data_fn(start_time, end_time, variable,
+                     event=event, event_kwargs=event_kwargs,
+                     grid=grid, mask=mask, region=region)
 
-    # indicate time/space points that are not null (ie adequate coverage)
-    # an agg_day - grid cell will be covered if at least one station covers 90% of days
-    data['non_null_count'] = data[variable].notnull()
-    data['total_periods'] = xr.ones_like(data[variable])
-    # count of agg_days periods covered in a time grouping at each cell.
-    data = groupby_time(data, time_grouping=time_grouping, agg_fn='sum')
+    # Add additional variables to the dataset
+    ds['total_periods'] = xr.ones_like(ds[variable])
+    # Remove the original variable
 
-    # get spatial mask for data
-    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping).compute()
+    space_grouping_ds = space_grouping_labels(grid=grid, space_grouping=space_grouping)
     mask_ds = spatial_mask(mask=mask, grid=grid, memoize=True)
 
-    if region != 'global':
-        coords_to_clip = [coord for coord in space_grouping_ds.coords if 'region' in coord]
-        space_grouping_ds = clip_region(space_grouping_ds, region, grid=grid, coords_to_clip=coords_to_clip)
-        mask_ds = clip_region(mask_ds, region, grid=grid)
+    space_grouping_ds = clip_region(space_grouping_ds, grid=grid, region=region)
+    mask_ds = clip_region(mask_ds, grid=grid, region=region)
 
-    # three metrics for each spatial group:
-    # 1. count of grid cells in the group
-    # 2. count of grid cells with sufficient temporal coverage in the group
-    # 3. average of non-empty period counts across grid cells
-    data['total_cells'] = xr.ones_like(data[variable])
-    data['cells_covered'] = data['non_null_count'] > temporal_coverage_threshold(time_grouping, agg_days)
+    ############################################################
+    # 2. Aggregate in time
+    ############################################################
 
-    # cells that are not sufficiently covered should not contribute to average coverage
-    data['non_null_count'] = data['non_null_count'] * data['cells_covered']
-    data = groupby_region(data, space_grouping_ds, mask_ds, agg_fn='sum')
-    data['average_periods_covered'] = data['non_null_count'] / data['cells_covered']
-    data['total_periods'] = data['total_periods'] / data['total_cells']
+    # Drop any extra random coordinates that shouldn't be there
+    for coord in ds.coords:
+        if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
+            ds = ds.reset_coords(coord, drop=True)
 
-    # drop regions named nan (these are outside the mask)
-    data = data.sel(region=data.region != 'nan')
-    data = data.drop_vars([variable, "non_null_count"])
+    # Create a non_null indicator and add it to the statistic
+    # Group by time
+    ds = groupby_time(ds, time_grouping, agg_fn='sum')
 
-    # rename the coordinates
-    if isinstance(region, str) and region != 'global':
-        # rename values of region coordinates from 'global' to the region name
-        for coord in [coord for coord in data.coords if 'region' in coord]:
-            data[coord] = data[coord].astype(str).str.replace('global', region)
+    # Put evertyhing on the same chunk before spatial aggregation
+    ds = ds.chunk({dim: -1 for dim in ds.dims})
 
-    return data
+    # Add the region coordinate to the statistic
+    ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
+
+    ############################################################
+    # 3. Aggregate in space and apply spatial weighting
+    ############################################################
+    ds = ds.where(mask_ds.mask, np.nan, drop=False)
+    if not spatial:
+        if space_grouping is None:
+            ds = ds.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+        elif ds.space_grouping.size > 0:
+            ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+        else:
+            pass
+
+    return ds
 
 
 __all__ = ['metric']
