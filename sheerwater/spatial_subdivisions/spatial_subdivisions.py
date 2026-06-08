@@ -609,6 +609,7 @@ def season_region_labels(grid='global0_25'):
     ds = ds.assign_coords(region=season_regions)
 
     season_regions = xr.where(ds.coords["region"].isin(['east_africa_sudanian',
+                                                          'west_africa_coastal',
                                                           'west_africa_western_sahel',
                                                           'west_africa_eastern_sahel',
                                                           'west_africa_sudanian']),

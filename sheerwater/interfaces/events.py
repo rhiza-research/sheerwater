@@ -225,7 +225,7 @@ def seasonal_accumulation(ds, time_grouping='year', by_percent=False, minimum_ac
     is_null_group = ds['group'].astype(str).str.contains('None')
     ds = ds.where(~is_null_group, np.nan)
 
-    def seasonal_accumulation(x):
+    def seasonal_accumulation_runner(x):
         cumsum = x.cumsum(dim="time")
         # There is a bug in xarray cumsum that causes the time coordinate to be lost
         # https://github.com/pydata/xarray/issues/6528
@@ -240,7 +240,7 @@ def seasonal_accumulation(ds, time_grouping='year', by_percent=False, minimum_ac
 
     # Ensure that the timedimension is sorted
     ds = ds.sortby("time")
-    ret = ds.groupby("group").map(seasonal_accumulation)
+    ret = ds.groupby("group").map(seasonal_accumulation_runner)
 
     # Restore the null pattern and attributes, which are lost during the grouping
     ret = ret.where(~nanmask, other=np.nan)
@@ -404,14 +404,13 @@ def initial_growing_period(ds, time_grouping='year',
     # Ensure that attributes pass through
     pre_season_rain = pre_season * has_rain
     # Continue forward from first rain through the initial growing period
-    # Okay to fill past the first date, becuase we're going to look at a period of
-    # length period_in_days after the first day, which is bigger than the pre perioj
+    # Okay to fill past the first date, becuase we're going to 
+    # or this with the pre-season afterwards.
     first_rain_period = roll_and_agg(pre_season_rain, agg=pre_period_in_days,
                                      agg_col="time", align="right", agg_fn='max')
 
     # Clip the first rain period back down to the pre-season + season
     full_period = first_rain_period * pre_season
-    full_period = full_period.clip(0, 1)
     # Some times have been lost in the rollings, so we will update the null mask to valid times
     null_mask = null_mask.sel(time=full_period.time.values)
     full_period = full_period.where(~null_mask, np.nan)
@@ -440,7 +439,8 @@ def drying_spells_in_initial_growing_period(
         first_rain_threshold_mm=first_rain_threshold_mm,
         pre_period_in_days=pre_period_in_days)
 
-    drying_spells = (accumulated_rain(ds, agg_days=drying_day_agg_in_days) < drying_day_threshold_mm).astype(int)
+    drying_spells = (accumulated_rain(ds, agg_days=drying_day_agg_in_days, align='right')
+                     < drying_day_threshold_mm).astype(int)
 
     # Find drying spells in the initial growing period
     igp_drying_spells = igp * drying_spells

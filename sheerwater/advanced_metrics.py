@@ -28,8 +28,8 @@ def get_seasonal_accumulation_kwargs(experiment, region):
         time_grouping = 'year'
 
     # Configure the seasonal accumulation thresholds.
-    early_season_accumulation_mm = 150.0
-    early_season_accumulation_by_percent = 0.10
+    early_season_accumulation_mm = 100.0
+    early_season_accumulation_by_percent = 0.15
     mid_season_accumulation_mm = 300.0
     mid_season_accumulation_by_percent = 0.30
     late_season_accumulation_mm = 600.0
@@ -77,11 +77,13 @@ def get_seasonal_accumulation_kwargs(experiment, region):
     event_kwargs = {
         'fcst': {
             'agg_days': agg_days,
+            'align': 'right',
             'densify': True
 
         },
         'obs': {
-            'agg_days': agg_days
+            'agg_days': agg_days,
+            'align': 'right',
         },
     }
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
@@ -91,9 +93,7 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     """Agg day accumulation at a specific point in the seasonal accumulation.
 
     Experiment should be in the form:
-        in_season_dry_spell-14d
-        in_season_dry_spell-30d
-        ... and so forth.
+        in_season_dry_spell
     """
     if region == 'africa_unimodal_season' or region == 'western_africa':
         time_grouping = 'year'
@@ -109,8 +109,8 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     early_season_accumulation_by_percent = 0.10
     mid_season_accumulation_by_percent = 0.40
     season_accumulation_minimum_mm = 300.0
-    first_rain_threshold_mm = 7.0
     pre_period_in_days = 45
+    first_rain_threshold_mm = 4.0
     drying_day_threshold_mm = 15.0  # this is a sum
     drying_day_agg_in_days = 10
 
@@ -141,11 +141,13 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     event_kwargs = {
         'fcst': {
             'agg_days': drying_day_agg_in_days,
+            'align': 'right',
             'densify': True
 
         },
         'obs': {
             'agg_days': drying_day_agg_in_days,
+            'align': 'right',
         },
     }
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
@@ -159,7 +161,7 @@ def get_big_rain_days_kwargs(experiment, region):  # noqa: ARG001
         ... and so forth.
     """
     # Configure the big rain thresholds.
-    big_rain_threshold_mm = 35.0
+    big_rain_threshold_mm = 15.0
     big_rain_agg_days = 1
     big_rain_margin_in_days = 5
 
