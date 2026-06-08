@@ -34,7 +34,6 @@ def metric(start_time, end_time, variable, forecast, truth,
            memoize_forecast=True, memoize_truth=True):
     """Compute a grouped metric for a forecast at a specific lead."""
     # Use the metric registry to get the metric class
-    import pdb; pdb.set_trace()
     metric_obj = metric_factory(metric_name,
                                 metric_kwargs=metric_kwargs,
                                 event=event,
