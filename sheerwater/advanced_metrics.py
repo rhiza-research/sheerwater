@@ -122,14 +122,20 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
 
     # Early season accumulation threshold.
     filter_event_kwargs = {
-        'time_grouping': time_grouping,
-        'early_season_accumulation_by_percent': early_season_accumulation_by_percent,
-        'mid_season_accumulation_by_percent': mid_season_accumulation_by_percent,
-        'season_accumulation_minimum_mm': season_accumulation_minimum_mm,
-        'pre_period_in_days': pre_period_in_days,
-        'first_rain_threshold_mm': first_rain_threshold_mm,
-        'drying_day_threshold_mm': drying_day_threshold_mm,
-        'drying_day_agg_in_days': drying_day_agg_in_days,
+        'fcst':{
+            'drying_day_threshold_mm': drying_day_threshold_mm,
+            'drying_day_agg_in_days': drying_day_agg_in_days,
+        },
+        'obs':{
+            'time_grouping': time_grouping,
+            'early_season_accumulation_by_percent': early_season_accumulation_by_percent,
+            'mid_season_accumulation_by_percent': mid_season_accumulation_by_percent,
+            'season_accumulation_minimum_mm': season_accumulation_minimum_mm,
+            'pre_period_in_days': pre_period_in_days,
+            'first_rain_threshold_mm': first_rain_threshold_mm,
+            'drying_day_threshold_mm': drying_day_threshold_mm,
+            'drying_day_agg_in_days': drying_day_agg_in_days,
+        }
     }
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
