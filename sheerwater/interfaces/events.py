@@ -442,7 +442,7 @@ def drying_spells_in_initial_growing_period(
     region = ds.attrs['region']
     variable = ds.attrs['variable']
 
-    # Get the initial growing period
+    # Get the initial growing period from cache
     igp = initial_growing_period_data(
         start_time=start_time, end_time=end_time, data_source=data_source, variable=variable,
         time_grouping=time_grouping, early_season_accumulation_by_percent=early_season_accumulation_by_percent,
@@ -460,6 +460,8 @@ def drying_spells_in_initial_growing_period(
     # Falls back to 'time' if 'init_time' is not present.
     if 'init_time' in ds.coords and 'time' in ds.coords:
         # Rename time to prediction_timedelta
+        st = drying_spells.init_time.values.min()
+        et = drying_spells.init_time.values.max()
         drying_spells = drying_spells.rename({'time': 'prediction_timedelta'})
         # Convert to true time / prediction_timedelta format
         drying_spells = convert_init_time_to_pred_time(drying_spells)
@@ -469,6 +471,8 @@ def drying_spells_in_initial_growing_period(
         igp_drying_spells = convert_pred_time_to_init_time(igp_drying_spells)
         # Rename prediction_timedelta to time
         igp_drying_spells = igp_drying_spells.rename({'prediction_timedelta': 'time'})
+        # Select back down to valid init times, as the conversion will add new times at the ends
+        igp_drying_spells = igp_drying_spells.sel(init_time=slice(st, et))
     else:
         # Find drying spells in the initial growing period
         igp_drying_spells = igp * drying_spells

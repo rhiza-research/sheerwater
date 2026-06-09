@@ -59,6 +59,7 @@ class Metric(ABC):
         # Save the configuration kwargs for the metric
         self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
         self.metric_data = {}  # dictionary to store the data for the metric calculation
+        self.densify = self.metric_kwargs.get('densify', False)
 
         self.start_time = start_time
         self.end_time = end_time
@@ -149,22 +150,22 @@ class Metric(ABC):
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
-                               lookback_source=self.truth,
+                               lookback_source=self.truth, densify=self.densify,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
                 if self.do_fcst_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          lookback_source=self.truth,
+                                          lookback_source=self.truth, densify=self.densify,
                                           prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
-                               lookback_source=self.truth, prob_type=self.prob_type)
+                               lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
                 if self.do_fcst_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          lookback_source=self.truth, prob_type=self.prob_type)
+                                          lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
