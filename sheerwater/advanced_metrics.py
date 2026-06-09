@@ -101,7 +101,7 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
     # Configure the seasonal accumulation thresholds.
     early_season_accumulation_by_percent = 0.10
     mid_season_accumulation_by_percent = 0.40
-    season_accumulation_minimum_mm = 50.0
+    season_accumulation_minimum_mm = 150.0
     pre_period_in_days = 45
     first_rain_threshold_mm = 4.0
     drying_day_threshold_mm = 15.0  # this is a sum
