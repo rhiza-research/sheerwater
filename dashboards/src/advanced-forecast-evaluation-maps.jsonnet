@@ -1,5 +1,10 @@
 local advanced_metrics_maps_js = importstr './assets/advanced_metrics_maps.js';
+local ffojsn16cxs00e_10_lead_35_consts_js = importstr './assets/ffojsn16cxs00e-10-lead_35_consts.js';
+local ffojsn16cxs00e_11_lead_42_consts_js = importstr './assets/ffojsn16cxs00e-11-lead_42_consts.js';
 local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-lead_7_consts.js';
+local ffojsn16cxs00e_7_lead_14_consts_js = importstr './assets/ffojsn16cxs00e-7-lead_14_consts.js';
+local ffojsn16cxs00e_8_lead_21_consts_js = importstr './assets/ffojsn16cxs00e-8-lead_21_consts.js';
+local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-lead_28_consts.js';
 
 {
   "annotations": {
@@ -33,7 +38,8 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -124,8 +130,8 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
         ]
       },
       "gridPos": {
-        "h": 14,
-        "w": 7,
+        "h": 11,
+        "w": 6,
         "x": 0,
         "y": 4
       },
@@ -263,9 +269,9 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
         ]
       },
       "gridPos": {
-        "h": 14,
-        "w": 7,
-        "x": 7,
+        "h": 11,
+        "w": 6,
+        "x": 6,
         "y": 4
       },
       "id": 7,
@@ -308,11 +314,567 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
         },
         "onclick": "console.log(event)\ndocument.last_zoom = event.data['map.zoom'];\ndocument.last_center = event.data['map.center'];\n",
         "resScale": 2,
-        "script": "forecast = variables.forecast.current.value\nmetric = variables.metric.current.value\ntruth = variables.truth.current.value\ngrid = variables.grid.current.value\nregions = variables.region.current.value\ntime_grouping = variables.time_grouping.current.value\ntime =  variables.time_filter.current.value\nLEAD_DAY = 14\n\n\nDATASET_KEYS = []\nregions.forEach((region) => {\n  DATASET_KEYS.push(`forecast_metric_map_1_2024-12-31_${forecast}_${grid}_${LEAD_DAY}_forecast_filter-False_obs_filter-True_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip`)\n})\nconsole.log(DATASET_KEYS)\n\nif (time == 'None') {\n  time = '';\n} else {\n  time = '_' + time;\n}\n\n\nDATASET_KEYS.forEach((key) => {\n  try {\n    var xmlHttp = new XMLHttpRequest();\n    url = `https://terracotta.shared.rhizaresearch.org/metadata/${key}`\n    xmlHttp.open( \"GET\", url, false ); // false for synchronous request\n    xmlHttp.send( null );\n\n    if(xmlHttp.status != 200) {\n      console.log(\"Error getting dataset metadata\");\n      return {};\n    }\n\n    console.log(\"Dataset exists\");\n  } catch (error) {\n    // If we can't get this metric just return early\n    console.log(\"Error getting dataset metadata\");\n    console.log(error)\n    return {}\n  }\n})\n\n\n\nif (variables.metric.current.value == 'early_season_accumulation-30d' ) {\n  color_min = 0\n  color_max = 80\n  tera_cscale='ylorbr'\n} else if (variables.metric.current.value == 'acc' ){\n  color_min = -1\n  color_max = 1\n  tera_cscale = 'rdbu'\n} else if(variables.metric.current.value == 'seeps' ){\n  tera_cscale = 'reds'\n  color_min = 0\n  color_max = 2.0\n}else {\n  // set the terracotta colorscale\n  tera_cscale = 'reds'\n}\nstretch = `colormap=${tera_cscale}&stretch_range=[${color_min},${color_max}]`\n\n//Query the color scale\nvar xmlHttp = new XMLHttpRequest();\nurl = `https://terracotta.shared.rhizaresearch.org/colormap?colormap=${tera_cscale}&stretch_range=[${color_min},${color_max}]&num_values=10`\nxmlHttp.open( \"GET\", url, false ); // false for synchronous request\nxmlHttp.send( null );\n\nf = JSON.parse(xmlHttp.responseText)\ncscale = []\nfor(var i = 0; i < f.colormap.length; i++) {\n  rgb = `rgb(${f.colormap[i].rgba[0]},${f.colormap[i].rgba[1]},${f.colormap[i].rgba[2]})`\n  cscale.push([i/f.colormap.length + i*(.1/(f.colormap.length-1)), rgb])\n}\n\nconsole.log(cscale)\nconsole.log(color_min)\nconsole.log(color_max)\n\nvar units = \"\"\nif (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {\n    units = \" (mm/day)\"\n}\n\ncenter = {'lat': 0, 'lon': 0};\nzoom = 0\nif(document.last_zoom) {\n  zoom = document.last_zoom\n}\nif(document.last_center) {\n  center = document.last_center\n}\n\nlayers_to_map = []\nDATASET_KEYS.forEach((key) => {\n  layers_to_map.push({\n          opacity: 0.7,\n          sourcetype: \"raster\",\n          source: [\n            `https://terracotta.shared.rhizaresearch.org/singleband/${key}/{z}/{x}/{y}.png?${stretch}`\n          ],\n          below: \"traces\",\n        })\n});\n\n\nreturn {\n  data: [{\n    type: 'scattermap',\n    lat: ['45.5017', '46.9027'],\n    lon: ['-73.5673', '-73.5673'],\n    mode: 'markers',\n    marker: {\n      size: 0,\n      showscale: true,\n      colorscale: cscale,\n      cmin: color_min,\n      cmax: color_max\n    }\n  }],\n  layout: \n  {\n    dragmode: 'zoom',\n    map: {\n      style: 'open-street-map',\n      layers: layers_to_map,\n      center: center, \n      zoom: zoom\n    },\n    margin: {r: 0, t: 30, b: 0, l: 0},\n    title: {\n        text: \"Precipitation results\" + units,\n        xanchor: 'left',\n        x: 0\n    }\n\n  }\n}\n  ",
+        "script": ffojsn16cxs00e_7_lead_14_consts_js + advanced_metrics_maps_js,
         "syncTimeRange": false,
         "timeCol": ""
       },
-      "pluginVersion": "1.8.3",
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}'\n    )\n) v(t);",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "-- select '${forecast} ${grid} ${metric} ${ground_truth} ${region} ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}'\nselect \n  '${forecast} ${grid} ${metric} ${ground_truth} ' ||\n  case when '${forecast}' = 'salient'\n       then 'africa'\n       else 'global'\n  end || \n  ' ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}';",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 6,
+        "x": 12,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 500
+          },
+          "paper_bgcolor": "rgba(0, 0, 0, 0)",
+          "plog_bgcolor": "rgba(0, 0, 0, 0)",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            }
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "console.log(event)\ndocument.last_zoom = event.data['map.zoom'];\ndocument.last_center = event.data['map.center'];\n",
+        "resScale": 2,
+        "script": ffojsn16cxs00e_8_lead_21_consts_js + advanced_metrics_maps_js,
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}'\n    )\n) v(t);",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "-- select '${forecast} ${grid} ${metric} ${ground_truth} ${region} ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}'\nselect \n  '${forecast} ${grid} ${metric} ${ground_truth} ' ||\n  case when '${forecast}' = 'salient'\n       then 'africa'\n       else 'global'\n  end || \n  ' ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}';",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 6,
+        "x": 18,
+        "y": 4
+      },
+      "id": 9,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 500
+          },
+          "paper_bgcolor": "rgba(0, 0, 0, 0)",
+          "plog_bgcolor": "rgba(0, 0, 0, 0)",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            }
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "console.log(event)\ndocument.last_zoom = event.data['map.zoom'];\ndocument.last_center = event.data['map.center'];\n",
+        "resScale": 2,
+        "script": ffojsn16cxs00e_9_lead_28_consts_js + advanced_metrics_maps_js,
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}'\n    )\n) v(t);",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "-- select '${forecast} ${grid} ${metric} ${ground_truth} ${region} ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}'\nselect \n  '${forecast} ${grid} ${metric} ${ground_truth} ' ||\n  case when '${forecast}' = 'salient'\n       then 'africa'\n       else 'global'\n  end || \n  ' ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}';",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 6,
+        "x": 0,
+        "y": 15
+      },
+      "id": 10,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 500
+          },
+          "paper_bgcolor": "rgba(0, 0, 0, 0)",
+          "plog_bgcolor": "rgba(0, 0, 0, 0)",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            }
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "console.log(event)\ndocument.last_zoom = event.data['map.zoom'];\ndocument.last_center = event.data['map.center'];\n",
+        "resScale": 2,
+        "script": ffojsn16cxs00e_10_lead_35_consts_js + advanced_metrics_maps_js,
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}'\n    )\n) v(t);",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "-- select '${forecast} ${grid} ${metric} ${ground_truth} ${region} ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}'\nselect \n  '${forecast} ${grid} ${metric} ${ground_truth} ' ||\n  case when '${forecast}' = 'salient'\n       then 'africa'\n       else 'global'\n  end || \n  ' ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}';",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 6,
+        "x": 6,
+        "y": 15
+      },
+      "id": 11,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 500
+          },
+          "paper_bgcolor": "rgba(0, 0, 0, 0)",
+          "plog_bgcolor": "rgba(0, 0, 0, 0)",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            }
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": "console.log(event)\ndocument.last_zoom = event.data['map.zoom'];\ndocument.last_center = event.data['map.center'];\n",
+        "resScale": 2,
+        "script": ffojsn16cxs00e_11_lead_42_consts_js + advanced_metrics_maps_js,
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
       "targets": [
         {
           "datasource": {
@@ -385,8 +947,8 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
     "list": [
       {
         "current": {
-          "text": "gfs",
-          "value": "gfs"
+          "text": "ecmwf_ifs_er_debiased",
+          "value": "ecmwf_ifs_er_debiased"
         },
         "includeAll": false,
         "label": "Forecast",
@@ -398,7 +960,7 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
             "value": "ecmwf_ifs_er"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER Debiased",
             "value": "ecmwf_ifs_er_debiased"
           },
@@ -443,7 +1005,7 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
             "value": "ecmwf_aifs"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "GFS",
             "value": "gfs"
           }
