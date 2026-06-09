@@ -1,6 +1,7 @@
 // EXTERNAL:advanced_metrics_maps.js
 forecast = variables.forecast.current.value
 metric = variables.metric.current.value
+metric_name = variables.metric.current.name
 truth = variables.truth.current.value
 grid = variables.grid.current.value
 regions = variables.region.current.value
@@ -41,12 +42,17 @@ DATASET_KEYS.forEach((key) => {
   }
 })
 
+lead_week = LEAD_DAY/7
 
-
+advanced_metric = ""
+advanced_units = "mm"
 if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   color_min = 0
   color_max = 80
   tera_cscale='ylorbr'
+  advanced_metric = "MAE"
+  advanced_units = " (mm)"
+  metric_name = "Early season accumulation"
 } else if (variables.metric.current.value == 'acc' ){
   color_min = -1
   color_max = 1
@@ -119,22 +125,21 @@ return {
       cmax: color_max
     }
   }],
-  layout: 
+  layout:
   {
     dragmode: 'zoom',
     map: {
       style: 'open-street-map',
       layers: layers_to_map,
-      center: center, 
+      center: center,
       zoom: zoom
     },
     margin: {r: 0, t: 30, b: 0, l: 0},
     title: {
-        text: "Precipitation results" + units,
+        text: `${metric_name} - Week ${lead_week} - ${advanced_metric}${advanced_units}`,
         xanchor: 'left',
         x: 0
     }
 
   }
 }
-  
