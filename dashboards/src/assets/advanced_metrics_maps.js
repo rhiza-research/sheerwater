@@ -48,7 +48,7 @@ advanced_metric = ""
 advanced_units = "mm"
 if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   color_min = 0
-  color_max = 80
+  color_max = 50
   tera_cscale='ylorbr'
   advanced_metric = "MAE"
   advanced_units = " (mm)"
@@ -122,7 +122,14 @@ return {
       showscale: true,
       colorscale: cscale,
       cmin: color_min,
-      cmax: color_max
+      cmax: color_max,
+      colorbar: {
+            orientation: 'h', // Set to horizontal
+            y: -0.2,          // Position below the plot (negative values move it down)
+            x: 0.5,          // Center the colorbar
+            xanchor: 'center',
+            yanchor: 'bottom'
+        }
     }
   }],
   layout:
@@ -136,7 +143,7 @@ return {
     },
     margin: {r: 0, t: 30, b: 0, l: 0},
     title: {
-        text: `${metric_name} - Week ${lead_week} - ${advanced_metric}${advanced_units}`,
+        text: `${LEAD_DAY} day lead - ${advanced_metric}${advanced_units}`,
         xanchor: 'left',
         x: 0
     }

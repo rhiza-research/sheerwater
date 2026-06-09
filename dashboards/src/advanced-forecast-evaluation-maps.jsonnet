@@ -131,7 +131,7 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
       },
       "gridPos": {
         "h": 11,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 4
       },
@@ -270,8 +270,8 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
       },
       "gridPos": {
         "h": 11,
-        "w": 6,
-        "x": 6,
+        "w": 4,
+        "x": 4,
         "y": 4
       },
       "id": 7,
@@ -409,8 +409,8 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
       },
       "gridPos": {
         "h": 11,
-        "w": 6,
-        "x": 12,
+        "w": 4,
+        "x": 8,
         "y": 4
       },
       "id": 8,
@@ -548,8 +548,8 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
       },
       "gridPos": {
         "h": 11,
-        "w": 6,
-        "x": 18,
+        "w": 4,
+        "x": 12,
         "y": 4
       },
       "id": 9,
@@ -687,9 +687,9 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
       },
       "gridPos": {
         "h": 11,
-        "w": 6,
-        "x": 0,
-        "y": 15
+        "w": 4,
+        "x": 16,
+        "y": 4
       },
       "id": 10,
       "options": {
@@ -826,9 +826,9 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
       },
       "gridPos": {
         "h": 11,
-        "w": 6,
-        "x": 6,
-        "y": 15
+        "w": 4,
+        "x": 20,
+        "y": 4
       },
       "id": 11,
       "options": {
@@ -947,20 +947,20 @@ local ffojsn16cxs00e_9_lead_28_consts_js = importstr './assets/ffojsn16cxs00e-9-
     "list": [
       {
         "current": {
-          "text": "ecmwf_ifs_er_debiased",
-          "value": "ecmwf_ifs_er_debiased"
+          "text": "ecmwf_ifs_er",
+          "value": "ecmwf_ifs_er"
         },
         "includeAll": false,
         "label": "Forecast",
         "name": "forecast",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "ECMWF IFS ER Debiased",
             "value": "ecmwf_ifs_er_debiased"
           },
