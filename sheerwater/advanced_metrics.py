@@ -130,6 +130,7 @@ def get_in_season_dry_spell_kwargs(experiment, region):  # noqa: ARG001
         'first_rain_threshold_mm': first_rain_threshold_mm,
         'drying_day_threshold_mm': drying_day_threshold_mm,
         'drying_day_agg_in_days': drying_day_agg_in_days,
+        'densify': True,
     }
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
