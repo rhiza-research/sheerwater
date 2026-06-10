@@ -1,16 +1,24 @@
 // EXTERNAL:advanced_metrics_maps.js
 forecast = variables.forecast.current.value
 metric = variables.metric.current.value
-metric_name = variables.metric.current.name
 truth = variables.truth.current.value
 grid = variables.grid.current.value
 regions = variables.region.current.value
 time_grouping = variables.time_grouping.current.value
 time =  variables.time_filter.current.value
 
-DATASET_KEYS = []
-regions.forEach((region) => {
-  DATASET_KEYS.push(`forecast_metric_map_1_2024-12-31_${forecast}_${grid}_${LEAD_DAY}_forecast_filter-False_obs_filter-True_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip`)
+LEADS = [7, 14, 21, 28, 35, 42]
+FILTERS = ['forecast_filter-False_obs_filter-True','forecast_filter-True_obs_filter-False']
+
+LEAD_KEYS = []
+FILTERS.forEach((filter) => {
+    LEADS.forEach((lead) => {
+        DATASET_KEYS = []
+        regions.forEach((region) => {
+          DATASET_KEYS.push(`forecast_metric_map_1_2024-12-31_${forecast}_${grid}_${lead}_${filter}_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip`)
+        })
+        LEAD_KEYS.push(DATASET_KEYS)
+    })
 })
 console.log(DATASET_KEYS)
 
@@ -98,55 +106,107 @@ if(document.last_center) {
   center = document.last_center
 }
 
-layers_to_map = []
-DATASET_KEYS.forEach((key) => {
-  layers_to_map.push({
-          opacity: 0.7,
-          sourcetype: "raster",
-          source: [
-            `https://terracotta.shared.rhizaresearch.org/singleband/${key}/{z}/{x}/{y}.png?${stretch}`
-          ],
-          below: "traces",
-        })
-});
+var subplotLeads = LEADS
+var subplotLeadLabels = subplotLeads.map((option) => `<b>Day ${option} lead</b>`)
+var columnCount = LEADS.length
+var mapIds = Array.from({ length: columnCount * 2 }, (_, index) =>
+    index === 0 ? 'map' : `map${index + 1}`
+)
+var data = []
+mapIds.forEach((mapId, index) => {
+    data.push({
+        type: 'scattermap',
+        lat: ['45.5017', '46.9027'],
+        lon: ['-73.5673', '-73.5673'],
+        mode: 'markers',
+        marker: {
+            size: 0,
+            showscale: (index === 0),
+            colorscale: cscale,
+            cmin: color_min,
+            cmax: color_max,
+            colorbar: {
+                y: 0.5,
+                len: 0.97
+            }
+        },
+        subplot: mapId
+    })
+})
 
+layers_to_map = []
+LEAD_KEYS.forEach((dataset_key) => {
+    layers_to_add = []
+    dataset_key.forEach((key) => {
+      layers_to_add.push({
+              opacity: 0.7,
+              sourcetype: "raster",
+              source: [
+                `https://terracotta.shared.rhizaresearch.org/singleband/${key}/{z}/{x}/{y}.png?${stretch}`
+              ],
+              below: "traces",
+            })
+    });
+    layers_to_map.push(layers_to_add)
+})
+
+var layoutMaps = {}
+var gap = 0.01
+mapIds.forEach((mapId, index) => {
+    var colIndex = index % columnCount
+    var rowIndex = index < columnCount ? 0 : 1
+    var x0 = colIndex / columnCount + gap / 2
+    var x1 = (colIndex + 1) / columnCount - gap / 2
+    var rowGap = 0.04
+    var rowHeight = (1 - rowGap) / 2
+    var y0 = rowIndex === 0 ? rowHeight + rowGap : 0
+    var y1 = rowIndex === 0 ? 1 : rowHeight
+    layoutMaps[mapId] = {
+        domain: { x: [x0, x1], y: [y0, y1] },
+        style: 'open-street-map',
+        layers: layers_to_map[index],
+        center: center,
+        zoom: zoom
+    }
+})
 
 return {
-  data: [{
-    type: 'scattermap',
-    lat: ['45.5017', '46.9027'],
-    lon: ['-73.5673', '-73.5673'],
-    mode: 'markers',
-    marker: {
-      size: 0,
-      showscale: true,
-      colorscale: cscale,
-      cmin: color_min,
-      cmax: color_max,
-      colorbar: {
-            orientation: 'h', // Set to horizontal
-            y: -0.2,          // Position below the plot (negative values move it down)
-            x: 0.5,          // Center the colorbar
-            xanchor: 'center',
-            yanchor: 'bottom'
-        }
+    data: data,
+    layout:
+    {
+        dragmode: 'zoom',
+        grid: { rows: 2, columns: columnCount, pattern: 'independent' },
+        margin: { r: 0, t: 30, b: 40, l: 0 },
+        showlegend: false,
+        annotations: [
+            {
+                text: `<b>${metric_name} - ${advanced_metric}${advanced_units} - truth triggered events.</b>`,
+                x: 0,
+                xanchor: 'left',
+                y: 1,
+                yanchor: 'bottom',
+                showarrow: false
+            },
+            {
+                text: `<b>${metric_name} - ${advanced_metric}${advanced_units} - forecast triggered events.</b>`,
+                x: 0,
+                xanchor: 'left',
+                y: 0.48,
+                yanchor: 'bottom',
+                showarrow: false
+            },
+            ...subplotLeadLabels.map((label, index) => ({
+                text: label,
+                x: (index + 0.5) / columnCount,
+                xanchor: 'center',
+                y: -0.02,
+                yanchor: 'top',
+                xref: 'paper',
+                yref: 'paper',
+                showarrow: false
+            }))
+        ],
+        ...layoutMaps
     }
-  }],
-  layout:
-  {
-    dragmode: 'zoom',
-    map: {
-      style: 'open-street-map',
-      layers: layers_to_map,
-      center: center,
-      zoom: zoom
-    },
-    margin: {r: 0, t: 30, b: 0, l: 0},
-    title: {
-        text: `${LEAD_DAY} day lead - ${advanced_metric}${advanced_units}`,
-        xanchor: 'left',
-        x: 0
-    }
-
-  }
 }
+
