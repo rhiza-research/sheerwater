@@ -1,6 +1,7 @@
 local advanced_forecast_maps_onclick_js = importstr './assets/advanced_forecast_maps_onclick.js';
 local advanced_metrics_maps_js = importstr './assets/advanced_metrics_maps.js';
 local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-lead_7_consts.js';
+local metrics_explainer_md = importstr './assets/metrics_explainer.md';
 
 {
   "annotations": {
@@ -55,7 +56,7 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
       "id": 6,
       "options": {
         "afterRender": "// window.onload = function () {\n//     renderMathInElement(document.body, {\n//         delimiters: [\n//             { left: \"$$\", right: \"$$\", display: true },\n//             { left: \"\\\\(\", right: \"\\\\)\", display: false }\n//         ]\n//     });\n// };\n",
-        "content": "### Selected Metric: {{#if (eq metric \"mae\")}}MAE {{/if}} {{#if (eq metric \"rmse\")}}RMSE{{/if}} {{#if (eq metric \"crps\")}}CRPS{{/if}} {{#if (eq metric \"bias\")}}Bias{{/if}} {{#if (eq metric \"smape\")}}SMAPE{{/if}} {{#if (eq metric \"seeps\")}}SEEPS{{/if}} {{#if (eq metric \"acc\")}}ACC{{/if}}  {{#if (eq metric \"heidke-1-5-10-20\")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric \"far-1\")}}FAR 1mm{{/if}} {{#if (eq metric \"far-5\")}}FAR 5mm{{/if}} {{#if (eq metric \"far-10\")}}FAR 10mm{{/if}} {{#if (eq metric \"pod-1\")}}POD 1mm{{/if}} {{#if (eq metric \"pod-5\")}}POD 5mm{{/if}} {{#if (eq metric \"pod-10\")}}POD 10mm{{/if}} {{#if (eq metric \"ets-1\")}}ETS 1mm{{/if}} {{#if (eq metric \"ets-5\")}}ETS 5mm{{/if}} {{#if (eq metric \"ets-10\")}}ETS 10mm{{/if}}\n\n{{#if (eq metric \"mae\")}}\nMean absolute error (MAE) measures the average magnitude of the errors in a set of predictions, without considering\ntheir direction.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower MAE means better predictions.</span> \n\n{{else if (eq metric \"crps\")}}\nContinuous ranked probability score (CRPS) assesses the accuracy of probabilistic forecasts by comparing the cumulative\ndistribution function of forecasts to the observed values.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower CRPS indicates better probabilistic forecasting skill.</span>\n\n{{else if (eq metric \"rmse\")}}\nRoot mean squared error (RMSE) gives higher weight to large errors, making it more sensitive to outliers.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower RMSE means better predictions.</span>\n\n{{else if (eq metric \"acc\")}}\nAnomaly correlation coefficient (ACC) ACC is a measure of how well the forecast anomalies have represented the observed anomalies\nrelative to climatology. We used 1991-2020 climatology (years inclusive) for our ACC calculation.\\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher ACC means better predictions. Range [-1, 1].</span>\n\n{{else if (eq metric \"bias\")}}\nBias measures the signed magnitude of errors in a set of predictions. \\\n<span style=\"color: gray; font-weight: bold;\">⚪ Ideal value = 0.0 — Bias should be close to 0.0 for an unbiased forecast.</span>\n\n{{else if (eq metric \"smape\")}}\nSymmetric mean absolute percentage error (SMAPE) is a normalized version of Mean Absolute Percentage Error (MAPE) and calculate sthe error as a percentage of the total value. We only calculate SMAPE for precipitation.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower SMAPE indicates better forecasting accuracy. Range [0, 1].</span>\n\n{{else if (eq metric \"seeps\")}}\nStable equitable error in probability space (SEEPS) is a score designed for evaluating rainfall forecasts while taking into account climactic difference in rainfall. Areas that are too dry or wet are exclued. \nWe include all cells with a 3-93% non-dry day frequency to ensure inclusion of relevant parts of Africa. We only calculate SEEPS for precipitation.\\\n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower SEEPS indicates better forecasting accuracy. Good SEEPS for short term forecasts on cells that have 10-85% non-dry days are considered between 0-1.</span>\n\n{{else if (eq metric \"heidke-1-5-10-20\")}}\nHeidke skill score (HSS) compares the accuracy of a forecast to random chance for a set of predetermined rainfall thresholds—in this case, 1, 5, 10, and 20mm. We only calculate Heidke for precipitation.\\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — a higher HSS indicates better skill. Range [-&infin;, 1]</span>\n\n{{else if (or (eq metric \"pod-1\") (or (eq metric \"pod-5\") (eq metric \"pod-10\")))}}\nProbability of detection (POD) measures the fraction of observed rainfall events that were correctly predicted—in this case, a weekly average daily rainfall of over 1, 5, or 10mm. We only calculate POD for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher probability of detection is better. Range [0, 1]. </span>\n\n{{else if (or (eq metric \"far-1\") (or (eq metric \"far-5\") (eq metric \"far-10\")))}}\nFalse alarm rate (FAR) quantifies the fraction of predicted rainfall events that were not observed—in this case, a weekly average daily rainfall of over 1, 5, or 10mm. We only calculate FAR for precipitation.\\ \n<span style=\"color: red; font-weight: bold;\">🔴 Smaller is better — lower false alarm rate is better. Range [0, 1].</span>\n\n{{else if (or (eq metric \"ets-1\") (or (eq metric \"ets-5\") (eq metric \"ets-10\")))}}\nEquitable threat score (ETS) measures a combination of POD and FAR while accounting for random chance on a specific event—in this case, a weekly average daily rainfall of over 1, 5, or 10mm. We only calculate ETS for precipitation. \\\n<span style=\"color: green; font-weight: bold;\">🟢 Larger is better — higher ETS indicates better skill. Range [-1/3, 1].</span>\n\n{{else}}\n_no description available for this metric._\n{{/if}}\n",
+        "content": metrics_explainer_md,
         "contentPartials": [],
         "defaultContent": "The query didn't return any results.",
         "editor": {
@@ -253,15 +254,15 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
     "list": [
       {
         "current": {
-          "text": "ecmwf_ifs_er",
-          "value": "ecmwf_ifs_er"
+          "text": "gfs",
+          "value": "gfs"
         },
         "includeAll": false,
         "label": "Forecast",
         "name": "forecast",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
           },
@@ -311,7 +312,7 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
             "value": "ecmwf_aifs"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "GFS",
             "value": "gfs"
           }
@@ -339,20 +340,20 @@ local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-l
       },
       {
         "current": {
-          "text": "imerg_final",
-          "value": "imerg_final"
+          "text": "chirps_v3",
+          "value": "chirps_v3"
         },
         "includeAll": false,
         "label": "Ground Truth",
         "name": "truth",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "IMERG",
             "value": "imerg_final"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "CHIRPS V3",
             "value": "chirps_v3"
           },
