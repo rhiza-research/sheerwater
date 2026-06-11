@@ -386,8 +386,16 @@ class Metric(ABC):
 
         # Apply the filter to each statistic
         for stat in self.statistics:
-            self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
-
+            stat_vals = self.statistic_values[stat]
+            # The filter and the data may have different leads - select their common set if there are both
+            #  TODO: this should be the same for all statistics, so maybe could save by running only once
+            if 'prediction_timedelta' in stat_vals.coords and 'prediction_timedelta' in filter.coords:
+                common = np.intersect1d(stat_vals.prediction_timedelta.values, filter.prediction_timedelta.values)
+                stat_vals = stat_vals.sel(prediction_timedelta=common)
+                filt = filter.sel(prediction_timedelta=common)
+            else:
+                filt = filter
+            self.statistic_values[stat] = stat_vals.where(filt[self.variable], np.nan, drop=False)
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
