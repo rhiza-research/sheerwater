@@ -59,6 +59,7 @@ class Metric(ABC):
         # Save the configuration kwargs for the metric
         self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
         self.metric_data = {}  # dictionary to store the data for the metric calculation
+        self.densify = self.metric_kwargs.get('densify', False)
 
         self.start_time = start_time
         self.end_time = end_time
@@ -149,22 +150,22 @@ class Metric(ABC):
                 # Pass lookback separaetly b/c it is not a cachable argument for the data function
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
-                               lookback_source=self.truth,
+                               lookback_source=self.truth, densify=self.densify,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
                 if self.do_fcst_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          lookback_source=self.truth,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)
+                                          lookback_source=self.truth, densify=self.densify,
+                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
-                               lookback_source=self.truth, prob_type=self.prob_type)
+                               lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
                 if self.do_fcst_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          lookback_source=self.truth, prob_type=self.prob_type)
+                                          lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
@@ -175,7 +176,7 @@ class Metric(ABC):
                 if self.do_fcst_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          memoize=self.memoize_forecast, cache=True)
+                                          memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.fcst_obs_kwargs,
@@ -203,7 +204,7 @@ class Metric(ABC):
             if self.do_obs_filter:
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
-                                      memoize=self.memoize_truth, cache=True)
+                                      memoize=self.memoize_truth, cache=True)  # noqa: E501
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
@@ -383,13 +384,10 @@ class Metric(ABC):
         else:
             filter = no_null
 
-        # lat = 12.0
-        # lon = -1.5
-        # import matplotlib.pyplot as plt
-        # import pdb; pdb.set_trace()
         # Apply the filter to each statistic
         for stat in self.statistics:
             self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
+
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -588,12 +586,21 @@ class MAE(Metric):
 
 
 class ForecastValue(Metric):
-    """Mean Absolute Error metric."""
+    """Forecast value metric."""
     sparse = False
     prob_type = 'deterministic'
     valid_variables = None  # all variables are valid
     default_event = None
-    statistics = ['forecast_absolute_value']
+    statistics = ['fcst']
+
+
+class ObsValue(Metric):
+    """Observation value metric."""
+    sparse = False
+    prob_type = 'deterministic'
+    valid_variables = None  # all variables are valid
+    default_event = None
+    statistics = ['obs']
 
 
 class MSE(Metric):
@@ -872,7 +879,7 @@ class FrequencyBias(ContingencyMetric):
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
-        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'])
+        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 

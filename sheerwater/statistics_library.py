@@ -252,11 +252,6 @@ def fn_mae(data, **cache_kwargs):  # noqa: F821
     return abs(data['fcst'] - data['obs'])
 
 
-@statistic(cache=False, name='forecast_absolute_value')
-def fn_forecast_absolute_value(data, **cache_kwargs):  # noqa: F821
-    return abs(data['fcst'])
-
-
 @statistic(cache=False, name='mse')
 def fn_mse(data, **cache_kwargs):  # noqa: F821
     return (data['fcst'] - data['obs'])**2
