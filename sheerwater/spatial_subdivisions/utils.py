@@ -101,7 +101,10 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_str = '-'.join([region[i] for i, _ in gridded_regions])
         region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
         region_ds = region_ds.rename({'region': '_clip_region'})
-        ds = ds.where((region_ds._clip_region == region_str), drop=False)
+        if drop:
+            ds = ds.where((region_ds._clip_region == region_str).compute(), drop=True)
+        else:
+            ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
 
     # restore coordinate variables to coordinates.
