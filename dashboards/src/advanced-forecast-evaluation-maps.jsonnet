@@ -1,4 +1,5 @@
 local advanced_forecast_maps_onclick_js = importstr './assets/advanced_forecast_maps_onclick.js';
+local advanced_groundtruth_map_js = importstr './assets/advanced_groundtruth_map.js';
 local advanced_metrics_maps_js = importstr './assets/advanced_metrics_maps.js';
 local ffojsn16cxs00e_5_lead_7_consts_js = importstr './assets/ffojsn16cxs00e-5-lead_7_consts.js';
 local metrics_explainer_md = importstr './assets/metrics_explainer.md';
@@ -48,8 +49,8 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 24,
+        "h": 8,
+        "w": 19,
         "x": 0,
         "y": 0
       },
@@ -127,10 +128,154 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
         ]
       },
       "gridPos": {
+        "h": 8,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "allData": {},
+        "config": {},
+        "data": [],
+        "imgFormat": "png",
+        "layout": {
+          "font": {
+            "family": "Inter, Helvetica, Arial, sans-serif"
+          },
+          "grid": {
+            "columns": "6,",
+            "pattern": "independent",
+            "rows": "2,"
+          },
+          "margin": {
+            "b": 0,
+            "l": 0,
+            "r": 0,
+            "t": 500
+          },
+          "paper_bgcolor": "rgba(0, 0, 0, 0)",
+          "plog_bgcolor": "rgba(0, 0, 0, 0)",
+          "title": {
+            "align": "left",
+            "automargin": true,
+            "font": {
+              "color": "black",
+              "family": "Inter, sans-serif",
+              "size": 14,
+              "weight": 500
+            }
+          },
+          "xaxis": {
+            "automargin": true,
+            "autorange": true,
+            "type": "date"
+          },
+          "yaxis": {
+            "automargin": true,
+            "autorange": true
+          }
+        },
+        "onclick": advanced_forecast_maps_onclick_js,
+        "resScale": 2,
+        "script": advanced_groundtruth_map_js,
+        "syncTimeRange": false,
+        "timeCol": ""
+      },
+      "pluginVersion": "1.8.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}'\n    )\n) v(t);",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "-- select '${forecast} ${grid} ${metric} ${ground_truth} ${region} ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}'\nselect \n  '${forecast} ${grid} ${metric} ${ground_truth} ' ||\n  case when '${forecast}' = 'salient'\n       then 'africa'\n       else 'global'\n  end || \n  ' ${time_grouping} ${time_filter} ${standardize_forecast_colors} ${standardize_lead_colors}';",
+          "refId": "B",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "nline-plotlyjs-panel"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "grafana-postgresql-datasource",
+        "uid": "bdz3m3xs99p1cf"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "forecast"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 8
       },
       "id": 5,
       "options": {
@@ -254,8 +399,8 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
     "list": [
       {
         "current": {
-          "text": "gfs",
-          "value": "gfs"
+          "text": "ecmwf_ifs_ens",
+          "value": "ecmwf_ifs_ens"
         },
         "includeAll": false,
         "label": "Forecast",
@@ -297,7 +442,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "gencast"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ENS",
             "value": "ecmwf_ifs_ens"
           },
@@ -312,7 +457,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "ecmwf_aifs"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "GFS",
             "value": "gfs"
           }
@@ -340,20 +485,20 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
       },
       {
         "current": {
-          "text": "chirps_v3",
-          "value": "chirps_v3"
+          "text": "imerg_final",
+          "value": "imerg_final"
         },
         "includeAll": false,
         "label": "Ground Truth",
         "name": "truth",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "IMERG",
             "value": "imerg_final"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "CHIRPS V3",
             "value": "chirps_v3"
           },
