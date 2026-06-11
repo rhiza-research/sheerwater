@@ -384,15 +384,10 @@ class Metric(ABC):
         else:
             filter = no_null
 
-        # lat = 12.0
-        # lon = -1.5
-        # import matplotlib.pyplot as plt
-        # import pdb; pdb.set_trace()
         # Apply the filter to each statistic
         for stat in self.statistics:
             self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
 
-        import pdb; pdb.set_trace()
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
