@@ -69,7 +69,7 @@ def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=Non
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
         'obs_filter': True,
-        'fcst_filter': False,
+        'forecast_filter': False,
         'densify': True
     }
     # Compare accumulated rain on the right-aligned window over the past 30 days
@@ -110,21 +110,21 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
     # Compute the amount of forecasted rain during the dry period
     if input_metric_kwargs is not None:
         metric_kwargs = input_metric_kwargs
-        if input_metric_kwargs['fcst_filter'] and not input_metric_kwargs['obs_filter']:
+        if input_metric_kwargs['forecast_filter'] and not input_metric_kwargs['obs_filter']:
             # When filtering on the fcst, we want to use the obs value
             metric = 'obsvalue'
-        elif input_metric_kwargs['obs_filter'] and not input_metric_kwargs['fcst_filter']:
+        elif input_metric_kwargs['obs_filter'] and not input_metric_kwargs['forecast_filter']:
             # When filtering on the obs, we want to use the fcst value
             metric = 'forecastvalue'
         else:
-            raise ValueError("Either fcst_filter or obs_filter must be True.")
+            raise ValueError("Either forecast_filter or obs_filter must be True.")
     else:
         # Defaults
         metric = 'forecastvalue'
         # Detect the first time the accumulation threshold is reached in the observation.
         metric_kwargs = {
             'obs_filter': True,
-            'fcst_filter': False,
+            'forecast_filter': False,
             'densify': True
         }
 
@@ -175,7 +175,7 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
         'obs_filter': True,
-        'fcst_filter': False,
+        'forecast_filter': False,
         'densify': True
     }
     # Compare accumulated rain on the right-aligned window over the past 30 days
@@ -204,7 +204,7 @@ def get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs=None):  # 
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
         'obs_filter': False,
-        'fcst_filter': False,
+        'forecast_filter': False,
         'soft_margin_in_days': rain_margin_in_days,
         'densify': True
     }
@@ -235,7 +235,7 @@ def get_dry_spells_kwargs(experiment, region, input_metric_kwargs=None):  # noqa
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
         'obs_filter': True,
-        'fcst_filter': False,
+        'forecast_filter': False,
         'densify': True
     }
     # Compare accumulated rain on the right-aligned window over the past 30 days
@@ -262,7 +262,7 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
     # Detect the first time the accumulation threshold is reached in the observation.
     metric_kwargs = {
         'obs_filter': False,
-        'fcst_filter': False,
+        'forecast_filter': False,
         'soft_margin_in_days': margin_in_days,
         'densify': True
     }

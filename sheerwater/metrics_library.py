@@ -106,7 +106,7 @@ class Metric(ABC):
             raise ValueError(
                 f"Can only run filtering with events of type filter. Event {filter_event} is not a boolean event.")
 
-        self.do_fcst_filter = filter_event is not None and self.metric_kwargs.get('fcst_filter', False)
+        self.do_forecast_filter = filter_event is not None and self.metric_kwargs.get('forecast_filter', False)
         self.do_obs_filter = filter_event is not None and self.metric_kwargs.get('obs_filter', False)
 
         if event_kwargs and ('fcst' in event_kwargs or 'obs' in event_kwargs):
@@ -152,7 +152,7 @@ class Metric(ABC):
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
                                lookback_source=self.truth, densify=self.densify,
                                prob_type=self.prob_type, memoize=self.memoize_forecast)
-                if self.do_fcst_filter:
+                if self.do_forecast_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify,
@@ -162,7 +162,7 @@ class Metric(ABC):
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
                                lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
-                if self.do_fcst_filter:
+                if self.do_forecast_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
@@ -173,7 +173,7 @@ class Metric(ABC):
             try:
                 fcst = data_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst, memoize=self.memoize_forecast)
-                if self.do_fcst_filter:
+                if self.do_forecast_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           memoize=self.memoize_forecast, cache=True)  # noqa: E501
@@ -181,7 +181,7 @@ class Metric(ABC):
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst)
-                if self.do_fcst_filter:
+                if self.do_forecast_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst)
             enhanced_prob_type = "deterministic"
@@ -226,7 +226,7 @@ class Metric(ABC):
         # converting to booleans, otherwise np.nans will be treated as True.
         if self.do_obs_filter:
             filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
-        if self.do_fcst_filter:
+        if self.do_forecast_filter:
             filter_fcst = filter_fcst[[self.variable]].fillna(0).astype(bool)
 
         """3. Ensure that the forecast and truth have the same times and null patterns."""
@@ -244,7 +244,7 @@ class Metric(ABC):
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
         if self.do_obs_filter:
             valid_times = valid_times.intersection(set(filter_obs.time.values))
-        if self.do_fcst_filter:
+        if self.do_forecast_filter:
             valid_times = valid_times.intersection(set(filter_fcst.time.values))
         valid_times = list(valid_times)
         valid_times.sort()
@@ -255,7 +255,7 @@ class Metric(ABC):
         datasets = [obs, fcst]
         if self.do_obs_filter:
             datasets.append(filter_obs)
-        if self.do_fcst_filter:
+        if self.do_forecast_filter:
             datasets.append(filter_fcst)
         for dfs in datasets:
             dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
@@ -271,14 +271,14 @@ class Metric(ABC):
         fcst = fcst.sel(time=valid_times)
         if self.do_obs_filter:
             filter_obs = filter_obs.sel(time=valid_times)
-        if self.do_fcst_filter:
+        if self.do_forecast_filter:
             filter_fcst = filter_fcst.sel(time=valid_times)
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
         self.metric_data['obs'] = obs
         self.metric_data['fcst'] = fcst
-        if self.do_fcst_filter:
+        if self.do_forecast_filter:
             self.metric_data['filter_fcst'] = filter_fcst
         if self.do_obs_filter:
             self.metric_data['filter_obs'] = filter_obs
@@ -369,15 +369,15 @@ class Metric(ABC):
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
-            if self.do_fcst_filter:
+            if self.do_forecast_filter:
                 self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
             if self.do_obs_filter:
                 self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
 
         # Do event filtering
-        if self.do_fcst_filter and self.do_obs_filter:
+        if self.do_forecast_filter and self.do_obs_filter:
             filter = no_null & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
-        elif self.do_fcst_filter:
+        elif self.do_forecast_filter:
             filter = no_null & self.metric_data['filter_fcst']
         elif self.do_obs_filter:
             filter = no_null & self.metric_data['filter_obs']
