@@ -113,9 +113,11 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
         if input_metric_kwargs['forecast_filter'] and not input_metric_kwargs['obs_filter']:
             # When filtering on the fcst, we want to use the obs value
             metric = 'obsvalue'
+            metric_kwargs.update({'densify': True})
         elif input_metric_kwargs['obs_filter'] and not input_metric_kwargs['forecast_filter']:
             # When filtering on the obs, we want to use the fcst value
             metric = 'forecastvalue'
+            metric_kwargs.update({'densify': True})
         else:
             raise ValueError("Either forecast_filter or obs_filter must be True.")
     else:
