@@ -23,19 +23,19 @@ advanced_forecast_metrics:
     variable: ['precip']
     region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     grid: ['global1_5']
-      #time_grouping: ['None', 'year']
+    time_grouping: ['None', 'year']
   obs_only:
     metric_name: ['early_season_accumulation-30d']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
-          #fcst_obs:
-          #  metric_name: ['in_season_dry_spell', 'big_rain_days']
-          #  metric_kwargs:
-          #    - obs_filter: true
-          #      forecast_filter: false
-          #    - obs_filter: false
-          #      forecast_filter: true
+  fcst_obs:
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
 advanced_forecast_metric_maps:
   function: forecast_metric_map
   _all:
@@ -58,14 +58,11 @@ advanced_forecast_metric_maps:
       - imerg_final
       - chirps_v3
     variable: ['precip']
-      #region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
-    region: ['africa_bimodal_season', 'africa_unimodal_season']
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     grid: ['global1_5']
       #time_grouping: ['None', 'year']
     time_grouping: ['None']
-      #lead_days: [7, 14, 21, 28, 35, 42]
-    lead_days: [7, 14]
-      #lead_days: [14]
+    lead_days: [7, 14, 21, 28, 35, 42]
     agg_days: [1]
     storage_backend: ['terracotta']
   obs_only:
@@ -73,15 +70,14 @@ advanced_forecast_metric_maps:
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
-          #fcst_obs:
-          #  metric_name: ['in_season_dry_spell', 'big_rain_days']
-          #  metric_kwargs:
-          #    - obs_filter: true
-          #      forecast_filter: false
-          #    - obs_filter: false
-          #      forecast_filter: true
-
-advanced_groundtruth_metrics:
+  fcst_obs:
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+advanced_ground_truth_metrics:
   function: metric
   _all:
     start_time: "2016-01-01"
@@ -95,16 +91,49 @@ advanced_groundtruth_metrics:
       - tahmo_avg
     spatial: true
     variable: ['precip']
-    metric_name: ['early_season_accumulation-30d', 'in_season_dry_spell', 'big_rain_days']
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None', 'year']
     grid: ['global1_5']
+  obs_only:
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+  fcst_obs:
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
-  africa_bimodal:
-    region: ['africa_bimodal_season']
-  africa_unimodal:
-    region: ['africa_unimodal_season']
-  africa_unimodal_shifted:
-    region: ['africa_unimodal_shifted_season']
+advanced_ground_truth_metric_maps:
+  function: ground_truth_metric_map 
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecast:
+      - imerg_final
+      - chirps_v3
+      - era5
+      - oya
+    truth:
+      - tahmo_avg
+    variable: ['precip']
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+      #time_grouping: ['None', 'year']
+    time_grouping: ['None']
+    grid: ['global1_5']
+    storage_backend: ['terracotta']
+    agg_days: [1]
+  obs_only:
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+  fcst_obs:
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true

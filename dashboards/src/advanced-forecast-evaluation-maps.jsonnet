@@ -399,15 +399,15 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
     "list": [
       {
         "current": {
-          "text": "ecmwf_ifs_ens",
-          "value": "ecmwf_ifs_ens"
+          "text": "ecmwf_ifs_er",
+          "value": "ecmwf_ifs_er"
         },
         "includeAll": false,
         "label": "Forecast",
         "name": "forecast",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
           },
@@ -442,7 +442,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "gencast"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "ECMWF IFS ENS",
             "value": "ecmwf_ifs_ens"
           },
@@ -476,11 +476,21 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
         "options": [
           {
             "selected": true,
-            "text": "Early Season Accumulation",
+            "text": "Early season accumulation",
             "value": "early_season_accumulation-30d"
+          },
+          {
+            "selected": false,
+            "text": "Large rain days",
+            "value": "big_rain_days"
+          },
+          {
+            "selected": false,
+            "text": "In season dry spells",
+            "value": "in_season_dry_spell"
           }
         ],
-        "query": "Early Season Accumulation : early_season_accumulation-30d",
+        "query": "Early season accumulation : early_season_accumulation-30d, Large rain days : big_rain_days, In season dry spells : in_season_dry_spell",
         "type": "custom"
       },
       {

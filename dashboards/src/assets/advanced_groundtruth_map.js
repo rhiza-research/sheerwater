@@ -14,7 +14,7 @@ LEAD_KEYS = []
 FILTERS.forEach((filter) => {
     DATASET_KEYS = []
     regions.forEach((region) => {
-      DATASET_KEYS.push(`groundtruth_metric_map_1_2024-12-31_${truth}_${grid}_${filter}_${metric}_${region}_2016-01-01_${time_grouping}_tahmo_avg_precip`)
+      DATASET_KEYS.push(`ground_truth_metric_map_1_2024-12-31_${truth}_${grid}_${filter}_${metric}_${region}_2016-01-01_${time_grouping}_tahmo_avg_precip`)
     })
     LEAD_KEYS.push(DATASET_KEYS)
 })
@@ -36,6 +36,20 @@ if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   advanced_metric = "MAE"
   advanced_units = " (mm)"
   metric_name = "Early season accumulation"
+} else if (variables.metric.current.value == 'big_rain_days' ) {
+  color_min = 0
+  color_max = 0.5
+  tera_cscale='ylorbr'
+  advanced_metric = "SMAPE"
+  advanced_units = " (percent)"
+  metric_name = "Big rain days"
+} else if (variables.metric.current.value == 'in_season_dry_spells' ) {
+  color_min = 0
+  color_max = 35
+  tera_cscale='ylorbr'
+  advanced_metric = "Precipitation"
+  advanced_units = " (mm)"
+  metric_name = "In season dry spells"
 } else if (variables.metric.current.value == 'acc' ){
   color_min = -1
   color_max = 1
