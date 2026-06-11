@@ -9,6 +9,7 @@ from sheerwater.metrics import metric
 
 from google.cloud import secretmanager
 
+
 @config_parameter('password', location='root', secret=True)
 def postgres_write_password():
     """Get a postgres write password."""
@@ -55,10 +56,10 @@ def forecast_metric_map(start_time, end_time, variable,
                    'metric_name',  'metric_kwargs',
                    'time_grouping', 'grid', 'region'])
 def ground_truth_metric_map(start_time, end_time, variable,
-                        forecast, truth, agg_days, metric_name,
-                        metric_kwargs=None,
-                        time_grouping=None, grid='global1_5',
-                        region='global'):
+                            forecast, truth, agg_days, metric_name,
+                            metric_kwargs=None,
+                            time_grouping=None, grid='global1_5',
+                            region='global'):
 
     # Get the metric
     ds = metric(start_time, end_time, variable,
@@ -69,5 +70,3 @@ def ground_truth_metric_map(start_time, end_time, variable,
                 fail_if_no_cache=True)
 
     return ds
-
-
