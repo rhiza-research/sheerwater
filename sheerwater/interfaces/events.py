@@ -411,8 +411,6 @@ def drying_spells_in_initial_growing_period(
     # Find drying spells
     total_rain = accumulated_rain(ds, agg_days=drying_day_agg_in_days, align='right')
     drying_spells = (total_rain < drying_day_threshold_mm).astype(int)
-    import pdb
-    pdb.set_trace()
 
     # Calculate true_time from 'init_time' and 'time' coordinates if both are available.
     # Falls back to 'time' if 'init_time' is not present.
