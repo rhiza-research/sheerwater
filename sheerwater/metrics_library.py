@@ -156,7 +156,7 @@ class Metric(ABC):
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=False)  # noqa: E501
+                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
@@ -176,7 +176,7 @@ class Metric(ABC):
                 if self.do_fcst_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          memoize=self.memoize_forecast, cache=False)  # noqa: E501
+                                          memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.fcst_obs_kwargs,
@@ -204,7 +204,7 @@ class Metric(ABC):
             if self.do_obs_filter:
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
-                                      memoize=self.memoize_truth, cache=False)  # noqa: E501
+                                      memoize=self.memoize_truth, cache=True)  # noqa: E501
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
@@ -391,6 +391,8 @@ class Metric(ABC):
         # Apply the filter to each statistic
         for stat in self.statistics:
             self.statistic_values[stat] = self.statistic_values[stat].where(filter[self.variable], np.nan, drop=False)
+
+        import pdb; pdb.set_trace()
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -882,7 +884,7 @@ class FrequencyBias(ContingencyMetric):
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
-        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'])
+        experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 

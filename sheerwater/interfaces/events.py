@@ -376,50 +376,6 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False,
     return ret
 
 
-# @event(default_variable="precip", duration=120, filter=True)
-# def initial_growing_period(ds, time_grouping='year',
-#                            early_season_accumulation_by_percent=0.10,
-#                            mid_season_accumulation_by_percent=0.30,
-#                            season_accumulation_minimum_mm=300.0,
-#                            first_rain_threshold_mm=5.0,
-#                            pre_period_in_days=30):
-#     """A function to calculate the initial growing period of a dataset."""
-#     if 'precip' not in ds.data_vars:
-#         raise ValueError("Start of season by accumulation event requires a 'precip' variable.")
-
-#     null_mask = ds.isnull()
-
-#     season = in_season(ds, time_grouping=time_grouping,
-#                        start_season_accumulation=early_season_accumulation_by_percent,
-#                        end_season_accumulation=mid_season_accumulation_by_percent,
-#                        by_percent=True,
-#                        minimum_accumulation_mm=season_accumulation_minimum_mm)
-#     season = season.persist()
-
-#     # Expand the season by detection period in days
-#     pre_season = roll_and_agg(season, agg=pre_period_in_days, agg_col="time", align="left", agg_fn='max')
-#     has_rain = above_threshold(ds, agg_days=1, threshold=first_rain_threshold_mm)
-
-#     # Find the first time where the precipitation is greater than the first rain threshold and the season is active.
-#     # Floatwise "and-ing" of the two spells together to get the planting suitability
-#     # Ensure that attributes pass through
-#     pre_season_rain = pre_season * has_rain
-#     # Continue forward from first rain through the initial growing period
-#     # Okay to fill past the first date, becuase we're going to
-#     # or this with the pre-season afterwards.
-#     first_rain_period = roll_and_agg(pre_season_rain, agg=pre_period_in_days,
-#                                      agg_col="time", align="right", agg_fn='max')
-
-#     # Clip the first rain period back down to the pre-season + season
-#     full_period = first_rain_period * pre_season
-#     # Some times have been lost in the rollings, so we will update the null mask to valid times
-#     null_mask = null_mask.sel(time=full_period.time.values)
-#     full_period = full_period.where(~null_mask, np.nan)
-
-#     attrs = ds.attrs.copy()
-#     return full_period.assign_attrs(attrs)
-
-
 @event(default_variable="precip", duration=lambda kwargs: kwargs["drying_day_agg_in_days"], filter=True)
 def drying_spells_in_initial_growing_period(
         ds,
@@ -455,6 +411,8 @@ def drying_spells_in_initial_growing_period(
     # Find drying spells
     total_rain = accumulated_rain(ds, agg_days=drying_day_agg_in_days, align='right')
     drying_spells = (total_rain < drying_day_threshold_mm).astype(int)
+    import pdb
+    pdb.set_trace()
 
     # Calculate true_time from 'init_time' and 'time' coordinates if both are available.
     # Falls back to 'time' if 'init_time' is not present.
