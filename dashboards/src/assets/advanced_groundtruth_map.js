@@ -31,22 +31,25 @@ advanced_metric = ""
 advanced_units = "mm"
 if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   color_min = 0
-  color_max = 50
-  tera_cscale='ylorbr'
+  color_max = 42
+  color_max_tc = 84
+  tera_cscale='paired'
   advanced_metric = "MAE"
   advanced_units = " (mm)"
   metric_name = "Early season accumulation"
 } else if (variables.metric.current.value == 'big_rain_days' ) {
   color_min = 0
-  color_max = 0.5
-  tera_cscale='ylorbr'
+  color_max = 0.45
+  color_max_tc = 0.9
+  tera_cscale='paired'
   advanced_metric = "SMAPE"
   advanced_units = " (percent)"
   metric_name = "Big rain days"
 } else if (variables.metric.current.value == 'in_season_dry_spells' ) {
   color_min = 0
-  color_max = 35
-  tera_cscale='ylorbr'
+  color_max = 30
+  color_max_tc = 60
+  tera_cscale='paired'
   advanced_metric = "Precipitation"
   advanced_units = " (mm)"
   metric_name = "In season dry spells"
@@ -62,24 +65,7 @@ if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   // set the terracotta colorscale
   tera_cscale = 'reds'
 }
-stretch = `colormap=${tera_cscale}&stretch_range=[${color_min},${color_max}]`
-
-//Query the color scale
-var xmlHttp = new XMLHttpRequest();
-url = `https://terracotta.shared.rhizaresearch.org/colormap?colormap=${tera_cscale}&stretch_range=[${color_min},${color_max}]&num_values=10`
-xmlHttp.open( "GET", url, false ); // false for synchronous request
-xmlHttp.send( null );
-
-f = JSON.parse(xmlHttp.responseText)
-cscale = []
-for(var i = 0; i < f.colormap.length; i++) {
-  rgb = `rgb(${f.colormap[i].rgba[0]},${f.colormap[i].rgba[1]},${f.colormap[i].rgba[2]})`
-  cscale.push([i/f.colormap.length + i*(.1/(f.colormap.length-1)), rgb])
-}
-
-console.log(cscale)
-console.log(color_min)
-console.log(color_max)
+stretch = `colormap=${tera_cscale}&stretch_range=[${color_min},${color_max_tc}]`
 
 var units = ""
 if (metric == 'mae' || metric == 'bias' || metric == 'crps' || metric == 'rmse') {
@@ -95,8 +81,28 @@ if(document.last_center) {
   center = document.last_center
 }
 
-var subplotLeads = LEADS
-var subplotLeadLabels = subplotLeads.map((option) => `<b>Day ${option} lead</b>`)
+cscale = [
+      [0, 'rgb(194, 217, 225)'],
+      [0.16, 'rgb(194, 217, 225)'],
+
+      [0.16, 'rgb(109, 154, 192)'],
+      [0.33, 'rgb(109, 154, 192)'],
+
+      [0.33, 'rgb(203, 227, 165)'],
+      [0.49, 'rgb(203, 227, 165)'],
+
+      [0.49, 'rgb(126, 182, 102)'],
+      [0.66, 'rgb(126, 182, 102)'],
+
+      [0.66, 'rgb(245, 175, 177)'],
+      [0.83, 'rgb(245, 175, 177)'],
+
+      [0.83, 'rgb(235, 92, 90)'],
+      [1, 'rgb(235, 92, 90)'],
+    ]
+
+
+
 var columnCount = 1
 var mapIds = Array.from({ length: columnCount }, (_, index) =>
     index === 0 ? 'map' : `map${index + 1}`
@@ -111,10 +117,11 @@ mapIds.forEach((mapId, index) => {
         marker: {
             size: 0,
             showscale: (index === 0),
+            color: [color_min, color_max],
             colorscale: cscale,
-            cmin: color_min,
-            cmax: color_max,
             colorbar: {
+                tick0: color_min,
+                dtick: (color_max - color_min)/6,
                 y: 0.5,
                 len: 0.97
             }
