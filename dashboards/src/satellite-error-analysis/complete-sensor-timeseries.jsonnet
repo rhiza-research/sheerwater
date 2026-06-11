@@ -1,4 +1,4 @@
-local grid_size_sql = importstr './assets/grid_size.sql';
+local grid_size_sql = importstr '../assets/grid_size.sql';
 
 {
   "annotations": {
