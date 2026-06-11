@@ -1,6 +1,6 @@
 // EXTERNAL:advanced_forecast_maps_onclick.js
 
-/*console.log(event)
+console.log(event)
 center = {}
 zoom = 0
 for (const key of Object.keys(event.data)) {
@@ -13,7 +13,7 @@ for (const key of Object.keys(event.data)) {
 }
 
 console.log(center)
-console.log(zoom)*/
+console.log(zoom)
 
 document.last_zoom = zoom
 document.last_center = center
