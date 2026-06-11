@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
-import inspect
 
 from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast, get_event_fn
@@ -164,7 +163,7 @@ class Metric(ABC):
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=False)  # noqa: E501
+                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
@@ -184,7 +183,7 @@ class Metric(ABC):
                 if self.do_forecast_filter:
                     filter_fcst = data_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          memoize=self.memoize_forecast, cache=False)  # noqa: E501
+                                          memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the data is not a cacheable function the memoize kwarg will throw an error
                 fcst = data_fn(**self.fcst_obs_kwargs,
@@ -212,7 +211,7 @@ class Metric(ABC):
             if self.do_obs_filter:
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
-                                      memoize=self.memoize_truth, cache=False)  # noqa: E501
+                                      memoize=self.memoize_truth, cache=True)  # noqa: E501
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
