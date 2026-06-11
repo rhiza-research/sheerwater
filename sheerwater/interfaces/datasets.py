@@ -253,12 +253,6 @@ class data(SheerwaterDataset):
                     f"The following dates are missing: {missing_dates} "
                     "Please reindex your data source in time.")
 
-            # Check if 'data_source' is an argument of the event function
-            event_fn_params = inspect.signature(self.event_fn).parameters
-            if 'data_source' in event_fn_params:
-                # Set the data source to my own data source if it is provided and expected
-                self.event_kwargs['data_source'] = self.func_name
-
             ds = self.event_fn(ds, **self.event_kwargs)
             # Add an attribute to the dataset to indicate the event name
             ds = ds.assign_attrs({'event': self.event})
@@ -430,13 +424,6 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
-
-            # Check if 'data_source' is an argument of the event function
-            event_fn_params = inspect.signature(self.event_fn).parameters
-            if 'data_source' in event_fn_params:
-                # Set the data source to the lookback source if it is provided and expected
-                self.event_kwargs['data_source'] = self.lookback_source
-
             ds = self.event_fn(ds, **self.event_kwargs)
 
             # Add an attribute to the dataset to indicate the event name
