@@ -109,7 +109,7 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
 
     # Compute the amount of forecasted rain during the dry period
     if input_metric_kwargs is not None:
-        metric_kwargs = input_metric_kwargs
+        metric_kwargs = input_metric_kwargs.copy()
         if input_metric_kwargs['forecast_filter'] and not input_metric_kwargs['obs_filter']:
             # When filtering on the fcst, we want to use the obs value
             metric = 'obsvalue'
