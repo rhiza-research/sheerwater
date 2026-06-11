@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 import xarray as xr
 
+import inspect
+
 from sheerwater.climatology import climatology, seeps_dry_fraction, seeps_wet_threshold
 from sheerwater.interfaces import get_data, get_forecast, get_event_fn
 from sheerwater.masks import spatial_mask
@@ -128,6 +130,12 @@ class Metric(ABC):
         else:
             self.filter_event_kwargs_fcst = filter_event_kwargs if filter_event_kwargs is not None else {}
             self.filter_event_kwargs_obs = filter_event_kwargs if filter_event_kwargs is not None else {}
+
+        # For the in season dry spell metric, we need to set the data source to the truth
+        if self.event == 'drying_spells_in_initial_growing_period':
+            self.event_kwargs['data_source'] = self.truth
+        if self.filter_event == 'drying_spells_in_initial_growing_period':
+            self.filter_event_kwargs['data_source'] = self.truth
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
