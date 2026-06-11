@@ -50,3 +50,24 @@ def forecast_metric_map(start_time, end_time, variable,
     return ds
 
 
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable',   'forecast', 'truth', 'agg_days',
+                   'metric_name',  'metric_kwargs',
+                   'time_grouping', 'grid', 'region'])
+def ground_truth_metric_map(start_time, end_time, variable,
+                        forecast, truth, agg_days, metric_name,
+                        metric_kwargs=None,
+                        time_grouping=None, grid='global1_5',
+                        region='global'):
+
+    # Get the metric
+    ds = metric(start_time, end_time, variable,
+                agg_days=agg_days, forecast=forecast, truth=truth,
+                metric_name=metric_name, metric_kwargs=metric_kwargs,
+                time_grouping=time_grouping, spatial=True,
+                grid=grid, region=region, recompute=False, retry_null_cache=False,
+                fail_if_no_cache=True)
+
+    return ds
+
+
