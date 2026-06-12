@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote
+from sheerwater.utils import dask_remote, start_remote
 from sheerwater.metrics import metric
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
@@ -352,14 +352,18 @@ if __name__ == "__main__":
     metric_name = 'big_rain_days'
     time_grouping = 'year'
     grid = 'global1_5'
+    start_remote(remote_name='bigger')
     space_grouping = ['rainfall_region', 'country']
     metric_kwargs = {'obs_filter': True, 'forecast_filter': False}
-    region = 'africa_unimodal_season'
-    # Get the metric
-    df = advanced_spatial_metric_table(
-        start_time=start_time, end_time=end_time, variable=variable,
-        truth=truth, metric_name=metric_name, metric_kwargs=metric_kwargs,
-        time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
-        region=region)
+    # region = 'africa_unimodal_season'
+    # region = 'africa_unimodal_shifted_season'
+    for region in ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']:
+        for truth in ['imerg_final', 'chirps_v3', 'era5']:
+            # Get the metric
+            df = advanced_spatial_metric_table(
+                start_time=start_time, end_time=end_time, variable=variable,
+                truth=truth, metric_name=metric_name, metric_kwargs=metric_kwargs,
+                time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
+                region=region)
     import pdb
     pdb.set_trace()
