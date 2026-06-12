@@ -418,6 +418,7 @@ def drying_spells_in_initial_growing_period(
         # Rename time to prediction_timedelta
         st = drying_spells.init_time.values.min()
         et = drying_spells.init_time.values.max()
+        dspell_times = drying_spells.init_time.values
         drying_spells = drying_spells.rename({'time': 'prediction_timedelta'})
         # Convert to true time / prediction_timedelta format
         drying_spells = convert_init_time_to_pred_time(drying_spells)
@@ -429,12 +430,12 @@ def drying_spells_in_initial_growing_period(
         igp_drying_spells = igp_drying_spells.rename({'prediction_timedelta': 'time'})
         # Select back down to valid init times, as the conversion will add new times at the ends
         igp_drying_spells = igp_drying_spells.sel(init_time=slice(st, et))
+        igp_drying_spells = igp_drying_spells.sel(init_time=dspell_times)
     else:
         # Find drying spells in the initial growing period
         igp_drying_spells = igp * drying_spells
 
     null_mask = null_mask.sel(time=igp_drying_spells.time.values)
-    igp_drying_spells = igp_drying_spells.sel(init_time=null_mask.init_time.values)
 
     igp_drying_spells = igp_drying_spells.where(~null_mask, np.nan)
     attrs = ds.attrs.copy()

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote
+from sheerwater.utils import dask_remote, regrid
 from sheerwater.metrics import metric
 
 from google.cloud import secretmanager
@@ -32,6 +32,17 @@ def forecast_metric_map(start_time, end_time, variable,
                         time_grouping=None, grid='global1_5',
                         region='global'):
 
+    value_max = None
+    target_grid = grid
+    if metric_name == 'early_season_accumulation-30d':
+        value_max = 45
+        target_grid = 'global0_25'
+    elif metric_name == 'big_rain_days':
+        value_max = 0.45
+        target_grid = 'global0_25'
+    elif metric_name == 'in_season_dry_spell':
+        value_max = 30
+
     # Get the metric
     ds = metric(start_time, end_time, variable,
                 agg_days=agg_days, forecast=forecast, truth=truth,
@@ -48,6 +59,9 @@ def forecast_metric_map(start_time, end_time, variable,
         print("Lead not found in metric - returning None")
         return None
 
+    if value_max:
+        ds = xr.where(ds > value_max, value_max, ds)
+
     return ds
 
 
@@ -61,6 +75,14 @@ def ground_truth_metric_map(start_time, end_time, variable,
                             time_grouping=None, grid='global1_5',
                             region='global'):
 
+    value_max = None
+    if metric_name == 'early_season_accumulation-30d':
+        value_max = 45
+    elif metric_name == 'big_rain_days':
+        value_max = 0.45
+    elif metric_name == 'in_season_dry_spell':
+        value_max = 30
+
     # Get the metric
     ds = metric(start_time, end_time, variable,
                 agg_days=agg_days, forecast=forecast, truth=truth,
@@ -69,13 +91,8 @@ def ground_truth_metric_map(start_time, end_time, variable,
                 grid=grid, region=region, recompute=False, retry_null_cache=False,
                 fail_if_no_cache=True)
 
-    if metric_name == 'early_season_accumulation-30d':
-        ds = xr.where(ds > 42, 42, ds)
-        print(ds.mae.max().compute())
-    elif metric_name == 'big_rain_days':
-        ds = xr.where(ds > 0.45, 0.45, ds)
-    elif metric_name == 'in_season_dry_spells':
-        ds = xr.where(ds > 30, 30, ds)
 
+    if value_max:
+        ds = xr.where(ds > value_max, value_max, ds)
 
     return ds

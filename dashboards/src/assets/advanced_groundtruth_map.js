@@ -37,8 +37,8 @@ advanced_metric = ""
 advanced_units = "mm"
 if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   color_min = 0
-  color_max = 42
-  color_max_tc = 85
+  color_max = 45
+  color_max_tc = 91
   tera_cscale='paired'
   advanced_metric = "MAE"
   advanced_units = " (mm)"
