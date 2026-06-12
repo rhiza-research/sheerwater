@@ -69,4 +69,13 @@ def ground_truth_metric_map(start_time, end_time, variable,
                 grid=grid, region=region, recompute=False, retry_null_cache=False,
                 fail_if_no_cache=True)
 
+    if metric_name == 'early_season_accumulation-30d':
+        ds = xr.where(ds > 42, 42, ds)
+        print(ds.mae.max().compute())
+    elif metric_name == 'big_rain_days':
+        ds = xr.where(ds > 0.45, 0.45, ds)
+    elif metric_name == 'in_season_dry_spells':
+        ds = xr.where(ds > 30, 30, ds)
+
+
     return ds

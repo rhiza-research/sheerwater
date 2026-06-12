@@ -474,7 +474,7 @@ def climatology_imerg_1998_2024(start_time, end_time, variable, agg_days=1,  # n
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'lookback_source', 'densify', 'forecast_lead_days',
                    'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1, 'member': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1, 'member': 1}})
 def climatology_imerg_1998_2016(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
                                 forecast_lead_days=46, prob_type='deterministic',  # noqa: ARG001
                                 event=None, event_kwargs=None,  # noqa: ARG001

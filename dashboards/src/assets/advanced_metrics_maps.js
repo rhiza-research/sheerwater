@@ -57,7 +57,7 @@ advanced_units = "mm"
 if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   color_min = 0
   color_max = 42
-  color_max_tc = 90
+  color_max_tc = 85
   tera_cscale='paired'
   advanced_metric = "MAE"
   advanced_units = " (mm)"
@@ -65,7 +65,7 @@ if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
 } else if (variables.metric.current.value == 'big_rain_days' ) {
   color_min = 0
   color_max = 0.45
-  color_max_tc = 0.9
+  color_max_tc = 0.91
   tera_cscale='paired'
   advanced_metric = "SMAPE"
   advanced_units = " (percent)"
@@ -73,7 +73,7 @@ if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
 } else if (variables.metric.current.value == 'in_season_dry_spells' ) {
   color_min = 0
   color_max = 30
-  color_max_tc = 60
+  color_max_tc = 61
   tera_cscale='paired'
   advanced_metric = "Precipitation"
   advanced_units = " (mm)"
