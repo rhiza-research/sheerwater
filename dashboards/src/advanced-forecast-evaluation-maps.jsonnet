@@ -192,7 +192,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}'\n    )\n) v(t);",
+          "rawSql": "-- select * from (values ('${forecast}${lead}${metric}${region}${standardize_lead_colors}${standardize_forecast_colors}${time_grouping}${time_filter}') ) v(t)\nselect *\nfrom (\n    values (\n        '${forecast}${lead}${region:doublequote}${metric}${truth}${time_grouping}${time_filter}${filter_type}'\n    )\n) v(t);",
           "refId": "A",
           "sql": {
             "columns": [
@@ -399,15 +399,15 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
     "list": [
       {
         "current": {
-          "text": "ecmwf_ifs_er",
-          "value": "ecmwf_ifs_er"
+          "text": "climatology_imerg_1998_2016",
+          "value": "climatology_imerg_1998_2016"
         },
         "includeAll": false,
         "label": "Forecast",
         "name": "forecast",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "ECMWF IFS ER",
             "value": "ecmwf_ifs_er"
           },
@@ -422,7 +422,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "climatology_era5_1985_2015"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Clim IMERG 1998-2015",
             "value": "climatology_imerg_1998_2016"
           },
@@ -467,15 +467,15 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
       },
       {
         "current": {
-          "text": "early_season_accumulation-30d",
-          "value": "early_season_accumulation-30d"
+          "text": "in_season_dry_spell",
+          "value": "in_season_dry_spell"
         },
         "includeAll": false,
         "label": "Metric",
         "name": "metric",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "Early season accumulation",
             "value": "early_season_accumulation-30d"
           },
@@ -485,7 +485,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "big_rain_days"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "In season dry spells",
             "value": "in_season_dry_spell"
           }
@@ -717,6 +717,28 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           }
         ],
         "query": "False : false",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "forecast",
+          "value": "forecast"
+        },
+        "label": "Ground Truth Event Trigger",
+        "name": "filter_type",
+        "options": [
+          {
+            "selected": false,
+            "text": "Station data",
+            "value": "obs"
+          },
+          {
+            "selected": true,
+            "text": "Satellite data",
+            "value": "forecast"
+          }
+        ],
+        "query": "Station data : obs, Satellite data : forecast",
         "type": "custom"
       }
     ]

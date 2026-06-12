@@ -8,7 +8,13 @@ time_grouping = variables.time_grouping.current.value
 time =  variables.time_filter.current.value
 
 //FILTERS = ['forecast_filter-False_obs_filter-True','forecast_filter-True_obs_filter-False']
-FILTERS = ['forecast_filter-False_obs_filter-True']
+ftype = variables.filter_type.current.value
+
+if (ftype == 'forecast') {
+    FILTERS = ['forecast_filter-True_obs_filter-False']
+} else {
+    FILTERS = ['forecast_filter-False_obs_filter-True']
+}
 
 LEAD_KEYS = []
 FILTERS.forEach((filter) => {
