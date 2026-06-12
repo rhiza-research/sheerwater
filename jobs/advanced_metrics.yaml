@@ -21,15 +21,33 @@ advanced_forecast_metrics:
       - chirps_v3
     spatial: true
     variable: ['precip']
-    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     grid: ['global1_5']
-    time_grouping: ['None', 'year']
   obs_only:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None', 'year']
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+  obs_only_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
     metric_name: ['early_season_accumulation-30d']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
   fcst_obs:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None', 'year']
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  fcst_obs_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
     metric_name: ['in_season_dry_spell', 'big_rain_days']
     metric_kwargs:
       - obs_filter: true
@@ -58,25 +76,42 @@ advanced_forecast_metric_maps:
       - imerg_final
       - chirps_v3
     variable: ['precip']
-    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     grid: ['global1_5']
-      #time_grouping: ['None', 'year']
-    time_grouping: ['None']
     lead_days: [7, 14, 21, 28, 35, 42]
     agg_days: [1]
     storage_backend: ['terracotta']
   obs_only:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None']
     metric_name: ['early_season_accumulation-30d']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
+          #obs_only_bimodal:
+          #  region: ['africa_bimodal_season'] 
+          #  time_grouping: ['two_seasons']
+          #  metric_name: ['early_season_accumulation-30d']
+          #  metric_kwargs:
+          #    - obs_filter: true
+          #      forecast_filter: false
   fcst_obs:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None']
     metric_name: ['in_season_dry_spell', 'big_rain_days']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
+          #fcst_obs_bimodal:
+          #  region: ['africa_bimodal_season'] 
+          #  time_grouping: ['two_seasons']
+          #  metric_name: ['in_season_dry_spell', 'big_rain_days']
+          #  metric_kwargs:
+          #    - obs_filter: true
+          #      forecast_filter: false
+          #    - obs_filter: false
+          #      forecast_filter: true
 advanced_ground_truth_metrics:
   function: metric
   _all:
@@ -86,21 +121,38 @@ advanced_ground_truth_metrics:
       - imerg_final
       - chirps_v3
       - era5
-      - oya
     truth:
       - tahmo_avg
     spatial: true
     variable: ['precip']
-    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
-    time_grouping: ['None', 'year']
-    grid: ['global1_5']
+    grid: ['global1_5', 'global0_25']
   obs_only:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None']
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+  obs_only_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
     metric_name: ['early_season_accumulation-30d']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
   fcst_obs:
-    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None']
+    metric_name: ['big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  fcst_obs_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
+    metric_name: ['big_rain_days']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
@@ -115,22 +167,38 @@ advanced_ground_truth_metric_maps:
       - imerg_final
       - chirps_v3
       - era5
-      - oya
     truth:
       - tahmo_avg
     variable: ['precip']
-    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
-      #time_grouping: ['None', 'year']
-    time_grouping: ['None']
     grid: ['global1_5']
     storage_backend: ['terracotta']
     agg_days: [1]
   obs_only:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None']
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+  obs_only_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
     metric_name: ['early_season_accumulation-30d']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
   fcst_obs:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['None']
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  fcst_obs_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
     metric_name: ['in_season_dry_spell', 'big_rain_days']
     metric_kwargs:
       - obs_filter: true

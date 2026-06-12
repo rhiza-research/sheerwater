@@ -51,9 +51,9 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
             output = []
 
             if name:
-                print(f"{name}: Running {counter+1}...{counter+parallelism}/{length}", end="")
+                print(f"{name}: Running {counter+1}...{counter+parallelism}/{length}")
             else:
-                print(f"Running {counter+1}...{counter+parallelism}/{length}", end="")
+                print(f"Running {counter+1}...{counter+parallelism}/{length}")
 
             sys.stdout.flush()
 
@@ -78,7 +78,10 @@ def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
                     failed.append(it[i])
                     print(f" -- Failed metric: {it[i]} -- ")
 
-            print(f" -- {ls_count} succeeded in {(int)(execution_time/parallelism)}s per metric.")
+            if name:
+                print(f"{name}: {ls_count} succeeded in {(int)(execution_time/parallelism)}s per metric.")
+            else:
+                print(f"{ls_count} succeeded in {(int)(execution_time/parallelism)}s per metric.")
 
             counter = counter + parallelism
 
