@@ -101,6 +101,7 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_str = '-'.join([region[i] for i, _ in gridded_regions])
         region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
         region_ds = region_ds.rename({'region': '_clip_region'})
+        #ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
         ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
 
@@ -297,7 +298,7 @@ def regrid_region_masks(masks, output_grid, base="base180"):
     region_coords = masks.region.values
     label_map = (masks.astype(np.int8) * masks.region).sum("region")
 
-    label_map_comm = regrid(label_map.masks, output_grid, base=base, method="most_common", 
+    label_map_comm = regrid(label_map.masks, output_grid, base=base, method="most_common",
         regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
     )
     label_map_fill = regrid(label_map.masks, output_grid, base=base, method="stat",

@@ -434,6 +434,8 @@ def drying_spells_in_initial_growing_period(
         igp_drying_spells = igp * drying_spells
 
     null_mask = null_mask.sel(time=igp_drying_spells.time.values)
+    igp_drying_spells = igp_drying_spells.sel(init_time=null_mask.init_time.values)
+
     igp_drying_spells = igp_drying_spells.where(~null_mask, np.nan)
     attrs = ds.attrs.copy()
     return igp_drying_spells.assign_attrs(attrs)
