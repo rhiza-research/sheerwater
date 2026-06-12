@@ -45,7 +45,7 @@ if (variables.metric.current.value == 'early_season_accumulation-30d' ) {
   advanced_metric = "SMAPE"
   advanced_units = " (percent)"
   metric_name = "Big rain days"
-} else if (variables.metric.current.value == 'in_season_dry_spells' ) {
+} else if (variables.metric.current.value == 'in_season_dry_spell' ) {
   color_min = 0
   color_max = 30
   color_max_tc = 61

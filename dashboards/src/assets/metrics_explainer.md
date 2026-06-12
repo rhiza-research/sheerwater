@@ -15,7 +15,7 @@ The top row is triggered on large rain days observed in the observations (high S
 <span style="color: red; font-weight: bold;">🔴 Smaller is better — lower SMAPE means better predictions. We expect SMAPEs below 0.2-0.3 indicate good 
 prediction of above-average rainfall events.</span> 
 
-{{else if (eq metric "in_season_dry_spells")}}
+{{else if (eq metric "in_season_dry_spell")}}
 The in season dry spells event finds the start of season by looking for the first rainy day within 45 days of the observations reaching 10% of the total accumulated rainfall for a season. It looks for dry spells until 40% of the rainfall has accumulated for the season. Dry spells are defined as any 10 day period with less than 15mm of total rain. We present
 the total forecasted rainfall in this period. The top row shows performance for dry spells in the observations (high rainfall means the forecast predicted rain when the observations were dry). The top row shows performance for dry spells in the forecast ()\ 
 <span style="color: red; font-weight: bold;">🔴 Smaller is better — lower rainfall means better predictions in dry periods. We believe rainfall below about 20mm-30mm over the 10 day period to be good.</span> 
