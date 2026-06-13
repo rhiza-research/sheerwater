@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote
+from sheerwater.utils import dask_remote, start_remote
 from sheerwater.metrics import metric
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
@@ -210,7 +210,7 @@ def _metric_table_spatial(start_time, end_time, variable,
                             grid=grid, region=region,
                             recompute=False, retry_null_cache=False, fail_if_no_cache=True)
 
-                ds = clip_region(ds, region=region, grid=grid)
+                ds = clip_region(ds, region=region, grid=grid, drop_gridded_regions=True)
                 exp_metric = list(ds.data_vars)[0]
                 ds = ds.rename({exp_metric: metric_name})
 
@@ -258,7 +258,7 @@ def _metric_table_spatial(start_time, end_time, variable,
         results_ds = results_ds.rename({'space_grouping': 'region'})
 
     grouping_labels = space_grouping_labels(grid=grid, space_grouping=space_grouping)
-    grouping_labels = clip_region(grouping_labels, grid=grid, region=region)
+    grouping_labels = clip_region(grouping_labels, grid=grid, region=region, drop_gridded_regions=True)
     results_ds = results_ds.assign_coords(region=grouping_labels.region)
     for grp in space_grouping:
         results_ds = results_ds.assign_coords(**{f'{grp}': grouping_labels[f'{grp}_region']})
@@ -322,15 +322,12 @@ def advanced_spatial_metric_table(start_time, end_time, variable,
         'gencast',
         'graphcast'
     ]
-
     df = _metric_table_spatial(start_time=start_time, end_time=end_time, variable=variable,
                                truth=truth, metric_name=metric_name, agg_days=1, forecasts=forecasts,
                                time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
                                region=region, metric_kwargs=metric_kwargs)
 
     print(df)
-    import pdb
-    pdb.set_trace()
     return df
 
 
@@ -340,17 +337,17 @@ if __name__ == "__main__":
     variable = 'precip'
     truth = 'imerg_final'
     # metric_name = 'big_rain_days'
-    metric_name = 'early_season_accumulation-30d'
+    # metric_name = 'early_season_accumulation-30d'
+    metric_name = 'in_season_dry_spell'
     time_grouping = 'year'
     grid = 'global1_5'
     space_grouping = ['rainfall_region', 'country']
-    metric_kwargs = {'obs_filter': True, 'forecast_filter': False}
+    metric_kwargs = {'obs_filter': False, 'forecast_filter': True}
     region = 'africa_unimodal_season'
+    # start_remote()
     # Get the metric
     df = advanced_spatial_metric_table(
         start_time=start_time, end_time=end_time, variable=variable,
         truth=truth, metric_name=metric_name, metric_kwargs=metric_kwargs,
         time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
         region=region)
-    import pdb
-    pdb.set_trace()
