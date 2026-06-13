@@ -723,18 +723,18 @@
       },
       {
         "current": {
-          "text": "value",
-          "value": "value"
+          "text": "points",
+          "value": "points"
         },
         "name": "display_metric",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "Points",
             "value": "points"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Values",
             "value": "value"
           }
