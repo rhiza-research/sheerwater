@@ -16,6 +16,7 @@ forecast_metrics:
       - gfs
       - gencast
       - graphcast
+      - cumulus_ai
     truth:
       - era5
       - imerg_final
@@ -54,6 +55,7 @@ forecast_table_metrics:
         - gfs
         - gencast
         - graphcast
+        - cumulus_ai
     truth:
       - era5
       - imerg_final
@@ -92,6 +94,7 @@ forecast_spatial_metrics:
       - gfs
       - gencast
       - graphcast
+      - cumulus_ai
     truth:
       - era5
       - imerg_final
