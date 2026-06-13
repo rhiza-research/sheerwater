@@ -399,8 +399,8 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
     "list": [
       {
         "current": {
-          "text": "climatology_imerg_1998_2016",
-          "value": "climatology_imerg_1998_2016"
+          "text": "fuxi",
+          "value": "fuxi"
         },
         "includeAll": false,
         "label": "Forecast",
@@ -422,12 +422,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "climatology_era5_1985_2015"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Clim IMERG 1998-2015",
             "value": "climatology_imerg_1998_2016"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Fuxi",
             "value": "fuxi"
           },
@@ -460,15 +460,20 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "selected": false,
             "text": "GFS",
             "value": "gfs"
+          },
+          {
+            "selected": false,
+            "text": "Cumulus AI",
+            "value": "cumulus_ai"
           }
         ],
-        "query": "ECMWF IFS ER : ecmwf_ifs_er, ECMWF IFS ER Debiased : ecmwf_ifs_er_debiased, Clim ERA5 1985-2014 : climatology_era5_1985_2015,  Clim IMERG 1998-2015 : climatology_imerg_1998_2016, Fuxi : fuxi, GraphCast : graphcast, GenCast : gencast, ECMWF IFS ENS : ecmwf_ifs_ens, ECMWF HRES : ecmwf_hres, ECMWF AIFS : ecmwf_aifs, GFS : gfs",
+        "query": "ECMWF IFS ER : ecmwf_ifs_er, ECMWF IFS ER Debiased : ecmwf_ifs_er_debiased, Clim ERA5 1985-2014 : climatology_era5_1985_2015,  Clim IMERG 1998-2015 : climatology_imerg_1998_2016, Fuxi : fuxi, GraphCast : graphcast, GenCast : gencast, ECMWF IFS ENS : ecmwf_ifs_ens, ECMWF HRES : ecmwf_hres, ECMWF AIFS : ecmwf_aifs, GFS : gfs, Cumulus AI : cumulus_ai",
         "type": "custom"
       },
       {
         "current": {
-          "text": "in_season_dry_spell",
-          "value": "in_season_dry_spell"
+          "text": "big_rain_days",
+          "value": "big_rain_days"
         },
         "includeAll": false,
         "label": "Metric",
@@ -480,12 +485,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "early_season_accumulation-30d"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Large rain days",
             "value": "big_rain_days"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "In season dry spells",
             "value": "in_season_dry_spell"
           }
@@ -543,13 +548,13 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
         "current": {
           "text": [
             "africa_unimodal_season",
-            "africa_unimodal_shifted_season",
-            "africa_bimodal_season"
+            "africa_bimodal_season",
+            "africa_unimodal_shifted_season"
           ],
           "value": [
             "africa_unimodal_season",
-            "africa_unimodal_shifted_season",
-            "africa_bimodal_season"
+            "africa_bimodal_season",
+            "africa_unimodal_shifted_season"
           ]
         },
         "includeAll": false,
@@ -721,19 +726,19 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
       },
       {
         "current": {
-          "text": "forecast",
-          "value": "forecast"
+          "text": "obs",
+          "value": "obs"
         },
         "label": "Ground Truth Event Trigger",
         "name": "filter_type",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "Station data",
             "value": "obs"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Satellite data",
             "value": "forecast"
           }

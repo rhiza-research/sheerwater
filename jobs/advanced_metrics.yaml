@@ -15,6 +15,7 @@ advanced_forecast_metrics:
       - gfs
       - gencast
       - graphcast
+      - cumulus_ai
     truth:
       - era5
       - imerg_final
@@ -71,6 +72,7 @@ advanced_forecast_metric_maps:
       - gfs
       - gencast
       - graphcast
+      - cumulus_ai
     truth:
       - era5
       - imerg_final
