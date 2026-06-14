@@ -320,7 +320,8 @@ def advanced_spatial_metric_table(start_time, end_time, variable,
         'fuxi',
         'gfs',
         'gencast',
-        'graphcast'
+        'graphcast',
+        'cumulus_ai'
     ]
     df = _metric_table_spatial(start_time=start_time, end_time=end_time, variable=variable,
                                truth=truth, metric_name=metric_name, agg_days=1, forecasts=forecasts,
@@ -350,4 +351,4 @@ if __name__ == "__main__":
         start_time=start_time, end_time=end_time, variable=variable,
         truth=truth, metric_name=metric_name, metric_kwargs=metric_kwargs,
         time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
-        region=region)
+        region=region, recompute=True)
