@@ -220,6 +220,20 @@ def icpac_onset(ds):
                                 agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
 
 
+@event(default_variable="precip", duration=10, filter=True)
+def icpac_perturbed_onset(ds):
+    """An event to calculate the ICPAC onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [3, 7]
+    thresholds = [15.0, 10.5]
+    agg_type = ['sum', 'sum']
+    counts = [None, None]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
+
 @event(default_variable="precip", duration=30, filter=True)
 def chc_onset(ds):
     """An event to calculate the CHC onset conditions."""
@@ -233,12 +247,37 @@ def chc_onset(ds):
                                 agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
 
 
+@event(default_variable="precip", duration=30, filter=True)
+def chc_perturbed_onset(ds):
+    """An event to calculate the CHC onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [10, 20]
+    thresholds = [30.0, 20.0]
+    agg_type = ['sum', 'sum']
+    counts = [None, None]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+
 @event(default_variable="precip", duration=15, filter=True)
 def moron_and_robertson_onset(ds):
     """An event to calculate the Moron and Robertson onset conditions."""
     spells = ['above', 'above']
     agg_days = [5, 10]
     thresholds = [38.0, 5.0]
+    agg_type = ['sum', 'sum']
+    counts = [None, None]
+    onset_spell_index = 0
+    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+
+@event(default_variable="precip", duration=15, filter=True)
+def moron_and_robertson_perturbed_onset(ds):
+    """An event to calculate the Moron and Robertson onset conditions."""
+    spells = ['above', 'above']
+    agg_days = [5, 10]
+    thresholds = [30.0, 5.0]
     agg_type = ['sum', 'sum']
     counts = [None, None]
     onset_spell_index = 0
