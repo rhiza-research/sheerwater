@@ -8,6 +8,7 @@ from sheerwater.metrics import metric
 
 from google.cloud import secretmanager
 
+
 @config_parameter('password', location='root', backend='sql', secret=True)
 def postgres_write_password():
     """Get a postgres write password."""
@@ -18,9 +19,6 @@ def postgres_write_password():
     key = response.payload.data.decode("UTF-8")
 
     return key
-
-
-
 
 
 @dask_remote
