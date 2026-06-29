@@ -220,21 +220,7 @@ def _metric_table_spatial(start_time, end_time, variable,
             if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
-            if 'prediction_timedelta' in ds.coords:
-                table_type = 'forecast'
-            else:
-                table_type = 'ground_truth'
-
             if ds:
-                # Get the metric name to rename the variable
-                if table_type == 'ground_truth':
-                    if '-' in metric_name:
-                        met_name = metric_name.split('-')[0].lower()
-                    else:
-                        met_name = metric_name.lower()
-
-                    ds = ds.rename({exp_metric: met_name})
-
                 ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
 
                 # For climatology forecasts, we need to expand the prediction_timedelta coordinate
@@ -270,7 +256,7 @@ def _metric_table_spatial(start_time, end_time, variable,
     if 'lead_day' in df.columns:
         order = ['forecast', 'lat', 'lon', 'time_grouping', 'lead_day', f'{metric_name}'] + ['region'] + space_grouping
     else:
-        order = ['forecast', 'lat', 'lon', 'time_grouping'] + agg_days + ['region'] + space_grouping
+        order = ['forecast', 'lat', 'lon', 'time_grouping', f'{metric_name}'] + ['region'] + space_grouping
 
     # Reorder the columns if necessary
     if 'time' in df.columns:
@@ -322,6 +308,30 @@ def advanced_spatial_metric_table(start_time, end_time, variable,
         'gencast',
         'graphcast',
         'cumulus_ai'
+    ]
+    df = _metric_table_spatial(start_time=start_time, end_time=end_time, variable=variable,
+                               truth=truth, metric_name=metric_name, agg_days=1, forecasts=forecasts,
+                               time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
+                               region=region, metric_kwargs=metric_kwargs)
+
+    print(df)
+    return df
+
+
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable', 'truth',
+                   'metric_name', 'metric_kwargs', 'time_grouping',
+                   'grid', 'space_grouping', 'region'],
+       backend='sql', backend_kwargs={'hash_table_name': True})
+def advanced_ground_truth_spatial_metric_table(start_time, end_time, variable,
+                                               truth, metric_name, metric_kwargs=None, time_grouping=None,
+                                               grid='global1_5', space_grouping=None, region=None):
+    """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
+    forecasts = [
+        'imerg_final',
+        'chirps_v3',
+        'era5',
+        'oya'
     ]
     df = _metric_table_spatial(start_time=start_time, end_time=end_time, variable=variable,
                                truth=truth, metric_name=metric_name, agg_days=1, forecasts=forecasts,
