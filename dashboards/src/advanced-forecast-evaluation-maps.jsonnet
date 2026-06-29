@@ -36,8 +36,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",

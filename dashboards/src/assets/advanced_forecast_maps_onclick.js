@@ -1,30 +1,24 @@
 // EXTERNAL:advanced_forecast_maps_onclick.js
 
-console.log(event)
-center = {}
-zoom = 0
-for (const key of Object.keys(event.data)) {
-  if (key.includes('.center')) {
-    center = event.data[key]
-  }
-  if (key.includes('.zoom')) {
-    zoom = event.data[key]
-  }
+var foundCenter = null
+var foundZoom = null
+for (const key of Object.keys(event.data || {})) {
+  if (key.includes('.center')) foundCenter = event.data[key]
+  if (key.includes('.zoom')) foundZoom = event.data[key]
 }
 
-console.log(center)
-console.log(zoom)
+if (foundCenter === null && foundZoom === null) {
+  return event.layout   // nothing changed — don't clobber the view
+}
 
-document.last_zoom = zoom
-document.last_center = center
-
+document.last_center = foundCenter !== null ? foundCenter : document.last_center
+document.last_zoom = foundZoom !== null ? foundZoom : document.last_zoom
 
 updated_layout = event.layout
 for (const key of Object.keys(event.layout)) {
   if (key.includes('map')) {
-    updated_layout[key].center = center
-    updated_layout[key].zoom = zoom
+    if (foundCenter !== null) updated_layout[key].center = foundCenter
+    if (foundZoom !== null) updated_layout[key].zoom = foundZoom
   }
 }
-
 return updated_layout
