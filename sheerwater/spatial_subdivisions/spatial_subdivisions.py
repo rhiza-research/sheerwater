@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Utility functions for spatial subdivisions
 ##############################################################################
 
+
 def reconcile_country_name(country_name):
     """Maps a country name variant to its standardized name.
 
@@ -122,6 +123,7 @@ def reconcile_country_name(country_name):
     else:
         return country_name
 
+
 def clean_spatial_subdivision_name(name):
     """Clean a spatial subdivision name to make matching easier and replace non-English characters."""
     name = str(name)  # convert to string
@@ -135,6 +137,7 @@ def clean_spatial_subdivision_name(name):
     # If region is country data, reconcile the name
     name = reconcile_country_name(name)
     return name
+
 
 @cache(cache_args=['admin_level'])
 def admin_level_gdf_legacy(admin_level=2):
@@ -544,8 +547,8 @@ def rainfall_region_labels(grid='global0_25'):
         labels = xr.DataArray(
             np.full((len(masks.lat), len(masks.lon)), "", dtype=object),
             coords={"lat": masks.lat, "lon": masks.lon},
-            dims = ["lat", "lon"],
-            name = "rainfall_region"
+            dims=["lat", "lon"],
+            name="rainfall_region"
         )
         for region in masks.region.values:
             name = idx2names[region]
