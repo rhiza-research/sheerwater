@@ -79,7 +79,10 @@ def quantile_ranks_by_group(ds, ranks, time_grouping=None, is_forecast=False):
     else:
         ds = groupby_time(ds, time_grouping, agg_fn=None, time_dim='time')
         ds = ds.chunk({"time": -1})
-    qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    if time_grouping is not None:
+        qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    else:
+        qs = ds.quantile(q=ranks, dim="time", skipna=True)
     return qs
 
 
@@ -190,7 +193,6 @@ def data_quantile_regridded(start_time=None, end_time=None, data='era5',
                               grid=source_grid, region=region, recompute=False)
 
     """Step 1: Convert precip values to quantiles based on source distribution"""
-
     qvalues = source_q['quantile'].values  # (Q,) probability levels
 
     def value_to_quantile(x, values):

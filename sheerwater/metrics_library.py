@@ -1,5 +1,7 @@
 """Library of metrics implementations for verification."""
-# flake8: noqa: D102
+# flake8: noqa: D102j
+import inspect
+
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -130,11 +132,18 @@ class Metric(ABC):
             self.filter_event_kwargs_fcst = filter_event_kwargs if filter_event_kwargs is not None else {}
             self.filter_event_kwargs_obs = filter_event_kwargs if filter_event_kwargs is not None else {}
 
-        # For the in season dry spell metric, we need to set the data source to the truth
-        if self.event == 'drying_spells_in_initial_growing_period':
-            self.event_kwargs['data_source'] = self.truth
-        if self.filter_event == 'drying_spells_in_initial_growing_period':
-            self.filter_event_kwargs['data_source'] = self.truth
+        # For events that require a data source, set it to the truth
+        if self.event is not None:
+            event_fn = get_event_fn(self.event)
+            event_params = inspect.signature(event_fn).parameters
+            if 'data_source' in event_params and 'data_source' not in self.event_kwargs:
+                self.event_kwargs['data_source'] = self.truth
+
+        if self.filter_event is not None:
+            filter_event_fn = get_event_fn(self.filter_event)
+            filter_event_params = inspect.signature(filter_event_fn).parameters
+            if 'data_source' in filter_event_params and 'data_source' not in self.filter_event_kwargs:
+                self.filter_event_kwargs['data_source'] = self.truth
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""

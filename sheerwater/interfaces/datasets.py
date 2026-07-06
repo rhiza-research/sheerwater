@@ -172,6 +172,7 @@ class SheerwaterDataset(NuthatchProcessor):
             'units': self.units,
         })
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
+        ds = ds.assign_attrs({'dataset_name': self.func_name})
 
         return ds
 

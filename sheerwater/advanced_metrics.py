@@ -188,6 +188,38 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
     }
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
+def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
+    """Extreme rain days according to the quantile ranks of the data source."""
+    # Configure the big rain thresholds.
+    extreme_rain_threshold_quantile = 0.90
+    extreme_rain_agg_days = 1
+    extreme_rain_margin_in_days = 5
+
+    # Compute the SMAPE of the forecasted rain during the big rain days
+    metric = 'smape'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'quantile_extremes'
+    filter_event_kwargs = {
+        'threshold': extreme_rain_threshold_quantile,
+        'first_year': 1985,
+        'last_year': 2014,
+        'agg_days': extreme_rain_agg_days,
+        'n_quantiles': 20,
+    }
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': True,
+        'forecast_filter': False,
+        'densify': True
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'accumulated_rain'
+    event_kwargs = {
+        'agg_days': extreme_rain_margin_in_days,
+        'align': 'center',
+    }
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
 
 def get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
     """Rain days with a soft probability of detection."""
@@ -288,6 +320,9 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     elif experiment == 'big_rain_days':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_big_rain_days_kwargs(experiment, region, input_metric_kwargs)
+    elif experiment == 'extreme_rain_days':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs)
     elif experiment == 'rain_days_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs)
