@@ -92,7 +92,20 @@ def ground_truth_metric_map(start_time, end_time, variable,
                 fail_if_no_cache=True)
 
 
+    from sheerwater.spatial_subdivisions import get_spatial_subdivision_level, polygon_subdivision_geodataframe
+    try:
+        country_gdf = polygon_subdivision_geodataframe(level='continent', merged=False)
+        country_gdf = country_gdf[country_gdf['region_name'] == 'africa']
+    except Exception as e:
+        print(f"Error getting country boundaries for region {region}: {e}")
+        country_gdf = None
+
     if value_max:
         ds = xr.where(ds > value_max, value_max, ds)
 
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ds.mae.plot(x='lon', ax=ax)
+    country_gdf.plot(ax=ax, edgecolor='black', linewidth=0.5, facecolor='none')
+    plt.show()
     return ds
