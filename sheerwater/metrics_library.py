@@ -63,6 +63,7 @@ class Metric(ABC):
         self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
         self.metric_data = {}  # dictionary to store the data for the metric calculation
         self.densify = self.metric_kwargs.get('densify', False)
+        self.latitude_weights = self.metric_kwargs.get('latitude_weights', True)
 
         self.start_time = start_time
         self.end_time = end_time
@@ -438,9 +439,9 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        # Create a non_null indicator and add it to the statistic
-        # Group by time
-        ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
+        import pdb
+        pdb.set_trace()
+        ds = groupby_time(ds, self.time_grouping, agg_fn=self.agg_fn)
 
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
@@ -452,14 +453,19 @@ class Metric(ABC):
         # 3. Aggregate in space and apply spatial weighting
         ############################################################
         if not self.spatial:
-            # Group by region and average in space, while applying weighting for mask
-            weights = latitude_weights(ds.lat)
-            # Expand weights to have a time dimension that matches ds
-            weights = weights.expand_dims(lon=ds.lon)
-            if 'time' in ds.dims:  # Enable a time specific null pattern per time
-                weights = weights.expand_dims(time=ds.time)
-            weights = weights.chunk({dim: -1 for dim in weights.dims})
-            # Ensure the weights null pattern matches the ds null pattern
+            if self.latitude_weights:
+                if self.agg_fn != 'mean':
+                    raise ValueError("Latitude weights can only be used with a mean aggregation function.")
+                # Group by region and average in space, while applying weighting for mask
+                weights = latitude_weights(ds.lat)
+                # Expand weights to have a time dimension that matches ds
+                weights = weights.expand_dims(lon=ds.lon)
+                if 'time' in ds.dims:  # Enable a time specific null pattern per time
+                    weights = weights.expand_dims(time=ds.time)
+                weights = weights.chunk({dim: -1 for dim in weights.dims})
+                # Ensure the weights null pattern matches the ds null pattern
+            else:
+                weights = xr.ones_like(ds[self.statistics[0]])
             weights = weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
             # Mulitply by weights
@@ -483,8 +489,9 @@ class Metric(ABC):
                 # we can just continue
                 pass
 
-            for stat in self.statistics:
-                ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
+            if self.agg_fn == 'mean':
+                for stat in self.statistics:
+                    ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
         else:
             # If returning a spatial metric, mask and drop
@@ -607,6 +614,7 @@ class MAE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mae']
+    agg_fn = 'mean'
 
 
 class ForecastValue(Metric):
@@ -616,6 +624,7 @@ class ForecastValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['fcst']
+    agg_fn = 'mean'
 
 
 class ObsValue(Metric):
@@ -625,6 +634,7 @@ class ObsValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['obs']
+    agg_fn = 'mean'
 
 
 class MSE(Metric):
@@ -634,6 +644,7 @@ class MSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
+    agg_fn = 'mean'
 
 
 class RMSE(Metric):
@@ -643,6 +654,7 @@ class RMSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         return self.grouped_statistics['mse'] ** 0.5
@@ -655,6 +667,7 @@ class Bias(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['bias']
+    agg_fn = 'mean'
 
 
 class CRPS(Metric):
@@ -664,6 +677,7 @@ class CRPS(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['crps']
+    agg_fn = 'mean'
 
 
 class Brier(ContingencyMetric):
@@ -673,6 +687,7 @@ class Brier(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['brier']
+    agg_fn = 'mean'
 
 
 class SMAPE(Metric):
@@ -682,6 +697,7 @@ class SMAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['smape']
+    agg_fn = 'mean'
 
 
 class MAPE(Metric):
@@ -691,6 +707,7 @@ class MAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['mape']
+    agg_fn = 'mean'
 
 
 class SEEPS(Metric):
@@ -700,6 +717,7 @@ class SEEPS(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['seeps']
+    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the SEEPS metric."""
@@ -728,6 +746,7 @@ class ACC(Metric):
     valid_variables = None
     default_event = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
+    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
@@ -789,6 +808,7 @@ class Pearson(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -803,6 +823,7 @@ class Heidke(ContingencyMetric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     default_event = 'digitized'
+    agg_fn = 'mean'
 
     @property
     def statistics(self):
@@ -831,6 +852,7 @@ class POD(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -845,6 +867,7 @@ class FAR(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         fp = self.grouped_statistics['false_positives']
@@ -859,6 +882,7 @@ class ETS(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -877,6 +901,7 @@ class CSI(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -892,6 +917,7 @@ class FrequencyBias(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -900,12 +926,34 @@ class FrequencyBias(ContingencyMetric):
         return (tp + fp) / (tp + fn)
 
 
+class GoodFraction(Metric):
+    """Count below threshold metric."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = None
+    default_event = None
+    statistics = ['count_good', 'n_valid']
+    agg_fn = 'sum'
+
+    def prepare_data(self):
+        """Prepare specific data for the GoodFraction metric."""
+        # Call the parent prepare_data method to get the forecast and observation
+        super().prepare_data()
+        # If we're doing a count-based metric, ensure that the metric setup is valid
+        if self.latitude_weights:
+            raise ValueError("Latitude weights cannot be used with a count statistic.")
+
+    def compute_metric(self):
+        count_good = self.grouped_statistics['count_good']
+        n_valid = self.grouped_statistics['n_valid']
+        return count_good / n_valid
+
+
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
-        exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
-        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
+        exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = experiment_kwargs
 
         # Update the experiment kwargs with their values in init_kwargs if passed
         exp_metric_kwargs.update(metric_kwargs)
@@ -914,6 +962,10 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
             if key in init_kwargs:
                 del init_kwargs[key]
 
+        exp_metric_kwargs['good_threshold'] = good_threshold
+        exp_metric_kwargs['evaluate_statistic'] = exp_metric_name
+
+        metric = SHEERWATER_METRIC_REGISTRY['goodfraction']
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,

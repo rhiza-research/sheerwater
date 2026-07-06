@@ -396,6 +396,20 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
     return m_ds
 
 
+@statistic(cache=False, name='count_good')
+def fn_count_good(data, **cache_kwargs):  # noqa: F821
+    stat_name = cache_kwargs['metric_kwargs']['evaluate_statistic']
+    stat_fn = statistic_factory(stat_name)
+    stat_data = stat_fn(data, **cache_kwargs)
+    count_good = xr.where(stat_data <= cache_kwargs['metric_kwargs']['good_threshold'], 1, 0).astype(int)
+    return count_good
+
+
+@statistic(cache=False, name='ones')
+def fn_ones(data, **cache_kwargs):  # noqa: F821
+    return xr.ones_like(data['fcst'])
+
+
 def statistic_factory(statistic_name: str):
     """Get a statistic function by name from the registry."""
     try:
