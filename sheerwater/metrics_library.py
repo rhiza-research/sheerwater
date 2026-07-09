@@ -961,10 +961,8 @@ class PassFraction(Metric):
         # Add the number of valid events
         ds['n_valid'] = n_valid
         # Add the average statistic value
-        import pdb
-        pdb.set_trace()
         pass_statistic = self.metric_kwargs['pass_statistic']
-        ds[pass_statistic] = self.grouped_statistics[pass_statistic]
+        ds[pass_statistic] = self.grouped_statistics[pass_statistic] / n_valid
         return ds
 
 
