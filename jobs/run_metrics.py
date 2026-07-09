@@ -360,9 +360,12 @@ if __name__ == "__main__":
         else:
             remote_config = args.remote_config[0]
 
-        processes.append(multiprocessing.Process(target=start_and_run_group,
-                                                 args=(combos, parallelism, skip,
-                                                       remote_name, remote_config, function)))
+        if parallelism <= 1:
+            start_and_run_group(combos, parallelism, skip, remote_name, remote_config, function)
+        else:
+            processes.append(multiprocessing.Process(target=start_and_run_group,
+                                                    args=(combos, parallelism, skip,
+                                                        remote_name, remote_config, function)))
     else:
         for key, value in dict_of_combos_to_run.items():
             if args.parallelism is None:

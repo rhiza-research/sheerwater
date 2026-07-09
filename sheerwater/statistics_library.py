@@ -9,7 +9,9 @@ import xarray as xr
 from nuthatch import cache as cache_decorator
 from nuthatch.processors import timeseries as timeseries_decorator
 from sheerwater.interfaces import spatial
-from sheerwater.utils import add_spatial_attrs, roll_and_agg
+from sheerwater.utils import (add_spatial_attrs, roll_and_agg,
+                              convert_pred_time_to_init_time,
+                              convert_init_time_to_pred_time)
 
 # Global metric registry dictionary
 SHEERWATER_STATISTIC_REGISTRY = {}
@@ -159,65 +161,87 @@ def fn_n_valid(data, **cache_kwargs):  # noqa: F821
     return xr.ones_like(data['fcst']).where(data['fcst'].notnull(), 0.0, drop=False).astype(float)
 
 
-@statistic(cache=False, name='false_positives')
-def fn_false_positives(data, **cache_kwargs):  # noqa: F821
-    # If soft_margin_in_days, will soften the observations by the given number of days before
-    # computing false positives, using a square, max window function. The result of this is that
-    # if there is an observation anywhere within the soft margin when a forecast has made a positive
-    # detection, then the false positive is discounted.
+@statistic(cache=False, name='softened_obs')
+def fn_softened_obs(data, **cache_kwargs):  # noqa: F821
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
         obs = roll_and_agg(data['obs'], agg=soft_margin_in_days, agg_thresh=1,
                            align="center", agg_col="time", agg_fn='max')
     else:
         obs = data['obs']
-    fcst = data['fcst']
-    # This subtraction removes the forecasted errors from the observed values, and discounts
-    # negative values, where the forecaster said postivite and the observation was negative.
-    error = fcst - obs
-    return np.maximum(error, 0)
+    return obs
 
 
-@statistic(cache=False, name='false_negatives')
-def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
-    # If soft_margin_in_days, will soften the forecast by the given number of days before
-    # computing false negatives, using a square, max window function. The result of this is that
-    # if there is an forecast anywhere within the soft margin when a observation has made a positive
-    # detection, then the false negative is discounted.
+@statistic(cache=False, name='softened_fcst')
+def fn_softened_fcst(data, **cache_kwargs):  # noqa: F821
     if 'soft_margin_in_days' in cache_kwargs['metric_kwargs']:
+        # If we have a forecast, we need to do softening along the lead dimension,
+        # so do that conversion here
+        if 'prediction_timedelta' in data['fcst'].coords:
+            forecast_or_data = 'forecast'
+            fcst = convert_pred_time_to_init_time(data['fcst'])
+            fcst = fcst.rename({'prediction_timedelta': 'time'})
+        else:
+            fcst = data['fcst']
+            forecast_or_data = 'data'
+
+        # Apply the soft margin to the forecast or data
         soft_margin_in_days = cache_kwargs['metric_kwargs']['soft_margin_in_days']
-        fcst = roll_and_agg(data['fcst'], agg=soft_margin_in_days, agg_thresh=1,
+        fcst = roll_and_agg(fcst, agg=soft_margin_in_days, agg_thresh=1,
                             align="center", agg_col="time", agg_fn='max')
+
+        if forecast_or_data == 'forecast':
+            fcst = fcst.rename({'time': 'prediction_timedelta'})
+            fcst = convert_init_time_to_pred_time(fcst)
     else:
         fcst = data['fcst']
-    obs = data['obs']
-
-    # This subtraction removes the forecasted errors from the observed values, and discounts
-    # negative values, where the forecaster said postivite and the observation was negative.
-    diff = obs - fcst
-    return np.maximum(diff, 0)
-
-
-@statistic(cache=False, name='true_negatives')
-def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
-    """Calculate true negatives as the difference between the observation and false positives.
-
-    This is a softening-safe way of computing the number of true negatives, as it gets the number
-    of negative events after a soft-version of false positives are subtracted.
-    """
-    # Get the negative observations by inverting the observations
-    neg_obs = 1.0 - data['obs']
-    return neg_obs - fn_false_positives(data, **cache_kwargs)
+    return fcst
 
 
 @statistic(cache=False, name='true_positives')
 def fn_true_positives(data, **cache_kwargs):  # noqa: F821
-    """Calculate true positives as the difference between the observation and false negatives.
+    """This implementation of true positives is based on fuzzy detection.
 
-    This is a softening-safe way of computing the number of true positives, as it gets the number
-    of positive events after a soft-version of false negatives are subtracted.
+    It reverts to the standard POD and FAR in the case where no soft margin is applied.
+
+    We follow the implementation in Parasuraman et al.,
+        PARASURAMAN, R., MASALONIS, A. J. and HANCOCK, P. A. 2000, Fuzzy signal detection:
+        basic postulates and formulas for analyzing human and machine performance.
+        Human Factors, 42, in press.
+
+        In this paper:
+        - TP = Hit = min(obs, fcst)
+            This will be 1 only if the observation and forecast are both 1, otherwise 0.
+        - FN = Miss = max(obs - fcst, 0)
+            This will be 1 only if the observation is 1 and the forecast is 0, otherwise 0.
+        - FP = False alarm = max(fcst - obs, 0)
+            This will be 1 only if the forecast is 1 and the observation is 0, otherwise 0.
+        - TN = Correct rejection = min(1 - obs, 1 - fcst)
+            This will be 1 only if the observation and forecast are both 0, otherwise 0.
     """
-    return data['obs'] - fn_false_negatives(data, **cache_kwargs)
+    softened_fcst = fn_softened_fcst(data, **cache_kwargs)
+    return np.minimum(softened_fcst, data['obs'])
+
+
+@statistic(cache=False, name='false_negatives')
+def fn_false_negatives(data, **cache_kwargs):  # noqa: F821
+    """This implementation of false negatives is based on fuzzy detection. See above."""
+    softened_fcst = fn_softened_fcst(data, **cache_kwargs)
+    return np.maximum(data['obs'] - softened_fcst, 0)
+
+
+@statistic(cache=False, name='true_negatives')
+def fn_true_negatives(data, **cache_kwargs):  # noqa: F821
+    """This implementation of true negatives is based on fuzzy detection. See above."""
+    softened_obs = fn_softened_obs(data, **cache_kwargs)
+    return np.minimum(1.0 - data['fcst'], 1.0 - softened_obs)
+
+
+@statistic(cache=False, name='false_positives')
+def fn_false_positives(data, **cache_kwargs):  # noqa: F821
+    """This implementation of false positives is based on fuzzy detection. See above."""
+    softened_obs = fn_softened_obs(data, **cache_kwargs)
+    return np.maximum(data['fcst'] - softened_obs, 0)
 
 
 @statistic(cache=False, name='n_correct')
@@ -370,6 +394,16 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
     else:
         raise ValueError(f"Invalid probability type: {data['prob_type']}")
     return m_ds
+
+
+@statistic(cache=False, name='count_pass')
+def fn_count_pass(data, **cache_kwargs):  # noqa: F821
+    stat_name = cache_kwargs['metric_kwargs']['pass_statistic']
+    stat_fn = statistic_factory(stat_name)
+    stat_data = stat_fn(data, **cache_kwargs)
+    pass_fn = cache_kwargs['metric_kwargs']['pass_fn']
+    pass_data = pass_fn(stat_data).astype(int)
+    return pass_data
 
 
 def statistic_factory(statistic_name: str):

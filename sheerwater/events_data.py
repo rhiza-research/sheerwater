@@ -122,3 +122,4 @@ def initial_growing_period_data(
 
     attrs = ds.attrs.copy()
     return full_period.assign_attrs(attrs)
+

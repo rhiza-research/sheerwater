@@ -1,5 +1,8 @@
 """Library of metrics implementations for verification."""
-# flake8: noqa: D102
+# flake8: noqa: D102j
+import inspect
+import warnings
+
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -61,6 +64,7 @@ class Metric(ABC):
         self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
         self.metric_data = {}  # dictionary to store the data for the metric calculation
         self.densify = self.metric_kwargs.get('densify', False)
+        self.latitude_weights = self.metric_kwargs.get('latitude_weights', True)
 
         self.start_time = start_time
         self.end_time = end_time
@@ -130,11 +134,18 @@ class Metric(ABC):
             self.filter_event_kwargs_fcst = filter_event_kwargs if filter_event_kwargs is not None else {}
             self.filter_event_kwargs_obs = filter_event_kwargs if filter_event_kwargs is not None else {}
 
-        # For the in season dry spell metric, we need to set the data source to the truth
-        if self.event == 'drying_spells_in_initial_growing_period':
-            self.event_kwargs['data_source'] = self.truth
-        if self.filter_event == 'drying_spells_in_initial_growing_period':
-            self.filter_event_kwargs['data_source'] = self.truth
+        # For events that require a data source, set it to the truth
+        if self.event is not None:
+            event_fn = get_event_fn(self.event)
+            event_params = inspect.signature(event_fn).parameters
+            if 'data_source' in event_params and 'data_source' not in self.event_kwargs:
+                self.event_kwargs['data_source'] = self.truth
+
+        if self.filter_event is not None:
+            filter_event_fn = get_event_fn(self.filter_event)
+            filter_event_params = inspect.signature(filter_event_fn).parameters
+            if 'data_source' in filter_event_params and 'data_source' not in self.filter_event_kwargs:
+                self.filter_event_kwargs['data_source'] = self.truth
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
@@ -429,9 +440,7 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        # Create a non_null indicator and add it to the statistic
-        # Group by time
-        ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
+        ds = groupby_time(ds, self.time_grouping, agg_fn=self.agg_fn)
 
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
@@ -443,14 +452,19 @@ class Metric(ABC):
         # 3. Aggregate in space and apply spatial weighting
         ############################################################
         if not self.spatial:
-            # Group by region and average in space, while applying weighting for mask
-            weights = latitude_weights(ds.lat)
-            # Expand weights to have a time dimension that matches ds
-            weights = weights.expand_dims(lon=ds.lon)
-            if 'time' in ds.dims:  # Enable a time specific null pattern per time
-                weights = weights.expand_dims(time=ds.time)
-            weights = weights.chunk({dim: -1 for dim in weights.dims})
-            # Ensure the weights null pattern matches the ds null pattern
+            if self.latitude_weights:
+                if self.agg_fn != 'mean':
+                    raise ValueError("Latitude weights can only be used with a mean aggregation function.")
+                # Group by region and average in space, while applying weighting for mask
+                weights = latitude_weights(ds.lat)
+                # Expand weights to have a time dimension that matches ds
+                weights = weights.expand_dims(lon=ds.lon)
+                if 'time' in ds.dims:  # Enable a time specific null pattern per time
+                    weights = weights.expand_dims(time=ds.time)
+                weights = weights.chunk({dim: -1 for dim in weights.dims})
+                # Ensure the weights null pattern matches the ds null pattern
+            else:
+                weights = xr.ones_like(ds[self.statistics[0]])
             weights = weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
             # Mulitply by weights
@@ -474,8 +488,9 @@ class Metric(ABC):
                 # we can just continue
                 pass
 
-            for stat in self.statistics:
-                ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
+            if self.agg_fn == 'mean':
+                for stat in self.statistics:
+                    ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
         else:
             # If returning a spatial metric, mask and drop
@@ -509,7 +524,11 @@ class Metric(ABC):
         da = self.compute_metric()
 
         # Convert from dataarray to dataset and return.
-        ds = da.to_dataset(name=self.name)
+        if not isinstance(da, xr.Dataset):
+            ds = da.to_dataset(name=self.name)
+        else:
+            # Allow metrics to return a dataset directly
+            ds = da
         return ds
 
 
@@ -598,6 +617,7 @@ class MAE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mae']
+    agg_fn = 'mean'
 
 
 class ForecastValue(Metric):
@@ -607,6 +627,7 @@ class ForecastValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['fcst']
+    agg_fn = 'mean'
 
 
 class ObsValue(Metric):
@@ -616,6 +637,7 @@ class ObsValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['obs']
+    agg_fn = 'mean'
 
 
 class MSE(Metric):
@@ -625,6 +647,7 @@ class MSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
+    agg_fn = 'mean'
 
 
 class RMSE(Metric):
@@ -634,6 +657,7 @@ class RMSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         return self.grouped_statistics['mse'] ** 0.5
@@ -646,6 +670,7 @@ class Bias(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['bias']
+    agg_fn = 'mean'
 
 
 class CRPS(Metric):
@@ -655,6 +680,7 @@ class CRPS(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['crps']
+    agg_fn = 'mean'
 
 
 class Brier(ContingencyMetric):
@@ -664,6 +690,7 @@ class Brier(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['brier']
+    agg_fn = 'mean'
 
 
 class SMAPE(Metric):
@@ -673,6 +700,7 @@ class SMAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['smape']
+    agg_fn = 'mean'
 
 
 class MAPE(Metric):
@@ -682,6 +710,7 @@ class MAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['mape']
+    agg_fn = 'mean'
 
 
 class SEEPS(Metric):
@@ -691,6 +720,7 @@ class SEEPS(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['seeps']
+    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the SEEPS metric."""
@@ -719,6 +749,7 @@ class ACC(Metric):
     valid_variables = None
     default_event = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
+    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
@@ -780,6 +811,7 @@ class Pearson(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -794,6 +826,7 @@ class Heidke(ContingencyMetric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     default_event = 'digitized'
+    agg_fn = 'mean'
 
     @property
     def statistics(self):
@@ -822,6 +855,7 @@ class POD(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -836,6 +870,7 @@ class FAR(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         fp = self.grouped_statistics['false_positives']
@@ -850,6 +885,7 @@ class ETS(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -868,6 +904,7 @@ class CSI(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -883,6 +920,7 @@ class FrequencyBias(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -891,12 +929,48 @@ class FrequencyBias(ContingencyMetric):
         return (tp + fp) / (tp + fn)
 
 
+class PassFraction(Metric):
+    """Passing fraction metric, according to a user-specified threshold."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = None
+    default_event = None
+    agg_fn = 'sum'
+
+    def prepare_data(self):
+        """Prepare specific data for the PassFraction metric."""
+        # Call the parent prepare_data method to get the forecast and observation
+        super().prepare_data()
+
+        # If we're doing a sum-based metric, can't do latitude weighting.
+        if self.latitude_weights:
+            warnings.warn("Latitude weights cannot be used with a passing fraction metric.")
+        self.latitude_weights = False
+
+    @property
+    def statistics(self):
+        stats = ['count_pass', 'n_valid', self.metric_kwargs['pass_statistic']]
+        return stats
+
+    def compute_metric(self):
+        count_pass = self.grouped_statistics['count_pass']
+        n_valid = self.grouped_statistics['n_valid']
+        val = count_pass / n_valid
+        # Convert result (DataArray) to a Dataset with appropriate name
+        ds = val.to_dataset(name=self.name)
+        # Add the number of valid events
+        ds['n_valid'] = n_valid
+        # Add the average statistic value
+        pass_statistic = self.metric_kwargs['pass_statistic']
+        ds[pass_statistic] = self.grouped_statistics[pass_statistic] / n_valid
+        return ds
+
+
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
-        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
         # Update the experiment kwargs with their values in init_kwargs if passed
         exp_metric_kwargs.update(metric_kwargs)
@@ -905,6 +979,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
             if key in init_kwargs:
                 del init_kwargs[key]
 
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name]
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,

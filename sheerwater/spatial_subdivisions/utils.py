@@ -15,7 +15,8 @@ from sheerwater.utils import get_grid, check_bases, is_station_grid
 import warnings
 from rasterio.errors import ShapeSkipWarning
 
-from .spatial_subdivisions import (spatial_subdivisions, get_spatial_subdivision_level,
+from .spatial_subdivisions import (polygon_subdivision_geodataframe, spatial_subdivisions,
+                                   get_spatial_subdivision_level,
                                    clean_spatial_subdivision_name, space_grouping_labels)
 
 
@@ -30,7 +31,8 @@ warnings.filterwarnings(
 # Core clipping / masking utilities
 ##############################################################################
 
-def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
+
+def clip_region(ds, region, grid, coords_to_clip=None, drop=True, drop_gridded_regions=False):
     """Clip a dataset to a region.
 
     Args:
@@ -101,8 +103,10 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_str = '-'.join([region[i] for i, _ in gridded_regions])
         region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
         region_ds = region_ds.rename({'region': '_clip_region'})
-        #ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
-        ds = ds.where((region_ds._clip_region == region_str), drop=False)
+        if drop_gridded_regions:
+            ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
+        else:
+            ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
 
     # restore coordinate variables to coordinates.
@@ -299,10 +303,10 @@ def regrid_region_masks(masks, output_grid, base="base180"):
     label_map = (masks.astype(np.int8) * masks.region).sum("region")
 
     label_map_comm = regrid(label_map.masks, output_grid, base=base, method="most_common",
-        regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
-    )
+                            regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
+                            )
     label_map_fill = regrid(label_map.masks, output_grid, base=base, method="stat",
-        regridder_kwargs={"method": "max"})
+                            regridder_kwargs={"method": "max"})
     # if a cell has a label but is mostly background, comm=0, but fill!=0
     fillin = (label_map_fill != 0) & (label_map_comm == 0)
     label_map = label_map_comm.where(~fillin, label_map_fill)
@@ -345,10 +349,11 @@ def masks_to_polygons(masks, crs="EPSG:4326"):
         else:
             # dissolve
             merged = unary_union(polygons)
-            gdf = gpd.GeoDataFrame(geometry=[merged],crs=crs)
+            gdf = gpd.GeoDataFrame(geometry=[merged], crs=crs)
         gdf['region'] = region
         gdfs.append(gdf)
     return gdfs
+
 
 def nonuniform_grid(ds, error_thresh=1e-5):
     """Check if a dataset has a nonuniform grid.
@@ -364,3 +369,22 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
 
 
+def get_region_envelope(region, padding=1e-6):
+    """Get the envelope of a region, padded with a small epsilon."""
+    level, _ = get_spatial_subdivision_level(region)
+    gdf = polygon_subdivision_geodataframe(level=level)
+    gdf = gdf[gdf['region_name'] == region]
+    bounds = gdf.geometry.bounds
+    # pad minx, miny, maxx, maxy
+    bounds['minx'] -= padding
+    bounds['miny'] -= padding
+    bounds['maxx'] += padding
+    bounds['maxy'] += padding
+    return bounds
+
+
+def clip_to_region_envelope(ds, region, padding=1e-6):
+    """Clip a dataset to a region envelope."""
+    min_lon, min_lat, max_lon, max_lat = get_region_envelope(region, padding=padding).iloc[0]
+    ds = ds.sel(lon=slice(min_lon, max_lon), lat=slice(min_lat, max_lat))
+    return ds

@@ -73,5 +73,10 @@
     "cold_sec": 183.473252,
     "warm_full_sec": 48.007562,
     "warm_metric_only_sec": 52.320525
+  },
+  "16_pod_global_soft": {
+    "cold_sec": 61.641973,
+    "warm_full_sec": 10.437805,
+    "warm_metric_only_sec": 10.673968
   }
 }
