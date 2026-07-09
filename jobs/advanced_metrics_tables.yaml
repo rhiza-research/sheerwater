@@ -17,7 +17,8 @@ advanced_forecast_table_metrics:
       - "africa_unimodal_shifted_season"
   two_way_metrics:
     # metric_name: ["big_rain_days", "in_season_dry_spell"]
-    metric_name: ["in_season_dry_spell"]
+    # metric_name: ["in_season_dry_spell", "extreme_rain_days"]
+    metric_name: ["extreme_rain_days"]
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false

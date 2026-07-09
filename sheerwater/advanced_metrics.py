@@ -34,7 +34,6 @@ def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=Non
     mid_season_accumulation_by_percent = 0.30
     late_season_accumulation_mm = 600.0
     late_season_accumulation_by_percent = 0.60
-    good_threshold = 30 # mm of rain in the first 30 days of the season
 
     # Compute the MAE
     metric = 'mae'
@@ -81,7 +80,7 @@ def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=Non
         'align': 'right',
     }
 
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
 def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
@@ -108,7 +107,6 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
     first_rain_threshold_mm = 4.0
     drying_day_threshold_mm = 15.0  # this is a sum
     drying_day_agg_in_days = 10
-    good_threshold = 20 # mm of rain in the dry spell
 
     # Compute the amount of forecasted rain during the dry period
     if input_metric_kwargs is not None:
@@ -154,7 +152,7 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
         'align': 'right',
     }
 
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
 def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
@@ -168,7 +166,6 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
     big_rain_threshold_mm = 15.0
     big_rain_agg_days = 1
     big_rain_margin_in_days = 5
-    good_threshold = 0.30 # SMAPE threshold for big rain days
 
     # Compute the SMAPE of the forecasted rain during the big rain days
     metric = 'smape'
@@ -191,7 +188,8 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
         'agg_days': big_rain_margin_in_days,
         'align': 'center',
     }
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
 
 def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
     """Extreme rain days according to the quantile ranks of the data source."""
@@ -199,7 +197,6 @@ def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None): 
     extreme_rain_threshold_quantile = 0.90
     extreme_rain_agg_days = 1
     extreme_rain_margin_in_days = 5
-    good_threshold = 0.30 # SMAPE threshold for extreme rain days
 
     # Compute the SMAPE of the forecasted rain during the big rain days
     metric = 'smape'
@@ -224,7 +221,7 @@ def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None): 
         'agg_days': extreme_rain_margin_in_days,
         'align': 'center',
     }
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
 def get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
@@ -233,7 +230,6 @@ def get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs=None):  # 
     rain_threshold_mm = 3.0
     rain_agg_days = 1
     rain_margin_in_days = 5
-    good_threshold = None # POD threshold for rain days
 
     # Compute the MAE
     # metric = 'mae'
@@ -254,7 +250,7 @@ def get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs=None):  # 
         'agg_days': rain_agg_days,
         'threshold': rain_threshold_mm,
     }
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
 def get_dry_spells_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
@@ -262,7 +258,6 @@ def get_dry_spells_kwargs(experiment, region, input_metric_kwargs=None):  # noqa
     # Configure the big rain thresholds.
     dry_spell_threshold_mm = 1.5  # Average daily rain
     dry_spell_agg_days = 5
-    good_threshold = None # POD threshold for rain days
 
     # Compute the MAE
     # metric = 'mae'
@@ -286,7 +281,7 @@ def get_dry_spells_kwargs(experiment, region, input_metric_kwargs=None):  # noqa
         'agg_days': dry_spell_agg_days,
         'align': 'right',
     }
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
 def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
@@ -295,7 +290,6 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
     dry_day_threshold_mm = 1.0
     dry_day_agg_days = 5
     margin_in_days = 5
-    good_threshold = None 
 
     # Compute the MAE
     metric = 'pod'
@@ -315,33 +309,50 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
         'agg_days': dry_day_agg_days,
         'threshold': dry_day_threshold_mm,
     }
-    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
 def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     """Returns metrics configruations needed to run an advanced agricultural metric."""
-    if 'season_accumulation' in experiment:
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'in_season_dry_spell':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'big_rain_days':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_big_rain_days_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'extreme_rain_days':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'rain_days_soft':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'dry_spells':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_dry_spells_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'dry_spells_soft':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = \
-            get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs)
+    # Enable actionable thresholds for advanced metrics if the metric name is passed in the form 'metric-thresh-value',
+    # e.g. 'early_season_accumulation-30d-thresh-30mm'. If the actionable threshhold is passed, the metric will be
+    # configured to evaluate the passing fraction of the metric.
+    if '-thresh-' in experiment:
+        experiment_name = experiment.split('-thresh-')[0]
+        pass_threshold = float(experiment.split('-thresh-')[1])
     else:
-        raise ValueError(f"Experiment {experiment} not supported.")
+        experiment_name = experiment
+        pass_threshold = None
 
-    return metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold
+    if 'season_accumulation' in experiment_name:
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_seasonal_accumulation_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'in_season_dry_spell':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_in_season_dry_spell_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'big_rain_days':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_big_rain_days_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'extreme_rain_days':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_extreme_rain_days_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'rain_days_soft':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_rain_days_soft_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'dry_spells':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_dry_spells_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'dry_spells_soft':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_dry_spells_soft_kwargs(experiment_name, region, input_metric_kwargs)
+    else:
+        raise ValueError(f"Experiment {experiment_name} not supported.")
+
+    if pass_threshold is not None:
+        # If we are evaluating a passing fraction, we need to use the passfraction metric, with the
+        # underlying passsing statistic being the metric name.
+        metric_kwargs['pass_statistic'] = metric_name
+        metric_kwargs['pass_fn'] = lambda x: x <= pass_threshold
+        metric_name = 'passfraction'
+
+    return metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs

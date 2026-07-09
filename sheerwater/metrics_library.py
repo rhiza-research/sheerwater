@@ -1,6 +1,7 @@
 """Library of metrics implementations for verification."""
 # flake8: noqa: D102j
 import inspect
+import warnings
 
 from abc import ABC, abstractmethod
 
@@ -439,8 +440,6 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        import pdb
-        pdb.set_trace()
         ds = groupby_time(ds, self.time_grouping, agg_fn=self.agg_fn)
 
         # Put evertyhing on the same chunk before spatial aggregation
@@ -525,7 +524,11 @@ class Metric(ABC):
         da = self.compute_metric()
 
         # Convert from dataarray to dataset and return.
-        ds = da.to_dataset(name=self.name)
+        if not isinstance(da, xr.Dataset):
+            ds = da.to_dataset(name=self.name)
+        else:
+            # Allow metrics to return a dataset directly
+            ds = da
         return ds
 
 
@@ -926,34 +929,50 @@ class FrequencyBias(ContingencyMetric):
         return (tp + fp) / (tp + fn)
 
 
-class GoodFraction(Metric):
-    """Count below threshold metric."""
+class PassFraction(Metric):
+    """Passing fraction metric, according to a user-specified threshold."""
     sparse = True
     prob_type = 'deterministic'
     valid_variables = None
     default_event = None
-    statistics = ['count_good', 'n_valid']
     agg_fn = 'sum'
 
     def prepare_data(self):
-        """Prepare specific data for the GoodFraction metric."""
+        """Prepare specific data for the PassFraction metric."""
         # Call the parent prepare_data method to get the forecast and observation
         super().prepare_data()
-        # If we're doing a count-based metric, ensure that the metric setup is valid
+
+        # If we're doing a sum-based metric, can't do latitude weighting.
         if self.latitude_weights:
-            raise ValueError("Latitude weights cannot be used with a count statistic.")
+            warnings.warn("Latitude weights cannot be used with a passing fraction metric.")
+        self.latitude_weights = False
+
+    @property
+    def statistics(self):
+        stats = ['count_pass', 'n_valid', self.metric_kwargs['pass_statistic']]
+        return stats
 
     def compute_metric(self):
-        count_good = self.grouped_statistics['count_good']
+        count_pass = self.grouped_statistics['count_pass']
         n_valid = self.grouped_statistics['n_valid']
-        return count_good / n_valid
+        val = count_pass / n_valid
+        # Convert result (DataArray) to a Dataset with appropriate name
+        ds = val.to_dataset(name=self.name)
+        # Add the number of valid events
+        ds['n_valid'] = n_valid
+        # Add the average statistic value
+        import pdb
+        pdb.set_trace()
+        pass_statistic = self.metric_kwargs['pass_statistic']
+        ds[pass_statistic] = self.grouped_statistics[pass_statistic]
+        return ds
 
 
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
-        exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs, good_threshold = experiment_kwargs
+        exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
 
         # Update the experiment kwargs with their values in init_kwargs if passed
         exp_metric_kwargs.update(metric_kwargs)
@@ -962,10 +981,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
             if key in init_kwargs:
                 del init_kwargs[key]
 
-        exp_metric_kwargs['good_threshold'] = good_threshold
-        exp_metric_kwargs['evaluate_statistic'] = exp_metric_name
-
-        metric = SHEERWATER_METRIC_REGISTRY['goodfraction']
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name]
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,
