@@ -928,8 +928,6 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
-        import pdb; pdb.set_trace()
-
         # Update the experiment kwargs with their values in init_kwargs if passed
         exp_metric_kwargs.update(metric_kwargs)
         # Remove the experiment kwargs from the init kwargs
