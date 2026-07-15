@@ -234,7 +234,7 @@ class Metric(ABC):
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
             if self.do_pre_filter:
-                filter_obs = truth_fn(**self.fcst_obs_kwargs,
+                pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
@@ -929,7 +929,9 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
         # Update the experiment kwargs with their values in init_kwargs if passed
-        exp_metric_kwargs.update(metric_kwargs)
+        if metric_kwargs is not None:
+            exp_metric_kwargs.update(metric_kwargs)
+
         # Remove the experiment kwargs from the init kwargs
         for key in ['event', 'event_kwargs', 'filter_event', 'filter_event_kwargs']:
             if key in init_kwargs:

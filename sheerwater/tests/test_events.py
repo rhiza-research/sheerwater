@@ -6,7 +6,7 @@ import xarray as xr
 
 from sheerwater.forecasts import graphcast
 from sheerwater.climatology import climatology_era5_1985_2015
-from sheerwater.interfaces.events import above_threshold, get_event_fn, remove_partial_seasons
+from sheerwater.interfaces.events import above_threshold, get_event_fn, remove_partial_time_groups
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
@@ -39,7 +39,7 @@ def test_remove_partial_seasons_drops_shifted_djf():
         coords={"time": times, "lat": np.array([0.0]), "lon": np.array([0.0])},
     )
 
-    ds_out = remove_partial_seasons(ds, time_grouping="season", coverage_threshold=0.95)
+    ds_out = remove_partial_time_groups(ds, time_grouping="season", coverage_threshold=0.95)
 
     # Jan and Feb 2022 belong to the now-partial DJF-2022 → must be NaN
     assert np.all(np.isnan(ds_out["precip"].sel(time="2022-01-15").values)), \

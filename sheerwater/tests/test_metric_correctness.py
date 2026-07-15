@@ -281,6 +281,15 @@ METRIC_TEST_CASES = [
     {"name": "27_brier", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "brier-10", "variable": "precip", "spatial": False,
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    {"name": "28_big_rain_days", "forecast": "ecmwf_ifs_er",
+        "metric_name": "big_rain_days", "spatial": True, "agg_days": 1,
+        "truth": "imerg_final", "region": "western_africa"},
+    {"name": "29_in_season_dry_spell", "forecast": "ecmwf_ifs_er", "agg_days": 1,
+        "metric_name": "in_season_dry_spell", "spatial": True,
+        "truth": "imerg_final", "region": "western_africa"},
+    {"name": "30_early_season_accumulation_30d", "forecast": "ecmwf_ifs_er", "agg_days": 1,
+        "metric_name": "early_season_accumulation-30d", "spatial": True,
+        "truth": "imerg_final", "region": "western_africa"},
 ]
 
 
