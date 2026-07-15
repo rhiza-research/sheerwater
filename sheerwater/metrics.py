@@ -130,8 +130,9 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
 
 
 @dask_remote
-@cache(cache_args=['start_time', 'end_time', 'variable', 'data', 'prob_type',
+@cache(cache_args=['start_time', 'end_time', 'variable', 'data', 'obs', 'prob_type',
                    'event', 'event_kwargs',
+                   'filter_event', 'filter_event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
@@ -141,8 +142,10 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
                },
            }
 })
-def event_count(start_time, end_time, variable, data, prob_type='deterministic',
+def event_count(start_time, end_time, variable, data, obs=None,
+                prob_type='deterministic',
                 event=None, event_kwargs=None,
+                filter_event=None, filter_event_kwargs=None,
                 time_grouping=None, space_grouping=None,
                 spatial=False, grid="global1_5", mask='lsm', region='global'):
     """Compute the count of events in a dataset.
@@ -165,6 +168,18 @@ def event_count(start_time, end_time, variable, data, prob_type='deterministic',
         ds = data_fn(start_time, end_time, variable,
                      event=event, event_kwargs=event_kwargs,
                      grid=grid, mask=mask, region=region)
+
+    if filter_event is not None:
+        if obs is None:
+            raise ValueError("Observation data is required for filtering.")
+        obs_fn, _ = get_forecast_or_data(obs)
+        obs = obs_fn(start_time, end_time, variable,
+                     event=filter_event, event_kwargs=filter_event_kwargs,
+                     grid=grid, mask=mask, region=region)
+        # Filter by obs filter
+        no_null = ds.notnull()
+        ds = (ds.astype(bool) & obs.astype(bool)).astype(int)
+        ds = ds.where(no_null, np.nan)
 
     # Add additional variables to the dataset
     ds['total_periods'] = xr.ones_like(ds[variable])
