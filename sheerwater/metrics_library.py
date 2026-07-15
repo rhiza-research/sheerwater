@@ -79,9 +79,15 @@ class Metric(ABC):
         self.memoize_truth = memoize_truth
 
         # Initialize the event kwargs for the metric and filter and check validity.
-        self.init_event_kwargs(event, event_kwargs, filter_event, filter_event_kwargs)
+        self.init_event_kwargs(event, event_kwargs,
+                               metric_kwargs.get('pre_filter_event', None),
+                               metric_kwargs.get('pre_filter_event_kwargs', None),
+                               filter_event, filter_event_kwargs)
 
-    def init_event_kwargs(self, event, event_kwargs, filter_event, filter_event_kwargs):
+    def init_event_kwargs(self,
+                          event, event_kwargs,
+                          pre_filter_event, pre_filter_event_kwargs,
+                          filter_event, filter_event_kwargs):
         """Initialize the event kwargs for the metric and filter and check validity.
 
         For both event_kwargs and filter_event_kwargs, the kwargs can be passed in one of two formats:
@@ -96,10 +102,19 @@ class Metric(ABC):
             The latter will be used for both fcst and obs.
         """
         self.event = event
-        self.filter_event = filter_event
-
         self.event_kwargs = event_kwargs
+
+        self.filter_event = filter_event
         self.filter_event_kwargs = filter_event_kwargs
+
+        self.pre_filter_event = pre_filter_event
+        self.pre_filter_event_kwargs = pre_filter_event_kwargs
+
+        # Check the validity of the pre-filter function
+        event_fn = get_event_fn(pre_filter_event)
+        if pre_filter_event and not event_fn.filter:
+            raise ValueError(
+                f"Can only run filtering with events of type filter. Event {pre_filter_event} is not a boolean event.")
 
         # Check the validity of the filter function
         event_fn = get_event_fn(filter_event)
@@ -109,6 +124,7 @@ class Metric(ABC):
 
         self.do_forecast_filter = filter_event is not None and self.metric_kwargs.get('forecast_filter', False)
         self.do_obs_filter = filter_event is not None and self.metric_kwargs.get('obs_filter', False)
+        self.do_pre_filter = pre_filter_event is not None and self.metric_kwargs.get('pre_filter', False)
 
         if event_kwargs and ('fcst' in event_kwargs or 'obs' in event_kwargs):
             if not ('fcst' in event_kwargs and 'obs' in event_kwargs):
@@ -129,12 +145,6 @@ class Metric(ABC):
         else:
             self.filter_event_kwargs_fcst = filter_event_kwargs if filter_event_kwargs is not None else {}
             self.filter_event_kwargs_obs = filter_event_kwargs if filter_event_kwargs is not None else {}
-
-        # For the in season dry spell metric, we need to set the data source to the truth
-        if self.event == 'drying_spells_in_initial_growing_period':
-            self.event_kwargs['data_source'] = self.truth
-        if self.filter_event == 'drying_spells_in_initial_growing_period':
-            self.filter_event_kwargs['data_source'] = self.truth
 
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
@@ -212,6 +222,10 @@ class Metric(ABC):
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs,
                                       memoize=self.memoize_truth, cache=True)  # noqa: E501
+            if self.do_pre_filter:
+                pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
+                                      event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs,
+                                      memoize=self.memoize_truth, cache=True)  # noqa: E501
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
@@ -219,6 +233,9 @@ class Metric(ABC):
             if self.do_obs_filter:
                 filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
+            if self.do_pre_filter:
+                filter_obs = truth_fn(**self.fcst_obs_kwargs,
+                                      event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -231,6 +248,8 @@ class Metric(ABC):
         fcst = fcst[[self.variable]]
         # Our filters are 0, 1, np.nan int type, so we must first fill with zeros before
         # converting to booleans, otherwise np.nans will be treated as True.
+        if self.do_pre_filter:
+            pre_filter_obs = pre_filter_obs[[self.variable]].fillna(0).astype(bool)
         if self.do_obs_filter:
             filter_obs = filter_obs[[self.variable]].fillna(0).astype(bool)
         if self.do_forecast_filter:
@@ -249,6 +268,8 @@ class Metric(ABC):
         # Everthing will be a daily timeseries at this point, so it will not introduce gaps, just
         # Ensure that we're covering latest start time to the earliest end time of the data
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
+        if self.do_pre_filter:
+            valid_times = valid_times.intersection(set(pre_filter_obs.time.values))
         if self.do_obs_filter:
             valid_times = valid_times.intersection(set(filter_obs.time.values))
         if self.do_forecast_filter:
@@ -260,6 +281,8 @@ class Metric(ABC):
         # This fixes a bug where the lon and lat don't match deep in their floating point precision
         # and this shows up as errors in the join
         datasets = [obs, fcst]
+        if self.do_pre_filter:
+            datasets.append(pre_filter_obs)
         if self.do_obs_filter:
             datasets.append(filter_obs)
         if self.do_forecast_filter:
@@ -276,6 +299,8 @@ class Metric(ABC):
         # Select forecast and obs on their valid times
         obs = obs.sel(time=valid_times)
         fcst = fcst.sel(time=valid_times)
+        if self.do_pre_filter:
+            pre_filter_obs = pre_filter_obs.sel(time=valid_times)
         if self.do_obs_filter:
             filter_obs = filter_obs.sel(time=valid_times)
         if self.do_forecast_filter:
@@ -289,6 +314,8 @@ class Metric(ABC):
             self.metric_data['filter_fcst'] = filter_fcst
         if self.do_obs_filter:
             self.metric_data['filter_obs'] = filter_obs
+        if self.do_pre_filter:
+            self.metric_data['pre_filter_obs'] = pre_filter_obs
         self.metric_data['prob_type'] = enhanced_prob_type
 
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
@@ -380,16 +407,19 @@ class Metric(ABC):
                 self.metric_data['filter_fcst'] = self.metric_data['filter_fcst'].sel(member=0).drop('member')
             if self.do_obs_filter:
                 self.metric_data['filter_obs'] = self.metric_data['filter_obs'].sel(member=0).drop('member')
+            if self.do_pre_filter:
+                self.metric_data['pre_filter_obs'] = self.metric_data['pre_filter_obs'].sel(member=0).drop('member')
 
         # Do event filtering
+        filter = no_null  # baseline no nulls
+        if self.do_pre_filter:
+            filter = filter & self.metric_data['pre_filter_obs']  # add in pre-filter
         if self.do_forecast_filter and self.do_obs_filter:
-            filter = no_null & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
+            filter = filter & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
         elif self.do_forecast_filter:
-            filter = no_null & self.metric_data['filter_fcst']
+            filter = filter & self.metric_data['filter_fcst']
         elif self.do_obs_filter:
-            filter = no_null & self.metric_data['filter_obs']
-        else:
-            filter = no_null
+            filter = filter & self.metric_data['filter_obs']
 
         # Apply the filter to each statistic
         for stat in self.statistics:
@@ -897,6 +927,8 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
         metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
+
+        import pdb; pdb.set_trace()
 
         # Update the experiment kwargs with their values in init_kwargs if passed
         exp_metric_kwargs.update(metric_kwargs)

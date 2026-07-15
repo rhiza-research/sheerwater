@@ -114,10 +114,12 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
             # When filtering on the fcst, we want to use the obs value
             metric = 'obsvalue'
             metric_kwargs.update({'densify': True})
+            metric_kwargs.update({'pre_filter': True})
         elif input_metric_kwargs['obs_filter'] and not input_metric_kwargs['forecast_filter']:
             # When filtering on the obs, we want to use the fcst value
             metric = 'forecastvalue'
             metric_kwargs.update({'densify': True})
+            metric_kwargs.update({'pre_filter': True})
         else:
             raise ValueError("Either forecast_filter or obs_filter must be True.")
     else:
@@ -127,23 +129,30 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
         metric_kwargs = {
             'obs_filter': True,
             'forecast_filter': False,
+            'pre_filter': True,
             'densify': True
         }
 
-    # Filter on a specific threshhold of seasonal accumulation.
-    filter_event = 'drying_spells_in_initial_growing_period'
-
-    # Early season accumulation threshold.
-    filter_event_kwargs = {
+    # Baseline filter down to the pre-sesason
+    pre_filter_event = 'initial_growing_period'
+    pre_filter_event_kwargs = {
         'time_grouping': time_grouping,
         'early_season_accumulation_by_percent': early_season_accumulation_by_percent,
         'mid_season_accumulation_by_percent': mid_season_accumulation_by_percent,
         'season_accumulation_minimum_mm': season_accumulation_minimum_mm,
         'pre_period_in_days': pre_period_in_days,
         'first_rain_threshold_mm': first_rain_threshold_mm,
+    }
+    metric_kwargs['pre_filter_event'] = pre_filter_event
+    metric_kwargs['pre_filter_event_kwargs'] = pre_filter_event_kwargs
+
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'drying_spells'
+    filter_event_kwargs = {
         'drying_day_threshold_mm': drying_day_threshold_mm,
         'drying_day_agg_in_days': drying_day_agg_in_days,
     }
+
     # Compare accumulated rain on the right-aligned window over the past 30 days
     event = 'accumulated_rain'
     event_kwargs = {
@@ -186,6 +195,7 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
         'agg_days': big_rain_margin_in_days,
         'align': 'center',
     }
+
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
