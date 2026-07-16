@@ -54,6 +54,7 @@ dependencies = [
     "xesmf",
     "earthaccess",
     "xee",
+    "cfgrib>=0.9.15.1",
 ]
 
 [dependency-groups]

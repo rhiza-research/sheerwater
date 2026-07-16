@@ -78,6 +78,10 @@ class Metric(ABC):
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
+        # Overwrite default prob type with metric kwargs if present.
+        if 'prob_type' in metric_kwargs:
+            self.prob_type = metric_kwargs['prob_type']
+
         # Initialize the event kwargs for the metric and filter and check validity.
         self.init_event_kwargs(event, event_kwargs,
                                metric_kwargs.get('pre_filter_event', None),
@@ -160,6 +164,8 @@ class Metric(ABC):
         For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
                      to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
         """
+        import pdb
+        pdb.set_trace()
         try:
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
@@ -235,7 +241,7 @@ class Metric(ABC):
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
             if self.do_pre_filter:
                 pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
-                                      event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
+                                          event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values

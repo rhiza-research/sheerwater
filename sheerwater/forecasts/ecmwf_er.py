@@ -59,6 +59,44 @@ def ifs_extended_range_raw(start_time, end_time, variable=None, forecast_type='f
     return ds
 
 
+def reforecast_to_timeseries(ds):
+    """Convert reforecast dataset to a regular forecast timeseries.
+
+    For each (model_issuance_date, start_year) pair, computes the actual
+    forecast init time as model_issuance_date + relativedelta(years=start_year).
+    When two pairs map to the same init time, keeps the most recently issued
+    one (largest model_issuance_date).
+
+    Input dims:  (model_issuance_date, start_year, member, lead_time, lat, lon)
+    Output dims: (init_time, member, prediction_timedelta, lat, lon)
+    """
+    ds_stacked = ds.stack(refc=('model_issuance_date', 'start_year'))
+
+    mid_pd = pd.DatetimeIndex(ds_stacked.model_issuance_date.values)
+    sy = ds_stacked.start_year.values.astype(int)
+
+    init_dates = pd.DatetimeIndex([
+        np.datetime64(pd.Timestamp(mid + relativedelta(years=int(offset))))
+        for mid, offset in zip(mid_pd, sy)
+    ])
+
+    df = pd.DataFrame({
+        'idx': np.arange(len(init_dates)),
+        'init_time': init_dates,
+        'model_issuance_date': mid_pd,
+    })
+    df = df.sort_values(['init_time', 'model_issuance_date'], ascending=[True, False])
+    df = df.drop_duplicates('init_time', keep='first').sort_values('init_time')
+
+    ds_out = ds_stacked.isel(refc=df['idx'].values)
+    ds_out = ds_out.assign_coords(init_time=('refc', df['init_time'].values))
+    ds_out = ds_out.swap_dims({'refc': 'init_time'})
+    ds_out = ds_out.drop_vars(['refc', 'model_issuance_date', 'start_year'])
+    if 'lead_time' in ds_out.dims:
+        ds_out = ds_out.rename({'lead_time': 'prediction_timedelta'})
+    return ds_out
+
+
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
 @spatial()
@@ -118,7 +156,7 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
     ds = lon_base_change(ds, to_base="base180")
 
     # Perform variable renaming if a variable is reuqested
-    for var in ds.variables:
+    for var in ds.data_vars:
         try:
             variable = get_variable(var, 'sheerwater')
             ds = ds.rename_vars(name_dict={var: variable})
