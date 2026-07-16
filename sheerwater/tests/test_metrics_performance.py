@@ -224,7 +224,7 @@ PERFORMANCE_TEST_CASES = [
         "region": "western_africa", "spatial": True, "agg_days": 1},
     {"name": "18_early_season_accumulation_30d", "metric_name": "early_season_accumulation-30d",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
-        "region": "western_africa", "spatial": True, "agg_days": 1},
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
 ]
 
 
