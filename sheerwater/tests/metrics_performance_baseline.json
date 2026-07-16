@@ -75,9 +75,9 @@
     "warm_metric_only_sec": 52.320525
   },
   "16_big_rain_days": {
-    "cold_sec": 44.229155,
-    "warm_full_sec": 22.257237,
-    "warm_metric_only_sec": 22.623749
+    "cold_sec": 60.973616,
+    "warm_full_sec": 18.655363,
+    "warm_metric_only_sec": 18.722859
   },
   "17_in_season_dry_spell": {
     "cold_sec": 52.517409,

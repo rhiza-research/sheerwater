@@ -387,7 +387,7 @@ class forecast(SheerwaterDataset):
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'event' not in ds.attrs and self.densify:
             #################################################################################################
-            # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
+            # 1. Densify the forecast if requested (fill in missing init time gaps with previous forecast values)
             # Run this first, as we will re-get the forecast from dense cache, so post processors will be lost
             ##################################################################################################
             # Get the observations for forecast period + the lookback period

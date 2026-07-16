@@ -388,10 +388,21 @@ def climatology_daily(start_time, end_time, variable, data='era5', first_year=19
        cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
                    'prob_type', 'grid', 'mask', 'region'])
 def climatology(start_time, end_time, variable, agg_days, data='era5',  # noqa: ARG001
-                first_year=1985, last_year=2014, trend=False,
+                first_year=None, last_year=None, trend=False,
                 event=None, event_kwargs=None, processors=None, processor_kwargs=None,  # noqa: ARG001
                 prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
+    default_years = {
+        'era5': (1985, 2014),
+        'imerg_final': (1998, 2015),
+        'chirps_v3': (1998, 2023),
+        'stations': (2015, 2024),
+    }
+    if first_year is None or last_year is None:
+        fy, ly = default_years.get(data, (1985, 2014))
+        first_year = fy if first_year is None else first_year
+        last_year = ly if last_year is None else last_year
+
     if trend:
         ds = climatology_daily_trend(start_time, end_time, variable, data=data,
                                      first_year=first_year, last_year=last_year,
