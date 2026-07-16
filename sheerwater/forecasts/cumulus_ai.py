@@ -11,6 +11,7 @@ from nuthatch.processors import timeseries
 from sheerwater.utils import dask_remote, get_variable, lon_base_change, regrid, shift_by_days, run_in_parallel
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
+
 @dask_remote
 @cache(cache=True,
        cache_args=['date', 'variable', 'prob_type'],
@@ -44,7 +45,8 @@ def cumulus_ai_daily(date, variable='precip', prob_type='deterministic',  # noqa
     # copied into our bucket
     dt = pd.to_datetime(date)
     fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
-    gsf = ['gs://' + x for x in fs.glob(f'gs://sheerwater-datalake/cumulus-data/{version}/data/{dt.year}-{dt.month:02}-{dt.day:02}*')]
+    gsf = [
+        'gs://' + x for x in fs.glob(f'gs://sheerwater-datalake/cumulus-data/{version}/data/{dt.year}-{dt.month:02}-{dt.day:02}*')]
     if len(gsf) == 0:
         return None
 
@@ -120,6 +122,7 @@ def cumulus_ai_raw(start_time, end_time, variable='precip', prob_type='determini
 
     return ds
 
+
 @dask_remote
 @spatial()
 @timeseries(timeseries=['init_time'])
@@ -128,7 +131,7 @@ def cumulus_ai_raw(start_time, end_time, variable='precip', prob_type='determini
        backend_kwargs={'chunking': {"lat": 300, "lon": 300, "prediction_timedelta": 10, "init_time": 25}})
 def cumulus_gridded(start_time, end_time, variable='precip', prob_type='deterministic',  # noqa: ARG001
                 version='v0.0.0', grid="global1_0", mask=None, region='global'):  # noqa: ARG001
-
+    """"Cumulus AI model gridded data."""
     ds = cumulus_ai_raw(start_time, end_time, variable=variable, prob_type=prob_type)
 
     # Regrid if necessary
@@ -138,6 +141,7 @@ def cumulus_gridded(start_time, end_time, variable='precip', prob_type='determin
         ds = regrid(ds, grid, base='base180', method='conservative')
 
     return ds
+
 
 @dask_remote
 @sheerwater_forecast()
@@ -154,8 +158,8 @@ def cumulus_ai(start_time=None, end_time=None, variable="precip", agg_days=1, pr
     """Standard format forecast data for ECMWF forecasts."""
     forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
     ds = cumulus_gridded(start_time=forecast_start, end_time=end_time, variable=variable,
-                        prob_type=prob_type,
-                        grid=grid, mask=mask, region=region)
+                         prob_type=prob_type,
+                         grid=grid, mask=mask, region=region)
 
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type=prob_type)

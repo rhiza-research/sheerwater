@@ -1,7 +1,6 @@
 """A decorator for identifying data sources."""
 import math
 
-import inspect
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
