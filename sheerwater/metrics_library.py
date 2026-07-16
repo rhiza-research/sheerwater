@@ -235,7 +235,7 @@ class Metric(ABC):
                                       event=self.filter_event, event_kwargs=self.filter_event_kwargs_obs)
             if self.do_pre_filter:
                 pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
-                                      event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
+                                          event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -434,6 +434,9 @@ class Metric(ABC):
                 filt = filter
             self.statistic_values[stat] = stat_vals.where(filt[self.variable], np.nan, drop=False)
 
+        # Save the filter datastream for downstream event counting
+        self.filter = filter
+
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
 
@@ -459,15 +462,17 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        # Create a non_null indicator and add it to the statistic
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
+        filter_count = groupby_time(self.filter, self.time_grouping, agg_fn='sum')
 
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
+        filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
+        filter_count = filter_count.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
 
         ############################################################
         # 3. Aggregate in space and apply spatial weighting
@@ -491,8 +496,10 @@ class Metric(ABC):
 
             if self.space_grouping is None:
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+                filter_count = filter_count.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+                filter_count = filter_count.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
                 # If we've passed a global region and clipped, drop any null groups
                 # Currently commenting out because it was hurting performance
@@ -510,9 +517,11 @@ class Metric(ABC):
         else:
             # If returning a spatial metric, mask and drop
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
+            filter_count = filter_count.where(mask_ds.mask, np.nan, drop=False)
 
         # Assign the final statistic value
         self.grouped_statistics = ds
+        self.filter_count = filter_count.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
@@ -539,7 +548,10 @@ class Metric(ABC):
         da = self.compute_metric()
 
         # Convert from dataarray to dataset and return.
+        breakpoint()
         ds = da.to_dataset(name=self.name)
+        ds.attrs['metric_name'] = self.name
+        ds['event_count'] = self.filter_count[self.variable]
         return ds
 
 
