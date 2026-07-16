@@ -435,7 +435,7 @@ class Metric(ABC):
             self.statistic_values[stat] = stat_vals.where(filt[self.variable], np.nan, drop=False)
 
         # Save the filter datastream for downstream event counting
-        self.filter = filter
+        self.filter = filter.astype(int).where(no_null, np.nan, drop=False)
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
@@ -521,7 +521,7 @@ class Metric(ABC):
 
         # Assign the final statistic value
         self.grouped_statistics = ds
-        self.filter_count = filter_count.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
+        self.filter_count = filter_count
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
