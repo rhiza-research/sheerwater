@@ -12,6 +12,7 @@ import dashboard_data
 from sheerwater.utils import start_remote
 import multiprocessing
 
+
 def run_in_parallel(func, iterable, parallelism, skip=0, name=""):
     """Run a function in parallel with dask delayed.
 
@@ -117,6 +118,7 @@ def extract_combos_from_args(args):
 
     return product_of_args
 
+
 def extract_combos_from_file(file, metric_group):
     """Extract all metric combinations from a section of a metrics file."""
     function = None
@@ -142,8 +144,8 @@ def extract_combos_from_file(file, metric_group):
 
     for key, value in data.items():
         current_combo = copy.deepcopy(all_combos)
-        #print(current_combo)
-        #print(data[key])
+        # print(current_combo)
+        # print(data[key])
 
         # Update and add section-specific options
         current_combo.update(data[key])
@@ -158,7 +160,8 @@ def extract_combos_from_file(file, metric_group):
             for instance in itertools.product(*kwargs.values()):
                 yield dict(zip(keys, instance))
 
-        order = ['start_time', 'end_time', 'forecast', 'truth', 'variable', 'grid', 'agg_days', 'metric_name', 'space_grouping', 'time_grouping']
+        order = ['start_time', 'end_time', 'forecast', 'truth', 'variable',
+                 'grid', 'agg_days', 'metric_name', 'space_grouping', 'time_grouping']
         ordered_combo = {key: current_combo[key] for key in order if key in current_combo}
         ordered_combo.update({
             key: current_combo[key] for key in current_combo if key not in order
@@ -184,7 +187,7 @@ def start_and_run_group(combos, parallelism, skip, remote_name, remote_config, f
 
 
 if __name__ == "__main__":
-    ## Parse arguments
+    # Parse arguments
     parser = argparse.ArgumentParser()
 
     # These arguments get packed and passed through to the metric runner function as a kwarg
@@ -237,7 +240,7 @@ if __name__ == "__main__":
                         once for all clusters or for each divide by group.")
     args = parser.parse_args()
 
-    #### Get all the combinations of metrics to run -
+    # Get all the combinations of metrics to run -
     # either through a product of passed options - or by resolving the yaml file
     combos_to_run = []
     if args.from_file:
@@ -288,7 +291,7 @@ if __name__ == "__main__":
                 if divide_by not in combo:
                     raise ValueError(f"Divide by argument {divide_by} not found in combination {combo}")
 
-                #key += f"{name_prefix}-{combo[divide_by]}"
+                # key += f"{name_prefix}-{combo[divide_by]}"
                 key = f"{combo[divide_by]}"
 
             if key not in dict_of_combos_to_run:
@@ -300,17 +303,17 @@ if __name__ == "__main__":
 
     # Check that the cluster arguments match the number of divide by groups
     if (args.remote_name is not None and len(args.remote_name) != len(dict_of_combos_to_run)
-                                     and len(args.remote_name) != 1):
+            and len(args.remote_name) != 1):
         raise ValueError(f"Number of remote names ({len(args.remote_name)}) \
         does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
     if (args.remote_config is not None and len(args.remote_config) != len(dict_of_combos_to_run)
-                                       and len(args.remote_config) != 1):
+            and len(args.remote_config) != 1):
         raise ValueError(f"Number of remote configs ({len(args.remote_config)}) \
                 does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
     if (args.parallelism is not None and len(args.parallelism) != len(dict_of_combos_to_run)
-                                     and len(args.parallelism) != 1):
+            and len(args.parallelism) != 1):
         raise ValueError(f"Number of parallelism ({len(args.parallelism)}) \
         does not match number of divide by groups ({len(dict_of_combos_to_run)})")
 
@@ -330,8 +333,6 @@ if __name__ == "__main__":
             function = getattr(dashboard_data, function)
         except AttributeError:
             raise ValueError(f"Function {function} not found in metrics or dashboard_data modules")
-
-
 
     # Start threads for each divide by group
         # In each thread start a cluster for each divide by group
@@ -360,9 +361,12 @@ if __name__ == "__main__":
         else:
             remote_config = args.remote_config[0]
 
-        processes.append(multiprocessing.Process(target=start_and_run_group,
-                                                 args=(combos, parallelism, skip,
-                                                       remote_name, remote_config, function)))
+        if parallelism <= 1:
+            start_and_run_group(combos, parallelism, skip, remote_name, remote_config, function)
+        else:
+            processes.append(multiprocessing.Process(target=start_and_run_group,
+                                                     args=(combos, parallelism, skip,
+                                                           remote_name, remote_config, function)))
     else:
         for key, value in dict_of_combos_to_run.items():
             if args.parallelism is None:
@@ -409,10 +413,12 @@ if __name__ == "__main__":
                 raise ValueError("Multiple remote_config arguments passed but no value remote order \
                                  passed to index the remote_config arguments.")
 
-            processes.append(multiprocessing.Process(target=start_and_run_group,
-                                                     args=(value, parallelism, skip,
-                                                           remote_name, remote_config, function)))
-
+            if parallelism <= 1:
+                start_and_run_group(value, parallelism, skip, remote_name, remote_config, function)
+            else:
+                processes.append(multiprocessing.Process(target=start_and_run_group,
+                                                         args=(value, parallelism, skip,
+                                                               remote_name, remote_config, function)))
 
     # Start all the processes
     for process in processes:

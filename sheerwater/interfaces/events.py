@@ -177,10 +177,23 @@ def has_continuous_days_above_threshold(ds, threshold, smoothing, continuous_day
 
 
 def remove_partial_seasons(ds, time_grouping='year', coverage_threshold=0.95):
-    """Remove seasons that don't have enough coverage."""
-    # Pad the dataset with lagging and leading time to ensure that all partial seasons
-    # are dropped properly, even those that are misaligned with the start and end
-    # of the year
+    """Remove seasons (time groups) from the dataset that do not have sufficient data coverage.
+
+    To accomplish this, the function pads the dataset's time dimension beyond its original bounds,
+    groups by time grouping, and calculates the coverage of the data.
+      1. It determines the earliest and latest years in the data.
+      2. It extends (pads) the timeseries to start on September 1st of the year before the earliest year,
+         and ends on February 28th of the year after the latest year. This allows for the calculation of 
+         completeness for seasons that are not year-aligned, e.g., shifted rainy seasons that run
+         from September to May of the following year.
+      3. It reindexes the data at daily resolution over this expanded time span, filling missing entries with NaN.
+
+    Returns:
+        A dataset with the time dimension padded to start on September 1st of the year before the earliest year,
+        and ends on February 28th of the year after the latest year.
+        All time points that fall within incomplete seasons are set to NaN and all time points that 
+        do not fall within a season defined by the time grouping are set to NaN.
+    """
     years = pd.to_datetime(ds.time.values).year
     min_year = years.min()
     max_year = years.max()

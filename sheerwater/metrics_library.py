@@ -726,18 +726,7 @@ class ACC(Metric):
         Metric.prepare_data(self)
         assert self.event is None, "ACC metric does not support events."
 
-        # Get the appropriate climatology dataframe for metric calculation
-        if self.truth == 'imerg_final':
-            first_year = 1998
-            last_year = 2015
-            clim_source = 'imerg_final'
-        else:
-            first_year = 1985
-            last_year = 2014
-            clim_source = 'era5'
-
-        clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
-                              **self.fcst_obs_kwargs, prob_type='deterministic')
+        clim_ds = climatology(data=self.truth, **self.fcst_obs_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['fcst'].dims:
@@ -750,10 +739,9 @@ class ACC(Metric):
         # Add the climatology to the metric data
         self.metric_data['climatology'] = clim_ds
 
-        # Update the metric kwargs to include the climatology year range
-        self.metric_kwargs['clim_source'] = clim_source
-        self.metric_kwargs['first_year'] = first_year
-        self.metric_kwargs['last_year'] = last_year
+        # Update the metric kwargs to include the climatology data source for
+        # cache keying
+        self.metric_kwargs['clim_source'] = self.truth
 
     def compute_metric(self):
         gs = self.grouped_statistics

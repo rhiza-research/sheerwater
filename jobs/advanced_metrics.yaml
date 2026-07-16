@@ -89,13 +89,13 @@ advanced_forecast_metric_maps:
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
-          #obs_only_bimodal:
-          #  region: ['africa_bimodal_season'] 
-          #  time_grouping: ['two_seasons']
-          #  metric_name: ['early_season_accumulation-30d']
-          #  metric_kwargs:
-          #    - obs_filter: true
-          #      forecast_filter: false
+  obs_only_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
+    metric_name: ['early_season_accumulation-30d']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
   fcst_obs:
     region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
     time_grouping: ['None']
@@ -105,15 +105,15 @@ advanced_forecast_metric_maps:
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
-          #fcst_obs_bimodal:
-          #  region: ['africa_bimodal_season'] 
-          #  time_grouping: ['two_seasons']
-          #  metric_name: ['in_season_dry_spell', 'big_rain_days']
-          #  metric_kwargs:
-          #    - obs_filter: true
-          #      forecast_filter: false
-          #    - obs_filter: false
-          #      forecast_filter: true
+  fcst_obs_bimodal:
+    region: ['africa_bimodal_season'] 
+    time_grouping: ['two_seasons']
+    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
 advanced_ground_truth_metrics:
   function: metric
   _all:
