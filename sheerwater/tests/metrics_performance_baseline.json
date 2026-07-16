@@ -75,18 +75,18 @@
     "warm_metric_only_sec": 52.320525
   },
   "16_big_rain_days": {
-    "cold_sec": 39.046127,
-    "warm_full_sec": 20.622498,
-    "warm_metric_only_sec": 20.568717
+    "cold_sec": 44.229155,
+    "warm_full_sec": 22.257237,
+    "warm_metric_only_sec": 22.623749
   },
   "17_in_season_dry_spell": {
-    "cold_sec": 62.014714,
-    "warm_full_sec": 21.554406,
-    "warm_metric_only_sec": 20.762612
+    "cold_sec": 52.517409,
+    "warm_full_sec": 21.902948,
+    "warm_metric_only_sec": 22.234574
   },
   "18_early_season_accumulation_30d": {
-    "cold_sec": 88.942001,
-    "warm_full_sec": 20.982195,
-    "warm_metric_only_sec": 20.95179
+    "cold_sec": 79.117437,
+    "warm_full_sec": 22.56951,
+    "warm_metric_only_sec": 21.193194
   }
 }
