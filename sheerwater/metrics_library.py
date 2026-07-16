@@ -548,7 +548,6 @@ class Metric(ABC):
         da = self.compute_metric()
 
         # Convert from dataarray to dataset and return.
-        breakpoint()
         ds = da.to_dataset(name=self.name)
         ds.attrs['metric_name'] = self.name
         ds['event_count'] = self.filter_count[self.variable]
