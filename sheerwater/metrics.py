@@ -79,6 +79,11 @@ def metric(start_time, end_time, variable, forecast, truth,
                                    spatial=spatial, grid=grid, mask=mask, region=region,
                                    memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
     metric_name = data.attrs['metric_name']
+    # When reading from cache, b/c the space grouping is a unicode string object, loading from zarr
+    # and using that encoding messes somethign up. This fixes that temporarily. Would be better
+    # to put this in the nuthatch backend.
+    if 'space_grouping' in data.coords:
+        data['space_grouping'].encoding.clear()
     return data[[metric_name]]
 
 

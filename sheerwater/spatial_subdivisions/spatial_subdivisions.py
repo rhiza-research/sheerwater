@@ -419,7 +419,7 @@ def polygon_subdivision_labels(grid='global1_5', level='country'):
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
     # Fixed data type of strings of length 40
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
 
     # Create a copy of the region data for assignments
     region_data = ds['region'].copy()
@@ -594,7 +594,7 @@ def rainfall_region_labels(grid='global0_25'):
                 }
 
     rr_labels = masks_to_labels(rr_east_west, rr_names)
-    rr_labels['region'] = rr_labels['region'].astype('U40')
+    rr_labels['region'] = rr_labels['region'].astype('U100')
     return rr_labels
 
 
@@ -627,7 +627,7 @@ def season_region_labels(grid='global0_25'):
 
     ds = ds.assign_coords(region=season_regions)
 
-    ds['region'] = ds['region'].astype('U40')
+    ds['region'] = ds['region'].astype('U100')
     return ds
 
 
@@ -740,7 +740,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 
     # Now combine the region coordinates into a single region coordinate
     coords_values = [ds[x].values.flatten() for x in ds_coords]
-    combined_region_coords = np.array(['-'.join(vals) for vals in zip(*coords_values)], dtype='U40')
+    combined_region_coords = np.array(['-'.join(vals) for vals in zip(*coords_values)], dtype='U100')
     ds = ds.assign_coords(region=(('lat', 'lon'), combined_region_coords.reshape(ds.lat.size, ds.lon.size)))
     return ds
 
