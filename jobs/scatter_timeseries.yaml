@@ -1,0 +1,34 @@
+timeseries_data:
+  function: data_at_stations
+  _all:
+    start_time: "2015-01-01"
+    end_time: "2026-06-01"
+    data:
+      - chirps_v3
+      - imerg_final
+      - rain_over_africa
+    station: ['tahmo']
+    variable: ['precip']
+    grid: ['global0_1', 'global0_25', 'global1_5']
+  smap:
+    data: ['smap_l3']
+    grid: ['source']
+    variable: ['soil_moisture']
+  tahmo:
+    data: ['tahmo']
+    grid: ['source']
+    station: ['stations']
+scatter_data:
+  function: scatter_data
+  _all:
+    start_time: "2015-01-01"
+    end_time: "2026-06-01"
+    agg_days: [1, 5, 10]
+    grid: ['global0_25', 'global1_5']
+    sources:
+      - - !!python/tuple ['rain_over_africa', 'precip']
+        - !!python/tuple ['chirps_v3', 'precip']
+        - !!python/tuple ['imerg_final', 'precip']
+        - !!python/tuple ['tahmo_avg', 'precip']
+    mask: ['lsm']
+    region: ['ghana', 'kenya']

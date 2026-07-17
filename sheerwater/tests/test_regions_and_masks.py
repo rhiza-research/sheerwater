@@ -243,11 +243,12 @@ def test_nonuniform_check():
 
 def test_nonuniform_clip():
     """Test the nonuniform clip function."""
+    rng = np.random.default_rng(0)
     # create a grid with randomized lat / lon steps
     lat_start = -90.0
     lon_start = -180.0
-    lat_steps = np.random.uniform(1, 5, 1000)
-    lon_steps = np.random.uniform(1, 5, 1000)
+    lat_steps = rng.uniform(1, 5, 1000)
+    lon_steps = rng.uniform(1, 5, 1000)
     lons = lon_start + np.cumsum(lon_steps)
     lats = lat_start + np.cumsum(lat_steps)
     # drop points above lat / lon limits (90 and 180 respectively)
@@ -257,14 +258,20 @@ def test_nonuniform_clip():
     # create a dataset with random precip values
     ds = xr.Dataset(
         coords={'lon': lons, 'lat': lats},
-        data_vars={'precip': (('lat', 'lon'), np.random.rand(len(lats), len(lons)))}
+        data_vars={'precip': (('lat', 'lon'), rng.random((len(lats), len(lons))))}
     )
     # check that grid is nonuniform
     assert nonuniform_grid(ds)
     # clip to africa
     ds_africa = clip_region(ds, "africa", grid="nonuniform")
-    # check that values outside africa bounding box are nan
-    mask_outside = ((ds_africa.lat < -40) | (ds_africa.lat > 40) | (ds_africa.lon < -20) | (ds_africa.lon > 55))
+    # Values outside the Africa geometry bbox must be nan. Use the real polygon
+    # bounds (islands extend west of -20 and south of -40), not a hand-tuned box.
+    gdf = polygon_subdivision_geodataframe(level='continent')
+    lon_min, lat_min, lon_max, lat_max = gdf[gdf['region_name'] == 'africa'].geometry.iloc[0].bounds
+    mask_outside = (
+        (ds_africa.lat < lat_min) | (ds_africa.lat > lat_max) |
+        (ds_africa.lon < lon_min) | (ds_africa.lon > lon_max)
+    )
     assert ds_africa['precip'].where(mask_outside).isnull().all()
 
 

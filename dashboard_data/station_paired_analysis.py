@@ -4,7 +4,7 @@ import numpy as np
 from google.cloud import secretmanager
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import (dask_remote, get_grid, is_station_grid)
+from sheerwater.utils import dask_remote, get_grid, is_station_grid
 from sheerwater.spatial_subdivisions import nonuniform_grid
 from sheerwater.interfaces import get_data
 

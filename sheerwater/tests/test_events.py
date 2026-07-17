@@ -1,15 +1,57 @@
 """Lightweight tests for event registration and basic event behavior."""
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
 from sheerwater.forecasts import graphcast
 from sheerwater.climatology import climatology_era5_1985_2015
-from sheerwater.interfaces.events import above_threshold, get_event_fn
+from sheerwater.interfaces.events import above_threshold, get_event_fn, remove_partial_time_groups
 from sheerwater.metrics import metric
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
 
 pytestmark = pytest.mark.default
+
+
+def test_remove_partial_seasons_drops_shifted_djf():
+    """remove_partial_seasons nulls the shifted part of a DJF season.
+
+    The season_mapping places Dec, Jan, and Feb of the *same* calendar year into
+    DJF-YYYY.  December therefore appears at the *end* of the year rather than the
+    beginning — making DJF a "shifted" season relative to the calendar.
+
+    When December is entirely NaN, DJF-2022 (= Jan + Feb + Dec) has only ~66%
+    coverage (59/90 days), which is well below the 0.95 threshold.
+    Both January and February should consequently be nulled, even though the data
+    for those two months is perfectly valid.
+
+    Complete seasons (MAM, JJA, SON in 2022) must remain un-nulled.
+    """
+    times = pd.date_range("2022-01-01", "2022-12-31", freq="D")
+    data = np.ones((len(times), 1, 1), dtype=np.float32)
+
+    # Null out all of December — makes DJF-2022 partial
+    dec_mask = pd.to_datetime(times).month == 12
+    data[dec_mask, :, :] = np.nan
+
+    ds = xr.Dataset(
+        {"precip": (("time", "lat", "lon"), data)},
+        coords={"time": times, "lat": np.array([0.0]), "lon": np.array([0.0])},
+    )
+
+    ds_out = remove_partial_time_groups(ds, time_grouping="season", coverage_threshold=0.95)
+
+    # Jan and Feb 2022 belong to the now-partial DJF-2022 → must be NaN
+    assert np.all(np.isnan(ds_out["precip"].sel(time="2022-01-15").values)), \
+        "January (DJF-2022, partial due to missing Dec) should be NaN"
+    assert np.all(np.isnan(ds_out["precip"].sel(time="2022-02-15").values)), \
+        "February (DJF-2022, partial due to missing Dec) should be NaN"
+
+    # Complete seasons must survive
+    for month_day, label in [("03-15", "MAM"), ("07-15", "JJA"), ("10-15", "SON")]:
+        vals = ds_out["precip"].sel(time=f"2022-{month_day}").values
+        assert not np.any(np.isnan(vals)), \
+            f"{label}-2022 is complete and should not be NaN"
 
 
 def test_get_event_fn_lookup_and_unknown():

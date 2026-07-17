@@ -4,7 +4,7 @@ import xarray as xr
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days
+from sheerwater.utils import dask_remote, get_variable, regrid, shift_by_days, get_grid_ds
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -74,9 +74,8 @@ def salient(start_time=None, end_time=None, variable="precip", agg_days=7, prob_
 
     # Get the data with the right days
     forecast_start = shift_by_days(start_time, -366) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 366) if end_time is not None else None
 
-    ds = salient_blend(forecast_start, forecast_end, variable, timescale=timescale, grid=grid, mask=mask, region=region)
+    ds = salient_blend(forecast_start, end_time, variable, timescale=timescale, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         # Get the median forecast
         ds = ds.sel(quantiles=0.5)
@@ -133,15 +132,11 @@ def salient_gem_raw(start_time, end_time, variable, # noqa: ARG001
     return ds
 
 @dask_remote
-@timeseries(timeseries='forecast_date')
 @spatial()
+@timeseries(timeseries='forecast_date')
 @cache(cache_args=['variable', 'grid', 'prob_type'],
        backend_kwargs={
            'chunking': {"lat": 73, "lon": 77, "forecast_date": 50, 'lead': 125}
-       },
-       cache_disable_if={
-           'prob_type': 'probabilistic',
-           'grid': 'global0_25'
        })
 def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deterministic',
                           mask=None, region=None): # noqa: ARG001
@@ -169,6 +164,11 @@ def salient_gem_processed(start_time, end_time, variable, grid, prob_type='deter
     if grid != 'global0_25':
         # Regrid the data
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
+    else:
+        # We must reindex to the full grid for our 0.25 evals to work
+        ds = ds.chunk(chunks={"lat": 73, "lon": 77, "forecast_date": 50, 'lead': 125})
+        grid_ds = get_grid_ds(grid)
+        ds = ds.reindex_like(grid_ds, method='nearest', tolerance=0.005, fill_value=np.nan)
 
     return ds
 
@@ -188,12 +188,14 @@ def salient_gem(start_time=None, end_time=None, variable="precip", agg_days=1,  
     """Final Salient GEM interface."""
     # Get the data with the right days - the forecast is 126 days long, so pull before and after
     forecast_start = shift_by_days(start_time, -126) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 126) if end_time is not None else None
 
-    ds = salient_gem_processed(forecast_start, forecast_end, variable, grid=grid,
+    ds = salient_gem_processed(forecast_start, end_time, variable, grid=grid,
                                prob_type=prob_type, mask=mask, region=region)
 
     # Rename to standard naming
     ds = ds.rename({'forecast_date': 'init_time', 'lead': 'prediction_timedelta'})
+
+    # Slice to the first 46 leads because we aren't doing a seasonal evaluation (right now)
+    ds = ds.isel(prediction_timedelta=slice(0,46))
 
     return ds

@@ -29,7 +29,7 @@ def convert_pred_time_to_init_time(ds, time_dim='time',
 
 
 def densify_fcst(fcst, start_time=None, end_time=None):
-    """Desnify the forecast."""
+    """Densify the forecast."""
     if not isinstance(fcst, xr.Dataset):
         raise ValueError(f"fcst must be an xarray dataset. Received {type(fcst)}.")
 
@@ -66,34 +66,36 @@ def densify_fcst(fcst, start_time=None, end_time=None):
 
 def get_variable(variable_name, variable_type='era5'):
     """Converts a variable in any other type to a variable name of the requested type."""
-    variable_ordering = ['sheerwater', 'era5', 'ecmwf_hres', 'ecmwf_ifs_er', 'salient', 'abc', 'ghcn', 'era5_land']
+    variable_ordering = ['sheerwater', 'era5', 'ecmwf_hres',
+                         'ecmwf_ifs_er', 'salient', 'abc', 'ghcn', 'era5_land', 'cumulus_ai']
 
     weather_variables = [
         # Static variables (2):
-        ('z', 'geopotential', 'geopotential', None, None, None, None, None),
-        ('lsm', 'land_sea_mask', 'land_sea_mask', None, None, None, None, None),
+        ('z', 'geopotential', 'geopotential', None, None, None, None, None, None),
+        ('lsm', 'land_sea_mask', 'land_sea_mask', None, None, None, None, None, None),
 
         # Surface variables (6):
-        ('tmp2m', '2m_temperature', '2m_temperature', '2m_temperature', 'temp', 'tmp2m', 'temp', 't2m'),
-        ("d2m", "2m_dewpoint_temperature", '2m_dewpoint_temperature', '2m_dewpoint_temperature', None, None, None, 'd2m'),
+        ('tmp2m', '2m_temperature', '2m_temperature', '2m_temperature', 'temp', 'tmp2m', 'temp', 't2m', None),
+        ("d2m", "2m_dewpoint_temperature", '2m_dewpoint_temperature',
+         '2m_dewpoint_temperature', None, None, None, 'd2m', None),
         # relative humidity at surface isn't natively supported in ERA5, derived from d2m and tmp2m
-        ("rh2m", None, None, None, None, None, None, None),
+        ("rh2m", None, None, None, None, None, None, None, None),
         ('precip', 'total_precipitation', 'total_precipitation_6hr', 'total_precipitation_24hr',
-         'precip', 'precip', 'precip', 'tp'),
-        ("tcwv", "total_column_water_vapour", "total_column_water_vapour", None, None, None, None, None),
-        ("vwind10m", "10m_v_component_of_wind", "10m_v_component_of_wind", None, None, None, None, 'v10'),
-        ("uwind10m", "10m_u_component_of_wind", "10m_u_component_of_wind", None, None, None, None, 'u10'),
-        ("msl", "mean_sea_level_pressure", "mean_sea_level_pressure", None, None, None, None, None),
-        ("tisr", "toa_incident_solar_radiation", "toa_incident_solar_radiation", None, "tsi", None, None, 'ssr'),
-        ("ssrd", "surface_solar_radiation_downwards", None, None, "tsi", None, None, 'ssrd'),
+         'precip', 'precip', 'precip', 'tp', 'total_precipitation_24h_acc'),
+        ("tcwv", "total_column_water_vapour", "total_column_water_vapour", None, None, None, None, None, None),
+        ("vwind10m", "10m_v_component_of_wind", "10m_v_component_of_wind", None, None, None, None, 'v10', None),
+        ("uwind10m", "10m_u_component_of_wind", "10m_u_component_of_wind", None, None, None, None, 'u10', None),
+        ("msl", "mean_sea_level_pressure", "mean_sea_level_pressure", None, None, None, None, None, None),
+        ("tisr", "toa_incident_solar_radiation", "toa_incident_solar_radiation", None, "tsi", None, None, 'ssr', None),
+        ("ssrd", "surface_solar_radiation_downwards", None, None, "tsi", None, None, 'ssrd', None),
 
         # Atmospheric variables (6):
-        ("tmp", "temperature", "temperature", None, None, None, None, None),
-        ("uwind", "u_component_of_wind", "u_component_of_wind", None, None, None, None, None),
-        ("vwind", "v_component_of_wind", "v_component_of_wind", None, None, None, None, None),
-        ("hgt", "geopotential", "geopotential", None, None, None, None, None),
-        ("w", "vertical_velocity", "vertical_velocity", None, None, None, None, None),
-        ("q", "specific_humidity", "specific_humidity", None, None, None, None, None),
+        ("tmp", "temperature", "temperature", None, None, None, None, None, None),
+        ("uwind", "u_component_of_wind", "u_component_of_wind", None, None, None, None, None, None),
+        ("vwind", "v_component_of_wind", "v_component_of_wind", None, None, None, None, None, None),
+        ("hgt", "geopotential", "geopotential", None, None, None, None, None, None),
+        ("w", "vertical_velocity", "vertical_velocity", None, None, None, None, None, None),
+        ("q", "specific_humidity", "specific_humidity", None, None, None, None, None, None),
     ]
 
     name_index = variable_ordering.index(variable_type)

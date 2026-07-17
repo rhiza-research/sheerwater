@@ -419,7 +419,7 @@ def polygon_subdivision_labels(grid='global1_5', level='country'):
     ds = get_grid_ds(grid)
     # Assign a dummy region coordinate to all grid cells
     # Fixed data type of strings of length 40
-    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U40').data))
+    ds = ds.assign_coords(region=(('lat', 'lon'), xr.full_like(ds.lat * ds.lon, 'no_region', dtype='U100').data))
 
     # Create a copy of the region data for assignments
     region_data = ds['region'].copy()
@@ -539,7 +539,7 @@ def rainfall_region_labels(grid='global0_25'):
     Returns:
         xarray.Dataset: dataset with a string ``region`` coordinate per lat/lon.
     """
-
+    from .utils import regrid_region_masks
     def masks_to_labels(masks, idx2names):
         labels = xr.DataArray(
             np.full((len(masks.lat), len(masks.lon)), "", dtype=object),
@@ -558,7 +558,7 @@ def rainfall_region_labels(grid='global0_25'):
             data_source="imerg_final",
             kregions=5,
             region="nimbus_east_africa",
-            grid=grid,
+            grid='global0_25',
             mask="lsm",
             agg_days=1,
             smooth_neighbors=50,
@@ -568,7 +568,7 @@ def rainfall_region_labels(grid='global0_25'):
             data_source="imerg_final",
             kregions=4,
             region="nimbus_west_africa",
-            grid=grid,
+            grid='global0_25',
             mask="lsm",
             agg_days=1,
             smooth_neighbors=50,
@@ -576,13 +576,16 @@ def rainfall_region_labels(grid='global0_25'):
     )
     rr_west = rr_west.assign_coords(region=rr_west.region + rr_east.region.size)
     rr_east_west = xr.concat([rr_east, rr_west], dim="region")
+    if grid != 'global0_25':
+        rr_east_west = regrid_region_masks(rr_east_west, output_grid=grid)
+
 
     rr_names = {# east africa
-                0 : "east_africa_coastal_horn",
+                0 : "east_africa_sudanian",
                 1 : "east_africa_lake_victoria_basin",
                 2 : "east_africa_coastal_savannah",
-                3 : "east_africa_sudanian",
-                4 : "east_africa_west_ethiopian_highlands",
+                3 : "east_africa_west_ethiopian_highlands",
+                4 : "east_africa_coastal_horn",
                 # west africa
                 5 : "west_africa_western_sahel",
                 6 : "west_africa_eastern_sahel",
@@ -591,8 +594,41 @@ def rainfall_region_labels(grid='global0_25'):
                 }
 
     rr_labels = masks_to_labels(rr_east_west, rr_names)
+    rr_labels['region'] = rr_labels['region'].astype('U100')
     return rr_labels
 
+
+@cache(cache_args=['grid'], backend_kwargs={'chunking': {'lat': 1800, 'lon': 3600}})
+def season_region_labels(grid='global0_25'):
+    """Return space labels for each seasonal grouping."""
+    ds = rainfall_region_labels(grid)
+    season_regions = xr.where(ds.coords["region"].isin(['east_africa_coastal_horn',
+                                                         'east_africa_west_ethiopian_highlands']),
+                               'africa_bimodal_season', ds.coords["region"])
+
+    ds = ds.assign_coords(region=season_regions)
+
+    season_regions = xr.where(ds.coords["region"].isin(['east_africa_sudanian',
+                                                          'west_africa_coastal',
+                                                          'west_africa_western_sahel',
+                                                          'west_africa_eastern_sahel',
+                                                          'west_africa_sudanian']),
+                              'africa_unimodal_season', ds.coords["region"])
+    ds = ds.assign_coords(region=season_regions)
+
+    season_regions = xr.where(ds.coords["region"].isin(['east_africa_coastal_savannah']),
+                              'africa_unimodal_shifted_season', ds.coords["region"])
+    ds = ds.assign_coords(region=season_regions)
+
+
+    season_regions = xr.where(ds.coords["region"].isin(['africa_unimodal_season', 'africa_bimodal_season',
+                                                        'africa_unimodal_shifted_season']),
+                               ds.coords["region"], "no_region")
+
+    ds = ds.assign_coords(region=season_regions)
+
+    ds['region'] = ds['region'].astype('U100')
+    return ds
 
 
 ##############################################################################
@@ -704,7 +740,7 @@ def space_grouping_labels(grid='global1_5', space_grouping='country'):
 
     # Now combine the region coordinates into a single region coordinate
     coords_values = [ds[x].values.flatten() for x in ds_coords]
-    combined_region_coords = np.array(['-'.join(vals) for vals in zip(*coords_values)], dtype='U40')
+    combined_region_coords = np.array(['-'.join(vals) for vals in zip(*coords_values)], dtype='U100')
     ds = ds.assign_coords(region=(('lat', 'lon'), combined_region_coords.reshape(ds.lat.size, ds.lon.size)))
     return ds
 
@@ -736,4 +772,5 @@ spatial_subdivisions = {
     'agroecological_zone': [agroecological_subdivision_labels, None],
     # Custom regions with similar rainy season patterns in nimbus regions of interest
     'rainfall_region': [rainfall_region_labels, None],
+    'season_regions': [season_region_labels, None],
 }

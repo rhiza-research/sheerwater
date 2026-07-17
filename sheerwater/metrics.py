@@ -24,16 +24,17 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
                },
            }
 })
-def metric(start_time, end_time, variable, forecast, truth,
-           metric_name, metric_kwargs=None,
-           event=None, event_kwargs=None, filter_event=None, filter_event_kwargs=None,
-           agg_days=1,
-           time_grouping=None, space_grouping=None,
-           spatial=False, grid="global1_5", mask='lsm', region='global',
-           memoize_forecast=True, memoize_truth=True):
-    """Compute a grouped metric for a forecast at a specific lead."""
+def metric_with_event_count(start_time, end_time, variable, forecast, truth,
+                            metric_name, metric_kwargs=None,
+                            event=None, event_kwargs=None, filter_event=None, filter_event_kwargs=None,
+                            agg_days=1,
+                            time_grouping=None, space_grouping=None,
+                            spatial=False, grid="global1_5", mask='lsm', region='global',
+                            memoize_forecast=True, memoize_truth=True):
+    """Compute a grouped metric for a forecast at a specific lead with event count."""
     # Use the metric registry to get the metric class
-    metric_obj = metric_factory(metric_name, metric_kwargs=metric_kwargs,
+    metric_obj = metric_factory(metric_name,
+                                metric_kwargs=metric_kwargs,
                                 event=event,
                                 event_kwargs=event_kwargs,
                                 filter_event=filter_event,
@@ -44,6 +45,77 @@ def metric(start_time, end_time, variable, forecast, truth,
                                 space_grouping=space_grouping, spatial=spatial, grid=grid, mask=mask, region=region,
                                 memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
     return metric_obj.compute()
+
+
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
+                   'forecast', 'truth',
+                   'metric_name', 'metric_kwargs',
+                   'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
+                   'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, "time": 30}
+               },
+           }
+})
+def metric(start_time, end_time, variable, forecast, truth,
+           metric_name, metric_kwargs=None,
+           event=None, event_kwargs=None, filter_event=None, filter_event_kwargs=None,
+           agg_days=1,
+           time_grouping=None, space_grouping=None,
+           spatial=False, grid="global1_5", mask='lsm', region='global',
+           memoize_forecast=True, memoize_truth=True):
+    """Compute a grouped metric for a forecast at a specific lead."""
+    # Use the metric registry to get the metric class
+    data = metric_with_event_count(start_time, end_time, variable, forecast, truth,
+                                   metric_name, metric_kwargs=metric_kwargs,
+                                   event=event, event_kwargs=event_kwargs, filter_event=filter_event,
+                                   filter_event_kwargs=filter_event_kwargs,
+                                   agg_days=agg_days,
+                                   time_grouping=time_grouping, space_grouping=space_grouping,
+                                   spatial=spatial, grid=grid, mask=mask, region=region,
+                                   memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
+                                   recompute=True) # hard code recompute to True to avoid caching issues
+
+    metric_name = data.attrs['metric_name']
+    return data[[metric_name]]
+
+
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable', 'agg_days',
+                   'forecast', 'truth',
+                   'metric_name', 'metric_kwargs',
+                   'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
+                   'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, "time": 30}
+               },
+           }
+})
+def event_count(start_time, end_time, variable, forecast, truth,
+                metric_name, metric_kwargs=None,
+                event=None, event_kwargs=None, filter_event=None, filter_event_kwargs=None,
+                agg_days=1,
+                time_grouping=None, space_grouping=None,
+                spatial=False, grid="global1_5", mask='lsm', region='global',
+                memoize_forecast=True, memoize_truth=True):
+    """Compute a grouped event count for a forecast at a specific lead."""
+    data = metric_with_event_count(start_time, end_time, variable, forecast, truth,
+                                   metric_name, metric_kwargs=metric_kwargs,
+                                   event=event, event_kwargs=event_kwargs,
+                                   filter_event=filter_event, filter_event_kwargs=filter_event_kwargs,
+                                   agg_days=agg_days,
+                                   time_grouping=time_grouping, space_grouping=space_grouping,
+                                   spatial=spatial, grid=grid, mask=mask, region=region,
+                                   memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
+                                   recompute=True) # hard code recompute to True to avoid caching issues
+    return data[['event_count']]
 
 
 @dask_remote
@@ -127,4 +199,4 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     return data
 
 
-__all__ = ['metric']
+__all__ = ['metric', 'event_count', 'metric_with_event_count', 'station_coverage']

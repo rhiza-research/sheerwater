@@ -114,6 +114,9 @@ def get_grid(grid, base="base180"):
     if grid == "global1_5":
         grid_size = 1.5
         offset = 0.0
+    elif grid == "global1_0":
+        grid_size = 1.0
+        offset = 0.0
     elif grid == "global0_05":
         grid_size = 0.05
         offset = 0.025

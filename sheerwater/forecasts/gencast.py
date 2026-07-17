@@ -186,10 +186,9 @@ def gencast(start_time=None, end_time=None, variable="precip", agg_days=1, prob_
 
     # Get the data with the right days
     forecast_start = shift_by_days(start_time, -15) if start_time is not None else None
-    forecast_end = shift_by_days(end_time, 15) if end_time is not None else None
 
     # Get the data with the right days
-    ds = gencast_processed(start_time=forecast_start, end_time=forecast_end, variable=variable,
+    ds = gencast_processed(start_time=forecast_start, end_time=end_time, variable=variable,
                            prob_type=prob_type, grid=grid, mask=mask, region=region)
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type="deterministic")
