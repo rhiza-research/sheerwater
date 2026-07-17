@@ -10,8 +10,8 @@ authors = [
 ]
 license = {text = "MIT"}
 dependencies = [
-    "dask==2026.1.2",
-    "dask[complete]",
+    #"dask==2026.1.2",
+    #"dask[complete]",
     "click",
     "numpy>=2.3.5",
     "httplib2",
@@ -21,7 +21,7 @@ dependencies = [
     "google-cloud-storage",
     "google-cloud-secret-manager",
     "cryptography",
-    "xarray==2025.1.0",
+    #"xarray==2025.1.0",
     "matplotlib",
     "geopandas",
     "rioxarray",
@@ -36,7 +36,6 @@ dependencies = [
     "cdsapi>=0.7.3",
     "dateparser",
     "bokeh",
-    "flox",
     "scikit-learn",
     "xarray-regrid",
     "coiled>=1.76.1",
@@ -54,6 +53,11 @@ dependencies = [
     "xesmf",
     "earthaccess",
     "xee",
+    "frisky",
+    "dask-array",
+    "flox @ git+https://github.com/mrocklin/flox@dask-array",
+    "xarray @ git+https://github.com/pydata/xarray@main",
+    "dask @ git+https://github.com/dask/dask@main",
 ]
 
 [dependency-groups]

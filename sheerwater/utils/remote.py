@@ -1,5 +1,6 @@
 """Utilities for running functions on a remote dask cluster."""
 import logging
+import frisky
 import os
 import pwd
 from functools import wraps
@@ -110,7 +111,8 @@ def start_remote(remote_name=None, remote_config=None):
     except Exception as e:
         print("Failed to send credentials", e)
 
-    return cluster.get_client()
+    client = cluster.get_client()
+    return frisky.hijack(client)
 
 
 def dask_remote(func):
@@ -132,7 +134,8 @@ def dask_remote(func):
         elif 'local_dask' in kwargs and kwargs['local_dask']:
             # Setup a local cluster
             try:
-                get_client()
+                client = get_client()
+                frisky.hijack(client)
             except ValueError:
                 logger.info("Starting local dask cluster...")
                 cluster = LocalCluster(n_workers=2, threads_per_worker=2)
