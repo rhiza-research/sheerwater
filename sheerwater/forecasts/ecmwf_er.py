@@ -224,7 +224,7 @@ def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_t
     # 1) Split space only
     chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1}
     if run_type == 'perturbed':
-        chunks['member'] = 1
+        chunks['member'] = 50
     ds = ds.chunk(chunks)
     # Persist here to avoid huge combined chunks
     ds = ds.persist()
@@ -466,9 +466,9 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
                                                 grid=grid, mask=mask, region=region)
         ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
-        ds = ifs_extended_range_with_reforecast(forecast_start, end_time, variable,
-                                                run_type=run_type, time_group='daily',
-                                                grid=grid, mask=mask, region=region)
+        ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
+                                          forecast_type='forecast', run_type=run_type, time_group='daily',
+                                          grid=grid, mask=mask, region=region)
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'

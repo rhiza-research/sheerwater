@@ -308,10 +308,7 @@ def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm
     ds = get_forecast(fcst)(start_time=start_time, end_time=end_time,
                             prob_type=prob_type, variable=variable, grid=grid,
                             mask=None, region='global')
-    ds = ds.chunk({'init_time': 5000, 'prediction_timedelta': 50, 'member': 1, 'lat': 10, 'lon': 10})
-    breakpoint()
     ds = densify_fcst(ds)
-    breakpoint()
     return ds
 
 
