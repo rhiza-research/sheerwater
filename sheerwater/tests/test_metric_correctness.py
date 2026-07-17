@@ -129,7 +129,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         f"time_grouping={time_grouping} | grid={grid} | start_time={start_time} | end_time={end_time}"
     )
 
-    recompute = test_case.get("recompute", ["global_statistic", "metric"])
+    recompute = test_case.get("recompute", ["global_statistic", "metric", "metric_with_event_count"])
 
     # Run grouped_metric_new (same call structure as archive)
     kwargs = {
@@ -158,7 +158,7 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         # Run the new metric
         # Run the new form metrics
         ds_old = gold_testing_metric(**kwargs, **pass_event_kwargs,
-                                     recompute=['global_statistic', 'metric', 'gold_testing_metric'], cache_mode='overwrite')
+                                     recompute=['global_statistic', 'metric', 'metric_with_event_count', 'gold_testing_metric'], cache_mode='overwrite')
         return ds_old, None, 0
     else:
         # Run gold_testing_metric (same call structure as archive)

@@ -95,7 +95,7 @@ def test_mae_zero_at_lead_minus_duration(remote_dask_cluster):  # noqa: ARG001
                 forecast='ecmwf_ifs_er_debiased', truth='imerg',
                 metric_name='mae',
                 spatial=False, grid=grid,
-                recompute=True,
+                recompute=['metric', 'metric_with_event_count'],
                 cache_mode='read_only',
                 event='icpac_onset',
                 region=region)

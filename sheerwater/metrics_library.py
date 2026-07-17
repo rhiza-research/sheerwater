@@ -501,6 +501,10 @@ class Metric(ABC):
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
                 filter_count = filter_count.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
 
+                # Convert space grouping back to a fixed length string, which get's lost in the groupby
+                ds['space_grouping'] = ds['space_grouping'].astype('U100')
+                filter_count['space_grouping'] = filter_count['space_grouping'].astype('U100')
+
                 # If we've passed a global region and clipped, drop any null groups
                 # Currently commenting out because it was hurting performance
                 # hopefully a future change can drop nan regions more efficiently

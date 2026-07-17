@@ -393,7 +393,7 @@ def climatology(start_time, end_time, variable, agg_days, data='era5',  # noqa: 
                 prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
     default_years = {
-        'era5': (1985, 2014),
+        'era5': (1990, 2019),
         'imerg_final': (1998, 2015),
         'chirps_v3': (1998, 2023),
         'stations': (2015, 2024),
