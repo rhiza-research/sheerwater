@@ -103,9 +103,9 @@ def reforecast_to_timeseries(ds):
 @cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                        "start_date": 1000,
-                        "model_issuance_date": 1000, "start_year": 1,
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 50,
+                        "start_date": 50,
+                        "model_issuance_date": 50, "start_year": 1,
                         "member": 1},
            'chunk_by_arg': {
                'grid': {
@@ -202,11 +202,45 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 @dask_remote
 @timeseries(timeseries=['init_time'])
 @spatial()
+@cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": -1, "member": 1}})
+def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_type='forecast', run_type='average',  # noqa: ARG001
+                                 time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """Rechunk IFS extended-range data for event/metrics workloads.
+
+    Stages rechunking to avoid large intermediates: spatial split first, then merge time blocks.
+    """
+    ds = ifs_extended_range(None, None, variable, forecast_type=forecast_type,
+                            run_type=run_type, time_group=time_group, grid=grid)
+    if ds is None:
+        return None
+
+    if forecast_type == 'reforecast':
+        ds = reforecast_to_timeseries(ds)
+    else:
+        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
+
+    breakpoint()
+    # 1) Split space only
+    chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1}
+    if run_type == 'perturbed':
+        chunks['member'] = 1
+    ds = ds.chunk(chunks)
+    # Persist here to avoid huge combined chunks
+    ds = ds.persist()
+    # 2) Merge time blocks on the small tiles
+    chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1000}
+    if run_type == 'perturbed':
+        chunks['member'] = 1
+    ds = ds.chunk(chunks)
+    return ds
+
+
+@dask_remote
+@timeseries(timeseries=['init_time'])
+@spatial()
 @cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "prediction_timedelta": 1,
-                        "init_time": 1000, "member": 1},
-})
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": -1, "member": 1}})
 def ifs_extended_range_with_reforecast(start_time, end_time, variable=None, run_type='average',  # noqa: ARG001
                                        time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """IFS extended-range reforecast as an init_time timeseries, with real-time forecast overlaid.
@@ -225,7 +259,6 @@ def ifs_extended_range_with_reforecast(start_time, end_time, variable=None, run_
         ds_fcst = ds_fcst.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
 
     # Prefer forecast wherever it exists; fill missing init times from reforecast
-    breakpoint()
     if ds_fcst is not None and (len(ds_fcst.init_time.values) > 0) and \
             ds_refc is not None and (len(ds_refc.init_time.values) > 0):
         return ds_fcst.combine_first(ds_refc)
@@ -322,17 +355,17 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
 @spatial()
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                        "start_date": 1000,
-                        "model_issuance_date": 1000, "start_year": 1,
-                        "member": 1},
+    'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                 "start_date": 1000,
+                 "model_issuance_date": 1000, "start_year": 1,
+                 "member": 1},
            'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           }
+    }
 })
 def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6,
                                 run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
@@ -379,17 +412,17 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                        "start_date": 1000,
-                        "model_issuance_date": 1000, "start_year": 1,
-                        "member": 1},
+    'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                 "start_date": 1000,
+                 "model_issuance_date": 1000, "start_year": 1,
+                 "member": 1},
            'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           }
+    }
 })
 def ifs_extended_range_debiased_regrid(start_time, end_time, variable,
                                        margin_in_days=6, run_type='average',

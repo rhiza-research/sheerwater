@@ -284,14 +284,7 @@ class data(SheerwaterDataset):
 
 @spatial()
 @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid'],
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1}
-               },
-           }
-})
+       backend_kwargs={'chunking': {"lat": 10, "lon": 10, "init_time": 5000, "prediction_timedelta": 50}})
 def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -308,21 +301,17 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
 @spatial()
 @timeseries(timeseries='init_time')
 @cache(cache=True, cache_args=['fcst', 'prob_type', 'variable', 'grid'],
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1, "member": 1},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1, "member": 1}
-               },
-           }
-})
+       backend_kwargs={'chunking': {"lat": 10, "lon": 10, "init_time": 5000, "prediction_timedelta": 50, "member": 1}})
 def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
     ds = get_forecast(fcst)(start_time=start_time, end_time=end_time,
                             prob_type=prob_type, variable=variable, grid=grid,
                             mask=None, region='global')
+    ds = ds.chunk({'init_time': 5000, 'prediction_timedelta': 50, 'member': 1, 'lat': 10, 'lon': 10})
+    breakpoint()
     ds = densify_fcst(ds)
+    breakpoint()
     return ds
 
 
