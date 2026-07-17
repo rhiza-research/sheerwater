@@ -10,10 +10,62 @@ from functools import wraps
 import numpy as np
 import pandas as pd
 import xarray as xr
-from sheerwater.utils import (roll_and_agg, groupby_time, get_dates,
-                              convert_init_time_to_pred_time, convert_pred_time_to_init_time)
+from sheerwater.utils import roll_and_agg, groupby_time, get_dates
 
 EVENT_REGISTRY = {}
+
+
+def remove_partial_time_groups(ds, time_grouping='year', coverage_threshold=0.95):
+    """Remove seasons (time groups) from the dataset that do not have sufficient data coverage.
+
+    To accomplish this, the function pads the dataset's time dimension beyond its original bounds,
+    groups by time grouping, and calculates the coverage of the data.
+      1. It determines the earliest and latest years in the data.
+      2. It extends (pads) the timeseries to start on September 1st of the year before the earliest year,
+         and ends on February 28th of the year after the latest year. This allows for the calculation of 
+         completeness for seasons that are not year-aligned, e.g., shifted rainy seasons that run
+         from September to May of the following year.
+      3. It reindexes the data at daily resolution over this expanded time span, filling missing entries with NaN.
+
+    Returns:
+        A dataset with the time dimension padded to start on September 1st of the year before the earliest year,
+        and ends on February 28th of the year after the latest year.
+        All time points that fall within incomplete seasons are set to NaN and all time points that 
+        do not fall within a season defined by the time grouping are set to NaN.
+    """
+    years = pd.to_datetime(ds.time.values).year
+    min_year = years.min()
+    max_year = years.max()
+    # Pad the dataset with lagging and leading time to ensure that all partial seasons
+    # are dropped properly, even those that are misaligned with the start and end
+    # of the year
+    start_time = pd.Timestamp(f"{min_year-1}-09-01")
+    end_time = pd.Timestamp(f"{max_year+1}-02-28")
+    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+
+    # Add indicator and non-null variables to the dataset
+    var = list(ds.data_vars)[0]
+    ds['indicator'] = xr.ones_like(ds[var])
+    ds['non_null'] = ds[var].notnull()
+
+    # Coverage per group: fraction of timesteps with non-null data
+    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
+    group_coverage = group_sums['non_null'] / group_sums['indicator']
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, other=np.nan)
+
+    # Remove groups that don't have enough coverage
+    coverage_at_time = group_coverage.sel(group=ds['group'])
+    ds = ds.where(coverage_at_time >= coverage_threshold, other=np.nan)
+    ds = ds.drop_vars(['indicator', 'non_null'])
+
+    return ds
 
 
 def wrap_duration(duration_fn, event_name):
@@ -176,62 +228,12 @@ def has_continuous_days_above_threshold(ds, threshold, smoothing, continuous_day
     return ret
 
 
-def remove_partial_seasons(ds, time_grouping='year', coverage_threshold=0.95):
-    """Remove seasons (time groups) from the dataset that do not have sufficient data coverage.
-
-    To accomplish this, the function pads the dataset's time dimension beyond its original bounds,
-    groups by time grouping, and calculates the coverage of the data.
-      1. It determines the earliest and latest years in the data.
-      2. It extends (pads) the timeseries to start on September 1st of the year before the earliest year,
-         and ends on February 28th of the year after the latest year. This allows for the calculation of 
-         completeness for seasons that are not year-aligned, e.g., shifted rainy seasons that run
-         from September to May of the following year.
-      3. It reindexes the data at daily resolution over this expanded time span, filling missing entries with NaN.
-
-    Returns:
-        A dataset with the time dimension padded to start on September 1st of the year before the earliest year,
-        and ends on February 28th of the year after the latest year.
-        All time points that fall within incomplete seasons are set to NaN and all time points that 
-        do not fall within a season defined by the time grouping are set to NaN.
-    """
-    years = pd.to_datetime(ds.time.values).year
-    min_year = years.min()
-    max_year = years.max()
-    start_time = pd.Timestamp(f"{min_year-1}-09-01")
-    end_time = pd.Timestamp(f"{max_year+1}-02-28")
-    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
-    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
-
-    # Add the grouping coordinates but perform no aggregation
-    ds = groupby_time(ds, time_grouping, agg_fn=None)
-
-    # Add indicator and non-null variables to the dataset
-    var = list(ds.data_vars)[0]
-    ds['indicator'] = xr.ones_like(ds[var])
-    ds['non_null'] = ds[var].notnull()
-
-    # Coverage per group: fraction of timesteps with non-null data
-    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
-    group_coverage = group_sums['non_null'] / group_sums['indicator']
-
-    # Set all times to zero where the group in the null mask (i.e., season was None)
-    is_null_group = ds['group'].astype(str).str.contains('None')
-    ds = ds.where(~is_null_group, other=np.nan)
-
-    # Remove groups that don't have enough coverage
-    coverage_at_time = group_coverage.sel(group=ds['group'])
-    ds = ds.where(coverage_at_time >= coverage_threshold, other=np.nan)
-    ds = ds.drop_vars(['indicator', 'non_null'])
-
-    return ds
-
-
 @event(default_variable="precip", duration=120, filter=False)
 def seasonal_accumulation(ds, time_grouping='year', by_percent=False, minimum_accumulation_mm=0.0):
     """A function to calculate the seasonal accumulation of a dataset."""
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
-    ds = remove_partial_seasons(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
 
     nanmask = ds.isnull()
 
@@ -297,7 +299,7 @@ def in_season(ds, time_grouping='year',
     """
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
-    ds = remove_partial_seasons(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
     nanmask = ds.isnull()
 
     # Set all times to NaN where season/group is None
@@ -347,7 +349,7 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False,
 
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
-    ds = remove_partial_seasons(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
     nanmask = ds.isnull()
 
     # Set all times to NaN where season/group is None
@@ -390,69 +392,79 @@ def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False,
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["drying_day_agg_in_days"], filter=True)
-def drying_spells_in_initial_growing_period(
+def drying_spells(ds, drying_day_threshold_mm=2.0, drying_day_agg_in_days=5):
+    """A function to calculate the drying spells of a dataset."""
+    # Find drying spells
+    total_rain = accumulated_rain(ds, agg_days=drying_day_agg_in_days, align='right')
+    null_mask = total_rain.isnull()
+    drying_spells = (total_rain < drying_day_threshold_mm).astype(int)
+    drying_spells = drying_spells.where(~null_mask, np.nan)
+    attrs = ds.attrs.copy()
+    return drying_spells.assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=120, filter=True)
+def initial_growing_period(
         ds,
-        data_source,
         time_grouping='year',
         early_season_accumulation_by_percent=0.10,
         mid_season_accumulation_by_percent=0.30,
         season_accumulation_minimum_mm=300.0,
         first_rain_threshold_mm=5.0,
-        pre_period_in_days=30,
-        drying_day_threshold_mm=2.0, drying_day_agg_in_days=5):
+        pre_period_in_days=30):
     """A function to calculate the initial growing period of a dataset."""
     null_mask = ds.isnull()
-    # Import here to avoid circular import
-    from sheerwater.events_data import initial_growing_period_data
-    start_time = ds.attrs['start_time']
-    end_time = ds.attrs['end_time']
-    grid = ds.attrs['grid']
-    mask = ds.attrs['mask']
-    region = ds.attrs['region']
-    variable = ds.attrs['variable']
 
-    # Get the initial growing period from cache
-    igp = initial_growing_period_data(
-        start_time=start_time, end_time=end_time, data_source=data_source, variable=variable,
-        time_grouping=time_grouping, early_season_accumulation_by_percent=early_season_accumulation_by_percent,
-        mid_season_accumulation_by_percent=mid_season_accumulation_by_percent,
-        season_accumulation_minimum_mm=season_accumulation_minimum_mm,
-        first_rain_threshold_mm=first_rain_threshold_mm, pre_period_in_days=pre_period_in_days,
-        coverage_threshold=0.95,
-        grid=grid, mask=mask, region=region)
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    null_mask = ds.isnull()
 
-    # Find drying spells
-    total_rain = accumulated_rain(ds, agg_days=drying_day_agg_in_days, align='right')
-    drying_spells = (total_rain < drying_day_threshold_mm).astype(int)
+    # Set all times to NaN where time group is None
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
 
-    # Calculate true_time from 'init_time' and 'time' coordinates if both are available.
-    # Falls back to 'time' if 'init_time' is not present.
-    if 'init_time' in ds.coords and 'time' in ds.coords:
-        # Rename time to prediction_timedelta
-        st = drying_spells.init_time.values.min()
-        et = drying_spells.init_time.values.max()
-        dspell_times = drying_spells.init_time.values
-        drying_spells = drying_spells.rename({'time': 'prediction_timedelta'})
-        # Convert to true time / prediction_timedelta format
-        drying_spells = convert_init_time_to_pred_time(drying_spells)
-        # Mask by the initial growing period
-        igp_drying_spells = drying_spells * igp
-        # Convert back to init time / time format
-        igp_drying_spells = convert_pred_time_to_init_time(igp_drying_spells)
-        # Rename prediction_timedelta to time
-        igp_drying_spells = igp_drying_spells.rename({'prediction_timedelta': 'time'})
-        # Select back down to valid init times, as the conversion will add new times at the ends
-        igp_drying_spells = igp_drying_spells.sel(init_time=slice(st, et))
-        igp_drying_spells = igp_drying_spells.sel(init_time=dspell_times)
-    else:
-        # Find drying spells in the initial growing period
-        igp_drying_spells = igp * drying_spells
+    def in_season(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
 
-    null_mask = null_mask.sel(time=igp_drying_spells.time.values)
+        low_season_rain = (cumsum.max(dim="time") < season_accumulation_minimum_mm).astype(int)
+        cumsum = cumsum / cumsum.max(dim="time")
+        season = (cumsum >= early_season_accumulation_by_percent) & (cumsum <= mid_season_accumulation_by_percent)
+        season = season & ~low_season_rain
+        season = season.astype(int)
+        return season
 
-    igp_drying_spells = igp_drying_spells.where(~null_mask, np.nan)
+    # Ensure that the time dimension is sorted
+    ds = ds.sortby("time")
+    season = ds.groupby("group").map(in_season)
+    season = season.persist()
+
+    # Expand the season by detection period in days
+    pre_season = roll_and_agg(season, agg=pre_period_in_days, agg_col="time", align="left", agg_fn='max')
+    has_rain = (ds > first_rain_threshold_mm).astype(int)
+
+    # Find the first time where the precipitation is greater than the first rain threshold and the season is active.
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    pre_season_rain = pre_season * has_rain
+    # Continue forward from first rain through the initial growing period
+    # Okay to fill past the first date, becuase we're going to
+    # or this with the pre-season afterwards.
+    first_rain_period = roll_and_agg(pre_season_rain, agg=pre_period_in_days,
+                                     agg_col="time", align="right", agg_fn='max')
+
+    # Clip the first rain period back down to the pre-season + season
+    full_period = first_rain_period * pre_season
+
+    # Some times have been lost in the rollings, so we will update the null mask to valid times
+    null_mask = null_mask.sel(time=full_period.time.values)
+    full_period = full_period.where(~null_mask, np.nan)
+
     attrs = ds.attrs.copy()
-    return igp_drying_spells.assign_attrs(attrs)
+    return full_period.assign_attrs(attrs)
 
 
 @event(default_variable="precip", duration=10, filter=True)

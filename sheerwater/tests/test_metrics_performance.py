@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from sheerwater.metrics import metric
+from sheerwater.advanced_metrics import get_experiment_kwargs
 
 pytestmark = pytest.mark.performance
 
@@ -182,9 +183,17 @@ def _assert_metric_result(result, cold_sec, expected_var=None, test_label=""):
         )
 
 
-def _expected_var(metric_name):
-    """Result variable name for metric_name (e.g. 'ets-5' -> 'ets')."""
-    return metric_name.split("-")[0] if "-" in metric_name else metric_name
+def _expected_var(metric_name, region="global"):
+    """Result variable name for metric_name.
+
+    For advanced metrics (experiments), calls get_experiment_kwargs to get the
+    underlying metric name. Falls back to splitting on '-' for standard metrics.
+    """
+    try:
+        underlying, *_ = get_experiment_kwargs(metric_name, region)
+        return underlying
+    except (ValueError, KeyError):
+        return metric_name.split("-")[0] if "-" in metric_name else metric_name
 
 
 # Each case has "name" (test id and baseline key); rest are overrides for _metric_kwargs.
@@ -207,6 +216,18 @@ PERFORMANCE_TEST_CASES = [
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
     {"name": "15_crps", "metric_name": "crps", "variable": "precip",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    {"name": "16_big_rain_days", "metric_name": "big_rain_days",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "17_in_season_dry_spell", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "18_early_season_accumulation_30d", "metric_name": "early_season_accumulation-30d",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
 ]
 
 
@@ -221,7 +242,8 @@ def test_metric_performance(remote_dask_cluster, case):  # noqa: ARG001
     kwargs = _metric_kwargs(overrides)
     result, cold_sec, warm_full_sec, warm_metric_only_sec = _run_metric_three_ways(kwargs)
     metric_name = overrides.get("metric_name", "mae")
-    expected_var = _expected_var(metric_name)
+    region = overrides.get("region", "global")
+    expected_var = _expected_var(metric_name, region=region)
     config_str = ", ".join(f"{k}={v}" for k, v in sorted(overrides.items())) if overrides else "default"
 
     _print_metric_performance(
