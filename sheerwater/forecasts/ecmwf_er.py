@@ -200,6 +200,41 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 
 
 @dask_remote
+@timeseries(timeseries=['init_time'])
+@spatial()
+@cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "prediction_timedelta": 1,
+                        "init_time": 1000, "member": 1},
+})
+def ifs_extended_range_reforecast(start_time, end_time, variable=None, run_type='average', time_group='daily',  # noqa: ARG001
+                       grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """Fetches IFS extended range reforecast data from the WeatherBench2 dataset.
+
+    Args:
+        start_time (str): The start date to fetch data for.
+        end_time (str): The end date to fetch.
+        variable (str): The weather variable to fetch.
+        run_type (str): The type of run to fetch. One of:
+            - average: to download the averaged of the perturbed runs
+            - perturbed: to download all perturbed runs
+            - [int 0-50]: to download a specific  perturbed run
+        time_group (str): The time grouping to use. One of: "daily", "weekly", "biweekly"
+        grid (str): The grid resolution to fetch the data at. One of:
+            - global1_5: 1.5 degree global grid
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
+    """
+    """IRI ECMWF average forecast with regridding."""
+    ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
+                            run_type=run_type, time_group=time_group, grid='global1_5')
+    if ds is None:
+        return None
+    ds = reforecast_to_timeseries(ds)
+    return ds
+
+
+@dask_remote
 @timeseries(timeseries='model_issuance_date')
 @spatial()
 @cache(cache_args=['variable', 'lead', 'run_type', 'time_group', 'grid'],
