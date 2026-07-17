@@ -187,8 +187,10 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         print("Only testing standard returned None")
         return ds_new, None, 2
 
+    # Get the metric name
+    mn = list(ds_new.data_vars)[0]
+
     # Both datasets exist (same compare structure as archive)
-    mn = metric_name.split('-')[0]
     new_data = ds_new[mn].compute()
     old_data = ds_old[mn].compute()
 
