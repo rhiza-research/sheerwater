@@ -22,7 +22,7 @@ def remove_partial_time_groups(ds, time_grouping='year', coverage_threshold=0.95
     groups by time grouping, and calculates the coverage of the data.
       1. It determines the earliest and latest years in the data.
       2. It extends (pads) the timeseries to start on September 1st of the year before the earliest year,
-         and ends on February 28th of the year after the latest year. This allows for the calculation of 
+         and ends on February 28th of the year after the latest year. This allows for the calculation of
          completeness for seasons that are not year-aligned, e.g., shifted rainy seasons that run
          from September to May of the following year.
       3. It reindexes the data at daily resolution over this expanded time span, filling missing entries with NaN.
@@ -30,7 +30,7 @@ def remove_partial_time_groups(ds, time_grouping='year', coverage_threshold=0.95
     Returns:
         A dataset with the time dimension padded to start on September 1st of the year before the earliest year,
         and ends on February 28th of the year after the latest year.
-        All time points that fall within incomplete seasons are set to NaN and all time points that 
+        All time points that fall within incomplete seasons are set to NaN and all time points that
         do not fall within a season defined by the time grouping are set to NaN.
     """
     years = pd.to_datetime(ds.time.values).year
