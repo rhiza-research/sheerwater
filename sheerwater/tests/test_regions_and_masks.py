@@ -210,7 +210,7 @@ def test_metric_with_list_grouping():
         space_grouping=["country", "agroecological_zone"],
         grid="global1_5",
         region=["africa", "land_with_ample_irrigated_soils"],
-        recompute=['metric', 'metric_with_event_count'],
+        recompute=True,
         cache_mode="overwrite",
     )
     assert "space_grouping" in result.coords or "space_grouping" in result.dims

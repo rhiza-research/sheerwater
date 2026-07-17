@@ -80,7 +80,7 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
-        recompute=['metric', 'metric_with_event_count'],
+        recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,
         memoize_truth=False
@@ -97,7 +97,7 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
-        recompute=['metric', 'metric_with_event_count'],
+        recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,
         memoize_truth=False
@@ -114,7 +114,7 @@ def test_metric_stations_vs_tahmo():
         truth="stations",
         metric_name="mae",
         grid="global1_5",
-        recompute=['metric', 'metric_with_event_count'],
+        recompute=True,
         cache_mode='read_only',
         memoize_forecast=False,
         memoize_truth=False
