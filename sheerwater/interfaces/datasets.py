@@ -309,10 +309,10 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
 @timeseries(timeseries='init_time')
 @cache(cache=True, cache_args=['fcst', 'prob_type', 'variable', 'grid'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
+           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1, "member": 1},
            'chunk_by_arg': {
                'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1}
+                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1, "member": 1}
                },
            }
 })

@@ -207,31 +207,31 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
            'chunking': {"lat": 121, "lon": 240, "prediction_timedelta": 1,
                         "init_time": 1000, "member": 1},
 })
-def ifs_extended_range_reforecast(start_time, end_time, variable=None, run_type='average', time_group='daily',  # noqa: ARG001
-                       grid="global1_5", mask=None, region='global'):  # noqa: ARG001
-    """Fetches IFS extended range reforecast data from the WeatherBench2 dataset.
+def ifs_extended_range_with_reforecast(start_time, end_time, variable=None, run_type='average',  # noqa: ARG001
+                                       time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """IFS extended-range reforecast as an init_time timeseries, with real-time forecast overlaid.
 
-    Args:
-        start_time (str): The start date to fetch data for.
-        end_time (str): The end date to fetch.
-        variable (str): The weather variable to fetch.
-        run_type (str): The type of run to fetch. One of:
-            - average: to download the averaged of the perturbed runs
-            - perturbed: to download all perturbed runs
-            - [int 0-50]: to download a specific  perturbed run
-        time_group (str): The time grouping to use. One of: "daily", "weekly", "biweekly"
-        grid (str): The grid resolution to fetch the data at. One of:
-            - global1_5: 1.5 degree global grid
-        mask: Spatial mask to apply.
-        region: Region to fetch data for.
+    Converts the WeatherBench reforecast to init_time, then combine_first with the
+    real-time forecast so forecast values win on overlap.
     """
-    """IRI ECMWF average forecast with regridding."""
-    ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
-                            run_type=run_type, time_group=time_group, grid='global1_5')
-    if ds is None:
-        return None
-    ds = reforecast_to_timeseries(ds)
-    return ds
+    ds_refc = ifs_extended_range(None, None, variable, forecast_type='reforecast',
+                                 run_type=run_type, time_group=time_group, grid='global1_5')
+    if ds_refc is not None:
+        ds_refc = reforecast_to_timeseries(ds_refc)
+
+    ds_fcst = ifs_extended_range(start_time, end_time, variable, forecast_type='forecast',
+                                 run_type=run_type, time_group=time_group, grid='global1_5')
+    if ds_fcst is not None:
+        ds_fcst = ds_fcst.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
+
+    # Prefer forecast wherever it exists; fill missing init times from reforecast
+    breakpoint()
+    if ds_fcst is not None and (len(ds_fcst.init_time.values) > 0) and \
+            ds_refc is not None and (len(ds_refc.init_time.values) > 0):
+        return ds_fcst.combine_first(ds_refc)
+    if ds_fcst is not None and len(ds_fcst.init_time.values) > 0:
+        return ds_fcst
+    return ds_refc
 
 
 @dask_remote
@@ -431,10 +431,11 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
         ds = ifs_extended_range_debiased_regrid(forecast_start, end_time, variable,
                                                 margin_in_days=6, run_type=run_type, time_group='daily',
                                                 grid=grid, mask=mask, region=region)
+        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
-        ds = ifs_extended_range(forecast_start, end_time, variable,
-                                forecast_type='forecast', run_type=run_type, time_group='daily',
-                                grid=grid, mask=mask, region=region)
+        ds = ifs_extended_range_with_reforecast(forecast_start, end_time, variable,
+                                                run_type=run_type, time_group='daily',
+                                                grid=grid, mask=mask, region=region)
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
@@ -442,8 +443,6 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
 
-    # Rename to standard naming
-    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
 
 

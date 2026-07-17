@@ -164,8 +164,6 @@ class Metric(ABC):
         For example, to evaluate ECMWF vs IMERG, we make fcst ECMWF and obs IMERG.
                      to evaluate IMERG vs GHNC stations, we make fcst IMERG and obs GHNC stations.
         """
-        import pdb
-        pdb.set_trace()
         try:
             # Try to get the forecast from the forecast registry
             fcst_fn = get_forecast(self.forecast)
