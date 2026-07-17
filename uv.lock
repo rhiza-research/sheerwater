@@ -151,6 +151,15 @@ wheels = [
 ]
 
 [[package]]
+name = "annotated-doc"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/ba/046ceea27344560984e26a590f90bc7f4a75b06701f653222458922b558c/annotated_doc-0.0.4.tar.gz", hash = "sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4", size = 7288, upload-time = "2025-11-10T22:07:42.062Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1e/d3/26bf1008eb3d2daa8ef4cacc7f3bfdc11818d111f7e2d0201bc6e3b49d45/annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320", size = 5303, upload-time = "2025-11-10T22:07:40.673Z" },
+]
+
+[[package]]
 name = "anyio"
 version = "4.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1117,8 +1126,8 @@ wheels = [
 
 [[package]]
 name = "dask"
-version = "2026.1.2"
-source = { registry = "https://pypi.org/simple" }
+version = "2026.6.0.post13+g6c8edcef0"
+source = { git = "https://github.com/dask/dask?rev=main#6c8edcef067fa5f04adcd398e0de0b20b74c7abb" }
 dependencies = [
     { name = "click" },
     { name = "cloudpickle" },
@@ -1127,10 +1136,6 @@ dependencies = [
     { name = "partd" },
     { name = "pyyaml" },
     { name = "toolz" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/52/b0f9172b22778def907db1ff173249e4eb41f054b46a9c83b1528aaf811f/dask-2026.1.2.tar.gz", hash = "sha256:1136683de2750d98ea792670f7434e6c1cfce90cab2cc2f2495a9e60fd25a4fc", size = 10997838, upload-time = "2026-01-30T21:04:20.54Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/23/d39ccc4ed76222db31530b0a7d38876fdb7673e23f838e8d8f0ed4651a4f/dask-2026.1.2-py3-none-any.whl", hash = "sha256:46a0cf3b8d87f78a3d2e6b145aea4418a6d6d606fe6a16c79bd8ca2bb862bc91", size = 1482084, upload-time = "2026-01-30T21:04:18.363Z" },
 ]
 
 [package.optional-dependencies]
@@ -1147,6 +1152,26 @@ dataframe = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pyarrow" },
+]
+
+[[package]]
+name = "dask-array"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dask" },
+    { name = "jinja2" },
+    { name = "numpy" },
+    { name = "rich" },
+    { name = "toolz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/aa/ed/808b878be87a33bb6063f4c131b6adef755dee64cf8b877042de11a3d06b/dask_array-0.4.2.tar.gz", hash = "sha256:cb574331c01ed3c2991cda0c158c8941123836c146b22fbeeecc879b902fdfc9", size = 518941, upload-time = "2026-06-30T03:01:39.613Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/ba/c721f61365d5d2b409ade580a96c6fda531bb8e9aeb2f1ad2757d9650e38/dask_array-0.4.2-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:69b169bf9f5d6294f158f59691c6747773a88cc623edc333dd5858bde3346bbb", size = 917783, upload-time = "2026-06-30T03:01:30.782Z" },
+    { url = "https://files.pythonhosted.org/packages/45/4b/1a1c67a65015f41ff09e3b2403e8e11618b84950896b175603553f65929f/dask_array-0.4.2-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b9d7b4ae6c0ad839fc5e666260c2075659d14c4a88e07ee61b4fb3b2f8653dd0", size = 955602, upload-time = "2026-06-30T03:01:32.395Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/a9/5044b536096b4a55de98d20bcc3d6cda186a2cef7a805dac5642f01920cd/dask_array-0.4.2-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bf11e1ff393900a950a56db6995c50808986620123d3f3c24fe76efd4fc970c2", size = 967863, upload-time = "2026-06-30T03:01:34.046Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/77/1378bc973a1cef53db9614b74c38add130b0bd91b19edefb01ac80f83aad/dask_array-0.4.2-cp310-abi3-win_amd64.whl", hash = "sha256:649e93e4e6a310693b2e9cce582a8b050fc83bb1b79bf1121ec8fb33c0f43341", size = 824452, upload-time = "2026-06-30T03:01:35.924Z" },
+    { url = "https://files.pythonhosted.org/packages/13/16/3aeee8a8e835776c0baa082f867014ee02d9357de520173c5a5dfb4cb4c9/dask_array-0.4.2-py3-none-any.whl", hash = "sha256:2b9f4a6ec17adbaa656a0f5e1c1b755a26edef9be696dbdc8b14026719d7b06f", size = 369644, upload-time = "2026-06-30T03:01:37.973Z" },
 ]
 
 [[package]]
@@ -1259,7 +1284,7 @@ wheels = [
 
 [[package]]
 name = "distributed"
-version = "2026.1.2"
+version = "2026.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1275,12 +1300,11 @@ dependencies = [
     { name = "tblib" },
     { name = "toolz" },
     { name = "tornado" },
-    { name = "urllib3" },
     { name = "zict" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/75/b6e5b77229097ff03dd5ba6a07c77e2da87e7e991ccfef412549bba78746/distributed-2026.1.2.tar.gz", hash = "sha256:8333fa7a34151ed3b4cf1a03136fe1f1799eca706a5e47bdb63022c8795d853b", size = 2103721, upload-time = "2026-01-30T21:07:03.307Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/74/ef/07ccedbf355fea6fd3e14fec12292b4aa140c48d1d6a05a1ad8e6183c690/distributed-2026.6.0.tar.gz", hash = "sha256:88b836dc2d85340cad7e08f2611b9336a70ed018d88bc5a70c3721d4a7efcabd", size = 2459255, upload-time = "2026-06-11T17:56:00.252Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ad/14/0fe5889a83991ac29c93e6b2e121ad2afc3bff5f9327f34447d3068d8142/distributed-2026.1.2-py3-none-any.whl", hash = "sha256:30ccb5587351f50304f6f6e219ea91bc09d88401125779caa8be5253e9d3ecf2", size = 1009083, upload-time = "2026-01-30T21:07:01.363Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/62/674ba5ada6de5615b458d768c0f0fb1a7b53299486fb38a36e0694f3c617/distributed-2026.6.0-py3-none-any.whl", hash = "sha256:ca034e8b4d05b8a92f0655ebd0914e82308509a213889456d7ddd2bd0543439b", size = 1006995, upload-time = "2026-06-11T17:55:58.374Z" },
 ]
 
 [[package]]
@@ -1428,8 +1452,8 @@ wheels = [
 
 [[package]]
 name = "flox"
-version = "0.10.7"
-source = { registry = "https://pypi.org/simple" }
+version = "1000.dev715+gb6bb2a474"
+source = { git = "https://github.com/mrocklin/flox?rev=dask-array#b6bb2a474e8d924935027b6925740fafc424d458" }
 dependencies = [
     { name = "numpy" },
     { name = "numpy-groupies" },
@@ -1437,10 +1461,6 @@ dependencies = [
     { name = "pandas" },
     { name = "scipy" },
     { name = "toolz" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/eb/8f/87460e012f3ec7d70afee287a47c163a3ba6f149e909f6c89ef9360705cb/flox-0.10.7.tar.gz", hash = "sha256:d5e208ddb248f62987938070dc755911d400d3cc53957692714df1a1a77823f4", size = 919726, upload-time = "2025-09-25T14:45:47.842Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ed/ee/cd1f7e29979d0d71c8fabf5090a759b8d338bddf96aab286e39c7a7b2c0a/flox-0.10.7-py3-none-any.whl", hash = "sha256:645b58ffa64c6a0c4f855d6c2f9b1f377471e347aa67486086ad4e16e475d6da", size = 79259, upload-time = "2025-09-25T14:45:46.679Z" },
 ]
 
 [[package]]
@@ -1491,6 +1511,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/30/3e/a80a8c077fd798951169626cde3e239adeba7dab75deb3555716415bd9b0/fqdn-1.5.1.tar.gz", hash = "sha256:105ed3677e767fb5ca086a0c1f4bb66ebc3c100be518f0e0d755d9eae164d89f", size = 6015, upload-time = "2021-03-11T07:16:29.08Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cf/58/8acf1b3e91c58313ce5cb67df61001fc9dcd21be4fadb76c1a2d540e09ed/fqdn-1.5.1-py3-none-any.whl", hash = "sha256:3a179af3761e4df6eb2e026ff9e1a3033d3587bf980a0b1b2e1e5d08d7358014", size = 9121, upload-time = "2021-03-11T07:16:28.351Z" },
+]
+
+[[package]]
+name = "frisky"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudpickle" },
+    { name = "rich" },
+    { name = "typer" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5f/c1/1151a00502e8b2fa18313a14d78ddc0d99b91852c6ac9cb237a4511d66b1/frisky-0.4.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:61e3ae47957bd22a13e932fbcbca387c886f53db313550b654290e49d5433af4", size = 5366019, upload-time = "2026-06-30T03:01:23.778Z" },
+    { url = "https://files.pythonhosted.org/packages/27/b7/e107b060a0326df2bc89d673ec44cf4f8b132471eb2da68f36fa5316564f/frisky-0.4.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bca2205a809f8557426a5dae6894db449309a0dc3a0e7b45574de2c5532a7e47", size = 5820222, upload-time = "2026-06-30T03:01:25.373Z" },
+    { url = "https://files.pythonhosted.org/packages/91/96/63d9c69c957367676f6b89c5db1828d0fcca98b5865094ddfb15db72b97b/frisky-0.4.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b18b48e6af0d35326215d4eb859d492d96c57118ca07ad2314ce879fe30c570d", size = 6025118, upload-time = "2026-06-30T03:01:27.379Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/3d/35bffa03a88e072ca22ce87bb490a6eaf7553041a9bcf636e7e2c8b32f07/frisky-0.4.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:3e571a495f6c21e948014030b21075bdc5fb4cd0fd93bf5a4b61d6135326f8ff", size = 5365617, upload-time = "2026-06-30T03:01:29.08Z" },
+    { url = "https://files.pythonhosted.org/packages/65/9f/f4fa75ffcd1055feda484206785c4f72747ac270a005bd3d60a7bd5e8571/frisky-0.4.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bd6338d231dbf150ea7a43cdd4140c7ba7546afe7959ca97bcd04751e9d3bcfb", size = 5820199, upload-time = "2026-06-30T03:01:30.705Z" },
+    { url = "https://files.pythonhosted.org/packages/57/b0/4a62de05ea6e5a24ee04c703a1c2f995840c27ba8231b61f1c3eb18bcef5/frisky-0.4.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:815e384dbef9b69ae426615bb8ddd69a1dba473a7538d0835bb45dd6a2c62908", size = 6024662, upload-time = "2026-06-30T03:01:32.298Z" },
 ]
 
 [[package]]
@@ -5117,11 +5155,13 @@ dependencies = [
     { name = "click" },
     { name = "coiled" },
     { name = "cryptography" },
-    { name = "dask", extra = ["complete"] },
+    { name = "dask" },
+    { name = "dask-array" },
     { name = "dateparser" },
     { name = "earthaccess" },
     { name = "ecmwf-api-client" },
     { name = "flox" },
+    { name = "frisky" },
     { name = "gcsfs" },
     { name = "geopandas" },
     { name = "google-api-python-client" },
@@ -5179,12 +5219,13 @@ requires-dist = [
     { name = "click" },
     { name = "coiled", specifier = ">=1.76.1" },
     { name = "cryptography" },
-    { name = "dask", specifier = "==2026.1.2" },
-    { name = "dask", extras = ["complete"] },
+    { name = "dask", git = "https://github.com/dask/dask?rev=main" },
+    { name = "dask-array" },
     { name = "dateparser" },
     { name = "earthaccess" },
     { name = "ecmwf-api-client" },
-    { name = "flox" },
+    { name = "flox", git = "https://github.com/mrocklin/flox?rev=dask-array" },
+    { name = "frisky" },
     { name = "gcsfs" },
     { name = "geopandas" },
     { name = "google-api-python-client" },
@@ -5211,7 +5252,7 @@ requires-dist = [
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "tqdm" },
-    { name = "xarray", specifier = "==2025.1.0" },
+    { name = "xarray", git = "https://github.com/pydata/xarray?rev=main" },
     { name = "xarray-regrid" },
     { name = "xee" },
     { name = "xesmf" },
@@ -5516,6 +5557,21 @@ wheels = [
 ]
 
 [[package]]
+name = "typer"
+version = "0.26.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "rich" },
+    { name = "shellingham" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7c/f7/68adc395201b20b872d68e975386832e8005ffeacedd43a1d837a32815be/typer-0.26.8.tar.gz", hash = "sha256:c244a6bd558886fe3f8780efb6bdd28bb9aff005a94eedebaa5cb32926fe2f7e", size = 202097, upload-time = "2026-06-26T09:22:45.705Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/87/b9fd69c92c6102a066e1b86a35243f53e70bd4c709f2a26d9f4fee4f4dc0/typer-0.26.8-py3-none-any.whl", hash = "sha256:3512ca79ac5c11113414b36e80281b872884477722440691c89d1112e321a49c", size = 122564, upload-time = "2026-06-26T09:22:44.72Z" },
+]
+
+[[package]]
 name = "typer-slim"
 version = "0.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5702,16 +5758,12 @@ wheels = [
 
 [[package]]
 name = "xarray"
-version = "2025.1.0"
-source = { registry = "https://pypi.org/simple" }
+version = "2026.4.1.dev33+g098158d4b"
+source = { git = "https://github.com/pydata/xarray?rev=main#098158d4b19863bcba3e448b8f5f5a8da87d610f" }
 dependencies = [
     { name = "numpy" },
     { name = "packaging" },
     { name = "pandas" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/41/35/ee1464a168fc90ea73df419b5902c9f0dece40f9a7d8a0017b17c1badc18/xarray-2025.1.0.tar.gz", hash = "sha256:e48fd44c918f127d553ec1c05faac1cadc9ab9402e210ecc440b64b0dfcfda4c", size = 3256313, upload-time = "2025-01-03T21:12:45.518Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/a8/2c2d85b3695804a23bc48171655f7427d1befdc20f0e91dde98334f8d0f7/xarray-2025.1.0-py3-none-any.whl", hash = "sha256:bff8017a47f6092c152c4745307a26adc3e31bfeb1b81abe6a2e62eda99a3687", size = 1240716, upload-time = "2025-01-03T21:12:42.356Z" },
 ]
 
 [package.optional-dependencies]
