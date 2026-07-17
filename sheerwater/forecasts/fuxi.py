@@ -90,7 +90,7 @@ def fuxi_single_forecast(date):
 def fuxi_raw(start_time, end_time, grid='global1_5', mask=None, region='global', delayed=False):  # noqa: ARG001
     """Combine a range of forecasts with or without dask delayed. Returns daily, unagged fuxi timeseries.
 
-    TODO: we should ad a regriddring / gridding step here.
+    TODO: we should ad a regridding / gridding step here.
     """
     dates = pd.date_range(start_time, end_time)
 
@@ -128,7 +128,8 @@ def fuxi_raw(start_time, end_time, grid='global1_5', mask=None, region='global',
        cache_args=['variable', 'prob_type', 'grid'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 14, 'time': 2, 'member': 51}},
        cache_disable_if={'prob_type': 'probabilistic'})
-def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic', grid='global1_5', mask=None, region='global'):
+def fuxi_processed(start_time, end_time, variable, prob_type='probabilistic',
+                   grid='global1_5', mask=None, region='global'):
     """Roll and aggregate the FuXi data."""
     ds = fuxi_raw(start_time, end_time, grid=grid, mask=mask, region=region)
 

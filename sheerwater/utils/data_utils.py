@@ -38,6 +38,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     if agg_thresh is None:
         # If no agg_thresh is provided, use the full aggregation period by default
         agg_thresh = agg
+
     agg_kwargs = {
         f"{agg_col}": agg,
         "min_periods": agg_thresh,
@@ -68,11 +69,12 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
     # Correct coords to left-align or center-align the aggregated forecast window
     # (default is right aligned)
     if align == "center":
-        shift = np.timedelta64(agg-1, 'D') / 2
+        shift = np.timedelta64((agg - 1) // 2, 'D')
     elif align == "right":
         shift = np.timedelta64(0, 'D')
     elif align == "left":
         shift = np.timedelta64(agg-1, 'D')
+
     ds_agg = ds_agg.assign_coords(**{f"{agg_col}": ds_agg[agg_col]-shift})
 
     if stride is not None:
@@ -82,7 +84,7 @@ def roll_and_agg(ds, agg, agg_col, agg_fn="mean", align="left", stride=None, agg
             start_time = ds_agg[agg_col].values[0]
             end_time = ds_agg[agg_col].values[-1]
             times = get_dates(start_time, end_time, stride=stride)
-            ds_agg = ds_agg.sel(time=times)
+            ds_agg = ds_agg.sel(**{agg_col: times})
 
     return ds_agg
 

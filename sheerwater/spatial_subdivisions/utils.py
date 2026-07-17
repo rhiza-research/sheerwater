@@ -30,6 +30,7 @@ warnings.filterwarnings(
 # Core clipping / masking utilities
 ##############################################################################
 
+
 def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
     """Clip a dataset to a region.
 
@@ -101,7 +102,9 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_str = '-'.join([region[i] for i, _ in gridded_regions])
         region_ds = space_grouping_labels(space_grouping=promoted_levels, grid=grid)
         region_ds = region_ds.rename({'region': '_clip_region'})
-        #ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
+        # This would improve the performance by dropping grid points that are not in the region
+        # but it requires some thinking about caching, etc., so we're leaving it out for now.
+        # ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
         ds = ds.where((region_ds._clip_region == region_str), drop=False)
         ds = ds.drop_vars('_clip_region')
 
@@ -299,10 +302,10 @@ def regrid_region_masks(masks, output_grid, base="base180"):
     label_map = (masks.astype(np.int8) * masks.region).sum("region")
 
     label_map_comm = regrid(label_map.masks, output_grid, base=base, method="most_common",
-        regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
-    )
+                            regridder_kwargs={"values": np.append(0, masks.region.values), "fill_value": 0},
+                            )
     label_map_fill = regrid(label_map.masks, output_grid, base=base, method="stat",
-        regridder_kwargs={"method": "max"})
+                            regridder_kwargs={"method": "max"})
     # if a cell has a label but is mostly background, comm=0, but fill!=0
     fillin = (label_map_fill != 0) & (label_map_comm == 0)
     label_map = label_map_comm.where(~fillin, label_map_fill)
@@ -345,10 +348,11 @@ def masks_to_polygons(masks, crs="EPSG:4326"):
         else:
             # dissolve
             merged = unary_union(polygons)
-            gdf = gpd.GeoDataFrame(geometry=[merged],crs=crs)
+            gdf = gpd.GeoDataFrame(geometry=[merged], crs=crs)
         gdf['region'] = region
         gdfs.append(gdf)
     return gdfs
+
 
 def nonuniform_grid(ds, error_thresh=1e-5):
     """Check if a dataset has a nonuniform grid.
@@ -362,5 +366,3 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
-
-

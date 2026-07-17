@@ -440,6 +440,9 @@ class Metric(ABC):
                 filt = filter
             self.statistic_values[stat] = stat_vals.where(filt[self.variable], np.nan, drop=False)
 
+        # Save the filter datastream for downstream event counting
+        self.filter = filter.astype(int).where(no_null, np.nan, drop=False)
+
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
 
@@ -465,15 +468,17 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
                 ds = ds.reset_coords(coord, drop=True)
 
-        # Create a non_null indicator and add it to the statistic
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
+        filter_count = groupby_time(self.filter, self.time_grouping, agg_fn='sum')
 
         # Put evertyhing on the same chunk before spatial aggregation
         ds = ds.chunk({dim: -1 for dim in ds.dims})
+        filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
+        filter_count = filter_count.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
 
         ############################################################
         # 3. Aggregate in space and apply spatial weighting
@@ -497,8 +502,14 @@ class Metric(ABC):
 
             if self.space_grouping is None:
                 ds = ds.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+                filter_count = filter_count.sum(dim=['lat', 'lon'], skipna=True, min_count=1)
             elif ds.space_grouping.size > 0:
                 ds = ds.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+                filter_count = filter_count.groupby('space_grouping').sum(dim=['lat', 'lon'], skipna=True, min_count=1)
+
+                # Convert space grouping back to a fixed length string, which get's lost in the groupby
+                ds['space_grouping'] = ds['space_grouping'].astype('U100')
+                filter_count['space_grouping'] = filter_count['space_grouping'].astype('U100')
 
                 # If we've passed a global region and clipped, drop any null groups
                 # Currently commenting out because it was hurting performance
@@ -516,9 +527,11 @@ class Metric(ABC):
         else:
             # If returning a spatial metric, mask and drop
             ds = ds.where(mask_ds.mask, np.nan, drop=False)
+            filter_count = filter_count.where(mask_ds.mask, np.nan, drop=False)
 
         # Assign the final statistic value
         self.grouped_statistics = ds
+        self.filter_count = filter_count
 
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
@@ -546,6 +559,8 @@ class Metric(ABC):
 
         # Convert from dataarray to dataset and return.
         ds = da.to_dataset(name=self.name)
+        ds.attrs['metric_name'] = self.name
+        ds['event_count'] = self.filter_count[self.variable]
         return ds
 
 
@@ -762,18 +777,7 @@ class ACC(Metric):
         Metric.prepare_data(self)
         assert self.event is None, "ACC metric does not support events."
 
-        # Get the appropriate climatology dataframe for metric calculation
-        if self.truth == 'imerg_final':
-            first_year = 1998
-            last_year = 2015
-            clim_source = 'imerg_final'
-        else:
-            first_year = 1985
-            last_year = 2014
-            clim_source = 'era5'
-
-        clim_ds = climatology(data=clim_source, first_year=first_year, last_year=last_year,
-                              **self.fcst_obs_kwargs, prob_type='deterministic')
+        clim_ds = climatology(data=self.truth, **self.fcst_obs_kwargs, prob_type='deterministic')
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['fcst'].dims:
@@ -786,10 +790,9 @@ class ACC(Metric):
         # Add the climatology to the metric data
         self.metric_data['climatology'] = clim_ds
 
-        # Update the metric kwargs to include the climatology year range
-        self.metric_kwargs['clim_source'] = clim_source
-        self.metric_kwargs['first_year'] = first_year
-        self.metric_kwargs['last_year'] = last_year
+        # Update the metric kwargs to include the climatology data source for
+        # cache keying
+        self.metric_kwargs['clim_source'] = self.truth
 
     def compute_metric(self):
         gs = self.grouped_statistics

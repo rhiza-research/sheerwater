@@ -18,7 +18,7 @@ console.log(zoom)
 document.last_zoom = zoom
 document.last_center = center
 
-/*
+
 updated_layout = event.layout
 for (const key of Object.keys(event.layout)) {
   if (key.includes('map')) {
@@ -27,4 +27,4 @@ for (const key of Object.keys(event.layout)) {
   }
 }
 
-return updated_layout*/
+return updated_layout
