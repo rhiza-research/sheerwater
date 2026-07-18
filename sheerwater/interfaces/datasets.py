@@ -284,7 +284,7 @@ class data(SheerwaterDataset):
 
 @spatial()
 @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid'],
-       backend_kwargs={'chunking': {"lat": 10, "lon": 10, "init_time": 5000, "prediction_timedelta": 50}})
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 50}})
 def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -301,7 +301,7 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
 @spatial()
 @timeseries(timeseries='init_time')
 @cache(cache=True, cache_args=['fcst', 'prob_type', 'variable', 'grid'],
-       backend_kwargs={'chunking': {"lat": 10, "lon": 10, "init_time": 5000, "prediction_timedelta": 50, "member": 1}})
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 50, "member": 1}})
 def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest

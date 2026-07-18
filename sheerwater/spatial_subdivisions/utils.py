@@ -104,8 +104,7 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_ds = region_ds.rename({'region': '_clip_region'})
         # This would improve the performance by dropping grid points that are not in the region
         # but it requires some thinking about caching, etc., so we're leaving it out for now.
-        # ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
-        ds = ds.where((region_ds._clip_region == region_str), drop=False)
+        ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
         ds = ds.drop_vars('_clip_region')
 
     # restore coordinate variables to coordinates.

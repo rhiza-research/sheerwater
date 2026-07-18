@@ -78,14 +78,14 @@ class Metric(ABC):
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
-        # Overwrite default prob type with metric kwargs if present.
-        if 'prob_type' in metric_kwargs:
-            self.prob_type = metric_kwargs['prob_type']
+        # Requested forecast probability type (may differ from the metric's algorithm type).
+        # e.g. deterministic MAE with forecast_prob_type='probabilistic' per-member scores.
+        self.forecast_prob_type = self.metric_kwargs.get('prob_type', self.prob_type)
 
         # Initialize the event kwargs for the metric and filter and check validity.
         self.init_event_kwargs(event, event_kwargs,
-                               metric_kwargs.get('pre_filter_event', None),
-                               metric_kwargs.get('pre_filter_event_kwargs', None),
+                               self.metric_kwargs.get('pre_filter_event', None),
+                               self.metric_kwargs.get('pre_filter_event_kwargs', None),
                                filter_event, filter_event_kwargs)
 
     def init_event_kwargs(self,
@@ -172,21 +172,23 @@ class Metric(ABC):
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
                                lookback_source=self.truth, densify=self.densify,
-                               prob_type=self.prob_type, memoize=self.memoize_forecast)
+                               prob_type=self.forecast_prob_type, memoize=self.memoize_forecast)
                 if self.do_forecast_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
+                                          prob_type=self.forecast_prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
+
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
-                               lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
+                               lookback_source=self.truth, densify=self.densify, prob_type=self.forecast_prob_type)
                 if self.do_forecast_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
+                                          lookback_source=self.truth, densify=self.densify,
+                                          prob_type=self.forecast_prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
@@ -208,11 +210,16 @@ class Metric(ABC):
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
-        # Make sure the prob type is consistent
+        # Make sure the metric algorithm and forecast probability representation are compatible.
+        # Deterministic metrics may run per-member on ensemble forecasts when forecast_prob_type
+        # is probabilistic; quantile forecasts are not supported for that path.
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
             raise ValueError("Cannot run probabilistic metric on deterministic forecasts.")
-        elif (enhanced_prob_type == 'ensemble' or enhanced_prob_type == 'quantile') \
-                and self.prob_type == 'deterministic':
+        elif self.prob_type == 'deterministic' and enhanced_prob_type == 'quantile':
+            raise ValueError(
+                "Cannot run deterministic metric on quantile forecasts; ensemble required for per-member scores.")
+        elif self.prob_type == 'deterministic' and enhanced_prob_type == 'ensemble' \
+                and self.forecast_prob_type != 'probabilistic':
             raise ValueError("Cannot run deterministic metric on probabilistic forecasts.")
 
         """2. Fetch the truth data. This must be a dataset, often either a gridded truth or station."""
@@ -310,6 +317,16 @@ class Metric(ABC):
         if self.do_forecast_filter:
             filter_fcst = filter_fcst.sel(time=valid_times)
 
+        # Persist aligned inputs once: reused by statistics, no_null, and filter application.
+        obs = obs.persist()
+        fcst = fcst.persist()
+        if self.do_pre_filter:
+            pre_filter_obs = pre_filter_obs.persist()
+        if self.do_obs_filter:
+            filter_obs = filter_obs.persist()
+        if self.do_forecast_filter:
+            filter_fcst = filter_fcst.persist()
+
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
         self.metric_data['obs'] = obs
@@ -335,7 +352,12 @@ class Metric(ABC):
     @property
     @abstractmethod
     def prob_type(self) -> str:
-        """Either 'deterministic' or 'probabilistic'."""
+        """Metric algorithm type: 'deterministic' or 'probabilistic'.
+
+        Distinct from forecast_prob_type (from metric_kwargs['prob_type']), which
+        selects the forecast representation. A deterministic metric with
+        forecast_prob_type='probabilistic' computes per-member scores on ensembles.
+        """
         pass
 
     @property
@@ -401,9 +423,9 @@ class Metric(ABC):
             # So, if for example, SEEPS has nulled out cells, no_null will be updated to exclude those cells.
             no_null = no_null & ds.notnull()
 
-        # Ensure a matching null pattern
-        # If the observations are sparse, the forecaster and the obs must be the same length
-        # for metrics like ACC to work
+        # If self.prob_type is probabilistic, the metric will return statistics that have compressed over
+        # the member dimension. We will therefore need a filter that operates without a member dimension.
+        # A course way of doing this is just selecting the first member.
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
@@ -463,7 +485,7 @@ class Metric(ABC):
 
         # Drop any extra random coordinates that shouldn't be there
         for coord in ds.coords:
-            if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
+            if coord not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']:
                 ds = ds.reset_coords(coord, drop=True)
 
         # Group by time
@@ -471,8 +493,8 @@ class Metric(ABC):
         filter_count = groupby_time(self.filter, self.time_grouping, agg_fn='sum')
 
         # Put evertyhing on the same chunk before spatial aggregation
-        ds = ds.chunk({dim: -1 for dim in ds.dims})
-        filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
+        # ds = ds.chunk({dim: -1 for dim in ds.dims})
+        # filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
