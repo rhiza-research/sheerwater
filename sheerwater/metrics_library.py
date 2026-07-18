@@ -302,30 +302,15 @@ class Metric(ABC):
             dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
             dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
 
-        # To ensure chunks align for nullification, place all of time in one single chunk
-        # TODO: make sure chunks are reasonable for differnt time stretches
-        for dfs in datasets:
-            dfs = dfs.chunk({'time': -1, 'lat': 100, 'lon': 100})
-
-        # Select forecast and obs on their valid times
-        obs = obs.sel(time=valid_times)
-        fcst = fcst.sel(time=valid_times)
+        # Align on valid times and persist for reuse by statistics, no_null, and filters.
+        obs = obs.sel(time=valid_times).persist()
+        fcst = fcst.sel(time=valid_times).persist()
         if self.do_pre_filter:
-            pre_filter_obs = pre_filter_obs.sel(time=valid_times)
+            pre_filter_obs = pre_filter_obs.sel(time=valid_times).persist()
         if self.do_obs_filter:
-            filter_obs = filter_obs.sel(time=valid_times)
+            filter_obs = filter_obs.sel(time=valid_times).persist()
         if self.do_forecast_filter:
-            filter_fcst = filter_fcst.sel(time=valid_times)
-
-        # Persist aligned inputs once: reused by statistics, no_null, and filter application.
-        obs = obs.persist()
-        fcst = fcst.persist()
-        if self.do_pre_filter:
-            pre_filter_obs = pre_filter_obs.persist()
-        if self.do_obs_filter:
-            filter_obs = filter_obs.persist()
-        if self.do_forecast_filter:
-            filter_fcst = filter_fcst.persist()
+            filter_fcst = filter_fcst.sel(time=valid_times).persist()
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary

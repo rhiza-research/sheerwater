@@ -416,6 +416,9 @@ class forecast(SheerwaterDataset):
             # Add an attribute to the dataset to indicate the event name
             ds = ds.rename({'time': 'prediction_timedelta'})
             ds = ds.assign_attrs({'event': self.event})
+            # Persist after densify/lookback/event when the graph is heavy (ensemble or densify).
+            if self.densify or 'member' in ds.dims:
+                ds = ds.persist()
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
