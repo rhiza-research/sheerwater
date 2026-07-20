@@ -307,6 +307,9 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     elif experiment == 'big_rain_days':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_big_rain_days_kwargs(experiment, region, input_metric_kwargs)
+    elif experiment == 'extreme_rain_days':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs)
     elif experiment == 'rain_days_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs)

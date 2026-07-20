@@ -289,7 +289,7 @@ class data(SheerwaterDataset):
 
 @spatial()
 @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid'],
-       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 50}})
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 100}})
 def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -300,13 +300,14 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
+    ds_obs = ds_obs.chunk({'lat': 25, 'lon': 25, 'init_time': 1000, 'prediction_timedelta': 100})
     return ds_obs
 
 
 @spatial()
 @timeseries(timeseries='init_time')
 @cache(cache=True, cache_args=['fcst', 'prob_type', 'variable', 'grid'],
-       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 50, "member": 1}})
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 100, "member": 1}})
 def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -387,18 +388,13 @@ class forecast(SheerwaterDataset):
             new_end = ds.init_time.values.max()
             attrs = ds.attrs.copy()
 
-
-<< << << < HEAD
             ds = dense_fcst(new_start, new_end, fcst=self.func_name,
                             prob_type=self.prob_type, variable=self.variable,
-== == == =
-            ds=dense_fcst(new_start, new_end, fcst=self.func_name, variable=self.variable,
->>>>>> > main
                             grid=self.grid, mask=self.mask, region=self.region, memoize=True)
-            ds=ds.assign_attrs(attrs)
+            ds = ds.assign_attrs(attrs)
 
         # Clip and mask the dataset
-        ds=SheerwaterDataset.post_process(self, ds)
+        ds = SheerwaterDataset.post_process(self, ds)
 
         # Run the events on the forecast: requires blending in lookback obs and renaming time labels
         if self.event is not None and 'event' not in ds.attrs:
@@ -407,39 +403,39 @@ class forecast(SheerwaterDataset):
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
             ##################################################################################################
-            lookback_days=self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration)
-                else self.event_fn.duration
+            lookback_days = self.event_fn.duration(self.event_kwargs) if callable(
+                self.event_fn.duration) else self.event_fn.duration
 
             if self.lookback_source is not None:
-                ds=self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
+                ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
             elif lookback_days > 0:
                 warnings.warn(
                     f"Lookback days {lookback_days} specified but no lookback source provided. Ignoring lookback days.")
-            ds=ds.assign_attrs({'lookback_source': self.lookback_source})
+            ds = ds.assign_attrs({'lookback_source': self.lookback_source})
 
             ##################################################################################################
             # 3. Run the event on the forecast
             ##################################################################################################
             # For the first event, rename prediction timedelta to time to act along leads
-            ds=ds.rename({'prediction_timedelta': 'time'})
-            ds=self.event_fn(ds, **self.event_kwargs)
+            ds = ds.rename({'prediction_timedelta': 'time'})
+            ds = self.event_fn(ds, **self.event_kwargs)
 
             # Add an attribute to the dataset to indicate the event name
-            ds=ds.rename({'time': 'prediction_timedelta'})
-            ds=ds.assign_attrs({'event': self.event})
+            ds = ds.rename({'time': 'prediction_timedelta'})
+            ds = ds.assign_attrs({'event': self.event})
             # Persist after densify/lookback/event when the graph is heavy (ensemble or densify).
             if self.densify or 'member' in ds.dims:
-                ds=ds.persist()
+                ds = ds.persist()
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")
         # If agg days are not equal to 1 we need to roll and agg
         elif self.agg_days != 1 and (('agg_days' not in ds.attrs) or
                                      ('agg_days' in ds.attrs and ds.attrs['agg_days'] == 1)):
-            agg_thresh=max(math.ceil(self.agg_days*self.missing_thresh), 1)
-            ds=roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
+            agg_thresh = max(math.ceil(self.agg_days*self.missing_thresh), 1)
+            ds = roll_and_agg(ds, agg=self.agg_days, agg_col="prediction_timedelta",
                               agg_fn='mean', agg_thresh=agg_thresh)
-            ds=ds.assign_attrs({
+            ds = ds.assign_attrs({
                 'agg_days': float(self.agg_days),
             })
         elif self.agg_days != 1 and 'agg_days' in ds.attrs and self.agg_days != ds.attrs['agg_days']:
@@ -447,14 +443,14 @@ class forecast(SheerwaterDataset):
                              aggregated to {ds.attrs['agg_days']}")
 
         if 'init_time' in ds.coords and 'prediction_timedelta' in ds.coords:
-            ds=convert_init_time_to_pred_time(ds)
+            ds = convert_init_time_to_pred_time(ds)
 
         if self.detect_in_time is not None and 'detect_in_time' not in ds.attrs:
-            ds=detect_in_time(ds, **self.detect_in_time)
-            ds=ds.assign_attrs({'detect_in_time': True})
+            ds = detect_in_time(ds, **self.detect_in_time)
+            ds = ds.assign_attrs({'detect_in_time': True})
 
         # Remove all unneeded dimensions
-        ds=ds.drop_vars([var for var in ds.coords if
+        ds = ds.drop_vars([var for var in ds.coords if
                            var not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member', 'group']])
 
         return ds

@@ -181,7 +181,6 @@ def quantile_extremes(ds, threshold, data_source, first_year=1985, last_year=201
     null_mask = ds.isnull()
 
     # Get the quantile ranks for the dataset
-    region = ds.attrs['region']
     grid = ds.attrs['grid']
     var = list(ds.data_vars)[0]
     from sheerwater.downscale_data import quantile_ranks

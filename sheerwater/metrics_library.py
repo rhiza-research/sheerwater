@@ -155,23 +155,6 @@ class Metric(ABC):
             self.filter_event_kwargs_fcst = filter_event_kwargs if filter_event_kwargs is not None else {}
             self.filter_event_kwargs_obs = filter_event_kwargs if filter_event_kwargs is not None else {}
 
-
-<< << << < HEAD
-== == == =
-        # For events that require a data source, set it to the truth
-        if self.event is not None:
-            event_fn = get_event_fn(self.event)
-            event_params = inspect.signature(event_fn).parameters
-            if 'data_source' in event_params and 'data_source' not in self.event_kwargs:
-                self.event_kwargs['data_source'] = self.truth
-
-        if self.filter_event is not None:
-            filter_event_fn = get_event_fn(self.filter_event)
-            filter_event_params = inspect.signature(filter_event_fn).parameters
-            if 'data_source' in filter_event_params and 'data_source' not in self.filter_event_kwargs:
-                self.filter_event_kwargs['data_source'] = self.truth
-
->>>>>> > geflaspo/final_events
     def prepare_data(self):
         """Prepare the data for metric calculation, including forecast, observation, and event processing."""
         # Arguments for calling the data and forecast functions.
@@ -200,7 +183,6 @@ class Metric(ABC):
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify,
                                           prob_type=self.forecast_prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
-
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
@@ -257,8 +239,8 @@ class Metric(ABC):
                                       memoize=self.memoize_truth, cache=True)  # noqa: E501
             if self.do_pre_filter:
                 pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
-                                      event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs,
-                                      memoize=self.memoize_truth, cache=True)  # noqa: E501
+                                          event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs,
+                                          memoize=self.memoize_truth, cache=True)  # noqa: E501
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
@@ -269,6 +251,7 @@ class Metric(ABC):
             if self.do_pre_filter:
                 pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                           event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
+
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -297,7 +280,7 @@ class Metric(ABC):
         if 'sparse' in obs.attrs:
             sparse |= obs.attrs['sparse']
 
-        """ Filter data."""
+        """4. Filter data."""
         # Everthing will be a daily timeseries at this point, so it will not introduce gaps, just
         # Ensure that we're covering latest start time to the earliest end time of the data
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
@@ -324,15 +307,28 @@ class Metric(ABC):
             dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
             dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
 
-        # Align on valid times and persist for reuse by statistics, no_null, and filters.
-        obs = obs.sel(time=valid_times).persist()
-        fcst = fcst.sel(time=valid_times).persist()
+        # Align on valid times, rechunk to a shared layout, and persist for reuse.
+        # Long time + all leads in one chunk; spatial tiles; one member per chunk.
+        EVENT_CHUNKS = {
+            'member': 1,
+            'lat': 25,
+            'lon': 25,
+            'time': 1000,
+            'prediction_timedelta': -1,
+        }
+        obs = obs.sel(time=valid_times).chunk(
+            {k: EVENT_CHUNKS[k] for k in obs.dims if k in EVENT_CHUNKS}).persist()
+        fcst = fcst.sel(time=valid_times).chunk(
+            {k: EVENT_CHUNKS[k] for k in fcst.dims if k in EVENT_CHUNKS}).persist()
         if self.do_pre_filter:
-            pre_filter_obs = pre_filter_obs.sel(time=valid_times).persist()
+            pre_filter_obs = pre_filter_obs.sel(time=valid_times).chunk(
+                {k: EVENT_CHUNKS[k] for k in pre_filter_obs.dims if k in EVENT_CHUNKS}).persist()
         if self.do_obs_filter:
-            filter_obs = filter_obs.sel(time=valid_times).persist()
+            filter_obs = filter_obs.sel(time=valid_times).chunk(
+                {k: EVENT_CHUNKS[k] for k in filter_obs.dims if k in EVENT_CHUNKS}).persist()
         if self.do_forecast_filter:
-            filter_fcst = filter_fcst.sel(time=valid_times).persist()
+            filter_fcst = filter_fcst.sel(time=valid_times).chunk(
+                {k: EVENT_CHUNKS[k] for k in filter_fcst.dims if k in EVENT_CHUNKS}).persist()
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
@@ -443,16 +439,23 @@ class Metric(ABC):
             if self.do_pre_filter:
                 self.metric_data['pre_filter_obs'] = self.metric_data['pre_filter_obs'].sel(member=0).drop('member')
 
-        # Do event filtering
+        # Do event filtering. Use where(..., False) with a left-align so filter keeps
+        # no_null's shape when event windows drop different edge leads.
         filter = no_null  # baseline no nulls
         if self.do_pre_filter:
-            filter = filter & self.metric_data['pre_filter_obs']  # add in pre-filter
+            filter, pre = xr.align(filter, self.metric_data['pre_filter_obs'], join='left', fill_value=False)
+            filter = filter.where(pre, False)
         if self.do_forecast_filter and self.do_obs_filter:
-            filter = filter & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
+            ff, fo = xr.align(self.metric_data['filter_fcst'], self.metric_data['filter_obs'],
+                              join='outer', fill_value=False)
+            filter, event_mask = xr.align(filter, ff | fo, join='left', fill_value=False)
+            filter = filter.where(event_mask, False)
         elif self.do_forecast_filter:
-            filter = filter & self.metric_data['filter_fcst']
+            filter, ff = xr.align(filter, self.metric_data['filter_fcst'], join='left', fill_value=False)
+            filter = filter.where(ff, False)
         elif self.do_obs_filter:
-            filter = filter & self.metric_data['filter_obs']
+            filter, fo = xr.align(filter, self.metric_data['filter_obs'], join='left', fill_value=False)
+            filter = filter.where(fo, False)
 
         # Apply the filter to each statistic
         for stat in self.statistics:
@@ -495,13 +498,9 @@ class Metric(ABC):
             if coord not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']:
                 ds = ds.reset_coords(coord, drop=True)
 
-<< << << < HEAD
         # Group by time
         ds = groupby_time(ds, self.time_grouping, agg_fn='mean')
         filter_count = groupby_time(self.filter, self.time_grouping, agg_fn='sum')
-== == == =
-        ds = groupby_time(ds, self.time_grouping, agg_fn=self.agg_fn)
->>>>>> > geflaspo/final_events
 
         # Put evertyhing on the same chunk before spatial aggregation
         # ds = ds.chunk({dim: -1 for dim in ds.dims})

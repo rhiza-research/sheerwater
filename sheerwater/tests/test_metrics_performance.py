@@ -36,8 +36,8 @@ METRIC_MAX_SECONDS = None
 SLOWDOWN_THRESHOLD = 10.0
 
 # Recompute options: full (statistic + metric), or metric-only (statistic from cache).
-METRIC_RECOMPUTE_FULL = ["global_statistic", "metric"]
-METRIC_RECOMPUTE_METRIC_ONLY = ["metric"]
+METRIC_RECOMPUTE_FULL = ["global_statistic", "metric", "metric_with_event_count"]
+METRIC_RECOMPUTE_METRIC_ONLY = ["metric", "metric_with_event_count"]
 METRIC_CACHE_MODE = "overwrite"
 
 
