@@ -81,7 +81,7 @@ def metric(start_time, end_time, variable, forecast, truth,
                                    time_grouping=time_grouping, space_grouping=space_grouping,
                                    spatial=spatial, grid=grid, mask=mask, region=region,
                                    memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
-                                   recompute=True) # hard code recompute to True to avoid caching issues
+                                   recompute=True)  # hard code recompute to True to avoid caching issues
 
     metric_name = data.attrs['metric_name']
     return data[[metric_name]]

@@ -960,8 +960,8 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
                       filter_event_kwargs=filter_event_kwargs,
                       **init_kwargs)
     except ValueError:
-        # Copy so parsing user_input_config does not mutate caller/job kwargs.
-        metric_kwargs = {} if metric_kwargs is None else dict(metric_kwargs)
+        if metric_kwargs is None:
+            metric_kwargs = {}
         # Convert
         if '-' in metric_name:
             mn = metric_name.split('-')[0]  # support for contingency metric names of the form 'metric-datakey...'

@@ -16,7 +16,7 @@ def _with_input_metric_kwargs(metric_kwargs, input_metric_kwargs=None):
     return merged
 
 
-def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=None):
+def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
     """MAE of accumulated rain at a seasonal accumulation threshold.
 
     Experiment names follow:
