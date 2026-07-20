@@ -396,6 +396,16 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
     return m_ds
 
 
+@statistic(cache=False, name='count_pass')
+def fn_count_pass(data, **cache_kwargs):  # noqa: F821
+    stat_name = cache_kwargs['metric_kwargs']['pass_statistic']
+    stat_fn = statistic_factory(stat_name)
+    stat_data = stat_fn(data, **cache_kwargs)
+    pass_fn = cache_kwargs['metric_kwargs']['pass_fn']
+    pass_data = pass_fn(stat_data).astype(int)
+    return pass_data
+
+
 def statistic_factory(statistic_name: str):
     """Get a statistic function by name from the registry."""
     try:

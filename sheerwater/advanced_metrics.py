@@ -79,6 +79,7 @@ def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=Non
         'agg_days': agg_days,
         'align': 'right',
     }
+
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
@@ -147,6 +148,7 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
         'agg_days': drying_day_agg_in_days,
         'align': 'right',
     }
+
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
@@ -177,6 +179,39 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
         'align': 'center',
     }
 
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
+def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
+    """Extreme rain days according to the quantile ranks of the data source."""
+    # Configure the big rain thresholds.
+    extreme_rain_threshold_quantile = 0.90
+    extreme_rain_agg_days = 1
+    extreme_rain_margin_in_days = 5
+
+    # Compute the SMAPE of the forecasted rain during the big rain days
+    metric = 'smape'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'quantile_extremes'
+    filter_event_kwargs = {
+        'threshold': extreme_rain_threshold_quantile,
+        'first_year': 1985,
+        'last_year': 2014,
+        'agg_days': extreme_rain_agg_days,
+        'n_quantiles': 20,
+    }
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': True,
+        'forecast_filter': False,
+        'densify': True
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'accumulated_rain'
+    event_kwargs = {
+        'agg_days': extreme_rain_margin_in_days,
+        'align': 'center',
+    }
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
@@ -252,7 +287,17 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
 
 
 def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
-    """Return metric configurations needed to run an advanced agricultural metric."""
+    """Returns metrics configruations needed to run an advanced agricultural metric."""
+    # Enable actionable thresholds for advanced metrics if the metric name is passed in the form 'metric-thresh-value',
+    # e.g. 'early_season_accumulation-30d-thresh-30mm'. If the actionable threshhold is passed, the metric will be
+    # configured to evaluate the passing fraction of the metric.
+    if '-thresh-' in experiment:
+        experiment_name = experiment.split('-thresh-')[0]
+        pass_threshold = float(experiment.split('-thresh-')[1])
+    else:
+        experiment_name = experiment
+        pass_threshold = None
+
     if 'season_accumulation' in experiment:
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs)
@@ -272,6 +317,13 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs)
     else:
-        raise ValueError(f"Experiment {experiment} not supported.")
+        raise ValueError(f"Experiment {experiment_name} not supported.")
+
+    if pass_threshold is not None:
+        # If we are evaluating a passing fraction, we need to use the passfraction metric, with the
+        # underlying passsing statistic being the metric name.
+        metric_kwargs['pass_statistic'] = metric_name
+        metric_kwargs['pass_fn'] = lambda x: x <= pass_threshold
+        metric_name = 'passfraction'
 
     return metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs

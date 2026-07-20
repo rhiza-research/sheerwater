@@ -15,7 +15,8 @@ from sheerwater.utils import get_grid, check_bases, is_station_grid
 import warnings
 from rasterio.errors import ShapeSkipWarning
 
-from .spatial_subdivisions import (spatial_subdivisions, get_spatial_subdivision_level,
+from .spatial_subdivisions import (polygon_subdivision_geodataframe, spatial_subdivisions,
+                                   get_spatial_subdivision_level,
                                    clean_spatial_subdivision_name, space_grouping_labels)
 
 
@@ -104,7 +105,7 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_ds = region_ds.rename({'region': '_clip_region'})
         # This would improve the performance by dropping grid points that are not in the region
         # but it requires some thinking about caching, etc., so we're leaving it out for now.
-        ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
+        ds = ds.where((region_ds._clip_region.compute() == region_str), drop=drop)
         ds = ds.drop_vars('_clip_region')
 
     # restore coordinate variables to coordinates.
@@ -365,3 +366,24 @@ def nonuniform_grid(ds, error_thresh=1e-5):
     lat_deltas = np.diff(ds.lat.values) - np.mean(np.diff(ds.lat.values))
     lon_deltas = np.diff(ds.lon.values) - np.mean(np.diff(ds.lon.values))
     return not (np.allclose(lat_deltas, 0, atol=error_thresh) and np.allclose(lon_deltas, 0, atol=error_thresh))
+
+
+def get_region_envelope(region, padding=1e-6):
+    """Get the envelope of a region, padded with a small epsilon."""
+    level, _ = get_spatial_subdivision_level(region)
+    gdf = polygon_subdivision_geodataframe(level=level)
+    gdf = gdf[gdf['region_name'] == region]
+    bounds = gdf.geometry.bounds
+    # pad minx, miny, maxx, maxy
+    bounds['minx'] -= padding
+    bounds['miny'] -= padding
+    bounds['maxx'] += padding
+    bounds['maxy'] += padding
+    return bounds
+
+
+def clip_to_region_envelope(ds, region, padding=1e-6):
+    """Clip a dataset to a region envelope."""
+    min_lon, min_lat, max_lon, max_lat = get_region_envelope(region, padding=padding).iloc[0]
+    ds = ds.sel(lon=slice(min_lon, max_lon), lat=slice(min_lat, max_lat))
+    return ds
