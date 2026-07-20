@@ -466,6 +466,7 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
                                                 grid=grid, mask=mask, region=region)
         ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
+        # Call ECMWF nicely chunked for timeseries processing
         ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
                                           forecast_type='forecast', run_type=run_type, time_group='daily',
                                           grid=grid, mask=mask, region=region)

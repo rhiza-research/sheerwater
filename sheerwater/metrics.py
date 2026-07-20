@@ -80,7 +80,8 @@ def metric(start_time, end_time, variable, forecast, truth,
                                    agg_days=agg_days,
                                    time_grouping=time_grouping, space_grouping=space_grouping,
                                    spatial=spatial, grid=grid, mask=mask, region=region,
-                                   memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
+                                   memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
+                                   recompute=True) # hard code recompute to True to avoid caching issues
 
     metric_name = data.attrs['metric_name']
     return data[[metric_name]]
@@ -109,7 +110,6 @@ def event_count(start_time, end_time, variable, forecast, truth,
                 spatial=False, grid="global1_5", mask='lsm', region='global',
                 memoize_forecast=True, memoize_truth=True):
     """Compute a grouped event count for a forecast at a specific lead."""
-    # Caller controls recompute/cache_mode (including nested metric_with_event_count).
     data = metric_with_event_count(start_time, end_time, variable, forecast, truth,
                                    metric_name, metric_kwargs=metric_kwargs,
                                    event=event, event_kwargs=event_kwargs,
@@ -117,7 +117,8 @@ def event_count(start_time, end_time, variable, forecast, truth,
                                    agg_days=agg_days,
                                    time_grouping=time_grouping, space_grouping=space_grouping,
                                    spatial=spatial, grid=grid, mask=mask, region=region,
-                                   memoize_forecast=memoize_forecast, memoize_truth=memoize_truth)
+                                   memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
+                                   recompute=True)  # hard code recompute to True to avoid caching issues
     return data[['event_count']]
 
 

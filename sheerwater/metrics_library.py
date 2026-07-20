@@ -57,8 +57,9 @@ class Metric(ABC):
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
-        # Save the configuration kwargs for the metric
-        self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
+        # Save a copy so in-place updates (e.g. user_input_config, clim years) do not
+        # mutate caller/job kwargs reused across metric runs.
+        self.metric_kwargs = {} if metric_kwargs is None else dict(metric_kwargs)
         self.metric_data = {}  # dictionary to store the data for the metric calculation
         self.densify = self.metric_kwargs.get('densify', False)
 
@@ -959,8 +960,8 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
                       filter_event_kwargs=filter_event_kwargs,
                       **init_kwargs)
     except ValueError:
-        if metric_kwargs is None:
-            metric_kwargs = {}
+        # Copy so parsing user_input_config does not mutate caller/job kwargs.
+        metric_kwargs = {} if metric_kwargs is None else dict(metric_kwargs)
         # Convert
         if '-' in metric_name:
             mn = metric_name.split('-')[0]  # support for contingency metric names of the form 'metric-datakey...'

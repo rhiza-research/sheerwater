@@ -93,5 +93,15 @@
     "cold_sec": 61.641973,
     "warm_full_sec": 10.437805,
     "warm_metric_only_sec": 10.673968
+  },
+  "23_mae_probabilistic": {
+    "cold_sec": 257.675867,
+    "warm_full_sec": 12.093974,
+    "warm_metric_only_sec": 11.807437
+  },
+  "20_big_rain_days_probabilistic": {
+    "cold_sec": 240.805754,
+    "warm_full_sec": 21.898149,
+    "warm_metric_only_sec": 21.818517
   }
 }
