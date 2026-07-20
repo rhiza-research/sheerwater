@@ -592,6 +592,17 @@ class Metric(ABC):
 
         return ds
 
+    def compute_event_series(self) -> xr.DataArray:
+        """Compute the metric event series, consisting of event dates and metric values."""
+        # Check that the variable is valid for the metric
+        if self.valid_variables and self.variable not in self.valid_variables:
+            raise ValueError(f"Variable {self.variable} is not valid for metric {self.name}")
+
+        # Prepare the forecasting, observation, and auxiliary data for the metric
+        self.prepare_data()
+        # Gather the statistics
+        self.gather_statistics()
+
 
 class ContingencyMetric(Metric):  # noqa: N801
     """Base class for contingency metrics, both dichotomous and multiclass."""
