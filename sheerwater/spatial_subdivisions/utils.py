@@ -230,9 +230,6 @@ def clip_with_mask(ds, region_df, drop=True):
     # first filter to the bounding box of the region
     lon_min, lat_min, lon_max, lat_max = polygon.bounds
     bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
-
-    # then filter to the precise polygon
-    # use NumPy; lazy xarray breaks Shapely and needs tricky re-alignment
     mask.values[bmask.values] = shapely.intersects_xy(polygon, lon2d.values[bmask.values], lat2d.values[bmask.values])
 
     # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads

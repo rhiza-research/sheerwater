@@ -239,7 +239,7 @@ def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_t
 @dask_remote
 @timeseries(timeseries=['init_time'])
 @spatial()
-@cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
+@cache(cache=False, cache_args=['variable', 'run_type', 'time_group', 'grid'],
        backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": -1, "member": 1}})
 def ifs_extended_range_with_reforecast(start_time, end_time, variable=None, run_type='average',  # noqa: ARG001
                                        time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
@@ -248,13 +248,13 @@ def ifs_extended_range_with_reforecast(start_time, end_time, variable=None, run_
     Converts the WeatherBench reforecast to init_time, then combine_first with the
     real-time forecast so forecast values win on overlap.
     """
-    ds_refc = ifs_extended_range(None, None, variable, forecast_type='reforecast',
-                                 run_type=run_type, time_group=time_group, grid='global1_5')
+    ds_refc = ifs_extended_range_rechunked(None, None, variable, forecast_type='reforecast',
+                                           run_type=run_type, time_group=time_group, grid='global1_5')
     if ds_refc is not None:
         ds_refc = reforecast_to_timeseries(ds_refc)
 
-    ds_fcst = ifs_extended_range(start_time, end_time, variable, forecast_type='forecast',
-                                 run_type=run_type, time_group=time_group, grid='global1_5')
+    ds_fcst = ifs_extended_range_rechunked(start_time, end_time, variable, forecast_type='forecast',
+                                           run_type=run_type, time_group=time_group, grid='global1_5')
     if ds_fcst is not None:
         ds_fcst = ds_fcst.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
 
@@ -528,7 +528,7 @@ def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
 def ecmwf_ifs_er_reforecast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
                           prob_type='deterministic', grid='global1_5', mask='lsm', region="global"):
-    """Temporary getter for ECMWF reforecasts.
+    """Temporary getter for ECMWF reforecasts so we can do quantile ranks.
 
     Enables filtering by start time and end time in the hindcast dates.
     """

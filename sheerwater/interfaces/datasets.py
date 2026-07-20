@@ -139,9 +139,6 @@ class SheerwaterDataset(NuthatchProcessor):
                 packed_processor_kwargs['func_name'] = self.func_name
                 packed_processor_kwargs['variable'] = self.variable
                 packed_processor_kwargs['grid'] = self.grid
-                packed_processor_kwargs['region'] = self.region
-                packed_processor_kwargs['mask'] = self.mask
-                packed_processor_kwargs['agg_days'] = self.agg_days
 
                 if 'time' in ds.coords:
                     start = ds.time.values.min()
@@ -172,7 +169,6 @@ class SheerwaterDataset(NuthatchProcessor):
             'units': self.units,
         })
         ds = add_spatial_attrs(ds, grid=self.grid, mask=self.mask, region=self.region)
-        ds = ds.assign_attrs({'dataset_name': self.func_name})
 
         return ds
 
@@ -423,9 +419,6 @@ class forecast(SheerwaterDataset):
             # Add an attribute to the dataset to indicate the event name
             ds = ds.rename({'time': 'prediction_timedelta'})
             ds = ds.assign_attrs({'event': self.event})
-            # Persist after densify/lookback/event when the graph is heavy (ensemble or densify).
-            if self.densify or 'member' in ds.dims:
-                ds = ds.persist()
         elif self.event is not None and 'event' in ds.attrs and ds.attrs['event'] != self.event:
             raise ValueError(
                 f"Event {self.event} has already been applied to the dataset. Please do not apply it again.")

@@ -257,7 +257,7 @@ PERFORMANCE_TEST_CASES = [
         "metric_name": "mae",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
         "metric_kwargs": {"prob_type": "probabilistic"}},
-    {"name": "24_crps",
+    {"name": "24_crps_probabilistic",
         "metric_name": "crps",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
