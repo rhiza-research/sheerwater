@@ -183,7 +183,7 @@ def quantile_extremes(ds, threshold, data_source, first_year=1985, last_year=201
     # Get the quantile ranks for the dataset
     grid = ds.attrs['grid']
     var = list(ds.data_vars)[0]
-    from sheerwater.downscale_data import quantile_ranks
+    from sheerwater.quantile_data import quantile_ranks
     qr = quantile_ranks(variable=var, data=data_source, first_year=first_year, last_year=last_year, agg_days=agg_days,
                         time_grouping=None, margin_in_days=None, n_quantiles=n_quantiles, grid=grid, region='global')
 

@@ -62,7 +62,7 @@ def imerg_raw(year, version='final'):
 @timeseries()
 @spatial()
 @cache(cache_args=['grid', 'version'],
-       backend_kwargs={'chunking': {'lat': 25, 'lon': 25, 'time': 5000}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365}})
 def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG001
                   region='global'):
     """Regridded version of whole imerg dataset."""
@@ -76,7 +76,7 @@ def imerg_gridded(start_time, end_time, grid, version, mask=None,  # noqa: ARG00
     ds = xr.open_mfdataset(datasets,
                            engine='zarr',
                            parallel=True,
-                           chunks={'lat': 25, 'lon': 25, 'time': 5000})
+                           chunks={'lat': 300, 'lon': 300, 'time': 365})
 
     ds = ds['precipitation'].to_dataset()
     ds = ds.rename({'precipitation': 'precip'})
