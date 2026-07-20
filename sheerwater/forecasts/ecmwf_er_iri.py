@@ -22,11 +22,12 @@ from sheerwater.utils import (
     ecmwf_secret,
     get_dates,
     get_grid,
+    is_valid_forecast_date,
     lon_base_change,
     regrid,
-    shift_by_days,
+    roll_and_agg,
 )
-from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
+from sheerwater.interfaces import spatial
 
 
 ########################################################################
@@ -70,12 +71,12 @@ def download_url(url, timeout=600, retry=3, cookies={}):
 #  IRI ECMWF download and process functions
 ########################################################################
 @dask_remote
-@cache(cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid', 'model_cycle'],
+@cache(cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 46, 'model_run': 1,
                                     'start_date': 969, 'model_issuance_date': 1}})
 def single_iri_ecmwf(time, variable, forecast_type,
                      run_type="average", grid="global1_5",
-                     model_cycle='.CY41-47', verbose=True):
+                     verbose=True):
     """Fetches forecast data from the IRI ECMWF dataset.
 
     Args:
@@ -89,8 +90,6 @@ def single_iri_ecmwf(time, variable, forecast_type,
             - [int 0-50]: to download a specific  perturbed run
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
-        model_cycle (str | None): IRI model cycle version, e.g. 'CY49'. Pass None
-            to use the legacy path without a cycle segment (pre-CY49 data).
         verbose (bool): Whether to print verbose output.
     """
     if variable == "tmp2m":
@@ -100,28 +99,12 @@ def single_iri_ecmwf(time, variable, forecast_type,
     else:
         raise ValueError("Invalid weather variable.")
 
-    # Requesting all perturbed members at once exceeds IRI's server-side size limit.
-    # Download one member at a time and concat instead.
-    # if run_type == "perturbed":
-    #     import pdb; pdb.set_trace()
-    #     n_members = 11 if forecast_type == "reforecast" else 50
-    #     parts = []
-    #     for m in range(1, n_members + 1):
-    #         ds_m = single_iri_ecmwf(time, variable, forecast_type,
-    #                                 run_type=m, grid=grid,
-    #                                 model_cycle=model_cycle, verbose=verbose, recompute=True)
-    #         if ds_m is not None:
-    #             parts.append(ds_m.expand_dims({'model_run': [m]}))
-    #     if not parts:
-    #         return None
-    #     return xr.concat(parts, dim='model_run')
-
     forecast_runs = "control" if run_type == "control" else "perturbed"
     leads_id = "LA" if variable == "tmp2m" else "L"
     average_model_runs_url = "[M]average/" if run_type == "average" else ""
     single_model_run_url = f"M/({run_type})VALUES/" if isinstance(run_type, int) else ""
 
-    lons, lats, grid_size, _ = get_grid(grid)
+    lons, lats, grid_size = get_grid(grid)
     restrict_lat_url = f"Y/{lats[0]}/{grid_size}/{lats[-1]}/GRID/"
     restrict_lon_url = f"X/{lons[0]}/{grid_size}/{lons[-1]}/GRID/"
 
@@ -141,17 +124,15 @@ def single_iri_ecmwf(time, variable, forecast_type,
 
     restrict_forecast_date_url = f"S/({day} {month} {year})VALUES/"
 
-    # if not is_valid_forecast_date("ecmwf", forecast_type, date):
-    #     if verbose:
-    #         print(
-    #             f"Skipping: {day} {month} {year} (not a valid {forecast_type} date)."
-    #         )
-    #     return None
+    if not is_valid_forecast_date("ecmwf", forecast_type, date):
+        if verbose:
+            print(
+                f"Skipping: {day} {month} {year} (not a valid {forecast_type} date)."
+            )
+        return None
 
-    cycle_segment = f".{model_cycle}/" if model_cycle else ""
     URL = (
         f"https://iridl.ldeo.columbia.edu/SOURCES/.ECMWF/.S2S/.ECMF/"
-        f"{cycle_segment}"
         f".{forecast_type}/.{forecast_runs}/.{weather_variable_name_on_server}/"
         f"{average_model_runs_url}"
         f"{single_model_run_url}"
@@ -163,11 +144,9 @@ def single_iri_ecmwf(time, variable, forecast_type,
         f"data.nc"
     )
 
-    print(URL)
     os.makedirs('./temp', exist_ok=True)
     file = f"./temp/{variable}-{grid}-{run_type}-{forecast_type}-{time}.nc"
     r = download_url(URL, cookies={"__dlauth_id": ecmwf_secret()})
-    breakpoint()
     if r.status_code == 200 and r.headers["Content-Type"] == "application/x-netcdf":
         if verbose:
             print(f"Downloading: {day} {month} {year}.")
@@ -179,11 +158,7 @@ def single_iri_ecmwf(time, variable, forecast_type,
     elif r.status_code == 404:
         print(f"Data for {day} {month} {year} is not available for model ecmwf.\n")
         return None
-    elif r.status_code == 504:
-        print(f"Request timed out for {day} {month} {year} for model ecmwf.\n")
-        return None
     else:
-        breakpoint()
         raise ValueError(f"Failed to download data for {day} {month} {year} for model ecmwf.")
 
     rename_dict = {
@@ -249,12 +224,12 @@ def single_iri_ecmwf(time, variable, forecast_type,
 
 
 @dask_remote
-@cache(cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid', 'model_cycle'],
+@cache(cache_args=['time', 'variable', 'forecast_type', 'run_type', 'grid'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 46, 'model_run': 1,
                                     'start_year': 20, 'model_issuance_date': 1}})
 def single_iri_ecmwf_dense(time, variable, forecast_type,
                            run_type="average", grid="global1_5",
-                           model_cycle='.CY41-47', verbose=True):
+                           verbose=True):
     """Fetches a single IRI ECMWF forecast and then converts to dense format.
 
     Converts the start_date to start date year. This allows a dense array post merging because
@@ -263,7 +238,7 @@ def single_iri_ecmwf_dense(time, variable, forecast_type,
 
     Interface is the same as single_iri_ecmwf.
     """
-    ds = single_iri_ecmwf(time, variable, forecast_type, run_type, grid, model_cycle, verbose)
+    ds = single_iri_ecmwf(time, variable, forecast_type, run_type, grid, verbose)
 
     if ds is None:
         return None
@@ -278,11 +253,11 @@ def single_iri_ecmwf_dense(time, variable, forecast_type,
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
 @cache(cache=False,
-       cache_args=['variable', 'forecast_type', 'run_type', 'grid', 'model_cycle'],
+       cache_args=['variable', 'forecast_type', 'run_type', 'grid'],
        backend_kwargs={'chunking': {'lat': 121, 'lon': 240, 'lead_time': 46, 'start_date': 969,
                                     'model_run': 1, 'start_year': 29, 'model_issuance_date': 1}})
 def iri_ecmwf(start_time, end_time, variable, forecast_type,
-              run_type="average", grid="global1_5", model_cycle='.CY41-47', verbose=False):
+              run_type="average", grid="global1_5", verbose=False):
     """Fetches forecast data from the ECMWF IRI dataset.
 
     Args:
@@ -297,8 +272,6 @@ def iri_ecmwf(start_time, end_time, variable, forecast_type,
             - [int 0-50]: to download a specific  perturbed run
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
-        model_cycle (str | None): IRI model cycle version, e.g. 'CY49'. Pass None
-            to use the legacy path without a cycle segment.
         verbose (bool): Whether to print verbose output.
     """
     # Read and combine all the data into an array
@@ -310,7 +283,7 @@ def iri_ecmwf(start_time, end_time, variable, forecast_type,
     datasets = []
     for date in target_dates:
         ds = dask.delayed(fn)(
-            date, variable, forecast_type, run_type, grid, model_cycle, verbose, filepath_only=True)
+            date, variable, forecast_type, run_type, grid, verbose, filepath_only=True)
         datasets.append(ds)
     datasets = dask.compute(*datasets)
     data = [d for d in datasets if d is not None]
@@ -338,12 +311,11 @@ def iri_ecmwf(start_time, end_time, variable, forecast_type,
 
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
-@cache(cache_args=['variable', 'forecast_type', 'grid', 'model_cycle'],
+@cache(cache_args=['variable', 'forecast_type', 'grid'],
        backend_kwargs={'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
                                     "start_date": 29, "start_year": 29,
                                     "model_issuance_date": 1}})
-def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type,
-                       grid="global1_5", model_cycle='.CY41-47'):
+def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid="global1_5"):
     """Fetches forecast data from the ECMWF IRI dataset.
 
     Args:
@@ -353,7 +325,6 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type,
         forecast_type (str): The type of forecast to fetch. One of "forecast" or "hindcast".
         grid (str): The grid resolution to fetch the data at. One of:
             - global1_5: 1.5 degree global grid
-        model_cycle (str | None): IRI model cycle version, e.g. 'CY49'.
     """
     if grid != 'global1_5':
         raise ValueError("Only the global1_5 grid is supported for ecmwf averaged.")
@@ -369,14 +340,14 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type,
     # Read and combine all the data into an array
     df_control = iri_ecmwf(start_time, end_time, variable,
                            forecast_type, run_type="control",
-                           grid=grid, model_cycle=model_cycle) \
+                           grid=grid) \
         .rename({f"{variable}": f"{variable}_control"})
     # A note: this rechunking shouldn't be necessary, but it is
     df_control = df_control.chunk(chunk_dict)
 
     df_pert = iri_ecmwf(start_time, end_time, variable,
                         forecast_type, run_type="average",
-                        grid=grid, model_cycle=model_cycle) \
+                        grid=grid) \
         .rename({f"{variable}": f"{variable}_pert"})
     # A note: this rechunking shouldn't be necessary, but it is
     df_pert = df_pert.chunk(chunk_dict)
@@ -401,7 +372,7 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type,
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
 @spatial()
-@cache(cache_args=['variable', 'forecast_type', 'grid', 'model_cycle'],
+@cache(cache_args=['variable', 'forecast_type', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
@@ -412,13 +383,12 @@ def ecmwf_averaged_iri(start_time, end_time, variable, forecast_type,
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 1}
                },
            }
-})
+       })
 def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type,
                           grid='global1_5', mask=None,  # noqa: ARG001
-                          region='global', model_cycle='.CY41-47'):
+                          region='global'):
     """IRI ECMWF average forecast with regridding."""
-    ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type,
-                            grid='global1_5', model_cycle=model_cycle)
+    ds = ecmwf_averaged_iri(start_time, end_time, variable, forecast_type, grid='global1_5')
     # Convert to base180 longitude
     ds = lon_base_change(ds, to_base="base180")
 
@@ -430,45 +400,49 @@ def ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type,
 
 
 @dask_remote
-def _ecmwf_ifs_er_iri_unified(start_time, end_time, variable, prob_type='deterministic',
-                               grid="global1_5", mask='lsm', region="global",
-                               model_cycle=None):
-    """Unified API accessor for IRI-sourced ECMWF extended range forecasts."""
-    # Shift start back by 46 days to include all forecasters overlapping the window
-    forecast_start = shift_by_days(start_time, -46) if start_time is not None else None
+@timeseries(timeseries=['start_date', 'model_issuance_date'])
+@spatial()
+@cache(cache_args=['variable', 'forecast_type', 'agg', 'grid'],
+       backend_kwargs={
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 46,
+                        "start_date": 30,
+                        "model_issuance_date": 30, "start_year": 1},
+           'chunk_by_arg': {
+               'grid': {
+                   'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 1}
+               },
+           }
+       })
+def ecmwf_rolled(start_time, end_time, variable, forecast_type,
+                 agg_days=14, grid="global1_5", mask=None, region='global'):
+    """Fetches forecast data from the ECMWF IRI dataset.
 
-    run_type = 'perturbed' if prob_type == 'probabilistic' else 'average'
-    ds = ecmwf_averaged_regrid(forecast_start, end_time, variable,
-                               forecast_type='forecast', run_type=run_type,
-                               grid=grid, mask=mask, region=region,
-                               model_cycle=model_cycle)
+    Args:
+        start_time (str): The start date to fetch data for.
+        end_time (str): The end date to fetch.
+        variable (str): The weather variable to fetch.
+        forecast_type (str): The type of forecast to fetch.
+        agg_days (int): The aggregation period to use, in days.
+        grid (str): The grid resolution to fetch the data at.
+        mask: Spatial mask to apply.
+        region: Region to fetch data for.
+        end_time (str): The end date to fetch.
+        variable (str): The weather variable to fetch.
+        forecast_type (str): The type of forecast to fetch. One of "forecast" or "hindcast".
+        agg_days (int): The aggregation period, in days.
+        grid (str): The grid resolution to fetch the data at. One of:
+            - global1_5: 1.5 degree global grid
+        region (str): The region to clip the data to.
+    """
+    # Read and combine all the data into an array
+    ds = ecmwf_averaged_regrid(start_time, end_time, variable, forecast_type, grid=grid, mask=mask, region=region)
+    ds = ds.chunk({'lat': 721, 'lon': 1440})
+    if forecast_type == "reforecast":
+        ds = ds.chunk({'start_year': 29, 'model_issuance_date': 1})
+    else:
+        ds = ds.chunk({'start_date': 29})
 
-    prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
-    ds = ds.assign_attrs(prob_type=prob_label)
-    if 'spatial_ref' in ds.variables:
-        ds = ds.drop_vars('spatial_ref')
+    # Roll and aggregate the data
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="lead_time", agg_fn="mean")
 
-    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
-
-
-@dask_remote
-@sheerwater_forecast()
-@cache(cache=False,
-       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                   'lookback_source', 'densify',
-                   'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
-def ecmwf_ifs_er_iri(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
-                     prob_type='deterministic',
-                     event=None, event_kwargs=None,  # noqa: ARG001
-                     processors=None, processor_kwargs=None,  # noqa: ARG001
-                     lookback_source=None, densify=False,  # noqa: ARG001
-                     grid='global1_5', mask='lsm', region="global",
-                     model_cycle=None):
-    """Standard-format ECMWF IRI forecast data."""
-    return _ecmwf_ifs_er_iri_unified(start_time=start_time, end_time=end_time,
-                                     variable=variable, prob_type=prob_type,
-                                     grid=grid, mask=mask, region=region,
-                                     model_cycle=model_cycle)
-

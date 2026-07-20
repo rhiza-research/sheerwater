@@ -5,7 +5,7 @@ from .general_utils import load_netcdf, load_object, load_zarr, plot_ds, plot_ds
 from .grouping_utils import groupby_region, groupby_time, latitude_weights, detect_in_time
 from .plotting_utils import plot_by_region
 from .remote import dask_remote, start_remote
-from .secrets import cdsapi_secret, ecds_secret, ecmwf_secret, gap_secret, salient_secret, tahmo_secret, huggingface_read_token
+from .secrets import cdsapi_secret, ecmwf_secret, gap_secret, salient_secret, tahmo_secret, huggingface_read_token
 from .space_utils import (
     get_grid_ds,
     get_globe_slice,
@@ -39,7 +39,6 @@ __all__ = [
     "dask_remote",
     "start_remote",
     "cdsapi_secret",
-    "ecds_secret",
     "ecmwf_secret",
     "salient_secret",
     "tahmo_secret",
