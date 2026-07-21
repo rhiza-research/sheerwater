@@ -21,6 +21,20 @@ from .advanced_metrics import get_experiment_kwargs
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
 
+# Chunk layout applied in Metric.prepare_data after time alignment.
+# Tuned via sandbox/bench_prepare_chunks.py on in_season_dry_spell probabilistic:
+#   - member=1 required (member=-1 OOM/KilledWorker)
+#   - prediction_timedelta=-1 required for event rolls along lead
+#   - lat/lon 25 and time=-1 tied with alternatives on africa_bimodal (~51s warm);
+#     25x25 tiles scale better to global than lat/lon=-1
+PREPARE_DATA_CHUNKS = {
+    'lat': 25,
+    'lon': 25,
+    'time': -1,
+    'prediction_timedelta': -1,
+    'member': 1,
+}
+
 
 class Metric(ABC):
     """Abstract base class for metrics.
@@ -296,50 +310,22 @@ class Metric(ABC):
         # Cast the longitude and latitude coordinates to floats with precision 4
         # This fixes a bug where the lon and lat don't match deep in their floating point precision
         # and this shows up as errors in the join
-        datasets = [obs, fcst]
+        datasets = {'obs': obs, 'fcst': fcst}
         if self.do_pre_filter:
-            datasets.append(pre_filter_obs)
+            datasets['pre_filter_obs'] = pre_filter_obs
         if self.do_obs_filter:
-            datasets.append(filter_obs)
+            datasets['filter_obs'] = filter_obs
         if self.do_forecast_filter:
-            datasets.append(filter_fcst)
-        for dfs in datasets:
-            dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
-            dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
+            datasets['filter_fcst'] = filter_fcst
 
-        # Align on valid times, rechunk to a shared layout, and persist for reuse.
-        # Long time + all leads in one chunk; spatial tiles; one member per chunk.
-        EVENT_CHUNKS = {
-            'member': 1,
-            'lat': 25,
-            'lon': 25,
-            'time': 1000,
-            'prediction_timedelta': -1,
-        }
-        obs = obs.sel(time=valid_times).chunk(
-            {k: EVENT_CHUNKS[k] for k in obs.dims if k in EVENT_CHUNKS}).persist()
-        fcst = fcst.sel(time=valid_times).chunk(
-            {k: EVENT_CHUNKS[k] for k in fcst.dims if k in EVENT_CHUNKS}).persist()
-        if self.do_pre_filter:
-            pre_filter_obs = pre_filter_obs.sel(time=valid_times).chunk(
-                {k: EVENT_CHUNKS[k] for k in pre_filter_obs.dims if k in EVENT_CHUNKS}).persist()
-        if self.do_obs_filter:
-            filter_obs = filter_obs.sel(time=valid_times).chunk(
-                {k: EVENT_CHUNKS[k] for k in filter_obs.dims if k in EVENT_CHUNKS}).persist()
-        if self.do_forecast_filter:
-            filter_fcst = filter_fcst.sel(time=valid_times).chunk(
-                {k: EVENT_CHUNKS[k] for k in filter_fcst.dims if k in EVENT_CHUNKS}).persist()
+        for name, ds in datasets.items():
+            ds['lon'] = ds['lon'].astype(np.float32).round(4)
+            ds['lat'] = ds['lat'].astype(np.float32).round(4)
+            datasets[name] = ds.sel(time=valid_times).chunk(
+                {k: PREPARE_DATA_CHUNKS[k] for k in ds.dims if k in PREPARE_DATA_CHUNKS})
 
         """5. Save the data for all downstream metric calculations."""
-        # Save the data into the metric data dictionary
-        self.metric_data['obs'] = obs
-        self.metric_data['fcst'] = fcst
-        if self.do_forecast_filter:
-            self.metric_data['filter_fcst'] = filter_fcst
-        if self.do_obs_filter:
-            self.metric_data['filter_obs'] = filter_obs
-        if self.do_pre_filter:
-            self.metric_data['pre_filter_obs'] = pre_filter_obs
+        self.metric_data.update(datasets)
         self.metric_data['prob_type'] = enhanced_prob_type
 
         # Save the pattern of valid and non-null times, needed for derived metrics like ACC to
@@ -515,8 +501,6 @@ class Metric(ABC):
         ############################################################
         if not self.spatial:
             if self.latitude_weights:
-                if self.agg_fn != 'mean':
-                    raise ValueError("Latitude weights can only be used with a mean aggregation function.")
                 # Group by region and average in space, while applying weighting for mask
                 weights = latitude_weights(ds.lat)
                 # Expand weights to have a time dimension that matches ds
@@ -995,7 +979,6 @@ class PassFraction(Metric):
     prob_type = 'deterministic'
     valid_variables = None
     default_event = None
-    agg_fn = 'sum'
 
     def prepare_data(self):
         """Prepare specific data for the PassFraction metric."""
@@ -1009,21 +992,15 @@ class PassFraction(Metric):
 
     @property
     def statistics(self):
-        stats = ['count_pass', 'n_valid', self.metric_kwargs['pass_statistic']]
+        stats = ['pass_statistic', 'n_valid', self.metric_kwargs['pass_statistic']]
         return stats
 
     def compute_metric(self):
-        count_pass = self.grouped_statistics['count_pass']
+        breakpoint()
+        count_pass = self.grouped_statistics['pass_statistic']
         n_valid = self.grouped_statistics['n_valid']
         val = count_pass / n_valid
-        # Convert result (DataArray) to a Dataset with appropriate name
-        ds = val.to_dataset(name=self.name)
-        # Add the number of valid events
-        ds['n_valid'] = n_valid
-        # Add the average statistic value
-        pass_statistic = self.metric_kwargs['pass_statistic']
-        ds[pass_statistic] = self.grouped_statistics[pass_statistic] / n_valid
-        return ds
+        return val
 
 
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
@@ -1041,7 +1018,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
             if key in init_kwargs:
                 del init_kwargs[key]
 
-        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name]
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,
