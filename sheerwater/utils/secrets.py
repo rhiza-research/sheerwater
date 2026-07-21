@@ -106,33 +106,6 @@ def cdsapi_secret():
     return url, key
 
 
-def ecds_secret():
-    """Get the ECDS API key and URL for accessing ECMWF Data Store (S2S, TIGGE).
-
-    Returns (url, key) tuple. The ECDS uses the same CDS-API client as the
-    Copernicus CDS but with url='https://ecds.ecmwf.int/api'.
-    """
-    url = "https://ecds.ecmwf.int/api"
-    path = Path.home() / '.ecdsapirc'
-    if not os.path.exists(path):
-        client = secretmanager.SecretManagerServiceClient()
-        response = client.access_secret_version(
-            request={"name": "projects/750045969992/secrets/cdsapi-beta-geneveive/versions/latest"})
-        key = response.payload.data.decode("UTF-8")
-
-        f = open(path, mode='w+')
-        f.write(f"url: {url}\n")
-        f.write(f"key: {key}\n")
-        f.close()
-        return url, key
-
-    with open(path, mode='r') as f:
-        lines = [line.strip() for line in f.readlines()[:2]]
-    url_stored = lines[0].split(":", 1)[1].strip()
-    key = lines[1].split(":", 1)[1].strip()
-    return url_stored, key
-
-
 def ecmwf_secret():
     """Get the ECMWF API key from the secret manager."""
     # Check to see if the ECMWF secret exists
