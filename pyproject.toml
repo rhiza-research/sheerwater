@@ -3,7 +3,7 @@ name = "sheerwater"
 dynamic = ["version"]
 description = "Africa-first library for data, forecasts, and benchmarking."
 readme = "README.md"
-requires-python = ">= 3.12"
+requires-python = "~= 3.12.0"
 authors = [
     { name = "Genevieve Flaspohler", email = "genevieve@rhizaresearch.org" },
     { name = "Joshua Adkins", email = "josh@rhizaresearch.org" }
@@ -53,8 +53,8 @@ dependencies = [
     "xesmf",
     "earthaccess",
     "xee",
-    "frisky",
-    "dask-array",
+    "frisky==0.7.0",
+    "dask-array==0.7.0",
     "flox @ git+https://github.com/mrocklin/flox@dask-array",
     "xarray @ git+https://github.com/pydata/xarray@main",
     "dask @ git+https://github.com/dask/dask@main",
