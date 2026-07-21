@@ -960,6 +960,7 @@ class PassFraction(Metric):
     prob_type = 'deterministic'
     valid_variables = None
     default_event = None
+    statistics = ['pass_statistic']
 
     def prepare_data(self):
         """Prepare specific data for the PassFraction metric."""
@@ -970,16 +971,6 @@ class PassFraction(Metric):
         if self.latitude_weights:
             warnings.warn("Latitude weights cannot be used with a passing fraction metric.")
         self.latitude_weights = False
-
-    @property
-    def statistics(self):
-        stats = ['pass_statistic', 'n_valid', self.metric_kwargs['pass_statistic']]
-        return stats
-
-    def compute_metric(self):
-        """Just return the pass statistic."""
-        count_pass = self.grouped_statistics['pass_statistic']
-        return count_pass
 
 
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
