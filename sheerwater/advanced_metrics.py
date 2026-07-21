@@ -288,9 +288,10 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
 
 def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     """Returns metrics configruations needed to run an advanced agricultural metric."""
-    # Enable actionable thresholds for advanced metrics if the metric name is passed in the form 'metric-thresh-value',
-    # e.g. 'early_season_accumulation-30d-thresh-30mm'. If the actionable threshhold is passed, the metric will be
-    # configured to evaluate the passing fraction of the metric.
+    # Enable actionable thresholds for advanced metrics if the metric name is passed in the form
+    # 'metric-thresh-<value>', e.g. 'big_rain_days-thresh-0.30' or
+    # 'early_season_accumulation-30d-thresh-30'. If set, the metric evaluates the passing
+    # fraction of the underlying score (value must be a plain float, no unit suffix).
     if '-thresh-' in experiment:
         experiment_name = experiment.split('-thresh-')[0]
         pass_threshold = float(experiment.split('-thresh-')[1])
@@ -298,27 +299,27 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
         experiment_name = experiment
         pass_threshold = None
 
-    if 'season_accumulation' in experiment:
+    if 'season_accumulation' in experiment_name:
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'in_season_dry_spell':
+            get_seasonal_accumulation_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'in_season_dry_spell':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'big_rain_days':
+            get_in_season_dry_spell_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'big_rain_days':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_big_rain_days_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'extreme_rain_days':
+            get_big_rain_days_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'extreme_rain_days':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'rain_days_soft':
+            get_extreme_rain_days_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'rain_days_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'dry_spells':
+            get_rain_days_soft_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'dry_spells':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spells_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'dry_spells_soft':
+            get_dry_spells_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'dry_spells_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs)
+            get_dry_spells_soft_kwargs(experiment_name, region, input_metric_kwargs)
     else:
         raise ValueError(f"Experiment {experiment_name} not supported.")
 

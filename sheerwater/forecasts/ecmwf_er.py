@@ -220,7 +220,6 @@ def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_t
     else:
         ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
 
-    breakpoint()
     # 1) Split space only
     chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1}
     if run_type == 'perturbed':

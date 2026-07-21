@@ -100,9 +100,9 @@
     "warm_metric_only_sec": 50.341109
   },
   "21_in_season_dry_spell_probabilistic": {
-    "cold_sec": 79.088448,
-    "warm_full_sec": 51.683424,
-    "warm_metric_only_sec": 52.33736
+    "cold_sec": 89.679078,
+    "warm_full_sec": 48.923163,
+    "warm_metric_only_sec": 50.12875
   },
   "22_early_season_accumulation_30d_probabilistic": {
     "cold_sec": 112.631565,
@@ -110,8 +110,8 @@
     "warm_metric_only_sec": 50.311402
   },
   "23_mae_probabilistic": {
-    "cold_sec": 1260.929246,
-    "warm_full_sec": 146.850837,
-    "warm_metric_only_sec": 112.879565
+    "cold_sec": 197.835105,
+    "warm_full_sec": 137.316762,
+    "warm_metric_only_sec": 120.829078
   }
 }

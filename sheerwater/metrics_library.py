@@ -23,7 +23,8 @@ SHEERWATER_METRIC_REGISTRY = {}
 
 # Chunk layout applied in Metric.prepare_data after time alignment.
 # Tuned via sandbox/bench_prepare_chunks.py on in_season_dry_spell probabilistic:
-#   - member=1 required (member=-1 OOM/KilledWorker)
+#   - member=1 for deterministic metrics (including per-member ensemble scores);
+#     probabilistic metrics (CRPS/Brier) override to member=-1 (one chunk)
 #   - prediction_timedelta=-1 required for event rolls along lead
 #   - lat/lon 25 and time=-1 tied with alternatives on africa_bimodal (~51s warm);
 #     25x25 tiles scale better to global than lat/lon=-1
@@ -318,11 +319,17 @@ class Metric(ABC):
         if self.do_forecast_filter:
             datasets['filter_fcst'] = filter_fcst
 
+        # Probabilistic metrics (CRPS/Brier) need the full ensemble in one chunk;
+        # deterministic metrics keep member=1 to avoid OOM on per-member scores.
+        prepare_chunks = dict(PREPARE_DATA_CHUNKS)
+        if self.prob_type == 'probabilistic':
+            prepare_chunks['member'] = -1
+
         for name, ds in datasets.items():
             ds['lon'] = ds['lon'].astype(np.float32).round(4)
             ds['lat'] = ds['lat'].astype(np.float32).round(4)
             datasets[name] = ds.sel(time=valid_times).chunk(
-                {k: PREPARE_DATA_CHUNKS[k] for k in ds.dims if k in PREPARE_DATA_CHUNKS})
+                {k: prepare_chunks[k] for k in ds.dims if k in prepare_chunks})
 
         """5. Save the data for all downstream metric calculations."""
         self.metric_data.update(datasets)
@@ -429,19 +436,13 @@ class Metric(ABC):
         # no_null's shape when event windows drop different edge leads.
         filter = no_null  # baseline no nulls
         if self.do_pre_filter:
-            filter, pre = xr.align(filter, self.metric_data['pre_filter_obs'], join='left', fill_value=False)
-            filter = filter.where(pre, False)
+            filter = filter & self.metric_data['pre_filter_obs']  # add in pre-filter
         if self.do_forecast_filter and self.do_obs_filter:
-            ff, fo = xr.align(self.metric_data['filter_fcst'], self.metric_data['filter_obs'],
-                              join='outer', fill_value=False)
-            filter, event_mask = xr.align(filter, ff | fo, join='left', fill_value=False)
-            filter = filter.where(event_mask, False)
+            filter = filter & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
         elif self.do_forecast_filter:
-            filter, ff = xr.align(filter, self.metric_data['filter_fcst'], join='left', fill_value=False)
-            filter = filter.where(ff, False)
+            filter = filter & self.metric_data['filter_fcst']
         elif self.do_obs_filter:
-            filter, fo = xr.align(filter, self.metric_data['filter_obs'], join='left', fill_value=False)
-            filter = filter.where(fo, False)
+            filter = filter & self.metric_data['filter_obs']
 
         # Apply the filter to each statistic
         for stat in self.statistics:
@@ -489,8 +490,8 @@ class Metric(ABC):
         filter_count = groupby_time(self.filter, self.time_grouping, agg_fn='sum')
 
         # Put evertyhing on the same chunk before spatial aggregation
-        # ds = ds.chunk({dim: -1 for dim in ds.dims})
-        # filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
+        ds = ds.chunk({dim: -1 for dim in ds.dims})
+        filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
@@ -540,9 +541,8 @@ class Metric(ABC):
                 # we can just continue
                 pass
 
-            if self.agg_fn == 'mean':
-                for stat in self.statistics:
-                    ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
+            for stat in self.statistics:
+                ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
         else:
             # If returning a spatial metric, mask and drop
@@ -673,7 +673,6 @@ class MAE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mae']
-    agg_fn = 'mean'
 
 
 class ForecastValue(Metric):
@@ -683,7 +682,6 @@ class ForecastValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['fcst']
-    agg_fn = 'mean'
 
 
 class ObsValue(Metric):
@@ -693,7 +691,6 @@ class ObsValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['obs']
-    agg_fn = 'mean'
 
 
 class MSE(Metric):
@@ -703,7 +700,6 @@ class MSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
-    agg_fn = 'mean'
 
 
 class RMSE(Metric):
@@ -713,7 +709,6 @@ class RMSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         return self.grouped_statistics['mse'] ** 0.5
@@ -726,7 +721,6 @@ class Bias(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['bias']
-    agg_fn = 'mean'
 
 
 class CRPS(Metric):
@@ -736,7 +730,6 @@ class CRPS(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['crps']
-    agg_fn = 'mean'
 
 
 class Brier(ContingencyMetric):
@@ -746,7 +739,6 @@ class Brier(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['brier']
-    agg_fn = 'mean'
 
 
 class SMAPE(Metric):
@@ -756,7 +748,6 @@ class SMAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['smape']
-    agg_fn = 'mean'
 
 
 class MAPE(Metric):
@@ -766,7 +757,6 @@ class MAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['mape']
-    agg_fn = 'mean'
 
 
 class SEEPS(Metric):
@@ -776,7 +766,6 @@ class SEEPS(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['seeps']
-    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the SEEPS metric."""
@@ -805,7 +794,6 @@ class ACC(Metric):
     valid_variables = None
     default_event = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
-    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
@@ -855,7 +843,6 @@ class Pearson(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -870,7 +857,6 @@ class Heidke(ContingencyMetric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     default_event = 'digitized'
-    agg_fn = 'mean'
 
     @property
     def statistics(self):
@@ -899,7 +885,6 @@ class POD(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -914,7 +899,6 @@ class FAR(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         fp = self.grouped_statistics['false_positives']
@@ -929,7 +913,6 @@ class ETS(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -948,7 +931,6 @@ class CSI(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -964,7 +946,6 @@ class FrequencyBias(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
-    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -996,11 +977,9 @@ class PassFraction(Metric):
         return stats
 
     def compute_metric(self):
-        breakpoint()
+        """Just return the pass statistic."""
         count_pass = self.grouped_statistics['pass_statistic']
-        n_valid = self.grouped_statistics['n_valid']
-        val = count_pass / n_valid
-        return val
+        return count_pass
 
 
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
