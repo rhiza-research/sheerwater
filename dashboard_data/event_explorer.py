@@ -56,8 +56,7 @@ def forecast_metric_points(start_time, end_time, variable,
     else:
         print("Lead not found in metric - returning None")
         return None
-    
-    import pdb; pdb.set_trace()
+
     # convert to dataframe
     ds = ds.drop_vars([c for c in ds.coords if c not in ds.dims])
     # rename the statistic to "value" so it can be handled consistently in dashboard
