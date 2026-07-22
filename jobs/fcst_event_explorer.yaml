@@ -1,0 +1,54 @@
+event_explorer:
+  function: forecast_metric_points
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    variable: "precip"
+    forecast: "ecmwf_ifs_er"
+    truth: "imerg_final"
+    agg_days: 1
+    metric_name: 
+      - "big_rain_days"
+      - "in_season_dry_spell"
+      - "early_season_accumulation"
+    metric_kwargs:
+      - forecast_filter: false
+        obs_filter: true
+      - forecast_filter: true
+        obs_filter: false
+    lead_days:
+      - 7
+      - 14
+      - 21
+    time_grouping: None
+    grid: "global1_5"
+    region: 
+    - "western_africa"
+    - "eastern_africa"
+  function: event_list
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    variable: "precip"
+    forecast: "ecmwf_ifs_er"
+    truth: "imerg_final"
+    agg_days: 1
+    metric_name: 
+      - "big_rain_days"
+      - "in_season_dry_spell"
+      - "early_season_accumulation"
+    metric_kwargs:
+      - forecast_filter: false
+        obs_filter: true
+      - forecast_filter: true
+        obs_filter: false
+    lead_days:
+      - 7
+      - 14
+      - 21
+    time_grouping: None
+    grid: "global1_5"
+    region: 
+      - "western_africa"
+      - "eastern_africa"
+
