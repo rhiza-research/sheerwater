@@ -396,22 +396,22 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
     return m_ds
 
 
-@statistic(cache=False, name='pass_statistic')
-def fn_pass_statistic(data, **cache_kwargs):  # noqa: F821
+@statistic(cache=False, name='good_threshold')
+def fn_good_threshold(data, **cache_kwargs):  # noqa: F821
     """For any input statistic, pass the statistic through a pass function to get a binary output."""
-    stat_name = cache_kwargs['metric_kwargs']['pass_statistic']
+    stat_name = cache_kwargs['metric_kwargs']['good_threshold_statistic']
     if stat_name is None:
-        raise ValueError("This statistic requires a pass_statistic to be specified in the metric kwargs.")
+        raise ValueError("This statistic requires a good_threshold_statistic to be specified in the metric kwargs.")
     stat_fn = statistic_factory(stat_name)
     stat_data = stat_fn(data, **cache_kwargs)
-    pass_fn = cache_kwargs['metric_kwargs']['pass_fn']
-    pass_data = pass_fn(stat_data)
-    return pass_data
+    good_threshold = cache_kwargs['metric_kwargs']['good_threshold']
+    good_data = (stat_data <= good_threshold)
+    return good_data
 
 
-@statistic(cache=False, name='pass_statistic_member_fraction')
-def fn_pass_statistic_member_fraction(data, **cache_kwargs):  # noqa: F821
-    return fn_pass_statistic(data, **cache_kwargs).mean(dim='member')
+@statistic(cache=False, name='good_threshold_member_fraction')
+def fn_good_threshhold_member_fraction(data, **cache_kwargs):  # noqa: F821
+    return fn_good_threshold(data, **cache_kwargs).mean(dim='member')
 
 
 def statistic_factory(statistic_name: str):

@@ -1,7 +1,6 @@
 """A climatology baseline forecast for benchmarking."""
-from datetime import datetime
-
 import dask
+from datetime import datetime
 import dateparser
 import numpy as np
 import pandas as pd
@@ -9,9 +8,10 @@ import xarray as xr
 from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
-
-from sheerwater.interfaces import (forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data)
 from sheerwater.reanalysis import era5
+from sheerwater.interfaces import (forecast as sheerwater_forecast,
+                                   data as sheerwater_data, spatial,
+                                   get_data)
 from sheerwater.utils import (
     add_dayofyear,
     convert_pred_time_to_init_time,

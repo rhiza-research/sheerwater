@@ -295,10 +295,10 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     # fraction of the underlying score (value must be a plain float, no unit suffix).
     if '-thresh-' in experiment:
         experiment_name = experiment.split('-thresh-')[0]
-        pass_threshold = float(experiment.split('-thresh-')[1])
+        good_threshold = float(experiment.split('-thresh-')[1])
     else:
         experiment_name = experiment
-        pass_threshold = None
+        good_threshold = None
 
     if 'season_accumulation' in experiment_name:
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
@@ -324,11 +324,10 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     else:
         raise ValueError(f"Experiment {experiment_name} not supported.")
 
-    if pass_threshold is not None:
-        # If we are evaluating a passing fraction, we need to use the passfraction metric, with the
-        # underlying passsing statistic being the metric name.
-        metric_kwargs['pass_statistic'] = metric_name
-        metric_kwargs['pass_fn'] = lambda x: x <= pass_threshold
-        metric_name = 'passfraction'
+    if good_threshold is not None:
+        # If we are evaluating a good threshold, we need to use the good_threshold metric, with the
+        # underlying good threshold statistic being the metric name.
+        metric_kwargs['good_threshold_statistic'] = metric_name
+        metric_kwargs['good_threshold'] = good_threshold
 
     return metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs

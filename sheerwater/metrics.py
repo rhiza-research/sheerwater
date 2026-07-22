@@ -38,7 +38,8 @@ def metric(start_time, end_time, variable, forecast, truth,
         A dataframe with variables
         - metric_name: the name of the metric, specfied under the attribute 'metric_name'
         - event_count: the number of events
-        - pass_fraction (optional): the fraction of events for which a good threshold was met
+        - good_threshold (optional): the good threshold for the metric
+        - good_threshold_member_fraction (optional): the fraction of members for which a good threshold was met
     """
     # Use the metric registry to get the metric class
     metric_obj = metric_factory(metric_name,
@@ -136,4 +137,4 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     return data
 
 
-__all__ = ['metric', 'event_count', 'metric_with_event_count', 'station_coverage']
+__all__ = ['metric', 'station_coverage']

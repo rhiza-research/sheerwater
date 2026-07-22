@@ -296,7 +296,7 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
-    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore? 
+    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore?
     ds_obs = ds_obs.chunk({'lat': 2, 'lon': 2, 'init_time': 3000, 'prediction_timedelta': 50})
     return ds_obs
 
@@ -313,7 +313,7 @@ def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm
                             mask=None, region='global')
     ds = densify_fcst(ds)
 
-    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore? 
+    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore?
     chunks = {'lat': 2, 'lon': 2, 'init_time': 3000, 'prediction_timedelta': 50}
     if 'member' in ds.dims:
         chunks['member'] = 50

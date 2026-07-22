@@ -27,7 +27,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean', time_dim='time'):
         3: 'first',
         4: 'first',
         5: 'first',
-        6: 'second',
+        6: 'first',
         7: 'second',
         8: 'second',
         9: 'second',

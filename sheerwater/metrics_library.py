@@ -1,8 +1,5 @@
 """Library of metrics implementations for verification."""
-# flake8: noqa: D102j
-import inspect
-import warnings
-
+# flake8: noqa: D102
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -92,6 +89,14 @@ class Metric(ABC):
                                self.metric_kwargs.get('pre_filter_event', None),
                                self.metric_kwargs.get('pre_filter_event_kwargs', None),
                                filter_event, filter_event_kwargs)
+
+        # Enable good thresholds for any given metric
+        if 'good_threshold' in self.metric_kwargs and 'good_threshold_statistic' in self.metric_kwargs:
+            if len(self.statistics) > 1:
+                raise ValueError("Good thresholds are not supported for metrics with multiple statistics.")
+            self.statistics.append('good_threshold')
+            if self.forecast_prob_type == 'probabilistic':
+                self.statistics.append('good_threshold_member_fraction')
 
     def init_event_kwargs(self,
                           event, event_kwargs,
@@ -924,6 +929,7 @@ class CSI(ContingencyMetric):
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
+        """Compute the Critical Success Index metric."""
         tp = self.grouped_statistics['true_positives']
         fp = self.grouped_statistics['false_positives']
         fn = self.grouped_statistics['false_negatives']
@@ -939,33 +945,35 @@ class FrequencyBias(ContingencyMetric):
     statistics = ['true_positives', 'false_positives', 'false_negatives']
 
     def compute_metric(self):
+        """Compute the Frequency Bias metric."""
         tp = self.grouped_statistics['true_positives']
         fp = self.grouped_statistics['false_positives']
         fn = self.grouped_statistics['false_negatives']
         return (tp + fp) / (tp + fn)
 
 
-class PassFraction(Metric):
-    """Passing fraction metric, according to a user-specified threshold."""
-    sparse = True
-    prob_type = 'deterministic'
-    valid_variables = None
-    default_event = None
+# class PassFraction(Metric):
+#     """Passing fraction metric, according to a user-specified threshold."""
+#     sparse = True
+#     prob_type = 'deterministic'
+#     valid_variables = None
+#     default_event = None
 
-    @property
-    def statistics(self):
-        """Include 3 statistics/agg-keys.
+#     @property
+#     def statistics(self):
+#         """Custom statistics for the PassFraction metric.
 
-            - pass_statistic: the average number of events that pass the threshold
-            - pass_statistic_member_fraction: the fraction of members that pass the threshold
-                Note that this statistic is only included for probabilistic forecasts.
-                It will be indexed by member, but constant across all members.
-            - [pass_statistic_name]: the average user-specified statistic value
-        """
-        stats = ['pass_statistic', self.metric_kwargs['pass_statistic']]
-        if self.forecast_prob_type == 'probabilistic':
-            stats.append('pass_statistic_member_fraction')
-        return stats
+#         Include 3 statistics/agg-keys:
+#         - pass_statistic: the average number of events that pass the threshold
+#         - pass_statistic_member_fraction: the fraction of members that pass
+#             the threshold (only included for probabilistic forecasts,
+#             indexed by member but constant across all members)
+#         - [pass_statistic_name]: the average user-specified statistic value
+#         """
+#         stats = ['pass_statistic', self.metric_kwargs['pass_statistic']]
+#         if self.forecast_prob_type == 'probabilistic':
+#             stats.append('pass_statistic_member_fraction')
+#         return stats
 
 
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:

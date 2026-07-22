@@ -15,7 +15,7 @@ from sheerwater.utils import get_grid, check_bases, is_station_grid
 import warnings
 from rasterio.errors import ShapeSkipWarning
 
-from .spatial_subdivisions import (polygon_subdivision_geodataframe, spatial_subdivisions,
+from .spatial_subdivisions import (spatial_subdivisions,
                                    get_spatial_subdivision_level,
                                    clean_spatial_subdivision_name, space_grouping_labels)
 
