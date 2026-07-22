@@ -165,7 +165,7 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 @timeseries(timeseries=['init_time'])
 @spatial()
 @cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
-       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": -1, "member": 1}})
+       backend_kwargs={'chunking': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": -1, "member": -1}})
 def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_type='forecast', run_type='average',  # noqa: ARG001
                                  time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Rechunk IFS extended-range data for event/metrics workloads.
@@ -176,23 +176,17 @@ def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_t
                             run_type=run_type, time_group=time_group, grid=grid)
     if ds is None:
         return None
-
-    if forecast_type == 'reforecast':
-        ds = reforecast_to_timeseries(ds)
-    else:
-        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
-
     # 1) Split space only
-    chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1}
+    chunks = {'lat': 2, 'lon': 2, 'prediction_timedelta': -1, 'init_time': 1}
     if run_type == 'perturbed':
         chunks['member'] = 50
     ds = ds.chunk(chunks)
     # Persist here to avoid huge combined chunks
     ds = ds.persist()
     # 2) Merge time blocks on the small tiles
-    chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1000}
+    chunks = {'lat': 2, 'lon': 2, 'prediction_timedelta': -1, 'init_time': 3000}
     if run_type == 'perturbed':
-        chunks['member'] = 1
+        chunks['member'] = 50
     ds = ds.chunk(chunks)
     return ds
 
@@ -397,9 +391,13 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
         ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
         # Call ECMWF nicely chunked for timeseries processing
-        ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
-                                          forecast_type='forecast', run_type=run_type, time_group='daily',
-                                          grid=grid, mask=mask, region=region)
+        # ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
+        #                                   forecast_type='forecast', run_type=run_type, time_group='daily',
+        #                                   grid=grid, mask=mask, region=region)
+        ds = ifs_extended_range(forecast_start, end_time, variable,
+                                forecast_type='forecast', run_type=run_type, time_group='daily',
+                                grid=grid, mask=mask, region=region)
+        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'

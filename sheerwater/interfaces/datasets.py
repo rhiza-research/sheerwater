@@ -285,7 +285,7 @@ class data(SheerwaterDataset):
 
 @spatial()
 @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid'],
-       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 100}})
+       backend_kwargs={'chunking': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": 50}})
 def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -296,14 +296,15 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
-    ds_obs = ds_obs.chunk({'lat': 25, 'lon': 25, 'init_time': 1000, 'prediction_timedelta': 100})
+    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore? 
+    ds_obs = ds_obs.chunk({'lat': 2, 'lon': 2, 'init_time': 3000, 'prediction_timedelta': 50})
     return ds_obs
 
 
 @spatial()
 @timeseries(timeseries='init_time')
 @cache(cache=True, cache_args=['fcst', 'prob_type', 'variable', 'grid'],
-       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": 100, "member": 1}})
+       backend_kwargs={'chunking': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": 50, "member": 50}})
 def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -311,6 +312,12 @@ def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm
                             prob_type=prob_type, variable=variable, grid=grid,
                             mask=None, region='global')
     ds = densify_fcst(ds)
+
+    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore? 
+    chunks = {'lat': 2, 'lon': 2, 'init_time': 3000, 'prediction_timedelta': 50}
+    if 'member' in ds.dims:
+        chunks['member'] = 50
+    ds = ds.chunk(chunks)
     return ds
 
 

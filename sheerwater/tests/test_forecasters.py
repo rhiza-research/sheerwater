@@ -6,7 +6,6 @@ import xarray as xr
 from dateutil.relativedelta import relativedelta
 
 from sheerwater.forecasts import ecmwf_ifs_er_debiased
-from sheerwater.forecasts.ecmwf_er import reforecast_to_timeseries
 from sheerwater.climatology import climatology_era5_1985_2015
 from sheerwater.utils import densify_fcst, convert_pred_time_to_init_time
 

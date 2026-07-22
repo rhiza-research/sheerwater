@@ -21,20 +21,6 @@ from .advanced_metrics import get_experiment_kwargs
 # Global metric registry dictionary
 SHEERWATER_METRIC_REGISTRY = {}
 
-# Chunk layout applied in Metric.prepare_data after time alignment.
-# Tuned via sandbox/bench_prepare_chunks.py on in_season_dry_spell probabilistic:
-#   - member=1 for deterministic metrics (including per-member ensemble scores);
-#     probabilistic metrics (CRPS/Brier) override to member=-1 (one chunk)
-#   - prediction_timedelta=-1 required for event rolls along lead
-#   - lat/lon 25 and time=-1 tied with alternatives on africa_bimodal (~51s warm);
-#     25x25 tiles scale better to global than lat/lon=-1
-PREPARE_DATA_CHUNKS = {
-    'lat': 25,
-    'lon': 25,
-    'time': -1,
-    'prediction_timedelta': -1,
-    'member': 1,
-}
 
 
 class Metric(ABC):
@@ -321,7 +307,13 @@ class Metric(ABC):
 
         # Probabilistic metrics (CRPS/Brier) need the full ensemble in one chunk;
         # deterministic metrics keep member=1 to avoid OOM on per-member scores.
-        prepare_chunks = dict(PREPARE_DATA_CHUNKS)
+        prepare_chunks = {
+            'lat': 2,
+            'lon': 2,
+            'time': 3000,
+            'prediction_timedelta': 50,
+            'member': 50,
+        }
         if self.prob_type == 'probabilistic':
             prepare_chunks['member'] = -1
 
@@ -329,7 +321,7 @@ class Metric(ABC):
             ds['lon'] = ds['lon'].astype(np.float32).round(4)
             ds['lat'] = ds['lat'].astype(np.float32).round(4)
             datasets[name] = ds.sel(time=valid_times).chunk(
-                {k: prepare_chunks[k] for k in ds.dims if k in prepare_chunks})
+                {k: prepare_chunks[k] for k in ds.dims if k in prepare_chunks}).persist()
 
         """5. Save the data for all downstream metric calculations."""
         self.metric_data.update(datasets)
