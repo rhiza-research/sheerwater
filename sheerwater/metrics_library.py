@@ -581,9 +581,9 @@ class Metric(ABC):
         ds.attrs['metric_name'] = self.name
         ds['event_count'] = self.filter_count[self.variable]
 
-        if 'member' in da.coords:
+        if 'member' in ds.coords:
             # Average over the member dimension if it exists
-            da = da.mean(dim='member')
+            ds = ds.mean(dim='member')
 
         return ds
 
