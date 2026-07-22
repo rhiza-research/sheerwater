@@ -22,7 +22,6 @@ from .advanced_metrics import get_experiment_kwargs
 SHEERWATER_METRIC_REGISTRY = {}
 
 
-
 class Metric(ABC):
     """Abstract base class for metrics.
 
@@ -548,12 +547,12 @@ class Metric(ABC):
     def compute_metric(self) -> xr.DataArray:
         """Compute the metric from the statistics.
 
-        By default, returns the single statistic value.
+        By default, returns the grouped statistics.
         Subclasses can override this for more complex computations.
         """
-        if len(self.statistics) != 1:
-            raise ValueError("Metric must have exactly one statistic to use default compute.")
-        return self.grouped_statistics[self.statistics[0]]
+        # Rename the first statistic in the list to the metric name
+        ds = self.grouped_statistics.rename({self.statistics[0]: self.name})
+        return ds
 
     def compute(self) -> xr.DataArray:
         # Check that the variable is valid for the metric
@@ -952,17 +951,18 @@ class PassFraction(Metric):
     prob_type = 'deterministic'
     valid_variables = None
     default_event = None
-    statistics = ['pass_statistic']
 
-    def prepare_data(self):
-        """Prepare specific data for the PassFraction metric."""
-        # Call the parent prepare_data method to get the forecast and observation
-        super().prepare_data()
-
-        # If we're doing a sum-based metric, can't do latitude weighting.
-        if self.latitude_weights:
-            warnings.warn("Latitude weights cannot be used with a passing fraction metric.")
-        self.latitude_weights = False
+    @property
+    def statistics(self):
+        """Include 3 statistics: 
+        - pass_statistic: the average number of events that pass the threshold
+        - pass_statistic_member_fraction: the fraction of members that pass the threshold
+        - [pass_statistic_name]: the average user-specified statistic value
+        """
+        stats = ['pass_statistic', self.metric_kwargs['pass_statistic']]
+        if self.forecast_prob_type == 'probabilistic':
+            stats.append('pass_statistic_member_fraction')
+        return stats
 
 
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:

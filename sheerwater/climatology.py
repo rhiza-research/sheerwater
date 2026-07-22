@@ -83,9 +83,6 @@ def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='globa
     return ds
 
 
-"""Downscaling datasets."""
-
-
 @dask_remote
 @spatial()
 @cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'agg_days',
@@ -108,7 +105,7 @@ def quantile_ranks(variable, data='imerg_final', first_year=1998, last_year=2015
 
     # Add one to account for the end point in the quantile calculation
     ranks = np.linspace(0, 1, n_quantiles+1, endpoint=True)  # Includes 1
-    ranks = np.round(ranks, 5)  # round to 5 decimal places fori more stable merging
+    ranks = np.round(ranks, 5)  # round to 5 decimal places for more stable merging
 
     ds = groupby_time(ds, time_grouping, agg_fn=None)
     ds = ds.chunk({"time": -1})

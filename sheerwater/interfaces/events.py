@@ -174,7 +174,7 @@ def below_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, mar
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
-def quantile_extremes(ds, threshold, data_source='imerg_final', first_year=1985, last_year=2014,
+def quantile_extremes(ds, threshold, data_source='imerg_final', first_year=1998, last_year=2025,
                       agg_days=1, n_quantiles=20):
     """Get extreme events according to the quantile ranks of the data source."""
     # Save the null pattern

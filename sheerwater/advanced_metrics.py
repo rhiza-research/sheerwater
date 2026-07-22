@@ -195,8 +195,9 @@ def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None): 
     filter_event = 'quantile_extremes'
     filter_event_kwargs = {
         'threshold': extreme_rain_threshold_quantile,
-        'first_year': 1988,
-        'last_year': 2015,
+        'first_year': 1998,
+        'last_year': 2025,
+        'data_source': 'imerg_final',
         'agg_days': extreme_rain_agg_days,
         'n_quantiles': 20,
     }
