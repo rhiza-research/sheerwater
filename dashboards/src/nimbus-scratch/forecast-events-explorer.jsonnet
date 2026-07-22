@@ -170,7 +170,7 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 15,
+        "w": 16,
         "x": 8,
         "y": 0
       },
@@ -212,7 +212,7 @@
         },
         "onclick": "// Event handling\n/*\n// 'data', 'variables', 'options', 'utils', and 'event' are passed as arguments\n\ntry {\n  const { type: eventType, data: eventData } = event;\n  const { timeZone, dayjs, locationService, getTemplateSrv } = utils;\n\n  switch (eventType) {\n    case 'click':\n      console.log('Click event:', eventData.points);\n      break;\n    case 'select':\n      console.log('Selection event:', eventData.range);\n      break;\n    case 'zoom':\n      console.log('Zoom event:', eventData);\n      break;\n    default:\n      console.log('Unhandled event type:', eventType, eventData);\n  }\n\n  console.log('Current time zone:', timeZone);\n  console.log('From time:', dayjs(variables.__from).format());\n  console.log('To time:', dayjs(variables.__to).format());\n\n  // Example of using locationService\n  // locationService.partial({ 'var-example': 'test' }, true);\n\n} catch (error) {\n  console.error('Error in onclick handler:', error);\n}\n*/\n  ",
         "resScale": 2,
-        "script": "// --- List each query's position in data.series + styling here ---\nconst SERIES_CONFIG = [\n  { index: 0, label: 'IMERG (observed)', color: '#1f77b4', width: 2.5 },\n  { index: 1, label: 'ECMWF IFS-ER', color: '#ff7f0e', width: 2 },\n  { index: 2, label: 'ERA5', color: '#2ca02c', width: 2 },\n  { index: 3, label: 'Cumulus AI', color: '#d62728', width: 2 },\n];\n\nfunction lighten(hex, amount) {\n  const col = hex.replace('#', '');\n  const num = parseInt(col, 16);\n  const r = (num >> 16) & 0xFF;\n  const g = (num >> 8) & 0xFF;\n  const b = num & 0xFF;\n  const lr = Math.round(r + (255 - r) * amount);\n  const lg = Math.round(g + (255 - g) * amount);\n  const lb = Math.round(b + (255 - b) * amount);\n  return `rgb(${lr}, ${lg}, ${lb})`;\n}\n\nfunction buildTrace(series, { label, color, width }) {\n  const fields = series.fields;\n  const timeField = fields.find(f => f.name === 'time');\n  const valueField = fields.find(f => f.name !== 'time');\n\n  if (!timeField || !valueField || timeField.values.length === 0) {\n    return null; // no data for this series — skip it, don't crash the panel\n  }\n\n  const times = Array.from(timeField.values || timeField.values.buffer || []);\n  const values = Array.from(valueField.values || valueField.values.buffer || []);\n\n  return {\n    type: 'scatter',\n    mode: 'lines+markers',\n    x: times,\n    y: values,\n    name: label,\n    line: { color: lighten(color, 0.45), width },\n    marker: { color, size: width * 2.5 },\n    hovertemplate: '%{x|%Y-%m-%d}<br>%{y:.2f}<extra>' + label + '</extra>'\n  };\n}\n\nconst traces = SERIES_CONFIG\n  .map(cfg => {\n    const series = data.series[cfg.index];\n    if (!series) return null;\n    return buildTrace(series, cfg);\n  })\n  .filter(Boolean);\n\nreturn {\n  data: traces,\n  layout: {\n    font: { family: 'Inter, Helvetica, Arial, sans-serif' },\n    xaxis: { type: 'date', autorange: true, automargin: true },\n    yaxis: { autorange: true, automargin: true, title: { text: 'Precipitation (mm)' } },\n    title: { automargin: true },\n    margin: { l: 50, r: 20, b: 40, t: 20 },\n    legend: { orientation: 'h', y: -0.25 },\n    plot_bgcolor: 'rgba(0,0,0,0)',\n    paper_bgcolor: 'rgba(0,0,0,0)'\n  },\n  config: {\n    responsive: true,\n    displayModeBar: false\n  }\n};",
+        "script": "// --- Safe variable getter ---\nconst getVar = (name) => {\n  return (\n    variables?.[name]?.current?.value ??\n    variables?.[name]?.value ??\n    null\n  );\n};\n\n// --- List each query's position in data.series + styling here ---\nconst SERIES_CONFIG = [\n  { index: 0, label: 'IMERG (observed)', color: '#1f77b4', width: 2.5 },\n  { index: 1, label: 'ECMWF IFS-ER', color: '#ff7f0e', width: 2 },\n  { index: 2, label: 'ERA5', color: '#2ca02c', width: 2 },\n  { index: 3, label: 'Cumulus AI', color: '#d62728', width: 2 },\n];\n\nfunction lighten(hex, amount) {\n  const col = hex.replace('#', '');\n  const num = parseInt(col, 16);\n  const r = (num >> 16) & 0xFF;\n  const g = (num >> 8) & 0xFF;\n  const b = num & 0xFF;\n  const lr = Math.round(r + (255 - r) * amount);\n  const lg = Math.round(g + (255 - g) * amount);\n  const lb = Math.round(b + (255 - b) * amount);\n  return `rgb(${lr}, ${lg}, ${lb})`;\n}\n\nfunction buildTrace(series, { label, color, width }) {\n  const fields = series.fields;\n  const timeField = fields.find(f => f.name === 'time');\n  const valueField = fields.find(f => f.name !== 'time');\n\n  if (!timeField || !valueField || timeField.values.length === 0) {\n    return null; // no data for this series — skip it, don't crash the panel\n  }\n\n  const times = Array.from(timeField.values || timeField.values.buffer || []);\n  const values = Array.from(valueField.values || valueField.values.buffer || []);\n\n  return {\n    type: 'scatter',\n    mode: 'lines+markers',\n    x: times,\n    y: values,\n    name: label,\n    line: { color: lighten(color, 0.45), width },\n    marker: { color, size: width * 2.5 },\n    hovertemplate: '%{x|%Y-%m-%d}<br>%{y:.2f}<extra>' + label + '</extra>'\n  };\n}\n\nconst traces = SERIES_CONFIG\n  .map(cfg => {\n    const series = data.series[cfg.index];\n    if (!series) return null;\n    return buildTrace(series, cfg);\n  })\n  .filter(Boolean);\n\n// --- Shaded band centered on the event date ---\nconst EVENT_BAND_DAYS = 1; // half-width in days (1 = 2-day-wide band)\nconst eventDate = new Date(getVar(\"event_date\"));\nconst dayMs = 24 * 60 * 60 * 1000;\nconst eventShape = isNaN(eventDate.getTime()) ? [] : [{\n  type: 'rect',\n  xref: 'x',\n  yref: 'paper',\n  x0: eventDate.getTime() - (EVENT_BAND_DAYS - 1) * dayMs,\n  x1: eventDate.getTime() + (EVENT_BAND_DAYS + 1) * dayMs,\n  y0: 0,\n  y1: 1,\n  fillcolor: 'rgba(128, 128, 128, 0.2)',\n  line: { width: 0 },\n  layer: 'below'\n}];\n\nreturn {\n  data: traces,\n  layout: {\n    font: { family: 'Inter, Helvetica, Arial, sans-serif' },\n    xaxis: { type: 'date', autorange: true, automargin: true },\n    yaxis: { autorange: true, automargin: true, title: { text: 'Precipitation (mm)' } },\n    title: { automargin: true },\n    margin: { l: 50, r: 20, b: 40, t: 20 },\n    legend: { orientation: 'h', y: -0.25 },\n    plot_bgcolor: 'rgba(0,0,0,0)',\n    paper_bgcolor: 'rgba(0,0,0,0)',\n    shapes: eventShape\n  },\n  config: {\n    responsive: true,\n    displayModeBar: false\n  }\n};",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -225,38 +225,9 @@
           },
           "editorMode": "code",
           "format": "table",
-          "hide": true,
-          "rawQuery": true,
-          "rawSql": "WITH combined_points AS (\n    SELECT DISTINCT lat, lon\n    FROM \"get_precip_climatology/imerg_final_${grid}_india\"\n\n    UNION\n\n    SELECT DISTINCT lat, lon\n    FROM \"get_precip_climatology/imerg_final_${grid}_eastern_africa\"\n\n    UNION\n\n    SELECT DISTINCT lat, lon\n    FROM \"get_precip_climatology/imerg_final_${grid}_western_africa\"\n),\n\nselected_point AS (\n    SELECT lat, lon\n    FROM combined_points\n    WHERE lat = ${lat}\n      AND lon = ${lon}\n)\n\nSELECT\n    t.dayofyear,\n    t.precip\nFROM (\n    SELECT * FROM \"get_precip_climatology/imerg_final_${grid}_india\"\n    UNION ALL\n    SELECT * FROM \"get_precip_climatology/imerg_final_${grid}_eastern_africa\"\n    UNION ALL\n    SELECT * FROM \"get_precip_climatology/imerg_final_${grid}_western_africa\"\n) t\nJOIN selected_point s\n  ON t.lat = s.lat\n AND t.lon = s.lon\nWHERE NOT (EXTRACT(MONTH FROM t.dayofyear) = 2 AND EXTRACT(DAY FROM t.dayofyear) = 29)\nORDER BY t.dayofyear;",
-          "refId": "climatology",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        },
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "bdz3m3xs99p1cf"
-          },
-          "editorMode": "code",
-          "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "WITH combined_points AS (\n    SELECT DISTINCT lat, lon\n    FROM \"full_rainfall/imerg_final_${grid}_india\"\n\n    UNION\n\n    SELECT DISTINCT lat, lon\n    FROM \"full_rainfall/imerg_final_${grid}_eastern_africa\"\n\n    UNION\n\n    SELECT DISTINCT lat, lon\n    FROM \"full_rainfall/imerg_final_${grid}_western_africa\"\n),\n\nnearest_point AS (\n    SELECT\n        lat,\n        lon,\n        SQRT(\n            POWER(lat - ${lat}, 2) +\n            POWER(lon - ${lon}, 2)\n        ) AS distance_deg\n    FROM combined_points\n    ORDER BY distance_deg\n    LIMIT 1\n),\n\nfiltered AS (\n    SELECT\n        t.time,\n        t.precip\n    FROM (\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_india\"\n        UNION ALL\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_eastern_africa\"\n        UNION ALL\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_western_africa\"\n    ) t\n    JOIN nearest_point n\n      ON t.lat = n.lat\n     AND t.lon = n.lon\n    WHERE n.distance_deg <= (200 / 111.0)\n      AND t.time BETWEEN '${event_date}'::date - INTERVAL '${event_window} days' AND '${event_date}'::date + INTERVAL '${event_window} days'\n)\n\nSELECT\n    time,\n    AVG(precip) OVER (\n        ORDER BY time\n        ROWS BETWEEN ${agg_days}-1 PRECEDING AND CURRENT ROW\n    ) AS precip\nFROM filtered\nORDER BY time;",
+          "rawSql": "WITH filtered AS (\n    SELECT\n        t.time,\n        t.precip\n    FROM (\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_india\"\n        UNION ALL\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_eastern_africa\"\n        UNION ALL\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_western_africa\"\n    ) t\n    WHERE t.lat = ${lat}\n      AND t.lon = ${lon}\n      AND t.time BETWEEN '${event_date}'::date - INTERVAL '${event_window} days' AND '${event_date}'::date + INTERVAL '${event_window} days'\n)\n\nSELECT\n    time,\n    AVG(precip) OVER (\n        ORDER BY time\n        ROWS BETWEEN ${agg_days}-1 PRECEDING AND CURRENT ROW\n    ) AS precip\nFROM filtered\nORDER BY time;",
           "refId": "annual_series_imerg",
           "sql": {
             "columns": [
@@ -285,7 +256,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "WITH combined_points AS (\n    SELECT DISTINCT lat, lon\n    FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_eastern_africa\"\n\n    UNION\n\n    SELECT DISTINCT lat, lon\n    FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_western_africa\"\n\n    UNION\n\n    SELECT DISTINCT lat, lon\n    FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_india\"\n),\n\nnearest_point AS (\n    SELECT\n        lat,\n        lon,\n        SQRT(\n            POWER(lat - ${lat}, 2) +\n            POWER(lon - ${lon}, 2)\n        ) AS distance_deg\n    FROM combined_points\n    ORDER BY distance_deg\n    LIMIT 1\n)\n\nSELECT\n    t.time,\n    t.precip / ${agg_days} AS precip\nFROM (\n    SELECT * FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_eastern_africa\"\n    UNION ALL\n    SELECT * FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_western_africa\"\n    UNION ALL\n    SELECT * FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_india\"\n) t\nJOIN nearest_point n\n  ON t.lat = n.lat\n AND t.lon = n.lon\nWHERE n.distance_deg <= (200 / 111.0)\n  AND t.time BETWEEN '${event_date}'::date - INTERVAL '${event_window} days'\n                  AND '${event_date}'::date + INTERVAL '${event_window} days'\nORDER BY t.time;",
+          "rawSql": "SELECT\n    t.time,\n    t.precip / ${agg_days} AS precip\nFROM (\n    SELECT * FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_eastern_africa\"\n    UNION ALL\n    SELECT * FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_western_africa\"\n    UNION ALL\n    SELECT * FROM \"full_forecast/${agg_days}_ecmwf_ifs_er_global1_5_${lead}_india\"\n) t\nWHERE t.lat = ${lat}\n  AND t.lon = ${lon}\n  AND t.time BETWEEN '${event_date}'::date - INTERVAL '${event_window} days'\n                  AND '${event_date}'::date + INTERVAL '${event_window} days'\nORDER BY t.time;",
           "refId": "annual_series_ecmwf_ifs_er_fcst",
           "sql": {
             "columns": [
@@ -377,8 +348,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 23,
+        "h": 7,
+        "w": 24,
         "x": 0,
         "y": 9
       },
@@ -413,7 +384,7 @@
         },
         "onclick": "try {\n  const { type: eventType, data: eventData } = event;\n\n  if (eventType === 'click') {\n    const clickedPoint = eventData?.points?.[0];\n\n    if (clickedPoint) {\n      const currentUrl = new URL(window.location.href);\n      currentUrl.searchParams.set('var-event_date', clickedPoint.customdata);\n      window.location.href = currentUrl.toString();\n    }\n  }\n} catch (error) {\n  console.error('Error in bar click handler:', error);\n}",
         "resScale": 2,
-        "script": "// --- Safe variable getter ---\nconst getVar = (name) => {\n  return (\n    variables?.[name]?.current?.value ??\n    variables?.[name]?.value ??\n    null\n  );\n};\n\nconst fields = data.series[0].fields;\nconst timeField = fields.find(f => f.name === \"time\");\nconst valueField = fields.find(f => f.name === \"value\");\n\nif (!timeField || !valueField) {\n  throw new Error(\"Missing time or value field\");\n}\n\nconst times = Array.from(timeField.values || timeField.values.buffer || []);\nconst values = Array.from(valueField.values || valueField.values.buffer || []);\n\n// --- Threshold for \"good\" events ---\nconst GOOD_THRESHOLD = parseFloat(getVar(\"good_thresh\"));\nconst GOOD_COLOR = 'rgba(0, 170, 0, 0.8)';\nconst BAD_COLOR = 'rgba(200, 0, 0, 0.8)';\n\nfunction formatDate(t) {\n  const d = new Date(t);\n  const yyyy = d.getFullYear();\n  const mm = String(d.getMonth() + 1).padStart(2, '0');\n  const dd = String(d.getDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\nconst dateLabels = times.map(formatDate);\nconst colors = values.map(v => (v <= GOOD_THRESHOLD ? GOOD_COLOR : BAD_COLOR));\n\nconst traces = [{\n  type: 'bar',\n  x: times,\n  y: values,\n  customdata: dateLabels,\n  marker: { color: colors },\n  width: 3 * 24 * 60 * 60 * 1000, // 3 days wide, in ms\n  hovertemplate: 'Date: %{customdata}<br>Value: %{y}<extra></extra>'\n}];\n\nreturn {\n  data: traces,\n  layout: {\n    font: { family: 'Inter, Helvetica, Arial, sans-serif' },\n    xaxis: {\n      type: 'date',\n      autorange: true,\n      automargin: true,\n      range: [times[0], times[times.length - 1]]\n    },\n    yaxis: { autorange: true, automargin: true },\n    title: { automargin: true },\n    margin: { l: 0, r: 0, b: 0, t: 0 },\n    shapes: [{\n      type: 'line',\n      xref: 'paper',\n      x0: 0,\n      x1: 1,\n      yref: 'y',\n      y0: GOOD_THRESHOLD,\n      y1: GOOD_THRESHOLD,\n      line: { color: 'rgba(0,0,0,0.6)', width: 1.5, dash: 'dash' }\n    }]\n  },\n  config: {\n    responsive: true,\n    displayModeBar: false\n  }\n};",
+        "script": "// --- Safe variable getter ---\nconst getVar = (name) => {\n  return (\n    variables?.[name]?.current?.value ??\n    variables?.[name]?.value ??\n    null\n  );\n};\n\nconst fields = data.series[0].fields;\nconst timeField = fields.find(f => f.name === \"time\");\nconst valueField = fields.find(f => f.name === \"value\");\n\nif (!timeField || !valueField) {\n  throw new Error(\"Missing time or value field\");\n}\n\nconst times = Array.from(timeField.values || timeField.values.buffer || []);\nconst values = Array.from(valueField.values || valueField.values.buffer || []);\n\n// --- Threshold for \"good\" events ---\nconst GOOD_THRESHOLD = parseFloat(getVar(\"good_thresh\"));\nconst GOOD_COLOR = 'rgba(0, 170, 0, 0.8)';\nconst BAD_COLOR = 'rgba(200, 0, 0, 0.8)';\n\nfunction formatDate(t) {\n  const d = new Date(t);\n  const yyyy = d.getFullYear();\n  const mm = String(d.getMonth() + 1).padStart(2, '0');\n  const dd = String(d.getDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\nconst dateLabels = times.map(formatDate);\nconst colors = values.map(v => (v <= GOOD_THRESHOLD ? GOOD_COLOR : BAD_COLOR));\n\nconst traces = [{\n  type: 'bar',\n  x: times,\n  y: values,\n  customdata: dateLabels,\n  marker: { color: colors },\n  width: 3 * 24 * 60 * 60 * 1000, // 3 days wide, in ms\n  hovertemplate: 'Date: %{customdata}<br>Value: %{y}<extra></extra>'\n}];\n\n// --- Shaded band centered on the event date: -1 day before, +1 day after ---\nconst dayMs = 24 * 60 * 60 * 1000;\nconst eventDate = new Date(getVar(\"event_date\"));\nconst eventShape = isNaN(eventDate.getTime()) ? [] : [{\n  type: 'rect',\n  xref: 'x',\n  yref: 'paper',\n  x0: eventDate.getTime() - dayMs,\n  x1: eventDate.getTime() + dayMs,\n  y0: 0,\n  y1: 1,\n  fillcolor: 'rgba(128, 128, 128, 0.2)',\n  line: { width: 0 },\n  layer: 'below'\n}];\n\n// --- Good/bad event counts ---\nconst totalEvents = values.length;\nconst goodCount = values.filter(v => v <= GOOD_THRESHOLD).length;\nconst badCount = totalEvents - goodCount;\n\nreturn {\n  data: traces,\n  layout: {\n    font: { family: 'Inter, Helvetica, Arial, sans-serif' },\n    xaxis: {\n      type: 'date',\n      autorange: true,\n      automargin: true,\n      range: [times[0], times[times.length - 1]]\n    },\n    yaxis: { autorange: true, automargin: true, title: { text: getVar(\"metric_name\") } },\n    title: {\n      text: `Total: ${totalEvents}  |  Good: ${goodCount}  |  Bad: ${badCount}`,\n      font: { size: 12 },\n      automargin: true\n    },\n    margin: { l: 50, r: 20, b: 40, t: 30 },\n    shapes: [\n      {\n        type: 'line',\n        xref: 'paper',\n        x0: 0,\n        x1: 1,\n        yref: 'y',\n        y0: GOOD_THRESHOLD,\n        y1: GOOD_THRESHOLD,\n        line: { color: 'rgba(0,0,0,0.6)', width: 1.5, dash: 'dash' }\n      },\n      ...eventShape\n    ]\n  },\n  config: {\n    responsive: true,\n    displayModeBar: false\n  }\n};",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -456,36 +427,36 @@
     "list": [
       {
         "current": {
-          "text": "12",
-          "value": "12"
+          "text": "15",
+          "value": "15"
         },
         "label": "lat",
         "name": "lat",
         "options": [
           {
             "selected": true,
-            "text": "12",
-            "value": "12"
+            "text": "15",
+            "value": "15"
           }
         ],
-        "query": "12",
+        "query": "15",
         "type": "textbox"
       },
       {
         "current": {
-          "text": "-6",
-          "value": "-6"
+          "text": "-7.5",
+          "value": "-7.5"
         },
         "label": "lon",
         "name": "lon",
         "options": [
           {
             "selected": true,
-            "text": "-6",
-            "value": "-6"
+            "text": "-7.5",
+            "value": "-7.5"
           }
         ],
-        "query": "-6",
+        "query": "-7.5",
         "type": "textbox"
       },
       {
@@ -513,94 +484,15 @@
         "type": "custom"
       },
       {
-        "allowCustomValue": false,
         "current": {
-          "text": [
-            "2024"
-          ],
-          "value": [
-            "2024"
-          ]
-        },
-        "hide": 1,
-        "label": "year",
-        "multi": true,
-        "name": "year",
-        "options": [
-          {
-            "selected": false,
-            "text": "2014",
-            "value": "2014"
-          },
-          {
-            "selected": false,
-            "text": "2015",
-            "value": "2015"
-          },
-          {
-            "selected": false,
-            "text": "2016",
-            "value": "2016"
-          },
-          {
-            "selected": false,
-            "text": "2017",
-            "value": "2017"
-          },
-          {
-            "selected": false,
-            "text": "2018",
-            "value": "2018"
-          },
-          {
-            "selected": false,
-            "text": "2019",
-            "value": "2019"
-          },
-          {
-            "selected": false,
-            "text": "2020",
-            "value": "2020"
-          },
-          {
-            "selected": false,
-            "text": "2021",
-            "value": "2021"
-          },
-          {
-            "selected": false,
-            "text": "2022",
-            "value": "2022"
-          },
-          {
-            "selected": false,
-            "text": "2023",
-            "value": "2023"
-          },
-          {
-            "selected": true,
-            "text": "2024",
-            "value": "2024"
-          },
-          {
-            "selected": false,
-            "text": "2025",
-            "value": "2025"
-          }
-        ],
-        "query": "2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025",
-        "type": "custom"
-      },
-      {
-        "current": {
-          "text": "21",
-          "value": "21"
+          "text": "1",
+          "value": "1"
         },
         "label": "weeks lead",
         "name": "lead",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "1",
             "value": "1"
           },
@@ -615,73 +507,12 @@
             "value": "14"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "4",
             "value": "21"
           }
         ],
         "query": "1 : 1, 2 : 7, 3 : 14, 4 : 21",
-        "type": "custom"
-      },
-      {
-        "current": {
-          "text": "10",
-          "value": "10"
-        },
-        "description": "",
-        "name": "vmax",
-        "options": [
-          {
-            "selected": true,
-            "text": "10",
-            "value": "10"
-          }
-        ],
-        "query": "10",
-        "type": "textbox"
-      },
-      {
-        "allowCustomValue": false,
-        "current": {
-          "text": [
-            "imerg",
-            "cumulus",
-            "ecmwf-ifs-er"
-          ],
-          "value": [
-            "imerg",
-            "cumulus",
-            "ecmwf-ifs-er"
-          ]
-        },
-        "description": "",
-        "includeAll": false,
-        "label": "display",
-        "multi": true,
-        "name": "display",
-        "options": [
-          {
-            "selected": true,
-            "text": "imerg",
-            "value": "imerg"
-          },
-          {
-            "selected": false,
-            "text": "era5",
-            "value": "era5"
-          },
-          {
-            "selected": true,
-            "text": "ecmwf-ifs-er",
-            "value": "ecmwf-ifs-er"
-          },
-          {
-            "selected": true,
-            "text": "cumulus",
-            "value": "cumulus"
-          }
-        ],
-        "query": "imerg, era5, ecmwf-ifs-er, cumulus",
         "type": "custom"
       },
       {
@@ -712,11 +543,11 @@
           "text": "b64d14cf1cc685d648d771138ea192e7",
           "value": "b64d14cf1cc685d648d771138ea192e7"
         },
-        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_western_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip'\n)",
         "hide": 2,
         "name": "fcst_points_table_west",
         "options": [],
-        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_western_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip'\n)",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -726,11 +557,11 @@
           "text": "8d260c3d04cfc207f254f02803f87370",
           "value": "8d260c3d04cfc207f254f02803f87370"
         },
-        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
         "hide": 2,
         "name": "fcst_points_table_east",
         "options": [],
-        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -740,11 +571,11 @@
           "text": "05abb8da89f52f19cb6824e420d8825d",
           "value": "05abb8da89f52f19cb6824e420d8825d"
         },
-        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_western_africa_2016-01-01_None_imerg_final_precip')",
+        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip')",
         "hide": 2,
         "name": "event_list_table_west",
         "options": [],
-        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_western_africa_2016-01-01_None_imerg_final_precip')",
+        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip')",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -754,11 +585,11 @@
           "text": "d310ebc217848ad1c78399c9d812fbc0",
           "value": "d310ebc217848ad1c78399c9d812fbc0"
         },
-        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_eastern_africa_2016-01-01_None_imerg_final_precip')",
+        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip')",
         "hide": 2,
         "name": "event_list_table_east",
         "options": [],
-        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_big_rain_days_eastern_africa_2016-01-01_None_imerg_final_precip')",
+        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip')",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -766,8 +597,8 @@
       {
         "allowCustomValue": false,
         "current": {
-          "text": "2021-07-04",
-          "value": "2021-07-04"
+          "text": "2018-08-27",
+          "value": "2018-08-27"
         },
         "includeAll": false,
         "label": "event_date",
@@ -799,11 +630,11 @@
           "text": "smape",
           "value": "smape"
         },
-        "definition": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 'smape'\n    WHEN 'in_season_dry_spells' THEN 'mm'\n    WHEN 'early_season_accumulation' THEN 'mae'\nEND AS metric;\n",
+        "definition": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 'smape'\n    WHEN 'in_season_dry_spell' THEN 'mm'\n    WHEN 'early_season_accumulation' THEN 'mae'\nEND AS metric;\n",
         "hide": 2,
         "name": "metric_name",
         "options": [],
-        "query": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 'smape'\n    WHEN 'in_season_dry_spells' THEN 'mm'\n    WHEN 'early_season_accumulation' THEN 'mae'\nEND AS metric;\n",
+        "query": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 'smape'\n    WHEN 'in_season_dry_spell' THEN 'mm'\n    WHEN 'early_season_accumulation' THEN 'mae'\nEND AS metric;\n",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -821,9 +652,14 @@
             "selected": true,
             "text": "big_rain_days",
             "value": "big_rain_days"
+          },
+          {
+            "selected": false,
+            "text": "in_season_dry_spell",
+            "value": "in_season_dry_spell"
           }
         ],
-        "query": "big_rain_days",
+        "query": "big_rain_days, in_season_dry_spell",
         "type": "custom"
       },
       {
@@ -831,11 +667,11 @@
           "text": "0.3",
           "value": "0.3"
         },
-        "definition": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 0.3\n    WHEN 'early_season_dry_spells' THEN 30\n    WHEN 'early_season_accumulation' THEN 30\nEND AS thresh;",
-        "hide": 1,
+        "definition": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 0.3\n    WHEN 'in_season_dry_spell' THEN 30\n    WHEN 'early_season_accumulation' THEN 30\nEND AS thresh;",
+        "label": "good <",
         "name": "good_thresh",
         "options": [],
-        "query": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 0.3\n    WHEN 'early_season_dry_spells' THEN 30\n    WHEN 'early_season_accumulation' THEN 30\nEND AS thresh;",
+        "query": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 0.3\n    WHEN 'in_season_dry_spell' THEN 30\n    WHEN 'early_season_accumulation' THEN 30\nEND AS thresh;",
         "refresh": 1,
         "regex": "",
         "type": "query"

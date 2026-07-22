@@ -37,7 +37,7 @@ def forecast_metric_points(start_time, end_time, variable,
     elif 'big_rain_days' in metric_name:
         stat = "smape"
     elif 'in_season_dry_spell' in metric_name:
-        stat = "mae"
+        stat = "forecastvalue"
     else:
         raise ValueError(f"Metric {metric_name} is not supported")
 
@@ -46,8 +46,7 @@ def forecast_metric_points(start_time, end_time, variable,
                 agg_days=agg_days, forecast=forecast, truth=truth,
                 metric_name=metric_name, metric_kwargs=metric_kwargs,
                 time_grouping=time_grouping, spatial=True,
-                grid=grid, region=region, recompute=False, retry_null_cache=False,
-                fail_if_no_cache=True)
+                grid=grid, region=region, recompute=False)
 
     # Select the correct lead in days
     target_lead = pd.Timedelta(days=lead_days)
