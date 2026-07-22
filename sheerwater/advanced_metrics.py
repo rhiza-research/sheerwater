@@ -325,9 +325,6 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
         raise ValueError(f"Experiment {experiment_name} not supported.")
 
     if good_threshold is not None:
-        # If we are evaluating a good threshold, we need to use the good_threshold metric, with the
-        # underlying good threshold statistic being the metric name.
-        metric_kwargs['good_threshold_statistic'] = metric_name
         metric_kwargs['good_threshold'] = good_threshold
 
     return metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs

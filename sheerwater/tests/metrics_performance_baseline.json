@@ -118,5 +118,10 @@
     "cold_sec": 49.343971,
     "warm_full_sec": 26.837988,
     "warm_metric_only_sec": 26.399348
+  },
+  "27_early_season_accumulation_30d_good_threshold": {
+    "cold_sec": 95.594018,
+    "warm_full_sec": 38.305858,
+    "warm_metric_only_sec": 37.772807
   }
 }

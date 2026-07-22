@@ -91,10 +91,12 @@ class Metric(ABC):
                                filter_event, filter_event_kwargs)
 
         # Enable good thresholds for any given metric
-        if 'good_threshold' in self.metric_kwargs and 'good_threshold_statistic' in self.metric_kwargs:
+        if 'good_threshold' in self.metric_kwargs:
             if len(self.statistics) > 1:
                 raise ValueError("Good thresholds are not supported for metrics with multiple statistics.")
 
+            # We will appply the good threshold to the first statistic in the list.
+            self.metric_kwargs['good_threshold_statistic'] = self.statistics[0]
             # Important to copy here, to avoid mutating the class-level statistics list.
             self.statistics = list(self.statistics)
             self.statistics.append('percent_good')
