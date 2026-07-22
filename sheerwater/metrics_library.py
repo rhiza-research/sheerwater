@@ -572,10 +572,6 @@ class Metric(ABC):
         self.group_statistics()
         # Apply nonlinearly and compute the metric
         da = self.compute_metric()
-        if 'member' in da.coords:
-            # Average over the member dimension if it exists
-            da = da.mean(dim='member')
-
         # Convert from dataarray to dataset and return.
         if not isinstance(da, xr.Dataset):
             ds = da.to_dataset(name=self.name)
@@ -584,6 +580,11 @@ class Metric(ABC):
             ds = da
         ds.attrs['metric_name'] = self.name
         ds['event_count'] = self.filter_count[self.variable]
+
+        if 'member' in da.coords:
+            # Average over the member dimension if it exists
+            da = da.mean(dim='member')
+
         return ds
 
 
