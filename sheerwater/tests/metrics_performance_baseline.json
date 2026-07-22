@@ -123,5 +123,10 @@
     "cold_sec": 95.594018,
     "warm_full_sec": 38.305858,
     "warm_metric_only_sec": 37.772807
+  },
+  "26_in_season_dry_spell_good_threshold": {
+    "cold_sec": 61.460947,
+    "warm_full_sec": 33.537224,
+    "warm_metric_only_sec": 33.737133
   }
 }
