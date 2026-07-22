@@ -289,7 +289,7 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-    }
+        }
 })
 def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6,
                                 run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
@@ -346,7 +346,7 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-    }
+        }
 })
 def ifs_extended_range_debiased_regrid(start_time, end_time, variable,
                                        margin_in_days=6, run_type='average',
