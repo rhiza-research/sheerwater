@@ -162,10 +162,10 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 
 
 @dask_remote
-@timeseries(timeseries=['init_time'])
+@timeseries(timeseries=['start_date'])
 @spatial()
 @cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
-       backend_kwargs={'chunking': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": -1, "member": -1}})
+       backend_kwargs={'chunking': {"lat": 2, "lon": 2, "start_date": 3000, "lead_time": -1, "member": -1}})
 def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_type='forecast', run_type='average',  # noqa: ARG001
                                  time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Rechunk IFS extended-range data for event/metrics workloads.
@@ -177,14 +177,14 @@ def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_t
     if ds is None:
         return None
     # 1) Split space only
-    chunks = {'lat': 2, 'lon': 2, 'prediction_timedelta': -1, 'init_time': 1}
+    chunks = {'lat': 2, 'lon': 2, 'lead_time': -1, 'start_date': 1}
     if run_type == 'perturbed':
         chunks['member'] = 50
     ds = ds.chunk(chunks)
     # Persist here to avoid huge combined chunks
     ds = ds.persist()
     # 2) Merge time blocks on the small tiles
-    chunks = {'lat': 2, 'lon': 2, 'prediction_timedelta': -1, 'init_time': 3000}
+    chunks = {'lat': 2, 'lon': 2, 'lead_time': -1, 'start_date': 3000}
     if run_type == 'perturbed':
         chunks['member'] = 50
     ds = ds.chunk(chunks)
@@ -391,20 +391,19 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
         ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
         # Call ECMWF nicely chunked for timeseries processing
-        # ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
-        #                                   forecast_type='forecast', run_type=run_type, time_group='daily',
-        #                                   grid=grid, mask=mask, region=region)
-        ds = ifs_extended_range(forecast_start, end_time, variable,
-                                forecast_type='forecast', run_type=run_type, time_group='daily',
-                                grid=grid, mask=mask, region=region)
-        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
+        ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
+                                          forecast_type='forecast', run_type=run_type, time_group='daily',
+                                          grid=grid, mask=mask, region=region)
+        # ds = ifs_extended_range(forecast_start, end_time, variable,
+        #                         forecast_type='forecast', run_type=run_type, time_group='daily',
+        #                         grid=grid, mask=mask, region=region)
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
     ds = ds.assign_attrs(prob_type=prob_label)
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
-
+    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
 
 
