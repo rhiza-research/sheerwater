@@ -177,7 +177,6 @@ def below_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, mar
 def quantile_extremes(ds, threshold, data_source='imerg_final', first_year=1985, last_year=2014,
                       agg_days=1, n_quantiles=20):
     """Get extreme events according to the quantile ranks of the data source."""
-    breakpoint()
     # Save the null pattern
     null_mask = ds.isnull()
 
