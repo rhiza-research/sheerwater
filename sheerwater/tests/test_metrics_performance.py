@@ -261,6 +261,18 @@ PERFORMANCE_TEST_CASES = [
         "metric_name": "crps",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    # Advanced metrics with good thresholds
+    {"name": "25_big_rain_days_good_threshold", "metric_name": "big_rain_days-thresh-0.30",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "26_in_season_dry_spell_good_threshold", "metric_name": "in_season_dry_spell-thresh-20.0",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "27_early_season_accumulation_30d_good_threshold",
+        "metric_name": "early_season_accumulation-30d-thresh-30.0",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
 ]
 
 
