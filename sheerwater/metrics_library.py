@@ -94,6 +94,9 @@ class Metric(ABC):
         if 'good_threshold' in self.metric_kwargs and 'good_threshold_statistic' in self.metric_kwargs:
             if len(self.statistics) > 1:
                 raise ValueError("Good thresholds are not supported for metrics with multiple statistics.")
+
+            # Important to copy here, to avoid mutating the class-level statistics list.
+            self.statistics = list(self.statistics)
             self.statistics.append('percent_good')
             if self.forecast_prob_type == 'probabilistic':
                 self.statistics.append('percent_good_members')
@@ -961,6 +964,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
     try:
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
         # Update the experiment kwargs with their values in init_kwargs if passed
         if metric_kwargs is not None:
@@ -971,7 +975,6 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
             if key in init_kwargs:
                 del init_kwargs[key]
 
-        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,

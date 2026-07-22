@@ -43,6 +43,13 @@ def pytest_addoption(parser):
         default=False,
         help="Recompute and overwrite cached gold baselines in correctness tests.",
     )
+    parser.addoption(
+        "--cluster",
+        action="store",
+        default=None,
+        help="Coiled cluster name to attach to (passed to start_remote as remote_name). "
+             "If omitted, uses the default xlarge_cluster/xlarge_node presets.",
+    )
 
 
 @pytest.hookimpl(trylast=True)
@@ -76,11 +83,15 @@ def overwrite_gold_testing(request):
 
 # Scope to module so the memoizer is active throughout performance tests
 @pytest.fixture(scope='module')
-def remote_dask_cluster():
+def remote_dask_cluster(request):
     """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
     from sheerwater.utils import start_remote
 
-    client = start_remote(remote_config=["xlarge_cluster", "xlarge_node"])
+    remote_name = request.config.getoption("--cluster")
+    if remote_name:
+        client = start_remote(remote_name=remote_name)
+    else:
+        client = start_remote(remote_config=["xlarge_cluster", "xlarge_node"])
     yield
 
     # Close the client so other tests don't have to use it
