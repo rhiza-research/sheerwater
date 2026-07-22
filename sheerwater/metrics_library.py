@@ -94,9 +94,9 @@ class Metric(ABC):
         if 'good_threshold' in self.metric_kwargs and 'good_threshold_statistic' in self.metric_kwargs:
             if len(self.statistics) > 1:
                 raise ValueError("Good thresholds are not supported for metrics with multiple statistics.")
-            self.statistics.append('good_threshold')
+            self.statistics.append('percent_good')
             if self.forecast_prob_type == 'probabilistic':
-                self.statistics.append('good_threshold_member_fraction')
+                self.statistics.append('percent_good_members')
 
     def init_event_kwargs(self,
                           event, event_kwargs,
@@ -572,6 +572,9 @@ class Metric(ABC):
         self.group_statistics()
         # Apply nonlinearly and compute the metric
         da = self.compute_metric()
+        if 'member' in da.coords:
+            # Average over the member dimension if it exists
+            da = da.mean(dim='member')
 
         # Convert from dataarray to dataset and return.
         if not isinstance(da, xr.Dataset):

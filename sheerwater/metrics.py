@@ -38,8 +38,8 @@ def metric(start_time, end_time, variable, forecast, truth,
         A dataframe with variables
         - metric_name: the name of the metric, specfied under the attribute 'metric_name'
         - event_count: the number of events
-        - good_threshold (optional): the good threshold for the metric
-        - good_threshold_member_fraction (optional): the fraction of members for which a good threshold was met
+        - percent_good (optional): the percentage of events for which a good threshold was met
+        - percent_good_members (optional): the percentage of ensemble members for which a good threshold was met
     """
     # Use the metric registry to get the metric class
     metric_obj = metric_factory(metric_name,
