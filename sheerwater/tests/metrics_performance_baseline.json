@@ -113,5 +113,10 @@
     "cold_sec": 197.835105,
     "warm_full_sec": 137.316762,
     "warm_metric_only_sec": 120.829078
+  },
+  "25_big_rain_days_good_threshold": {
+    "cold_sec": 49.343971,
+    "warm_full_sec": 26.837988,
+    "warm_metric_only_sec": 26.399348
   }
 }
