@@ -279,10 +279,10 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
 @spatial()
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        backend_kwargs={
-    'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                 "start_date": 1000,
-                 "model_issuance_date": 1000, "start_year": 1,
-                 "member": 1},
+            'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                        "start_date": 1000,
+                        "model_issuance_date": 1000, "start_year": 1,
+                        "member": 1},
            'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
@@ -336,10 +336,10 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
-    'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                 "start_date": 1000,
-                 "model_issuance_date": 1000, "start_year": 1,
-                 "member": 1},
+            'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                        "start_date": 1000,
+                        "model_issuance_date": 1000, "start_year": 1,
+                        "member": 1},
            'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
@@ -394,9 +394,6 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
         ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
                                           forecast_type='forecast', run_type=run_type, time_group='daily',
                                           grid=grid, mask=mask, region=region)
-        # ds = ifs_extended_range(forecast_start, end_time, variable,
-        #                         forecast_type='forecast', run_type=run_type, time_group='daily',
-        #                         grid=grid, mask=mask, region=region)
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
