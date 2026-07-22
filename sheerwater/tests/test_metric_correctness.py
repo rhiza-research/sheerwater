@@ -188,12 +188,13 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         return ds_new, None, 2
 
     # Get the metric name
-    mn = list(ds_new.data_vars)[0]
+    mn = ds_new.attrs.get('metric_name') or list(ds_new.data_vars)[0]
 
     # Both datasets exist (same compare structure as archive)
     new_data = ds_new[mn].compute()
     old_data = ds_old[mn].compute()
 
+    print(f"Comparing variable: {mn}")
     print(f"New function result shape: {new_data.shape}")
     print(f"Old function result shape: {old_data.shape}")
     nmin, nmax, nmean = float(new_data.min()), float(new_data.max()), float(new_data.mean())
