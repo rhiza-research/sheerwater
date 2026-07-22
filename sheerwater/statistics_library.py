@@ -408,10 +408,10 @@ def fn_pass_statistic(data, **cache_kwargs):  # noqa: F821
     pass_data = pass_fn(stat_data)
     return pass_data
 
+
 @statistic(cache=False, name='pass_statistic_member_fraction')
 def fn_pass_statistic_member_fraction(data, **cache_kwargs):  # noqa: F821
-    return fn_pass_statistic(data, **cache_kwargs).mean(dim='member') 
-
+    return fn_pass_statistic(data, **cache_kwargs).mean(dim='member')
 
 
 def statistic_factory(statistic_name: str):

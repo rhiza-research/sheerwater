@@ -954,10 +954,13 @@ class PassFraction(Metric):
 
     @property
     def statistics(self):
-        """Include 3 statistics: 
-        - pass_statistic: the average number of events that pass the threshold
-        - pass_statistic_member_fraction: the fraction of members that pass the threshold
-        - [pass_statistic_name]: the average user-specified statistic value
+        """Include 3 statistics/agg-keys.
+
+            - pass_statistic: the average number of events that pass the threshold
+            - pass_statistic_member_fraction: the fraction of members that pass the threshold
+                Note that this statistic is only included for probabilistic forecasts.
+                It will be indexed by member, but constant across all members.
+            - [pass_statistic_name]: the average user-specified statistic value
         """
         stats = ['pass_statistic', self.metric_kwargs['pass_statistic']]
         if self.forecast_prob_type == 'probabilistic':
