@@ -427,19 +427,19 @@
     "list": [
       {
         "current": {
-          "text": "15",
-          "value": "15"
+          "text": "9",
+          "value": "9"
         },
         "label": "lat",
         "name": "lat",
         "options": [
           {
             "selected": true,
-            "text": "15",
-            "value": "15"
+            "text": "9",
+            "value": "9"
           }
         ],
-        "query": "15",
+        "query": "9",
         "type": "textbox"
       },
       {
@@ -521,6 +521,7 @@
           "text": "1",
           "value": "1"
         },
+        "hide": 2,
         "label": "agg days",
         "name": "agg_days",
         "options": [
@@ -543,11 +544,11 @@
           "text": "b64d14cf1cc685d648d771138ea192e7",
           "value": "b64d14cf1cc685d648d771138ea192e7"
         },
-        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_western_africa_2016-01-01_None_imerg_final_precip'\n)",
         "hide": 2,
         "name": "fcst_points_table_west",
         "options": [],
-        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_western_africa_2016-01-01_None_imerg_final_precip'\n)",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -557,11 +558,11 @@
           "text": "8d260c3d04cfc207f254f02803f87370",
           "value": "8d260c3d04cfc207f254f02803f87370"
         },
-        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "definition": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
         "hide": 2,
         "name": "fcst_points_table_east",
         "options": [],
-        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
+        "query": "SELECT md5(\n    'forecast_metric_points/1_2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip'\n)",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -571,11 +572,11 @@
           "text": "05abb8da89f52f19cb6824e420d8825d",
           "value": "05abb8da89f52f19cb6824e420d8825d"
         },
-        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip')",
+        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_western_africa_2016-01-01_None_imerg_final_precip')",
         "hide": 2,
         "name": "event_list_table_west",
         "options": [],
-        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_western_africa_2016-01-01_None_imerg_final_precip')",
+        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_western_africa_2016-01-01_None_imerg_final_precip')",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -585,11 +586,11 @@
           "text": "d310ebc217848ad1c78399c9d812fbc0",
           "value": "d310ebc217848ad1c78399c9d812fbc0"
         },
-        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip')",
+        "definition": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip')",
         "hide": 2,
         "name": "event_list_table_east",
         "options": [],
-        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-False_obs_filter-True_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip')",
+        "query": "select * from md5('event_list/2024-12-31_ecmwf_ifs_er_global1_5_7_forecast_filter-${fcst_filter}_obs_filter-${obs_filter}_${event_type}_eastern_africa_2016-01-01_None_imerg_final_precip')",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -597,8 +598,8 @@
       {
         "allowCustomValue": false,
         "current": {
-          "text": "2016-07-12",
-          "value": "2016-07-12"
+          "text": "2021-04-14",
+          "value": "2021-04-14"
         },
         "includeAll": false,
         "label": "event_date",
@@ -672,6 +673,45 @@
         "name": "good_thresh",
         "options": [],
         "query": "SELECT CASE '${event_type}'\n    WHEN 'big_rain_days' THEN 0.3\n    WHEN 'in_season_dry_spell' THEN 30\n    WHEN 'early_season_accumulation' THEN 30\nEND AS thresh;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "True",
+          "value": "True"
+        },
+        "label": "observed events",
+        "name": "obs_filter",
+        "options": [
+          {
+            "selected": true,
+            "text": "True",
+            "value": "True"
+          },
+          {
+            "selected": false,
+            "text": "False",
+            "value": "False"
+          }
+        ],
+        "query": "True, False",
+        "type": "custom"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "False",
+          "value": "False"
+        },
+        "definition": "SELECT CASE '${obs_filter}'\n    WHEN 'True' THEN 'False'\n    WHEN 'False' THEN 'True'\nEND",
+        "description": "",
+        "hide": 2,
+        "name": "fcst_filter",
+        "options": [],
+        "query": "SELECT CASE '${obs_filter}'\n    WHEN 'True' THEN 'False'\n    WHEN 'False' THEN 'True'\nEND",
         "refresh": 1,
         "regex": "",
         "type": "query"
