@@ -1,4 +1,9 @@
 """A climatology baseline forecast for benchmarking."""
+from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_er_reforecast
+from sheerwater.spatial_subdivisions import clip_to_region_envelope
+from sheerwater.utils import (dask_remote, get_grid, groupby_time, regrid, add_dayofyear,
+                              pad_with_leapdays, convert_init_time_to_pred_time)
+from sheerwater.interfaces import get_data, get_forecast
 from datetime import datetime
 
 import dask
@@ -80,6 +85,42 @@ def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='globa
     ds['dayofyear'] = ds.dayofyear.dt.dayofyear
 
     return ds
+
+
+"""Downscaling datasets."""
+
+
+@dask_remote
+@spatial()
+@cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'agg_days',
+                   'time_grouping', 'n_quantiles', 'grid'],
+       backend_kwargs={'chunking': {"lat": 300, "lon": 300, "group": 20, 'quantile': 50}
+                       })
+def quantile_ranks(variable, data='imerg_final', first_year=1998, last_year=2015, agg_days=1,
+                   time_grouping=None, n_quantiles=20,
+                   grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """Generates quantile ranks of a dataset."""
+    start_time = f"{first_year}-01-01"
+    end_time = f"{last_year}-12-31"
+
+    # Try to get a dataset for remapping
+    data_fn = get_data(data)
+    ds = data_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=None, region='global')
+
+    # Select only the variable of interest
+    ds = ds[[variable]]
+
+    # Add one to account for the end point in the quantile calculation
+    ranks = np.linspace(0, 1, n_quantiles+1, endpoint=True)  # Includes 1
+    ranks = np.round(ranks, 5)  # round to 5 decimal places fori more stable merging
+
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = ds.chunk({"time": -1})
+    if time_grouping is not None:
+        qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    else:
+        qs = ds.quantile(q=ranks, dim="time", skipna=True)
+    return qs
 
 
 @dask_remote

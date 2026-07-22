@@ -182,10 +182,12 @@ def quantile_extremes(ds, threshold, data_source='imerg_final', first_year=1985,
 
     # Get the quantile ranks for the dataset
     grid = ds.attrs['grid']
+    region = ds.attrs['region']
     var = list(ds.data_vars)[0]
-    from sheerwater.quantile_data import quantile_ranks
-    qr = quantile_ranks(variable=var, data=data_source, first_year=first_year, last_year=last_year, agg_days=agg_days,
-                        time_grouping=None, margin_in_days=None, n_quantiles=n_quantiles, grid=grid, region='global')
+    from sheerwater.climatology import quantile_ranks
+    qr = quantile_ranks(variable=var, data=data_source, first_year=first_year, last_year=last_year,
+                        agg_days=agg_days, time_grouping=None,
+                        n_quantiles=n_quantiles, grid=grid, region=region)
 
     qr_idx = np.abs(qr['quantile'].values - threshold).argmin(axis=-1)
     qr_values = qr[var].isel(quantile=qr_idx)

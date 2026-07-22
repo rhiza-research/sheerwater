@@ -388,7 +388,6 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
         ds = ifs_extended_range_debiased_regrid(forecast_start, end_time, variable,
                                                 margin_in_days=6, run_type=run_type, time_group='daily',
                                                 grid=grid, mask=mask, region=region)
-        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
         # Call ECMWF nicely chunked for timeseries processing
         ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
@@ -400,6 +399,8 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
     ds = ds.assign_attrs(prob_type=prob_label)
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
+
+    # Rename to the standard init_time and prediction_timedelta coordinates
     ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
 
