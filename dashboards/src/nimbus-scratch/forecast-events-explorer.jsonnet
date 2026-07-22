@@ -382,9 +382,9 @@
             "autorange": true
           }
         },
-        "onclick": "try {\n  const { type: eventType, data: eventData } = event;\n\n  if (eventType === 'click') {\n    const clickedPoint = eventData?.points?.[0];\n\n    if (clickedPoint) {\n      const currentUrl = new URL(window.location.href);\n      currentUrl.searchParams.set('var-event_date', clickedPoint.customdata);\n      window.location.href = currentUrl.toString();\n    }\n  }\n} catch (error) {\n  console.error('Error in bar click handler:', error);\n}",
+        "onclick": "try {\n  const { type: eventType, data: eventData } = event;\n\n  if (eventType === 'click') {\n    const points = eventData?.points || [];\n    const barPoint = points.find(p => p.data && p.data.type === 'bar');\n\n    if (barPoint) {\n      const currentUrl = new URL(window.location.href);\n      currentUrl.searchParams.set('var-event_date', barPoint.customdata);\n      window.location.href = currentUrl.toString();\n    }\n  }\n} catch (error) {\n  console.error('Error in bar click handler:', error);\n}",
         "resScale": 2,
-        "script": "// --- Safe variable getter ---\nconst getVar = (name) => {\n  return (\n    variables?.[name]?.current?.value ??\n    variables?.[name]?.value ??\n    null\n  );\n};\n\nconst fields = data.series[0].fields;\nconst timeField = fields.find(f => f.name === \"time\");\nconst valueField = fields.find(f => f.name === \"value\");\n\nif (!timeField || !valueField) {\n  throw new Error(\"Missing time or value field\");\n}\n\nconst times = Array.from(timeField.values || timeField.values.buffer || []);\nconst values = Array.from(valueField.values || valueField.values.buffer || []);\n\n// --- Threshold for \"good\" events ---\nconst GOOD_THRESHOLD = parseFloat(getVar(\"good_thresh\"));\nconst GOOD_COLOR = 'rgba(0, 170, 0, 0.8)';\nconst BAD_COLOR = 'rgba(200, 0, 0, 0.8)';\n\nfunction formatDate(t) {\n  const d = new Date(t);\n  const yyyy = d.getUTCFullYear();\n  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');\n  const dd = String(d.getUTCDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\nconst dateLabels = times.map(formatDate);\nconst colors = values.map(v => (v <= GOOD_THRESHOLD ? GOOD_COLOR : BAD_COLOR));\n\nconst traces = [{\n  type: 'bar',\n  x: times,\n  y: values,\n  customdata: dateLabels,\n  marker: { color: colors },\n  width: 4 * 24 * 60 * 60 * 1000, // 2 days wide (±1 day), in ms\n  hovertemplate: 'Date: %{customdata}<br>Value: %{y}<extra></extra>'\n}];\n\n// --- Shaded band centered on the event date: -1 day before, +1 day after ---\nconst dayMs = 5 * 24 * 60 * 60 * 1000;\nconst eventDate = new Date(getVar(\"event_date\"));\nconst eventShape = isNaN(eventDate.getTime()) ? [] : [{\n  type: 'rect',\n  xref: 'x',\n  yref: 'paper',\n  x0: eventDate.getTime() - dayMs,\n  x1: eventDate.getTime() + dayMs,\n  y0: 0,\n  y1: 1,\n  fillcolor: 'rgba(128, 128, 128, 0.2)',\n  line: { width: 0 },\n  layer: 'below'\n}];\n\n// --- Good/bad event counts ---\nconst totalEvents = values.length;\nconst goodCount = values.filter(v => v <= GOOD_THRESHOLD).length;\nconst badCount = totalEvents - goodCount;\n\nreturn {\n  data: traces,\n  layout: {\n    font: { family: 'Inter, Helvetica, Arial, sans-serif' },\n    xaxis: {\n      type: 'date',\n      autorange: true,\n      automargin: true,\n      range: [times[0], times[times.length - 1]]\n    },\n    yaxis: { autorange: true, automargin: true, title: { text: getVar(\"metric_name\") } },\n    title: {\n      text: `Total: ${totalEvents}  |  Good: ${goodCount}  |  Bad: ${badCount}`,\n      font: { size: 12 },\n      automargin: true\n    },\n    margin: { l: 50, r: 20, b: 40, t: 30 },\n    shapes: [\n      {\n        type: 'line',\n        xref: 'paper',\n        x0: 0,\n        x1: 1,\n        yref: 'y',\n        y0: GOOD_THRESHOLD,\n        y1: GOOD_THRESHOLD,\n        line: { color: 'rgba(0,0,0,0.6)', width: 1.5, dash: 'dash' }\n      },\n      ...eventShape\n    ]\n  },\n  config: {\n    responsive: true,\n    displayModeBar: false\n  }\n};",
+        "script": "// --- Safe variable getter ---\nconst getVar = (name) => {\n  return (\n    variables?.[name]?.current?.value ??\n    variables?.[name]?.value ??\n    null\n  );\n};\n\nfunction formatDate(t) {\n  const d = new Date(t);\n  const yyyy = d.getUTCFullYear();\n  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');\n  const dd = String(d.getUTCDate()).padStart(2, '0');\n  return `${yyyy}-${mm}-${dd}`;\n}\n\n// --- Event data (bars) ---\nconst eventSeries = data.series.find(s => s.refId === 'event_times');\nif (!eventSeries) {\n  throw new Error('event_times series not found');\n}\n\nconst timeField = eventSeries.fields.find(f => f.name === \"time\");\nconst valueField = eventSeries.fields.find(f => f.name === \"value\");\n\nif (!timeField || !valueField) {\n  throw new Error(\"Missing time or value field in event_times\");\n}\n\nconst times = Array.from(timeField.values || timeField.values.buffer || []);\nconst values = Array.from(valueField.values || valueField.values.buffer || []);\n\nconst minEventTime = Math.min(...times);\nconst maxEventTime = Math.max(...times);\n\n// --- Threshold for \"good\" events ---\nconst GOOD_THRESHOLD = parseFloat(getVar(\"good_thresh\"));\nconst GOOD_COLOR = 'rgba(0, 170, 0, 0.8)';\nconst BAD_COLOR = 'rgba(200, 0, 0, 0.8)';\n\nconst dateLabels = times.map(formatDate);\nconst colors = values.map(v => (v <= GOOD_THRESHOLD ? GOOD_COLOR : BAD_COLOR));\n\nconst eventTrace = {\n  type: 'bar',\n  x: times,\n  y: values,\n  yaxis: 'y',\n  customdata: dateLabels,\n  marker: { color: colors },\n  width: 4 * 24 * 60 * 60 * 1000,\n  hovertemplate: 'Date: %{customdata}<br>Value: %{y}<extra></extra>'\n};\n\n// --- IMERG data (line, on secondary axis, drawn behind, clipped to event range) ---\nconst imergSeries = data.series.find(s => s.refId === 'imerg');\nlet imergTrace = null;\n\nif (imergSeries) {\n  const iTimeField = imergSeries.fields.find(f => f.name === 'time');\n  const iValueField = imergSeries.fields.find(f => f.name !== 'time');\n\n  if (iTimeField && iValueField && iTimeField.values.length > 0) {\n    const rawTimes = Array.from(iTimeField.values || iTimeField.values.buffer || []);\n    const rawValues = Array.from(iValueField.values || iValueField.values.buffer || []);\n\n    const iTimes = [];\n    const iValues = [];\n    for (let i = 0; i < rawTimes.length; i++) {\n      if (rawTimes[i] >= minEventTime && rawTimes[i] <= maxEventTime) {\n        iTimes.push(rawTimes[i]);\n        iValues.push(rawValues[i]);\n      }\n    }\n\n    if (iTimes.length > 0) {\n      imergTrace = {\n        type: 'scatter',\n        mode: 'lines',\n        x: iTimes,\n        y: iValues,\n        yaxis: 'y2',\n        name: 'IMERG precip',\n        line: { color: 'rgba(31, 119, 180, 0.2)', width: 1.5 },\n        hoverinfo: 'skip' // no tooltip box for imerg — only events should show one\n      };\n    }\n  }\n}\n\n// imerg first so it renders behind the event bars\nconst traces = [...(imergTrace ? [imergTrace] : []), eventTrace];\n\n// --- Shaded band centered on the event date: -1 day before, +1 day after ---\nconst dayMs = 5 * 24 * 60 * 60 * 1000;\nconst eventDate = new Date(getVar(\"event_date\"));\nconst eventShape = isNaN(eventDate.getTime()) ? [] : [{\n  type: 'rect',\n  xref: 'x',\n  yref: 'paper',\n  x0: eventDate.getTime() - dayMs,\n  x1: eventDate.getTime() + dayMs,\n  y0: 0,\n  y1: 1,\n  fillcolor: 'rgba(128, 128, 128, 0.2)',\n  line: { width: 0 },\n  layer: 'below'\n}];\n\n// --- Good/bad event counts ---\nconst totalEvents = values.length;\nconst goodCount = values.filter(v => v <= GOOD_THRESHOLD).length;\nconst badCount = totalEvents - goodCount;\n\nconst maxEventValue = Math.max(...values);\nconst maxImergValue = imergTrace ? Math.max(...imergTrace.y) : 1;\n\nreturn {\n  data: traces,\n  layout: {\n    font: { family: 'Inter, Helvetica, Arial, sans-serif' },\n    xaxis: {\n      type: 'date',\n      autorange: true,\n      automargin: true,\n      range: [times[0], times[times.length - 1]]\n    },\n    showlegend: false,\n    yaxis: {\n      range: [0, maxEventValue * 1.05],\n      automargin: true,\n      title: { text: getVar(\"metric_name\") }\n    },\n    yaxis2: {\n      overlaying: 'y',\n      side: 'right',\n      range: [0, maxImergValue * 1.05],\n      automargin: true,\n      showgrid: false,\n      title: { text: 'IMERG precip (mm)' }\n    },\n    title: {\n      text: `Total: ${totalEvents}  |  Good: ${goodCount}  |  Bad: ${badCount}`,\n      font: { size: 12 },\n      automargin: true\n    },\n    margin: { l: 50, r: 50, b: 40, t: 30 },\n    shapes: [\n      {\n        type: 'line',\n        xref: 'paper',\n        x0: 0,\n        x1: 1,\n        yref: 'y',\n        y0: GOOD_THRESHOLD,\n        y1: GOOD_THRESHOLD,\n        line: { color: 'rgba(0,0,0,0.6)', width: 1.5, dash: 'dash' }\n      },\n      ...eventShape\n    ]\n  },\n  config: {\n    responsive: true,\n    displayModeBar: false\n  }\n};",
         "syncTimeRange": false,
         "timeCol": ""
       },
@@ -395,7 +395,36 @@
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT time, value FROM (\n    SELECT lat, lon, time, value FROM \"${event_list_table_west}\"\n    UNION ALL\n    SELECT lat, lon, time, value FROM \"${event_list_table_east}\"\n) combined\nWHERE lat = ${lat} AND lon = ${lon}\nORDER BY value DESC",
-          "refId": "A",
+          "refId": "event_times",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bdz3m3xs99p1cf"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "WITH filtered AS (\n    SELECT\n        t.time,\n        t.precip\n    FROM (\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_india\"\n        UNION ALL\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_eastern_africa\"\n        UNION ALL\n        SELECT * FROM \"full_rainfall/imerg_final_${grid}_western_africa\"\n    ) t\n    WHERE t.lat = ${lat}\n      AND t.lon = ${lon}\n)\n\nSELECT\n    time,\n    AVG(precip) OVER (\n        ORDER BY time\n        ROWS BETWEEN ${agg_days}-1 PRECEDING AND CURRENT ROW\n    ) AS precip\nFROM filtered\nORDER BY time;",
+          "refId": "imerg",
           "sql": {
             "columns": [
               {
@@ -598,8 +627,8 @@
       {
         "allowCustomValue": false,
         "current": {
-          "text": "2021-04-14",
-          "value": "2021-04-14"
+          "text": "2021-05-02",
+          "value": "2021-05-02"
         },
         "includeAll": false,
         "label": "event_date",
