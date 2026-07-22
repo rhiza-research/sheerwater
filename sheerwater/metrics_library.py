@@ -955,30 +955,6 @@ class FrequencyBias(ContingencyMetric):
         return (tp + fp) / (tp + fn)
 
 
-# class PassFraction(Metric):
-#     """Passing fraction metric, according to a user-specified threshold."""
-#     sparse = True
-#     prob_type = 'deterministic'
-#     valid_variables = None
-#     default_event = None
-
-#     @property
-#     def statistics(self):
-#         """Custom statistics for the PassFraction metric.
-
-#         Include 3 statistics/agg-keys:
-#         - pass_statistic: the average number of events that pass the threshold
-#         - pass_statistic_member_fraction: the fraction of members that pass
-#             the threshold (only included for probabilistic forecasts,
-#             indexed by member but constant across all members)
-#         - [pass_statistic_name]: the average user-specified statistic value
-#         """
-#         stats = ['pass_statistic', self.metric_kwargs['pass_statistic']]
-#         if self.forecast_prob_type == 'probabilistic':
-#             stats.append('pass_statistic_member_fraction')
-#         return stats
-
-
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
