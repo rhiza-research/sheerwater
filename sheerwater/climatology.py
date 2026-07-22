@@ -1,9 +1,7 @@
 """A climatology baseline forecast for benchmarking."""
-from sheerwater.forecasts.ecmwf_er import ecmwf_ifs_er_reforecast
-from sheerwater.spatial_subdivisions import clip_to_region_envelope
-from sheerwater.utils import (dask_remote, get_grid, groupby_time, regrid, add_dayofyear,
-                              pad_with_leapdays, convert_init_time_to_pred_time)
-from sheerwater.interfaces import get_data, get_forecast
+from sheerwater.utils import (dask_remote, groupby_time,
+                              pad_with_leapdays)
+from sheerwater.interfaces import get_data
 from datetime import datetime
 
 import dask
@@ -15,14 +13,12 @@ from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
 
-from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
+from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial
 from sheerwater.reanalysis import era5
 from sheerwater.utils import (
     add_dayofyear,
     convert_pred_time_to_init_time,
-    dask_remote,
     get_dates,
-    pad_with_leapdays,
 )
 
 

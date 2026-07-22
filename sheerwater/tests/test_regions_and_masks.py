@@ -16,8 +16,6 @@ from sheerwater.spatial_subdivisions import (
     space_grouping_labels,
     nonuniform_grid,
     clip_region,
-    get_region_envelope,
-    clip_to_region_envelope,
 )
 from sheerwater.utils import get_grid
 
@@ -275,54 +273,6 @@ def test_nonuniform_clip():
         (ds_africa.lon < lon_min) | (ds_africa.lon > lon_max)
     )
     assert ds_africa['precip'].where(mask_outside).isnull().all()
-
-
-def test_get_region_envelope():
-    """Envelope is the region polygon bounds, expanded by padding."""
-    padding = 0.5
-    gdf = polygon_subdivision_geodataframe(level='country')
-    geom = gdf[gdf['region_name'] == 'kenya'].geometry.iloc[0]
-    minx, miny, maxx, maxy = geom.bounds
-
-    bounds = get_region_envelope('kenya', padding=padding)
-    assert len(bounds) == 1
-    row = bounds.iloc[0]
-    assert row['minx'] == pytest.approx(minx - padding)
-    assert row['miny'] == pytest.approx(miny - padding)
-    assert row['maxx'] == pytest.approx(maxx + padding)
-    assert row['maxy'] == pytest.approx(maxy + padding)
-
-
-def test_clip_to_region_envelope():
-    """sel-clip to the padded region bbox; points outside the envelope are dropped."""
-    lons = np.arange(-180.0, 180.0, 1.5)
-    lats = np.arange(-90.0, 90.0 + 1.5, 1.5)
-    ds = xr.Dataset(
-        coords={'lon': lons, 'lat': lats},
-        data_vars={'precip': (('lat', 'lon'), np.ones((len(lats), len(lons))))},
-    )
-
-    padding = 1.5
-    clipped = clip_to_region_envelope(ds, 'kenya', padding=padding)
-    min_lon, min_lat, max_lon, max_lat = get_region_envelope('kenya', padding=padding).iloc[0]
-
-    assert clipped.sizes['lon'] < ds.sizes['lon']
-    assert clipped.sizes['lat'] < ds.sizes['lat']
-    assert float(clipped.lon.min()) >= min_lon
-    assert float(clipped.lon.max()) <= max_lon
-    assert float(clipped.lat.min()) >= min_lat
-    assert float(clipped.lat.max()) <= max_lat
-    # Envelope includes the unpadded polygon bounds.
-    minx, miny, maxx, maxy = (
-        polygon_subdivision_geodataframe(level='country')
-        .query("region_name == 'kenya'")
-        .geometry.iloc[0]
-        .bounds
-    )
-    assert float(clipped.lon.min()) <= minx
-    assert float(clipped.lon.max()) >= maxx
-    assert float(clipped.lat.min()) <= miny
-    assert float(clipped.lat.max()) >= maxy
 
 
 def test_get_grid():
