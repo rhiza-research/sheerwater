@@ -319,7 +319,7 @@ class Metric(ABC):
             ds['lat'] = ds['lat'].astype(np.float32).round(4)
             ds = ds.sel(time=valid_times)
             if self.event is not None:
-                """For events, we will chunk the data to ensure that events calculated over long time period are fast."""
+                """For events, chunk the data to ensure that events calculated over long time period are fast."""
                 event_chunks = {
                     'lat': 2,
                     'lon': 2,
