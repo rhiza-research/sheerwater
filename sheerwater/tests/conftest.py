@@ -46,7 +46,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--cluster",
         action="store",
-        default=None,
+        default="sheerwater_testing",
         help="Coiled cluster name (remote_name). Always uses xlarge_cluster/xlarge_node presets.",
     )
 
