@@ -314,23 +314,22 @@ class Metric(ABC):
         if self.do_forecast_filter:
             datasets['filter_fcst'] = filter_fcst
 
-        # Probabilistic metrics (CRPS/Brier) need the full ensemble in one chunk;
-        # deterministic metrics keep member=1 to avoid OOM on per-member scores.
-        prepare_chunks = {
-            'lat': 2,
-            'lon': 2,
-            'time': 3000,
-            'prediction_timedelta': 50,
-            'member': 50,
-        }
-        if self.prob_type == 'probabilistic':
-            prepare_chunks['member'] = -1
-
         for name, ds in datasets.items():
             ds['lon'] = ds['lon'].astype(np.float32).round(4)
             ds['lat'] = ds['lat'].astype(np.float32).round(4)
-            datasets[name] = ds.sel(time=valid_times).chunk(
-                {k: prepare_chunks[k] for k in ds.dims if k in prepare_chunks}).persist()
+            ds = ds.sel(time=valid_times)
+            if self.event is not None:
+                """For events, we will chunk the data to ensure that events calculated over long time period are fast."""
+                event_chunks = {
+                    'lat': 2,
+                    'lon': 2,
+                    'time': 3000,
+                    'prediction_timedelta': 50,
+                }
+                if self.prob_type == 'probabilistic':
+                    event_chunks['member'] = 50
+                ds = ds.chunk({k: event_chunks[k] for k in ds.dims if k in event_chunks}).persist()
+            datasets[name] = ds
 
         """5. Save the data for all downstream metric calculations."""
         self.metric_data.update(datasets)

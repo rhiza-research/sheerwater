@@ -273,6 +273,11 @@ PERFORMANCE_TEST_CASES = [
         "metric_name": "early_season_accumulation-30d-thresh-30.0",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
         "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    # Deterministic event-based performance test
+    {"name": "28_in_season_dry_spell_deterministic", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
 ]
 
 

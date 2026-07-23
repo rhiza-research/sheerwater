@@ -164,8 +164,16 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
 @dask_remote
 @timeseries(timeseries=['init_time'])
 @spatial()
-@cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
-       backend_kwargs={'chunking': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": -1, "member": -1}})
+@cache(
+    cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
+    backend_kwargs={
+        'chunking': {"lat": 15, "lon": 15, "init_time": 3000, "prediction_timedelta": 46},
+        'chunk_by_arg': {
+            'run_type': {
+                'perturbed': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": 46, "member": 50},
+            },
+        }
+    })
 def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_type='forecast', run_type='average',  # noqa: ARG001
                                  time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
     """Rechunk IFS extended-range data for event/metrics workloads.
@@ -177,16 +185,18 @@ def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_t
     if ds is None:
         return None
     # 1) Split space only
-    chunks = {'lat': 2, 'lon': 2, 'lead_time': -1, 'start_date': 1}
     if run_type == 'perturbed':
-        chunks['member'] = 50
+        chunks = {'lat': 2, 'lon': 2, 'lead_time': -1, 'start_date': 1, 'member': 50}
+    else:
+        chunks = {'lat': 15, 'lon': 15, 'lead_time': -1, 'start_date': 1}
     ds = ds.chunk(chunks)
     # Persist here to avoid huge combined chunks
     ds = ds.persist()
     # 2) Merge time blocks on the small tiles
-    chunks = {'lat': 2, 'lon': 2, 'lead_time': -1, 'start_date': 3000}
     if run_type == 'perturbed':
-        chunks['member'] = 50
+        chunks = {'lat': 2, 'lon': 2, 'lead_time': -1, 'start_date': 3000, 'member': 50}
+    else:
+        chunks = {'lat': 15, 'lon': 15, 'lead_time': -1, 'start_date': 3000}
     ds = ds.chunk(chunks)
     # TODO: delete this when we recache
     ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})

@@ -1,13 +1,13 @@
 {
   "1_mae_global": {
-    "cold_sec": 34.539395,
-    "warm_full_sec": 9.107803,
-    "warm_metric_only_sec": 9.188847
+    "cold_sec": 30.309985,
+    "warm_full_sec": 16.001209,
+    "warm_metric_only_sec": 15.982051
   },
   "2_mae_spatial": {
-    "cold_sec": 44.594088,
-    "warm_full_sec": 17.068042,
-    "warm_metric_only_sec": 16.600686
+    "cold_sec": 30.348574,
+    "warm_full_sec": 22.882979,
+    "warm_metric_only_sec": 21.900325
   },
   "3_seeps": {
     "cold_sec": 89.743961,
@@ -70,9 +70,9 @@
     "warm_metric_only_sec": 19.704615
   },
   "15_crps": {
-    "cold_sec": 183.473252,
-    "warm_full_sec": 48.007562,
-    "warm_metric_only_sec": 52.320525
+    "cold_sec": 80.182734,
+    "warm_full_sec": 77.286809,
+    "warm_metric_only_sec": 77.409567
   },
   "16_big_rain_days": {
     "cold_sec": 60.973616,
@@ -128,5 +128,10 @@
     "cold_sec": 61.460947,
     "warm_full_sec": 33.537224,
     "warm_metric_only_sec": 33.737133
+  },
+  "28_in_season_dry_spell_deterministic": {
+    "cold_sec": 78.41141,
+    "warm_full_sec": 43.051886,
+    "warm_metric_only_sec": 40.133353
   }
 }
