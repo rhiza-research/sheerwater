@@ -320,15 +320,15 @@ class Metric(ABC):
             ds = ds.sel(time=valid_times)
             if self.event is not None:
                 """For events, chunk the data to ensure that events calculated over long time period are fast."""
-                event_chunks = {
-                    'lat': 2,
-                    'lon': 2,
-                    'time': 3000,
-                    'prediction_timedelta': 50,
-                }
                 if self.prob_type == 'probabilistic':
-                    event_chunks['member'] = 50
-                ds = ds.chunk({k: event_chunks[k] for k in ds.dims if k in event_chunks}).persist()
+                    event_chunks = {'lat': 2, 'lon': 2, 'time': 3000, 'prediction_timedelta': 50, 'member': 50}
+                else:
+                    event_chunks = {'lat': 15, 'lon': 15, 'time': 3000, 'prediction_timedelta': 50}
+                ds = ds.chunk({k: event_chunks[k] for k in ds.dims if k in event_chunks})
+            else:
+                # Old chunking strategy for non-event metrics
+                # ds = ds.chunk({'time': 3000, 'lat': 100, 'lon': 100})
+                pass
             datasets[name] = ds
 
         """5. Save the data for all downstream metric calculations."""
