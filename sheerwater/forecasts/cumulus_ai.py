@@ -46,7 +46,7 @@ def cumulus_ai_daily(date, variable='precip', prob_type='deterministic',  # noqa
     dt = pd.to_datetime(date)
     fs = gcsfs.GCSFileSystem(project='sheerwater', token='google_default')
     gsf = [
-        'gs://' + x for x in fs.glob(f'gs://sheerwater-datalake/cumulus-data/{version}/data/{dt.year}-{dt.month:02}-{dt.day:02}*')]
+        'gs://' + x for x in fs.glob(f'gs://sheerwater-datalake/cumulus-data/{version}/pf/data/{dt.year}-{dt.month:02}-{dt.day:02}*')]
     if len(gsf) == 0:
         return None
 
@@ -69,14 +69,17 @@ def cumulus_ai_daily(date, variable='precip', prob_type='deterministic',  # noqa
     variable = get_variable(var, 'sheerwater')
     ds = ds.rename_vars(name_dict={var: variable})
 
+    # rename number to member
+    ds = ds.rename({'number': 'member'})
+
     # Perform unit conversions if a specific variable is requested
     if variable == 'precip':
         # Already in mm
         ds[variable] = np.maximum(ds[variable], 0)
 
-    # Average the member if necessary
-    if prob_type != 'deterministic':
-        raise ValueError("Only deterministic cumulus_ai is supported.")
+    # Median across the member for deterministic forecasts
+    if prob_type == 'deterministic':
+        ds = ds.median(dim="member")
 
     return ds
 
@@ -92,17 +95,17 @@ def cumulus_ai_raw(start_time, end_time, variable='precip', prob_type='determini
     days = pd.date_range(start_time, end_time)
 
     def run_day(day):
-        ds = cumulus_ai_daily(day, filepath_only=True)
+        ds = cumulus_ai_daily(day, prob_type=prob_type, filepath_only=True)
         return ds
 
-    run_in_parallel(run_day, days, 20)
+    run_in_parallel(run_day, days, 100)
 
     datasets = []
     for day in days:
         if delayed:
-            ds = dask.delayed(cumulus_ai_daily)(day, filepath_only=True)
+            ds = dask.delayed(cumulus_ai_daily)(day, prob_type=prob_type, filepath_only=True)
         else:
-            ds = cumulus_ai_daily(day, filepath_only=True)
+            ds = cumulus_ai_daily(day, prob_type=prob_type, filepath_only=True)
 
         datasets.append(ds)
 
@@ -115,10 +118,6 @@ def cumulus_ai_raw(start_time, end_time, variable='precip', prob_type='determini
                            engine='zarr',
                            parallel=True,
                            chunks={})
-
-    # Average the member if necessary
-    if prob_type != 'deterministic':
-        raise ValueError("Only deterministic cumulus_ai is supported.")
 
     return ds
 
@@ -164,6 +163,6 @@ def cumulus_ai(start_time=None, end_time=None, variable="precip", agg_days=1, pr
     if prob_type == 'deterministic':
         ds = ds.assign_attrs(prob_type=prob_type)
     else:
-        raise ValueError("Only supports deterministic forecasts")
+        ds = ds.assign_attrs(prob_type='ensemble')
 
     return ds
