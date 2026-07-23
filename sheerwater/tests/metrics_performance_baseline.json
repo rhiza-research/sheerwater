@@ -120,18 +120,18 @@
     "warm_metric_only_sec": 26.399348
   },
   "27_early_season_accumulation_30d_good_threshold": {
-    "cold_sec": 95.594018,
-    "warm_full_sec": 38.305858,
-    "warm_metric_only_sec": 37.772807
+    "cold_sec": 107.151647,
+    "warm_full_sec": 34.259808,
+    "warm_metric_only_sec": 39.141035
   },
   "26_in_season_dry_spell_good_threshold": {
-    "cold_sec": 61.460947,
-    "warm_full_sec": 33.537224,
-    "warm_metric_only_sec": 33.737133
+    "cold_sec": 76.009203,
+    "warm_full_sec": 31.704744,
+    "warm_metric_only_sec": 44.312335
   },
   "28_in_season_dry_spell_deterministic": {
-    "cold_sec": 78.41141,
-    "warm_full_sec": 43.051886,
-    "warm_metric_only_sec": 40.133353
+    "cold_sec": 55.990956,
+    "warm_full_sec": 33.38552,
+    "warm_metric_only_sec": 35.274113
   }
 }

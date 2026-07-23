@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote 
+from sheerwater.utils import dask_remote
 from sheerwater.metrics import metric
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
