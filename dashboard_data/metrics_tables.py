@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 from nuthatch import cache, config_parameter
-from sheerwater.utils import dask_remote
+from sheerwater.utils import dask_remote 
 from sheerwater.metrics import metric
 from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 
@@ -54,13 +54,20 @@ def _metric_table(start_time, end_time, variable,
             if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
+            if 'prediction_timedelta' in ds.coords:
+                table_type = 'forecast'
+            else:
+                table_type = 'ground_truth'
+
             if ds:
                 # Get the metric name to rename the variable
-                if '-' in metric_name:
-                    met_name = metric_name.split('-')[0].lower()
-                else:
-                    met_name = metric_name.lower()
-                ds = ds.rename({met_name: agg})
+                if table_type == 'ground_truth':
+                    if '-' in metric_name:
+                        met_name = metric_name.split('-')[0].lower()
+                    else:
+                        met_name = metric_name.lower()
+
+                    ds = ds.rename({met_name: agg})
 
                 ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
 
@@ -87,25 +94,27 @@ def _metric_table(start_time, end_time, variable,
 
     df = df.reset_index().rename(columns={'index': 'forecast'})
 
-    order = ['forecast', 'time_grouping', 'region', 'lead_day', f'{metric_name}']
+    if 'lead_day' in df.columns:
+        order = ['forecast', 'time_grouping', 'region', 'lead_day', f'{metric_name}']
+    else:
+        order = ['forecast', 'time_grouping', 'region'] + agg_days
 
     # Reorder the columns if necessary
     if 'time' in df.columns:
         df = df.rename(columns={'time': 'time_grouping'})
         if time_grouping == 'month_of_year':
-            df['time_grouping'] = df['time_grouping'].map({
-                'M01': 'January',
-                'M02': 'February',
-                'M03': 'March',
-                'M04': 'April',
-                'M05': 'May',
-                'M06': 'June',
-                'M07': 'July',
-                'M08': 'August',
-                'M09': 'September',
-                'M10': 'October',
-                'M11': 'November',
-                'M12': 'December'})
+            df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
+                                                           'M02': 'February',
+                                                           'M03': 'March',
+                                                           'M04': 'April',
+                                                           'M05': 'May',
+                                                           'M06': 'June',
+                                                           'M07': 'July',
+                                                           'M08': 'August',
+                                                           'M09': 'September',
+                                                           'M10': 'October',
+                                                           'M11': 'November',
+                                                           'M12': 'December'})
 
     else:
         df['time_grouping'] = None
@@ -253,19 +262,18 @@ def _metric_table_spatial(start_time, end_time, variable,
     if 'time' in df.columns:
         df = df.rename(columns={'time': 'time_grouping'})
         if time_grouping == 'month_of_year':
-            df['time_grouping'] = df['time_grouping'].map({
-                'M01': 'January',
-                'M02': 'February',
-                'M03': 'March',
-                'M04': 'April',
-                'M05': 'May',
-                'M06': 'June',
-                'M07': 'July',
-                'M08': 'August',
-                'M09': 'September',
-                'M10': 'October',
-                'M11': 'November',
-                'M12': 'December'})
+            df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
+                                                           'M02': 'February',
+                                                           'M03': 'March',
+                                                           'M04': 'April',
+                                                           'M05': 'May',
+                                                           'M06': 'June',
+                                                           'M07': 'July',
+                                                           'M08': 'August',
+                                                           'M09': 'September',
+                                                           'M10': 'October',
+                                                           'M11': 'November',
+                                                           'M12': 'December'})
 
     else:
         df['time_grouping'] = None
