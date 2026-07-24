@@ -453,12 +453,13 @@ class Metric(ABC):
                 common = np.intersect1d(stat_vals.prediction_timedelta.values, filter.prediction_timedelta.values)
                 stat_vals = stat_vals.sel(prediction_timedelta=common)
                 filt = filter.sel(prediction_timedelta=common)
+                no_null = no_null.sel(prediction_timedelta=common)
             else:
                 filt = filter
             self.statistic_values[stat] = stat_vals.where(filt[self.variable], np.nan, drop=False)
 
         # Save the filter datastream for downstream event counting
-        self.filter = filter.astype(int).where(no_null, np.nan, drop=False)
+        self.filter = filt.astype(int).where(no_null, np.nan, drop=False)
 
     def group_statistics(self) -> dict[str, xr.DataArray]:
         """Group the statistics by the metric's configuration.
