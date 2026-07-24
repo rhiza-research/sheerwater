@@ -1,4 +1,99 @@
 local metrics_explainer_md = importstr './assets/metrics_explainer.md';
+local avg_sql_tmpl = importstr './assets/advanced_eval_avg.sql';
+local value_table_js_tmpl = importstr './assets/advanced_eval_value_table.js';
+
+local avgSql(regionOption) =
+  std.strReplace(avg_sql_tmpl, '__REGION_OPTION__', regionOption);
+
+local valueTableScript(regionVar, titlePrefix, valueField, higherIsBetter, filterNullForecasts) =
+  std.foldl(
+    function(acc, pair) std.strReplace(acc, pair[0], pair[1]),
+    [
+      ['__VALUE_FIELD__', valueField],
+      ['__TITLE_PREFIX__', titlePrefix],
+      ['__REGION_VAR__', regionVar],
+      ['__HIGHER_IS_BETTER__', higherIsBetter],
+      ['__FILTER_NULL_FORECASTS__', filterNullForecasts],
+    ],
+    value_table_js_tmpl,
+  );
+
+local avgPanel(id, x, y, regionVar, regionOption, titlePrefix, valueField, higherIsBetter, filterNullForecasts) = {
+  datasource: {
+    default: true,
+    type: 'grafana-postgresql-datasource',
+    uid: 'bdz3m3xs99p1cf',
+  },
+  fieldConfig: { defaults: {}, overrides: [] },
+  gridPos: { h: 15, w: 12, x: x, y: y },
+  id: id,
+  options: {
+    allData: {},
+    config: {},
+    data: [],
+    imgFormat: 'png',
+    layout: {
+      font: { family: 'Inter, sans-serif' },
+      margin: { b: 4, l: 0, r: 0, t: 0 },
+      paper_bgcolor: '#F4F5F5',
+      plog_bgcolor: '#F4F5F5',
+      title: {
+        align: 'left',
+        automargin: true,
+        font: { color: 'black', family: 'Inter, sans-serif', size: 14, weight: 500 },
+        pad: { b: 30 },
+        text: 'Weekly',
+        x: 0,
+        xanchor: 'left',
+      },
+      xaxis: { automargin: true, autorange: true, type: 'date' },
+      yaxis: { automargin: true, autorange: true },
+    },
+    onclick: '',
+    resScale: 2,
+    script: valueTableScript(regionVar, titlePrefix, valueField, higherIsBetter, filterNullForecasts),
+    syncTimeRange: false,
+    timeCol: '',
+  },
+  pluginVersion: '1.8.2',
+  targets: [{
+    datasource: { type: 'grafana-postgresql-datasource', uid: 'bdz3m3xs99p1cf' },
+    editorMode: 'code',
+    format: 'table',
+    rawQuery: true,
+    rawSql: avgSql(regionOption),
+    refId: 'A',
+    sql: {
+      columns: [{ parameters: [], type: 'function' }],
+      groupBy: [{ property: { type: 'string' }, type: 'groupBy' }],
+      limit: 50,
+    },
+  }],
+  title: '',
+  transparent: true,
+  type: 'nline-plotlyjs-panel',
+};
+
+local sectionRow(id, y, title) = {
+  collapsed: false,
+  gridPos: { h: 1, w: 24, x: 0, y: y },
+  id: id,
+  panels: [],
+  title: title,
+  type: 'row',
+};
+
+local average_metric_panels = [
+  sectionRow(101, 21, 'Average Metric Values'),
+  avgPanel(102, 0, 22, 'region_option', '$region_option', 'Average Metric', 'metric_mean', 'false', 'false'),
+  avgPanel(103, 12, 22, 'region_option2', '$region_option2', 'Average Metric', 'metric_mean', 'false', 'false'),
+  sectionRow(104, 37, 'Average Good Enough'),
+  avgPanel(105, 0, 38, 'region_option', '$region_option', 'Average Good Enough', 'percent_good_mean', 'true', 'false'),
+  avgPanel(106, 12, 38, 'region_option2', '$region_option2', 'Average Good Enough', 'percent_good_mean', 'true', 'false'),
+  sectionRow(107, 53, 'Average Good Enough Members'),
+  avgPanel(108, 0, 54, 'region_option', '$region_option', 'Average Good Enough Members', 'percent_good_members_mean', 'true', 'true'),
+  avgPanel(109, 12, 54, 'region_option2', '$region_option2', 'Average Good Enough Members', 'percent_good_members_mean', 'true', 'true'),
+];
 
 {
   "annotations": {
@@ -448,13 +543,14 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
       "transparent": true,
       "type": "nline-plotlyjs-panel"
     },
+  ] + average_metric_panels + [
     {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 69
       },
       "id": 9,
       "panels": [],
