@@ -1,10 +1,11 @@
 """Cahable Grafana tables for metrics."""
 import xarray as xr
 import pandas as pd
+import numpy as np
 
 from nuthatch import cache, config_parameter
 from sheerwater.utils import dask_remote
-from sheerwater.metrics import metric
+from sheerwater.metrics import metric, metric_event_series
 
 from google.cloud import secretmanager
 
@@ -64,4 +65,48 @@ def forecast_metric_points(start_time, end_time, variable,
     df = ds.to_dataframe()
     df = df.dropna(subset=["value"], how='all')
     df = df.reset_index()
+    return df
+
+
+@dask_remote
+@cache(cache_args=['start_time', 'end_time', 'variable',   'forecast', 'truth',
+                   'metric_name',  'metric_kwargs', 'lead_days',
+                   'time_grouping', 'grid', 'region'], backend='sql', backend_kwargs={'hash_table_name': True})
+def event_list(start_time, end_time, variable,
+                forecast, truth, agg_days, metric_name,
+                metric_kwargs=None, lead_days=7,
+                time_grouping=None, grid='global1_5',
+                region='global'):
+
+    ds = metric_event_series(start_time, end_time, variable,
+                            agg_days=agg_days, forecast=forecast, truth=truth,
+                            metric_name=metric_name, metric_kwargs=metric_kwargs,
+                            time_grouping=time_grouping, spatial=True,
+                            grid=grid, region=region)
+
+    # get the variable name of interest - we assume it is the first
+    var_name = list(ds.data_vars)[0]
+    # select lead time and drop lead time dimension
+    ds = ds.sel(prediction_timedelta=pd.Timedelta(days=lead_days)).drop_vars('prediction_timedelta')
+    ds = ds[var_name].chunk({'time': -1})
+
+    # collect lists of event times and metric values
+    times = ds.time.values
+    def collect_nonnans(arr):
+        mask = ~np.isnan(arr)
+        return times[mask], arr[mask]
+    valid_times, valid_values = xr.apply_ufunc(collect_nonnans, ds.load(), input_core_dims=[['time']], output_core_dims=[[], []],
+                                               vectorize=True, output_dtypes=[object, object])
+    
+    # convert results to a dataframe
+    df_times = valid_times.rename('time').to_dataframe().reset_index()
+    df_values = valid_values.rename(var_name).to_dataframe().reset_index()
+    # remove locations with no event times
+    df_times = df_times[df_times['time'].apply(len) > 0].reset_index(drop=True)
+    df = df_times.merge(df_values, on=['lat', 'lon'])
+    df = df.explode(['time', var_name], ignore_index=True)
+    # for consistency, rename the variable to "value"
+    df = df.rename(columns={var_name: "value"})
+    # convert to good types for sql
+    df = df.astype({'lat': 'float', 'lon': 'float', 'time': 'datetime64[ns]', 'value': 'float'})
     return df
