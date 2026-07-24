@@ -86,6 +86,8 @@ def _metric_table(start_time, end_time, variable,
         results_ds = results_ds.reset_coords('time', drop=True)
 
     results_ds = results_ds.drop_vars([var for var in results_ds.coords if var not in results_ds.dims], errors='ignore')
+    results_ds = results_ds[[metric_name]]
+    print(results_ds)
 
     if 'space_grouping' in results_ds.dims:
         results_ds = results_ds.rename({'space_grouping': 'region'})
