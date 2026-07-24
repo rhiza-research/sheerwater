@@ -1,0 +1,56 @@
+advanced_forecast_table_metrics:
+  function: advanced_spatial_metric_table
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    space_grouping: [["rainfall_region", "country"]]
+    grid: ["global1_5"]
+    variable: ["precip"]
+    time_grouping: ["year"]
+    region:
+      - "africa_unimodal_season"
+      - "africa_bimodal_season"
+      - "africa_unimodal_shifted_season"
+  two_way_metrics:
+    metric_name: ["big_rain_days", "extreme_rain_days", "in_season_dry_spell"]
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  one_way_metrics:
+    metric_name: ["early_season_accumulation-30d"]
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+advanced_ground_truth_table_metrics:
+  function: advanced_ground_truth_spatial_metric_table
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    truth:
+      - tahmo_avg
+    space_grouping: [["rainfall_region", "country"]]
+    grid: ["global1_5"]
+    variable: ["precip"]
+    time_grouping: ["year"]
+    region:
+      - "africa_unimodal_season"
+      - "africa_bimodal_season"
+      - "africa_unimodal_shifted_season"
+  two_way_metrics:
+    metric_name: ["big_rain_days", "extreme_rain_days", "in_season_dry_spell"]
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  one_way_metrics:
+    metric_name: ["early_season_accumulation-30d"]
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
