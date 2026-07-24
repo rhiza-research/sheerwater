@@ -267,6 +267,8 @@ def _metric_table_spatial(start_time, end_time, variable,
 
     if 'percent_good' in df.columns:
         order = order + ['percent_good', 'event_count']
+    if 'percent_good_members' in df.columns:
+        order = order + ['percent_good_members']
 
     order = order + ['region'] + space_grouping
 
