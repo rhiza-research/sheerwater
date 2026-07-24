@@ -588,7 +588,7 @@ class Metric(ABC):
 
         if 'member' in ds.coords:
             # Average over the member dimension if it exists
-            ds = ds.mean(dim='member')
+            ds = ds.mean(dim='member', keep_attrs=True)
 
         return ds
 
