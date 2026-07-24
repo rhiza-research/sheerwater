@@ -25,8 +25,10 @@ def postgres_write_password():
 @dask_remote
 def _metric_table(start_time, end_time, variable,
                   truth, metric_name, agg_days, forecasts,
+                  metric_kwargs=None,
                   time_grouping=None,
-                  grid='global1_5', space_grouping=None):
+                  grid='global1_5', space_grouping=None,
+                  region='global'):
     """Internal function to compute summary metrics table for flexible leads and forecasts."""
     # For the time grouping we are going to store it in an xarray with dimensions
     # forecast and time, which we instantiate
@@ -46,8 +48,8 @@ def _metric_table(start_time, end_time, variable,
             try:
                 ds = metric(start_time, end_time, variable,
                             agg_days=agg, forecast=forecast, truth=truth,
-                            metric_name=metric_name, time_grouping=time_grouping, spatial=False,
-                            grid=grid, space_grouping=space_grouping, recompute=False, retry_null_cache=False)
+                            metric_name=metric_name, metric_kwargs=metric_kwargs, time_grouping=time_grouping, spatial=False,
+                            grid=grid, space_grouping=space_grouping, region=region, recompute=False, retry_null_cache=False)
             except NotImplementedError:
                 ds = None
 
@@ -131,15 +133,16 @@ def _metric_table(start_time, end_time, variable,
 
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable',  'truth', 'agg_days',
-                   'metric_name', 'time_grouping', 'grid', 'space_grouping'],
+                   'metric_name', 'metric_kwargs', 'time_grouping', 'grid', 'space_grouping',
+                   'region'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def forecast_metric_table(start_time, end_time, variable,
-                          forecasts, truth, agg_days, metric_name, time_grouping=None,
-                          grid='global1_5', space_grouping=None):
+                          forecasts, truth, agg_days, metric_name, metric_kwargs=None, time_grouping=None,
+                          grid='global1_5', space_grouping=None, region='global'):
     """Runs metric repeatedly for all forecasts and creates a pandas table out of them."""
     df = _metric_table(start_time, end_time, variable, truth, metric_name,
-                       agg_days=agg_days, forecasts=forecasts,
-                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping)
+                       agg_days=agg_days, forecasts=forecasts, metric_kwargs=metric_kwargs,
+                       time_grouping=time_grouping, grid=grid, space_grouping=space_grouping, region=region)
 
     print(df)
     return df

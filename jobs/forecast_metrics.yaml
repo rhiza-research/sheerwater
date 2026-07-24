@@ -86,14 +86,6 @@ forecast_table_metrics:
     agg_days: [[7]]
   global1_5_metrics:
     grid: ['global1_5']
-      #global0_25_metrics:
-      #  forecasts:
-      #    - - salient
-      #      - gfs
-      #      - ecmwf_aifs
-      #      - ecmwf_ifs_ens
-      #      - ecmwf_hres
-      #  grid: ['global0_25']
 forecast_table_metrics_probabilistic:
   function: forecast_metric_table
   _all:
