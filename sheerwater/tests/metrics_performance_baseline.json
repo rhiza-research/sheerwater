@@ -1,13 +1,13 @@
 {
   "1_mae_global": {
-    "cold_sec": 33.357603,
-    "warm_full_sec": 13.65482,
-    "warm_metric_only_sec": 13.81048
+    "cold_sec": 28.77384,
+    "warm_full_sec": 11.803978,
+    "warm_metric_only_sec": 12.240772
   },
   "2_mae_spatial": {
-    "cold_sec": 32.507547,
-    "warm_full_sec": 22.526532,
-    "warm_metric_only_sec": 21.953212
+    "cold_sec": 28.10949,
+    "warm_full_sec": 21.619191,
+    "warm_metric_only_sec": 21.205213
   },
   "3_seeps": {
     "cold_sec": 79.607385,
@@ -105,14 +105,14 @@
     "warm_metric_only_sec": 25.426002
   },
   "22_early_season_accumulation_30d_probabilistic": {
-    "cold_sec": 41.93449,
-    "warm_full_sec": 28.44504,
-    "warm_metric_only_sec": 28.415531
+    "cold_sec": 45.943246,
+    "warm_full_sec": 24.692215,
+    "warm_metric_only_sec": 25.030303
   },
   "23_mae_probabilistic": {
-    "cold_sec": 629.260627,
-    "warm_full_sec": 52.899991,
-    "warm_metric_only_sec": 55.502748
+    "cold_sec": 407.316327,
+    "warm_full_sec": 54.817901,
+    "warm_metric_only_sec": 43.90745
   },
   "25_big_rain_days_good_threshold": {
     "cold_sec": 49.343971,
@@ -125,9 +125,9 @@
     "warm_metric_only_sec": 39.141035
   },
   "26_in_season_dry_spell_good_threshold": {
-    "cold_sec": 76.009203,
-    "warm_full_sec": 31.704744,
-    "warm_metric_only_sec": 44.312335
+    "cold_sec": 60.5488,
+    "warm_full_sec": 26.055216,
+    "warm_metric_only_sec": 25.303571
   },
   "28_in_season_dry_spell_deterministic": {
     "cold_sec": 55.990956,

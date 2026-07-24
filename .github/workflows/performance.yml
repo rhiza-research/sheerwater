@@ -93,7 +93,7 @@ jobs:
       run: |
         mkdir -p coverage
         uv run pytest -m performance \
-          -v \
+          -v -s \
           --junitxml=coverage/junit.xml \
           --cov-report=xml:coverage/coverage.xml \
           --cov-report=term
