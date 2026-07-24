@@ -197,6 +197,12 @@ def _metric_table_spatial(start_time, end_time, variable,
     if not isinstance(agg_days, list):
         agg_days = [agg_days]
 
+    # Metric column name (stable even if every forecast cache-misses)
+    if 'thresh' in metric_name:
+        mn = metric_name.split("-thresh-")[0]
+    else:
+        mn = metric_name
+
     for forecast in forecasts:
         for _, agg in enumerate(agg_days):
             print(
@@ -214,15 +220,12 @@ def _metric_table_spatial(start_time, end_time, variable,
 
                 ds = ds.compute()
 
-                if 'thresh' in metric_name:
-                    mn = metric_name.split("-thresh-")[0]
-                else:
-                    mn = metric_name
                 exp_metric = ds.attrs.get('metric_name') or list(ds.data_vars)[0]
                 ds = ds.rename({exp_metric: mn})
 
-            except NotImplementedError:
-                ds = None
+            except (NotImplementedError, RuntimeError) as e:
+                print(f"Skipping {forecast} for {metric_name}: {e}")
+                continue
 
             if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
@@ -230,12 +233,12 @@ def _metric_table_spatial(start_time, end_time, variable,
             if ds:
                 ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
 
-                # For climatology forecasts, we need to expand the prediction_timedelta coordinate
-                if 'prediction_timedelta' in ds.coords:
-                    lead_values = ds.prediction_timedelta.values / np.timedelta64(1, 'D')
-                    lead_values = lead_values.astype('int64')
-                    ds = ds.assign_coords(prediction_timedelta=lead_values)
-                    ds = ds.rename({'prediction_timedelta': 'lead_day'})
+            # For climatology forecasts, we need to expand the prediction_timedelta coordinate
+            if 'prediction_timedelta' in ds.coords:
+                lead_values = ds.prediction_timedelta.values / np.timedelta64(1, 'D')
+                lead_values = lead_values.astype('int64')
+                ds = ds.assign_coords(prediction_timedelta=lead_values)
+                ds = ds.rename({'prediction_timedelta': 'lead_day'})
 
                 # results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
 

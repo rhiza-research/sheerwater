@@ -1,5 +1,5 @@
 [comment]: # (EXTERNAL:metrics_explainer.md)
-### Selected Metric: {{#if (eq metric "mae")}}MAE {{/if}} {{#if (eq metric "rmse")}}RMSE{{/if}} {{#if (eq metric "crps")}}CRPS{{/if}} {{#if (eq metric "bias")}}Bias{{/if}} {{#if (eq metric "smape")}}SMAPE{{/if}} {{#if (eq metric "seeps")}}SEEPS{{/if}} {{#if (eq metric "acc")}}ACC{{/if}}  {{#if (eq metric "heidke-1-5-10-20")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric "far-1")}}FAR 1mm{{/if}} {{#if (eq metric "far-5")}}FAR 5mm{{/if}} {{#if (eq metric "far-10")}}FAR 10mm{{/if}} {{#if (eq metric "pod-1")}}POD 1mm{{/if}} {{#if (eq metric "pod-5")}}POD 5mm{{/if}} {{#if (eq metric "pod-10")}}POD 10mm{{/if}} {{#if (eq metric "ets-1")}}ETS 1mm{{/if}} {{#if (eq metric "ets-5")}}ETS 5mm{{/if}} {{#if (eq metric "ets-10")}}ETS 10mm{{/if}} {{#if (eq metric "early_season_accumulation-30d-thresh-30")}}Early Season 30 day Accumulation (MAE){{/if}}{{#if (eq metric "big_rain_days-thresh-0.30")}}Large rain days (SMAPE){{/if}}{{#if (eq metric "extreme_rain_days-thresh-0.30")}}Extreme rain days (SMAPE){{/if}} {{#if (eq metric "in_season_dry_spell-thresh-20")}}In season dry spells (forecasted value){{/if}}
+### Selected Metric: {{#if (eq metric "mae")}}MAE {{/if}} {{#if (eq metric "rmse")}}RMSE{{/if}} {{#if (eq metric "crps")}}CRPS{{/if}} {{#if (eq metric "bias")}}Bias{{/if}} {{#if (eq metric "smape")}}SMAPE{{/if}} {{#if (eq metric "seeps")}}SEEPS{{/if}} {{#if (eq metric "acc")}}ACC{{/if}}  {{#if (eq metric "heidke-1-5-10-20")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric "far-1")}}FAR 1mm{{/if}} {{#if (eq metric "far-5")}}FAR 5mm{{/if}} {{#if (eq metric "far-10")}}FAR 10mm{{/if}} {{#if (eq metric "pod-1")}}POD 1mm{{/if}} {{#if (eq metric "pod-5")}}POD 5mm{{/if}} {{#if (eq metric "pod-10")}}POD 10mm{{/if}} {{#if (eq metric "ets-1")}}ETS 1mm{{/if}} {{#if (eq metric "ets-5")}}ETS 5mm{{/if}} {{#if (eq metric "ets-10")}}ETS 10mm{{/if}} {{#if (eq metric "early_season_accumulation-30d-thresh-30")}}Early Season 30 day Accumulation (MAE){{/if}}{{#if (eq metric "big_rain_days-thresh-0.30")}}Large rain days (SMAPE){{/if}}{{#if (eq metric "extreme_rain_days-thresh-0.30")}}90th percentile rain (SMAPE){{/if}} {{#if (eq metric "in_season_dry_spell-thresh-20")}}In season dry spells (forecasted value){{/if}}
 
 
 
@@ -16,7 +16,7 @@ The top row is triggered on large rain days observed in the observations (high S
 prediction of above-average rainfall events.</span> 
 
 {{else if (eq metric "extreme_rain_days-thresh-0.30")}}
-Extreme rain days detects days in the top rainfall quantile (90th percentile) and evaluates SMAPE over a centered multi-day window around those events, allowing for slight mistiming between forecast and observations.\
+90th percentile rain detects days in the top rainfall quantile (90th percentile) and evaluates SMAPE over a centered multi-day window around those events, allowing for slight mistiming between forecast and observations.\
 <span style="color: red; font-weight: bold;">🔴 Smaller is better — lower SMAPE means better predictions of extreme rainfall events.</span>
 
 {{else if (eq metric "in_season_dry_spell-thresh-20")}}
@@ -75,3 +75,18 @@ Equitable threat score (ETS) measures a combination of POD and FAR while account
 {{else}}
 _no description available for this metric._
 {{/if}}
+
+### Views
+
+Use the **View** dropdown to switch what the table shows:
+
+- **Percent Good Enough** — mean `percent_good` across cells (default)
+- **Percent Good Enough Members** — mean `percent_good_members` (**requires Prob Type = Probabilistic**)
+- **Good Enough Cells** — count of grid cells whose average `percent_good` is above **Min % Good (cell counts)** (default `0.75`)
+- **Average Metric** — mean metric value across cells (green at/below the metric’s `-thresh-…` bar; red above)
+
+Rows are listed in a fixed forecast order. Use **Compare Regions** to show one or two regions.
+
+**★** marks the best score in each lead-day column. Values in parentheses are the delta vs the matching climatology baseline for the selected Ground Truth (labeled “(baseline)” in the forecast list).
+
+For thresholded advanced metrics, each event is marked good when the underlying score meets the metric's actionable threshold (the `-thresh-…` value in the metric name). `percent_good` is the fraction of events at a cell that meet that bar.
