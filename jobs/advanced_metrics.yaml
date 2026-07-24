@@ -48,7 +48,6 @@ advanced_forecast_metrics_probabilistic:
       - climatology_era5_1985_2015
       - climatology_imerg_1998_2016
       - ecmwf_ifs_er
-      - ecmwf_aifs
       - ecmwf_ifs_ens
       - cumulus_ai
     truth:

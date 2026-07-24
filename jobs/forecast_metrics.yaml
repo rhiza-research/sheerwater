@@ -29,14 +29,32 @@ forecast_metrics:
     agg_days: [7]
   global1_5_metrics:
     grid: ['global1_5']
-      #global0_25_metrics:
-      #  forecast:
-      #    - salient
-      #    - gfs
-      #    - ecmwf_aifs
-      #    - ecmwf_ifs_ens
-      #    - ecmwf_hres
-      #  grid: ['global0_25']
+forecast_metrics_probabilistic:
+  function: metric
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecast:
+      - climatology_era5_1985_2015
+      - climatology_imerg_1998_2016
+      - ecmwf_ifs_er
+      - ecmwf_ifs_ens
+      - cumulus_ai
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    spatial: false
+    space_grouping: ['country', 'subregion', 'rainfall_region', ['rainfall_region', 'country']]
+    variable: ['precip']
+    time_grouping: ['None', 'month_of_year', 'year']
+    metric_name: ['mae', 'bias']
+    metric_kwargs:
+    - prob_type: 'probabilistic'
+    region: ['Africa']
+    agg_days: [7]
+  global1_5_metrics:
+    grid: ['global1_5']
 forecast_table_metrics:
   function: forecast_metric_table
   _all:
@@ -76,6 +94,32 @@ forecast_table_metrics:
       #      - ecmwf_ifs_ens
       #      - ecmwf_hres
       #  grid: ['global0_25']
+forecast_table_metrics_probabilistic:
+  function: forecast_metric_table
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecasts:
+      - - climatology_era5_1985_2015
+        - climatology_imerg_1998_2016
+        - ecmwf_ifs_er
+        - ecmwf_ifs_ens
+        - cumulus_ai
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    space_grouping: ['country', 'subregion', 'rainfall_region', ['rainfall_region', 'country']]
+    grid: ['global1_5']
+    variable: ['precip']
+    time_grouping: ['None', 'month_of_year', 'year']
+    metric_name: ['mae', 'bias']
+    metric_kwargs:
+    - prob_type: 'probabilistic'
+    region: ['Africa']
+    agg_days: [[7]]
+  global1_5_metrics:
+    grid: ['global1_5']
 forecast_spatial_metrics:
   function: metric
   _all:
