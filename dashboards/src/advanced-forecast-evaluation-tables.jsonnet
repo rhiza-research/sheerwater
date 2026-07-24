@@ -278,7 +278,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH cell_avgs AS (\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_fcst_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${bimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${bimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n)\nSELECT\n  -- display_metric: $display_metric\n  -- threshold: $threshold\n  -- color_threshold: $color_threshold\n  forecast,\n  $region,\n  lead_day,\n  COUNT(CASE WHEN metric_avg < ${threshold}::float THEN 1 END)  AS points_above_threshold,\n  COUNT(metric_avg)                                               AS points_total,\n  AVG(metric_avg)                                                 AS metric_mean\nFROM cell_avgs\nGROUP BY forecast, $region, lead_day\nORDER BY forecast, $region, lead_day",
+          "rawSql": "WITH cell_avgs AS (\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_fcst_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${bimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${bimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n)\nSELECT\n  -- display_metric: $display_metric\n  -- threshold: $threshold\n  -- color_threshold: $color_threshold\n  forecast,\n  $region,\n  lead_day,\n  COUNT(CASE WHEN metric_avg < ${threshold}::float THEN 1 END)  AS points_above_threshold,\n  COUNT(metric_avg)                                               AS points_total,\n  AVG(metric_avg)                                                 AS metric_mean\nFROM cell_avgs\nGROUP BY forecast, $region, lead_day\nORDER BY forecast, $region, lead_day",
           "refId": "A",
           "sql": {
             "columns": [
@@ -394,7 +394,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH cell_avgs AS (\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_fcst_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${bimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric}\") AS metric_year_avg\n    FROM \"${bimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n)\nSELECT\n  -- display_metric: $display_metric\n  -- threshold: $threshold\n  forecast,\n  $region,\n  lead_day,\n  COUNT(CASE WHEN metric_avg < ${threshold}::float THEN 1 END)  AS points_above_threshold,\n  COUNT(metric_avg)                                               AS points_total,\n  AVG(metric_avg)                                                 AS metric_mean\nFROM cell_avgs\nGROUP BY forecast, $region, lead_day\nORDER BY forecast, $region, lead_day",
+          "rawSql": "WITH cell_avgs AS (\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${unimodal_shifted_fcst_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n\n  UNION ALL\n\n  SELECT\n    forecast,\n    $region,\n    lead_day,\n    lat,\n    lon,\n    GREATEST(\n      MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),\n      MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)\n    ) AS metric_avg\n  FROM (\n    SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${bimodal_metric_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('obs', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n\n    UNION ALL\n\n    SELECT forecast, $region, lead_day, lat, lon, 'fcst' AS source, AVG(\"${metric_column}\") AS metric_year_avg\n    FROM \"${bimodal_metric_fcst_name}\"\n    WHERE\n      COALESCE(time_grouping, 'None') IN (${time_option})\n      AND $region = '$region_option2'\n      AND lead_day IN (7, 14, 21, 28, 35, 42)\n      AND '${source}' IN ('forecast', 'both')\n    GROUP BY forecast, $region, lead_day, lat, lon\n  ) combined\n  GROUP BY forecast, $region, lead_day, lat, lon\n)\nSELECT\n  -- display_metric: $display_metric\n  -- threshold: $threshold\n  forecast,\n  $region,\n  lead_day,\n  COUNT(CASE WHEN metric_avg < ${threshold}::float THEN 1 END)  AS points_above_threshold,\n  COUNT(metric_avg)                                               AS points_total,\n  AVG(metric_avg)                                                 AS metric_mean\nFROM cell_avgs\nGROUP BY forecast, $region, lead_day\nORDER BY forecast, $region, lead_day",
           "refId": "A",
           "sql": {
             "columns": [
@@ -470,8 +470,8 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
     "list": [
       {
         "current": {
-          "text": "in_season_dry_spell",
-          "value": "in_season_dry_spell"
+          "text": "in_season_dry_spell-thresh-20",
+          "value": "in_season_dry_spell-thresh-20"
         },
         "includeAll": false,
         "label": "Metric",
@@ -480,21 +480,40 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           {
             "selected": false,
             "text": "Early season accumulation",
-            "value": "early_season_accumulation-30d"
+            "value": "early_season_accumulation-30d-thresh-30"
           },
           {
             "selected": false,
             "text": "Large rain days",
-            "value": "big_rain_days"
+            "value": "big_rain_days-thresh-0.30"
+          },
+          {
+            "selected": false,
+            "text": "Extreme rain days",
+            "value": "extreme_rain_days-thresh-0.30"
           },
           {
             "selected": true,
             "text": "In season dry spells",
-            "value": "in_season_dry_spell"
+            "value": "in_season_dry_spell-thresh-20"
           }
         ],
-        "query": "Early season accumulation : early_season_accumulation-30d, Large rain days : big_rain_days, In season dry spells : in_season_dry_spell",
+        "query": "Early season accumulation : early_season_accumulation-30d-thresh-30, Large rain days : big_rain_days-thresh-0.30, Extreme rain days : extreme_rain_days-thresh-0.30, In season dry spells : in_season_dry_spell-thresh-20",
         "type": "custom"
+      },
+      {
+        "current": {
+          "text": "in_season_dry_spell",
+          "value": "in_season_dry_spell"
+        },
+        "definition": "SELECT split_part('${metric}', '-thresh-', 1)",
+        "hide": 2,
+        "name": "metric_column",
+        "options": [],
+        "query": "SELECT split_part('${metric}', '-thresh-', 1)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
       },
       {
         "current": {
@@ -690,12 +709,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
+        "definition": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d-thresh-30' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
         "hide": 2,
         "includeAll": false,
         "name": "unimodal_metric_fcst_name",
         "options": [],
-        "query": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
+        "query": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d-thresh-30' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
         "refresh": 2,
         "regex": "",
         "type": "query"
@@ -728,12 +747,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_shifted_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
+        "definition": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d-thresh-30' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_shifted_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
         "hide": 2,
         "includeAll": false,
         "name": "unimodal_shifted_fcst_metric_name",
         "options": [],
-        "query": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_shifted_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
+        "query": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d-thresh-30' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_unimodal_shifted_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
         "refresh": 2,
         "regex": "",
         "type": "query"
@@ -766,12 +785,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_bimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
+        "definition": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d-thresh-30' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_bimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
         "hide": 2,
         "includeAll": false,
         "name": "bimodal_metric_fcst_name",
         "options": [],
-        "query": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_bimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
+        "query": "SELECT md5(\n    'advanced_spatial_metric_table/2024-12-31_${grid}_'\n    || CASE '${metric}'\n         WHEN 'early_season_accumulation-30d-thresh-30' THEN 'forecast_filter-False_obs_filter-True'\n         ELSE 'forecast_filter-True_obs_filter-False'\n       END\n    || '_${metric}_africa_bimodal_season_country_rainfall_region_2016-01-01_${time_grouping}_${truth}_precip'\n)",
         "refresh": 2,
         "regex": "",
         "type": "query"
@@ -782,12 +801,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
           "text": "20.0",
           "value": "20.0"
         },
-        "definition": "SELECT\n  CASE '$metric'\n    WHEN 'early_season_accumulation-30d' THEN '30.0'\n    WHEN 'in_season_dry_spell'           THEN '20.0'\n    WHEN 'big_rain_days'                 THEN '0.3'\n    ELSE '0.0'\n  END",
+        "definition": "SELECT split_part('${metric}', '-thresh-', 2)",
         "description": "",
         "label": "Actionable Threshold",
         "name": "threshold",
         "options": [],
-        "query": "SELECT\n  CASE '$metric'\n    WHEN 'early_season_accumulation-30d' THEN '30.0'\n    WHEN 'in_season_dry_spell'           THEN '20.0'\n    WHEN 'big_rain_days'                 THEN '0.3'\n    ELSE '0.0'\n  END",
+        "query": "SELECT split_part('${metric}', '-thresh-', 2)",
         "refresh": 1,
         "regex": "",
         "type": "query"
