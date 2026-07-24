@@ -17,7 +17,8 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
                    'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300,
+                        'prediction_timedelta': -1, 'member': -1},
            'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
@@ -54,7 +55,8 @@ def metric_with_event_count(start_time, end_time, variable, forecast, truth,
                    'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300,
+                        'prediction_timedelta': -1, 'member': -1},
            'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
@@ -69,7 +71,8 @@ def metric(start_time, end_time, variable, forecast, truth,
            spatial=False, grid="global1_5", mask='lsm', region='global',
            memoize_forecast=True, memoize_truth=True):
     """Compute a grouped metric for a forecast at a specific lead."""
-    # Use the metric registry to get the metric class
+    # Use the metric registry to get the metric class.
+    # Caller controls recompute/cache_mode (including nested metric_with_event_count).
     data = metric_with_event_count(start_time, end_time, variable, forecast, truth,
                                    metric_name, metric_kwargs=metric_kwargs,
                                    event=event, event_kwargs=event_kwargs, filter_event=filter_event,
@@ -78,7 +81,7 @@ def metric(start_time, end_time, variable, forecast, truth,
                                    time_grouping=time_grouping, space_grouping=space_grouping,
                                    spatial=spatial, grid=grid, mask=mask, region=region,
                                    memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
-                                   recompute=True) # hard code recompute to True to avoid caching issues
+                                   recompute=True)  # hard code recompute to True to avoid caching issues
 
     metric_name = data.attrs['metric_name']
     return data[[metric_name]]
@@ -91,7 +94,8 @@ def metric(start_time, end_time, variable, forecast, truth,
                    'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300,
+                        'prediction_timedelta': -1, 'member': -1},
            'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
@@ -114,7 +118,7 @@ def event_count(start_time, end_time, variable, forecast, truth,
                                    time_grouping=time_grouping, space_grouping=space_grouping,
                                    spatial=spatial, grid=grid, mask=mask, region=region,
                                    memoize_forecast=memoize_forecast, memoize_truth=memoize_truth,
-                                   recompute=True) # hard code recompute to True to avoid caching issues
+                                   recompute=True)  # hard code recompute to True to avoid caching issues
     return data[['event_count']]
 
 

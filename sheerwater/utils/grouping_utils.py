@@ -8,7 +8,7 @@ import xarray as xr
 from .time_utils import get_dates
 
 
-def groupby_time(ds, time_grouping, agg_fn='mean'):
+def groupby_time(ds, time_grouping, agg_fn='mean', time_dim='time'):
     """Aggregate a statistic over time. If agg_fn is None, add the grouping coordinates but perform no aggregation."""
     # Implement MAM, JJA, SON, DJF seasons
     season_mapping = {
@@ -27,7 +27,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         3: 'first',
         4: 'first',
         5: 'first',
-        6: 'first',
+        6: 'second',
         7: 'second',
         8: 'second',
         9: 'second',
@@ -38,33 +38,37 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
     }
     if time_grouping is not None:
         if time_grouping == 'month_of_year':
-            coords = [f'M{x:02d}' for x in ds.time.dt.month.values]
+            coords = [f'M{x:02d}' for x in ds[time_dim].dt.month.values]
+        elif time_grouping == 'dekad_of_year':
+            coords = [f'D{x:02d}' for x in ds[time_dim].dt.dayofyear.values // 10]
+        elif time_grouping == 'week_of_year':
+            coords = [f'W{x:02d}' for x in ds[time_dim].dt.weekofyear.values]
         elif time_grouping == 'year':
-            coords = [f'Y{x:04d}' for x in ds.time.dt.year.values]
+            coords = [f'Y{x:04d}' for x in ds[time_dim].dt.year.values]
         elif time_grouping == 'quarter_of_year':
-            coords = [f'Q{x:02d}' for x in ds.time.dt.quarter.values]
+            coords = [f'Q{x:02d}' for x in ds[time_dim].dt.quarter.values]
         elif time_grouping == 'day_of_year':
-            coords = [f'D{x:03d}' for x in ds.time.dt.dayofyear.values]
+            coords = [f'D{x:03d}' for x in ds[time_dim].dt.dayofyear.values]
         elif time_grouping == 'month':
-            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds.time.values]
+            coords = [f'{pd.to_datetime(x).year:04d}-{pd.to_datetime(x).month:02d}-01' for x in ds[time_dim].values]
         elif time_grouping == 'daily':
-            coords = [pd.to_datetime(x).date() for x in ds.time.values]
+            coords = [pd.to_datetime(x).date() for x in ds[time_dim].values]
             raise ValueError("Invalid time grouping")
         elif time_grouping == 'season_of_year':
-            coords = [f"{season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+            coords = [f"{season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds[time_dim].values]
         elif time_grouping == 'season':
             # Implement MAM, JJA, SON, DJF seasons
             coords = [f"{season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
-                      for x in ds.time.values]
+                      for x in ds[time_dim].values]
         elif time_grouping == 'kenya_rainy_season_of_year':
-            coords = [f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+            coords = [f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}" for x in ds[time_dim].values]
         elif time_grouping == 'kenya_rainy_season':
             # Implement MAM, JJA, SON, DJF seasons
             coords = [
                 f"{kenya_rainy_season_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
-                for x in ds.time.values]
+                for x in ds[time_dim].values]
         elif time_grouping == 'two_seasons_of_year':
-            coords = [f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}" for x in ds.time.values]
+            coords = [f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}" for x in ds[time_dim].values]
         elif time_grouping == 'two_seasons':
             coords = [
                 f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
@@ -79,28 +83,28 @@ def groupby_time(ds, time_grouping, agg_fn='mean'):
         else:
             raise ValueError(f"Invalid time groupingi {time_grouping}")
 
-        ds = ds.assign_coords(group=("time", coords))
+        ds = ds.assign_coords(group=(time_dim, coords))
 
         # If no aggregation is requested, return the dataset augmented by the grouping coordinates
         if agg_fn is None:
             return ds
 
         if agg_fn == 'mean':
-            ds = ds.groupby("group").mean(dim="time", skipna=True)
+            ds = ds.groupby("group").mean(dim=time_dim, skipna=True)
         elif agg_fn == 'sum':
             # min_count ensures that all nan groups return nan
-            ds = ds.groupby("group").sum(dim="time", skipna=True, min_count=1)
+            ds = ds.groupby("group").sum(dim=time_dim, skipna=True, min_count=1)
         else:
             raise ValueError(f"Invalid aggregation function {agg_fn}")
-        ds = ds.rename({"group": "time"})
-        ds = ds.assign_coords(time=ds['time'].astype('<U15'))
+        ds = ds.rename({"group": time_dim})
+        ds = ds.assign_coords({time_dim: ds[time_dim].astype('<U15')})
     else:
         # Average in time
         if agg_fn == 'mean':
-            ds = ds.mean(dim="time", skipna=True)
+            ds = ds.mean(dim=time_dim, skipna=True)
         elif agg_fn == 'sum':
             # min_count ensures that all nan groups return nan
-            ds = ds.sum(dim="time", skipna=True, min_count=1)
+            ds = ds.sum(dim=time_dim, skipna=True, min_count=1)
         elif agg_fn is None:
             return ds
         else:

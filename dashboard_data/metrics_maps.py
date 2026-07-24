@@ -36,6 +36,8 @@ def forecast_metric_map(start_time, end_time, variable,
         value_max = 45
     elif metric_name == 'big_rain_days':
         value_max = 0.45
+    elif metric_name == 'extreme_rain_days':
+        value_max = 0.45
     elif metric_name == 'in_season_dry_spell':
         value_max = 30
 

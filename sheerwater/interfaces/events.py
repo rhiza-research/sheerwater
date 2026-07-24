@@ -173,6 +173,32 @@ def below_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, mar
     return 1.0 - above
 
 
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
+def quantile_extremes(ds, threshold, data_source, first_year=1985, last_year=2014,
+                      agg_days=1, n_quantiles=20):
+    """Get extreme events according to the quantile ranks of the data source."""
+    # Save the null pattern
+    null_mask = ds.isnull()
+
+    # Get the quantile ranks for the dataset
+    grid = ds.attrs['grid']
+    var = list(ds.data_vars)[0]
+    from sheerwater.downscale_data import quantile_ranks
+    qr = quantile_ranks(variable=var, data=data_source, first_year=first_year, last_year=last_year, agg_days=agg_days,
+                        time_grouping=None, margin_in_days=None, n_quantiles=n_quantiles, grid=grid, region='global')
+
+    qr_idx = np.abs(qr['quantile'].values - threshold).argmin(axis=-1)
+    qr_values = qr[var].isel(quantile=qr_idx)
+
+    # Clip qr_values to be between 7 and 25mm to prevent trigger on big rain days
+    # that are too small or not triggering on days that are very large
+    qr_values = np.clip(qr_values, 7, 25)
+
+    extreme_events = (ds > qr_values).astype(int)
+    extreme_events = extreme_events.where(~null_mask, other=np.nan)
+    return extreme_events
+
+
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
 def accumulated_rain(ds, agg_days, align='right'):
     """An event to calculate the accumulated rain over a sliding, aligned window."""

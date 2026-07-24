@@ -1,5 +1,8 @@
 """Library of metrics implementations for verification."""
-# flake8: noqa: D102
+# flake8: noqa: D102j
+import inspect
+import warnings
+
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -57,10 +60,12 @@ class Metric(ABC):
                  mask='lsm', space_grouping='country', region='global',
                  memoize_forecast=True, memoize_truth=True):
         """Initialize the metric."""
-        # Save the configuration kwargs for the metric
-        self.metric_kwargs = {} if metric_kwargs is None else metric_kwargs
+        # Save a copy so in-place updates (e.g. user_input_config, clim years) do not
+        # mutate caller/job kwargs reused across metric runs.
+        self.metric_kwargs = {} if metric_kwargs is None else dict(metric_kwargs)
         self.metric_data = {}  # dictionary to store the data for the metric calculation
         self.densify = self.metric_kwargs.get('densify', False)
+        self.latitude_weights = self.metric_kwargs.get('latitude_weights', True)
 
         self.start_time = start_time
         self.end_time = end_time
@@ -78,10 +83,14 @@ class Metric(ABC):
         self.memoize_forecast = memoize_forecast
         self.memoize_truth = memoize_truth
 
+        # Requested forecast probability type (may differ from the metric's algorithm type).
+        # e.g. deterministic MAE with forecast_prob_type='probabilistic' per-member scores.
+        self.forecast_prob_type = self.metric_kwargs.get('prob_type', self.prob_type)
+
         # Initialize the event kwargs for the metric and filter and check validity.
         self.init_event_kwargs(event, event_kwargs,
-                               metric_kwargs.get('pre_filter_event', None),
-                               metric_kwargs.get('pre_filter_event_kwargs', None),
+                               self.metric_kwargs.get('pre_filter_event', None),
+                               self.metric_kwargs.get('pre_filter_event_kwargs', None),
                                filter_event, filter_event_kwargs)
 
     def init_event_kwargs(self,
@@ -168,21 +177,22 @@ class Metric(ABC):
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
                                lookback_source=self.truth, densify=self.densify,
-                               prob_type=self.prob_type, memoize=self.memoize_forecast)
+                               prob_type=self.forecast_prob_type, memoize=self.memoize_forecast)
                 if self.do_forecast_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
                                           lookback_source=self.truth, densify=self.densify,
-                                          prob_type=self.prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
+                                          prob_type=self.forecast_prob_type, memoize=self.memoize_forecast, cache=True)  # noqa: E501
             except TypeError:
                 # If the forecast is not a cacheable function the memoize kwarg will throw an error
                 fcst = fcst_fn(**self.fcst_obs_kwargs,
                                event=self.event, event_kwargs=self.event_kwargs_fcst,
-                               lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
+                               lookback_source=self.truth, densify=self.densify, prob_type=self.forecast_prob_type)
                 if self.do_forecast_filter:
                     filter_fcst = fcst_fn(**self.fcst_obs_kwargs,
                                           event=self.filter_event, event_kwargs=self.filter_event_kwargs_fcst,
-                                          lookback_source=self.truth, densify=self.densify, prob_type=self.prob_type)
+                                          lookback_source=self.truth, densify=self.densify,
+                                          prob_type=self.forecast_prob_type)
             enhanced_prob_type = fcst.attrs['prob_type']
             forecast_or_truth = 'forecast'
         except KeyError:
@@ -204,11 +214,16 @@ class Metric(ABC):
             enhanced_prob_type = "deterministic"
             forecast_or_truth = 'truth'
 
-        # Make sure the prob type is consistent
+        # Make sure the metric algorithm and forecast probability representation are compatible.
+        # Deterministic metrics may run per-member on ensemble forecasts when forecast_prob_type
+        # is probabilistic; quantile forecasts are not supported for that path.
         if enhanced_prob_type == 'deterministic' and self.prob_type == 'probabilistic':
             raise ValueError("Cannot run probabilistic metric on deterministic forecasts.")
-        elif (enhanced_prob_type == 'ensemble' or enhanced_prob_type == 'quantile') \
-                and self.prob_type == 'deterministic':
+        elif self.prob_type == 'deterministic' and enhanced_prob_type == 'quantile':
+            raise ValueError(
+                "Cannot run deterministic metric on quantile forecasts; ensemble required for per-member scores.")
+        elif self.prob_type == 'deterministic' and enhanced_prob_type == 'ensemble' \
+                and self.forecast_prob_type != 'probabilistic':
             raise ValueError("Cannot run deterministic metric on probabilistic forecasts.")
 
         """2. Fetch the truth data. This must be a dataset, often either a gridded truth or station."""
@@ -224,8 +239,8 @@ class Metric(ABC):
                                       memoize=self.memoize_truth, cache=True)  # noqa: E501
             if self.do_pre_filter:
                 pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
-                                      event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs,
-                                      memoize=self.memoize_truth, cache=True)  # noqa: E501
+                                          event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs,
+                                          memoize=self.memoize_truth, cache=True)  # noqa: E501
         except TypeError:
             # If the truth is not a cacheable function the memoize kwarg will throw an error
             obs = truth_fn(**self.fcst_obs_kwargs,
@@ -236,6 +251,7 @@ class Metric(ABC):
             if self.do_pre_filter:
                 pre_filter_obs = truth_fn(**self.fcst_obs_kwargs,
                                           event=self.pre_filter_event, event_kwargs=self.pre_filter_event_kwargs)
+
         # We need a lead specific obs, so we know which times are valid for the forecast
         if forecast_or_truth == 'forecast':
             leads = fcst.prediction_timedelta.values
@@ -264,7 +280,7 @@ class Metric(ABC):
         if 'sparse' in obs.attrs:
             sparse |= obs.attrs['sparse']
 
-        """ Filter data."""
+        """4. Filter data."""
         # Everthing will be a daily timeseries at this point, so it will not introduce gaps, just
         # Ensure that we're covering latest start time to the earliest end time of the data
         valid_times = set(obs.time.values).intersection(set(fcst.time.values))
@@ -291,20 +307,28 @@ class Metric(ABC):
             dfs['lon'] = dfs['lon'].astype(np.float32).round(4)
             dfs['lat'] = dfs['lat'].astype(np.float32).round(4)
 
-        # To ensure chunks align for nullification, place all of time in one single chunk
-        # TODO: make sure chunks are reasonable for differnt time stretches
-        for dfs in datasets:
-            dfs = dfs.chunk({'time': -1, 'lat': 100, 'lon': 100})
-
-        # Select forecast and obs on their valid times
-        obs = obs.sel(time=valid_times)
-        fcst = fcst.sel(time=valid_times)
+        # Align on valid times, rechunk to a shared layout, and persist for reuse.
+        # Long time + all leads in one chunk; spatial tiles; one member per chunk.
+        EVENT_CHUNKS = {
+            'member': 1,
+            'lat': 25,
+            'lon': 25,
+            'time': 1000,
+            'prediction_timedelta': -1,
+        }
+        obs = obs.sel(time=valid_times).chunk(
+            {k: EVENT_CHUNKS[k] for k in obs.dims if k in EVENT_CHUNKS}).persist()
+        fcst = fcst.sel(time=valid_times).chunk(
+            {k: EVENT_CHUNKS[k] for k in fcst.dims if k in EVENT_CHUNKS}).persist()
         if self.do_pre_filter:
-            pre_filter_obs = pre_filter_obs.sel(time=valid_times)
+            pre_filter_obs = pre_filter_obs.sel(time=valid_times).chunk(
+                {k: EVENT_CHUNKS[k] for k in pre_filter_obs.dims if k in EVENT_CHUNKS}).persist()
         if self.do_obs_filter:
-            filter_obs = filter_obs.sel(time=valid_times)
+            filter_obs = filter_obs.sel(time=valid_times).chunk(
+                {k: EVENT_CHUNKS[k] for k in filter_obs.dims if k in EVENT_CHUNKS}).persist()
         if self.do_forecast_filter:
-            filter_fcst = filter_fcst.sel(time=valid_times)
+            filter_fcst = filter_fcst.sel(time=valid_times).chunk(
+                {k: EVENT_CHUNKS[k] for k in filter_fcst.dims if k in EVENT_CHUNKS}).persist()
 
         """5. Save the data for all downstream metric calculations."""
         # Save the data into the metric data dictionary
@@ -331,7 +355,12 @@ class Metric(ABC):
     @property
     @abstractmethod
     def prob_type(self) -> str:
-        """Either 'deterministic' or 'probabilistic'."""
+        """Metric algorithm type: 'deterministic' or 'probabilistic'.
+
+        Distinct from forecast_prob_type (from metric_kwargs['prob_type']), which
+        selects the forecast representation. A deterministic metric with
+        forecast_prob_type='probabilistic' computes per-member scores on ensembles.
+        """
         pass
 
     @property
@@ -397,9 +426,9 @@ class Metric(ABC):
             # So, if for example, SEEPS has nulled out cells, no_null will be updated to exclude those cells.
             no_null = no_null & ds.notnull()
 
-        # Ensure a matching null pattern
-        # If the observations are sparse, the forecaster and the obs must be the same length
-        # for metrics like ACC to work
+        # If self.prob_type is probabilistic, the metric will return statistics that have compressed over
+        # the member dimension. We will therefore need a filter that operates without a member dimension.
+        # A course way of doing this is just selecting the first member.
         if self.prob_type == 'probabilistic':
             # Squeeze the member dimension and drop all other coords except lat, lon, time, and lead_time
             no_null = no_null.isel(member=0).drop('member')
@@ -410,16 +439,23 @@ class Metric(ABC):
             if self.do_pre_filter:
                 self.metric_data['pre_filter_obs'] = self.metric_data['pre_filter_obs'].sel(member=0).drop('member')
 
-        # Do event filtering
+        # Do event filtering. Use where(..., False) with a left-align so filter keeps
+        # no_null's shape when event windows drop different edge leads.
         filter = no_null  # baseline no nulls
         if self.do_pre_filter:
-            filter = filter & self.metric_data['pre_filter_obs']  # add in pre-filter
+            filter, pre = xr.align(filter, self.metric_data['pre_filter_obs'], join='left', fill_value=False)
+            filter = filter.where(pre, False)
         if self.do_forecast_filter and self.do_obs_filter:
-            filter = filter & (self.metric_data['filter_fcst'] | self.metric_data['filter_obs'])
+            ff, fo = xr.align(self.metric_data['filter_fcst'], self.metric_data['filter_obs'],
+                              join='outer', fill_value=False)
+            filter, event_mask = xr.align(filter, ff | fo, join='left', fill_value=False)
+            filter = filter.where(event_mask, False)
         elif self.do_forecast_filter:
-            filter = filter & self.metric_data['filter_fcst']
+            filter, ff = xr.align(filter, self.metric_data['filter_fcst'], join='left', fill_value=False)
+            filter = filter.where(ff, False)
         elif self.do_obs_filter:
-            filter = filter & self.metric_data['filter_obs']
+            filter, fo = xr.align(filter, self.metric_data['filter_obs'], join='left', fill_value=False)
+            filter = filter.where(fo, False)
 
         # Apply the filter to each statistic
         for stat in self.statistics:
@@ -459,7 +495,7 @@ class Metric(ABC):
 
         # Drop any extra random coordinates that shouldn't be there
         for coord in ds.coords:
-            if coord not in ['time', 'prediction_timedelta', 'lat', 'lon']:
+            if coord not in ['time', 'prediction_timedelta', 'lat', 'lon', 'member']:
                 ds = ds.reset_coords(coord, drop=True)
 
         # Group by time
@@ -467,8 +503,8 @@ class Metric(ABC):
         filter_count = groupby_time(self.filter, self.time_grouping, agg_fn='sum')
 
         # Put evertyhing on the same chunk before spatial aggregation
-        ds = ds.chunk({dim: -1 for dim in ds.dims})
-        filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
+        # ds = ds.chunk({dim: -1 for dim in ds.dims})
+        # filter_count = filter_count.chunk({dim: -1 for dim in filter_count.dims})
 
         # Add the region coordinate to the statistic
         ds = ds.assign_coords(space_grouping=(('lat', 'lon'), space_grouping_ds.region.values))
@@ -478,14 +514,19 @@ class Metric(ABC):
         # 3. Aggregate in space and apply spatial weighting
         ############################################################
         if not self.spatial:
-            # Group by region and average in space, while applying weighting for mask
-            weights = latitude_weights(ds.lat)
-            # Expand weights to have a time dimension that matches ds
-            weights = weights.expand_dims(lon=ds.lon)
-            if 'time' in ds.dims:  # Enable a time specific null pattern per time
-                weights = weights.expand_dims(time=ds.time)
-            weights = weights.chunk({dim: -1 for dim in weights.dims})
-            # Ensure the weights null pattern matches the ds null pattern
+            if self.latitude_weights:
+                if self.agg_fn != 'mean':
+                    raise ValueError("Latitude weights can only be used with a mean aggregation function.")
+                # Group by region and average in space, while applying weighting for mask
+                weights = latitude_weights(ds.lat)
+                # Expand weights to have a time dimension that matches ds
+                weights = weights.expand_dims(lon=ds.lon)
+                if 'time' in ds.dims:  # Enable a time specific null pattern per time
+                    weights = weights.expand_dims(time=ds.time)
+                weights = weights.chunk({dim: -1 for dim in weights.dims})
+                # Ensure the weights null pattern matches the ds null pattern
+            else:
+                weights = xr.ones_like(ds[self.statistics[0]])
             weights = weights.where(ds[self.statistics[0]].notnull(), np.nan, drop=False)
 
             # Mulitply by weights
@@ -515,8 +556,9 @@ class Metric(ABC):
                 # we can just continue
                 pass
 
-            for stat in self.statistics:
-                ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
+            if self.agg_fn == 'mean':
+                for stat in self.statistics:
+                    ds[stat] = xr.where(ds['weights'] != 0, ds[stat] / ds['weights'], np.nan)
             ds = ds.drop_vars(['weights'])
         else:
             # If returning a spatial metric, mask and drop
@@ -552,7 +594,11 @@ class Metric(ABC):
         da = self.compute_metric()
 
         # Convert from dataarray to dataset and return.
-        ds = da.to_dataset(name=self.name)
+        if not isinstance(da, xr.Dataset):
+            ds = da.to_dataset(name=self.name)
+        else:
+            # Allow metrics to return a dataset directly
+            ds = da
         ds.attrs['metric_name'] = self.name
         ds['event_count'] = self.filter_count[self.variable]
         return ds
@@ -643,6 +689,7 @@ class MAE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mae']
+    agg_fn = 'mean'
 
 
 class ForecastValue(Metric):
@@ -652,6 +699,7 @@ class ForecastValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['fcst']
+    agg_fn = 'mean'
 
 
 class ObsValue(Metric):
@@ -661,6 +709,7 @@ class ObsValue(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['obs']
+    agg_fn = 'mean'
 
 
 class MSE(Metric):
@@ -670,6 +719,7 @@ class MSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
+    agg_fn = 'mean'
 
 
 class RMSE(Metric):
@@ -679,6 +729,7 @@ class RMSE(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['mse']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         return self.grouped_statistics['mse'] ** 0.5
@@ -691,6 +742,7 @@ class Bias(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['bias']
+    agg_fn = 'mean'
 
 
 class CRPS(Metric):
@@ -700,6 +752,7 @@ class CRPS(Metric):
     valid_variables = None  # all variables are valid
     default_event = None
     statistics = ['crps']
+    agg_fn = 'mean'
 
 
 class Brier(ContingencyMetric):
@@ -709,6 +762,7 @@ class Brier(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['brier']
+    agg_fn = 'mean'
 
 
 class SMAPE(Metric):
@@ -718,6 +772,7 @@ class SMAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['smape']
+    agg_fn = 'mean'
 
 
 class MAPE(Metric):
@@ -727,6 +782,7 @@ class MAPE(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['mape']
+    agg_fn = 'mean'
 
 
 class SEEPS(Metric):
@@ -736,6 +792,7 @@ class SEEPS(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['seeps']
+    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the SEEPS metric."""
@@ -764,6 +821,7 @@ class ACC(Metric):
     valid_variables = None
     default_event = None
     statistics = ['squared_fcst_anom', 'squared_obs_anom', 'anom_covariance']
+    agg_fn = 'mean'
 
     def prepare_data(self):
         """Prepare specific data for the ACC metric."""
@@ -813,6 +871,7 @@ class Pearson(Metric):
     valid_variables = ['precip']
     default_event = None
     statistics = ['fcst', 'obs', 'squared_fcst', 'squared_obs', 'covariance']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -827,6 +886,7 @@ class Heidke(ContingencyMetric):
     prob_type = 'deterministic'
     valid_variables = ['precip']
     default_event = 'digitized'
+    agg_fn = 'mean'
 
     @property
     def statistics(self):
@@ -855,6 +915,7 @@ class POD(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -869,6 +930,7 @@ class FAR(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['false_positives', 'true_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         fp = self.grouped_statistics['false_positives']
@@ -883,6 +945,7 @@ class ETS(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives', 'true_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         gs = self.grouped_statistics
@@ -901,6 +964,7 @@ class CSI(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -916,6 +980,7 @@ class FrequencyBias(ContingencyMetric):
     valid_variables = ['precip']
     default_event = 'above_threshold'
     statistics = ['true_positives', 'false_positives', 'false_negatives']
+    agg_fn = 'mean'
 
     def compute_metric(self):
         tp = self.grouped_statistics['true_positives']
@@ -924,12 +989,48 @@ class FrequencyBias(ContingencyMetric):
         return (tp + fp) / (tp + fn)
 
 
+class PassFraction(Metric):
+    """Passing fraction metric, according to a user-specified threshold."""
+    sparse = True
+    prob_type = 'deterministic'
+    valid_variables = None
+    default_event = None
+    agg_fn = 'sum'
+
+    def prepare_data(self):
+        """Prepare specific data for the PassFraction metric."""
+        # Call the parent prepare_data method to get the forecast and observation
+        super().prepare_data()
+
+        # If we're doing a sum-based metric, can't do latitude weighting.
+        if self.latitude_weights:
+            warnings.warn("Latitude weights cannot be used with a passing fraction metric.")
+        self.latitude_weights = False
+
+    @property
+    def statistics(self):
+        stats = ['count_pass', 'n_valid', self.metric_kwargs['pass_statistic']]
+        return stats
+
+    def compute_metric(self):
+        count_pass = self.grouped_statistics['count_pass']
+        n_valid = self.grouped_statistics['n_valid']
+        val = count_pass / n_valid
+        # Convert result (DataArray) to a Dataset with appropriate name
+        ds = val.to_dataset(name=self.name)
+        # Add the number of valid events
+        ds['n_valid'] = n_valid
+        # Add the average statistic value
+        pass_statistic = self.metric_kwargs['pass_statistic']
+        ds[pass_statistic] = self.grouped_statistics[pass_statistic] / n_valid
+        return ds
+
+
 def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metric:
     """Get a metric class by name from the registry."""
     try:
         experiment_kwargs = get_experiment_kwargs(metric_name, init_kwargs['region'], input_metric_kwargs=metric_kwargs)
         exp_metric_name, exp_metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = experiment_kwargs
-        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name.lower()]
 
         # Update the experiment kwargs with their values in init_kwargs if passed
         if metric_kwargs is not None:
@@ -940,6 +1041,7 @@ def metric_factory(metric_name: str, metric_kwargs=None, **init_kwargs) -> Metri
             if key in init_kwargs:
                 del init_kwargs[key]
 
+        metric = SHEERWATER_METRIC_REGISTRY[exp_metric_name]
         # Add runtime metric configuration to the metric class
         return metric(metric_kwargs=exp_metric_kwargs,
                       event=event,

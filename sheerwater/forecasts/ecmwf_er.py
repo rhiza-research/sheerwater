@@ -7,7 +7,7 @@ from nuthatch import cache
 from nuthatch.processors import timeseries
 
 from sheerwater.reanalysis import era5
-from sheerwater.utils import dask_remote, get_grid, get_variable, lon_base_change, regrid, shift_by_days
+from sheerwater.utils import (dask_remote, get_grid, get_variable, lon_base_change, regrid, shift_by_days, roll_and_agg)
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial
 
 
@@ -59,15 +59,53 @@ def ifs_extended_range_raw(start_time, end_time, variable=None, forecast_type='f
     return ds
 
 
+def reforecast_to_timeseries(ds):
+    """Convert reforecast dataset to a regular forecast timeseries.
+
+    For each (model_issuance_date, start_year) pair, computes the actual
+    forecast init time as model_issuance_date + relativedelta(years=start_year).
+    When two pairs map to the same init time, keeps the most recently issued
+    one (largest model_issuance_date).
+
+    Input dims:  (model_issuance_date, start_year, member, lead_time, lat, lon)
+    Output dims: (init_time, member, prediction_timedelta, lat, lon)
+    """
+    ds_stacked = ds.stack(refc=('model_issuance_date', 'start_year'))
+
+    mid_pd = pd.DatetimeIndex(ds_stacked.model_issuance_date.values)
+    sy = ds_stacked.start_year.values.astype(int)
+
+    init_dates = pd.DatetimeIndex([
+        np.datetime64(pd.Timestamp(mid + relativedelta(years=int(offset))))
+        for mid, offset in zip(mid_pd, sy)
+    ])
+
+    df = pd.DataFrame({
+        'idx': np.arange(len(init_dates)),
+        'init_time': init_dates,
+        'model_issuance_date': mid_pd,
+    })
+    df = df.sort_values(['init_time', 'model_issuance_date'], ascending=[True, False])
+    df = df.drop_duplicates('init_time', keep='first').sort_values('init_time')
+
+    ds_out = ds_stacked.isel(refc=df['idx'].values)
+    ds_out = ds_out.assign_coords(init_time=('refc', df['init_time'].values))
+    ds_out = ds_out.swap_dims({'refc': 'init_time'})
+    ds_out = ds_out.drop_vars(['refc', 'model_issuance_date', 'start_year'])
+    if 'lead_time' in ds_out.dims:
+        ds_out = ds_out.rename({'lead_time': 'prediction_timedelta'})
+    return ds_out
+
+
 @dask_remote
 @timeseries(timeseries=['start_date', 'model_issuance_date'])
 @spatial()
 @cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                        "start_date": 1000,
-                        "model_issuance_date": 1000, "start_year": 1,
+           'chunking': {"lat": 121, "lon": 240, "lead_time": 50,
+                        "start_date": 50,
+                        "model_issuance_date": 50, "start_year": 1,
                         "member": 1},
            'chunk_by_arg': {
                'grid': {
@@ -118,7 +156,7 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
     ds = lon_base_change(ds, to_base="base180")
 
     # Perform variable renaming if a variable is reuqested
-    for var in ds.variables:
+    for var in ds.data_vars:
         try:
             variable = get_variable(var, 'sheerwater')
             ds = ds.rename_vars(name_dict={var: variable})
@@ -159,6 +197,74 @@ def ifs_extended_range(start_time, end_time, variable=None, forecast_type='forec
     ds = regrid(ds, grid, base='base180', method='conservative',
                 output_chunks={"lat": 721, "lon": 1440}, region=region)
     return ds
+
+
+@dask_remote
+@timeseries(timeseries=['init_time'])
+@spatial()
+@cache(cache_args=['variable', 'forecast_type', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": -1, "member": 1}})
+def ifs_extended_range_rechunked(start_time, end_time, variable=None, forecast_type='forecast', run_type='average',  # noqa: ARG001
+                                 time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """Rechunk IFS extended-range data for event/metrics workloads.
+
+    Stages rechunking to avoid large intermediates: spatial split first, then merge time blocks.
+    """
+    ds = ifs_extended_range(None, None, variable, forecast_type=forecast_type,
+                            run_type=run_type, time_group=time_group, grid=grid)
+    if ds is None:
+        return None
+
+    if forecast_type == 'reforecast':
+        ds = reforecast_to_timeseries(ds)
+    else:
+        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
+
+    breakpoint()
+    # 1) Split space only
+    chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1}
+    if run_type == 'perturbed':
+        chunks['member'] = 50
+    ds = ds.chunk(chunks)
+    # Persist here to avoid huge combined chunks
+    ds = ds.persist()
+    # 2) Merge time blocks on the small tiles
+    chunks = {'lat': 25, 'lon': 25, 'prediction_timedelta': -1, 'init_time': 1000}
+    if run_type == 'perturbed':
+        chunks['member'] = 1
+    ds = ds.chunk(chunks)
+    return ds
+
+
+@dask_remote
+@timeseries(timeseries=['init_time'])
+@spatial()
+@cache(cache_args=['variable', 'run_type', 'time_group', 'grid'],
+       backend_kwargs={'chunking': {"lat": 25, "lon": 25, "init_time": 1000, "prediction_timedelta": -1, "member": 1}})
+def ifs_extended_range_with_reforecast(start_time, end_time, variable=None, run_type='average',  # noqa: ARG001
+                                       time_group='daily', grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """IFS extended-range reforecast as an init_time timeseries, with real-time forecast overlaid.
+
+    Converts the WeatherBench reforecast to init_time, then combine_first with the
+    real-time forecast so forecast values win on overlap.
+    """
+    ds_refc = ifs_extended_range(None, None, variable, forecast_type='reforecast',
+                                 run_type=run_type, time_group=time_group, grid='global1_5')
+    if ds_refc is not None:
+        ds_refc = reforecast_to_timeseries(ds_refc)
+
+    ds_fcst = ifs_extended_range(start_time, end_time, variable, forecast_type='forecast',
+                                 run_type=run_type, time_group=time_group, grid='global1_5')
+    if ds_fcst is not None:
+        ds_fcst = ds_fcst.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
+
+    # Prefer forecast wherever it exists; fill missing init times from reforecast
+    if ds_fcst is not None and (len(ds_fcst.init_time.values) > 0) and \
+            ds_refc is not None and (len(ds_refc.init_time.values) > 0):
+        return ds_fcst.combine_first(ds_refc)
+    if ds_fcst is not None and len(ds_fcst.init_time.values) > 0:
+        return ds_fcst
+    return ds_refc
 
 
 @dask_remote
@@ -249,17 +355,17 @@ def ifs_er_reforecast_bias(start_time, end_time, variable, run_type='average',
 @spatial()
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                        "start_date": 1000,
-                        "model_issuance_date": 1000, "start_year": 1,
-                        "member": 1},
+    'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                 "start_date": 1000,
+                 "model_issuance_date": 1000, "start_year": 1,
+                 "member": 1},
            'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           }
+    }
 })
 def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6,
                                 run_type='average', time_group='weekly', grid="global1_5", mask=None, region='global'):
@@ -306,17 +412,17 @@ def ifs_extended_range_debiased(start_time, end_time, variable, margin_in_days=6
 @cache(cache_args=['variable', 'margin_in_days', 'run_type', 'time_group', 'grid'],
        cache_disable_if={'grid': 'global1_5'},
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
-                        "start_date": 1000,
-                        "model_issuance_date": 1000, "start_year": 1,
-                        "member": 1},
+    'chunking': {"lat": 121, "lon": 240, "lead_time": 1,
+                 "start_date": 1000,
+                 "model_issuance_date": 1000, "start_year": 1,
+                 "member": 1},
            'chunk_by_arg': {
                'grid': {
                    # A note: a setting where time is in groups of 200 works better for regridding tasks,
                    # but is less good for storage.
                    'global0_25': {"lat": 721, "lon": 1440, 'model_issuance_date': 30, "start_date": 30}
                },
-           }
+    }
 })
 def ifs_extended_range_debiased_regrid(start_time, end_time, variable,
                                        margin_in_days=6, run_type='average',
@@ -358,10 +464,12 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
         ds = ifs_extended_range_debiased_regrid(forecast_start, end_time, variable,
                                                 margin_in_days=6, run_type=run_type, time_group='daily',
                                                 grid=grid, mask=mask, region=region)
+        ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     else:
-        ds = ifs_extended_range(forecast_start, end_time, variable,
-                                forecast_type='forecast', run_type=run_type, time_group='daily',
-                                grid=grid, mask=mask, region=region)
+        # Call ECMWF nicely chunked for timeseries processing
+        ds = ifs_extended_range_rechunked(forecast_start, end_time, variable,
+                                          forecast_type='forecast', run_type=run_type, time_group='daily',
+                                          grid=grid, mask=mask, region=region)
 
     # Assign probability label
     prob_label = prob_type if prob_type == 'deterministic' else 'ensemble'
@@ -369,8 +477,6 @@ def _ecmwf_ifs_er_unified(start_time, end_time, variable, prob_type='determinist
     if 'spatial_ref' in ds.variables:
         ds = ds.drop_vars('spatial_ref')
 
-    # Rename to standard naming
-    ds = ds.rename({'start_date': 'init_time', 'lead_time': 'prediction_timedelta'})
     return ds
 
 
@@ -410,3 +516,44 @@ def ecmwf_ifs_er_debiased(start_time=None, end_time=None, variable="precip", agg
     return _ecmwf_ifs_er_unified(start_time=start_time, end_time=end_time, variable=variable,
                                  prob_type=prob_type,
                                  grid=grid, mask=mask, region=region, debiased=True)
+
+
+@dask_remote
+@spatial()
+@timeseries(timeseries='model_issuance_date')
+@cache(cache=False,
+       cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
+                   'lookback_source', 'densify',
+                   'prob_type', 'grid', 'mask', 'region'],
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'lead_time': 1, 'member': 1}})
+def ecmwf_ifs_er_reforecast(start_time=None, end_time=None, variable="precip", agg_days=1,  # noqa: ARG001
+                          prob_type='deterministic', grid='global1_5', mask='lsm', region="global"):
+    """Temporary getter for ECMWF reforecasts.
+
+    Enables filtering by start time and end time in the hindcast dates.
+    """
+    if prob_type == 'deterministic':
+        run_type = 'average'
+    else:
+        run_type = 'perturbed'
+
+    if agg_days == 7:
+        time_group = 'weekly'
+    else:
+        time_group = 'daily'
+
+    ds = ifs_extended_range(None, None, variable, forecast_type='reforecast',
+                            run_type=run_type, time_group=time_group, grid=grid,
+                            mask=mask, region=region)
+    ds = ds.rename({'lead_time': 'prediction_timedelta'})
+
+    # Nan out all timestamps that are outside of the start and end time.
+    # start_year is a year offset from model_issuance_date (see ifs_er_reforecast_lead_bias).
+    init_times = ds.model_issuance_date + ds.start_year.astype('timedelta64[Y]')
+    valid_times = init_times + ds.prediction_timedelta
+    in_range = (valid_times >= np.datetime64(start_time)) & (valid_times <= np.datetime64(end_time))
+    ds = ds.where(in_range, other=np.nan)
+
+    if agg_days != 1 and agg_days != 7:
+        ds = roll_and_agg(ds, agg=agg_days, agg_col="prediction_timedelta", agg_fn="mean")
+    return ds
