@@ -411,7 +411,10 @@ def fn_percent_good(data, **cache_kwargs):  # noqa: F821
 
 @statistic(cache=False, name='percent_good_members')
 def fn_percent_good_members(data, **cache_kwargs):  # noqa: F821
-    return fn_percent_good(data, **cache_kwargs).mean(dim='member')
+    ds = fn_percent_good(data, **cache_kwargs)
+    if 'member' in ds.coords:
+        ds = ds.mean(dim='member', keep_attrs=True)
+    return ds
 
 
 def statistic_factory(statistic_name: str):

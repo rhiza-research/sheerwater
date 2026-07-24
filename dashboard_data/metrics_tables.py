@@ -210,11 +210,16 @@ def _metric_table_spatial(start_time, end_time, variable,
                             metric_name=metric_name, metric_kwargs=metric_kwargs,
                             time_grouping=time_grouping, spatial=True,
                             grid=grid, region=region,
-                            recompute=False, retry_null_cache=False, fail_if_no_cache=True)
+                            retry_null_cache=False, fail_if_no_cache=True)
 
-                ds = clip_region(ds, region=region, grid=grid, drop_gridded_regions=True)
-                exp_metric = list(ds.data_vars)[0]
-                ds = ds.rename({exp_metric: metric_name})
+                ds = ds.compute()
+
+                if 'thresh' in metric_name:
+                    mn = metric_name.split("-thresh-")[0]
+                else:
+                    mn = metric_name
+                exp_metric = ds.attrs.get('metric_name') or list(ds.data_vars)[0]
+                ds = ds.rename({exp_metric: mn})
 
             except NotImplementedError:
                 ds = None
@@ -246,36 +251,42 @@ def _metric_table_spatial(start_time, end_time, variable,
         results_ds = results_ds.rename({'space_grouping': 'region'})
 
     grouping_labels = space_grouping_labels(grid=grid, space_grouping=space_grouping)
-    grouping_labels = clip_region(grouping_labels, grid=grid, region=region, drop_gridded_regions=True)
+    grouping_labels = clip_region(grouping_labels, grid=grid, region=region)
+    grouping_labels = grouping_labels.compute()
     results_ds = results_ds.assign_coords(region=grouping_labels.region)
     for grp in space_grouping:
         results_ds = results_ds.assign_coords(**{f'{grp}': grouping_labels[f'{grp}_region']})
 
     df = results_ds.to_dataframe()
-
     df = df.reset_index()
 
     if 'lead_day' in df.columns:
-        order = ['forecast', 'lat', 'lon', 'time_grouping', 'lead_day', f'{metric_name}'] + ['region'] + space_grouping
+        order = ['forecast', 'lat', 'lon', 'time_grouping', 'lead_day', f'{mn}']
     else:
-        order = ['forecast', 'lat', 'lon', 'time_grouping', f'{metric_name}'] + ['region'] + space_grouping
+        order = ['forecast', 'lat', 'lon', 'time_grouping', f'{mn}']
+
+    if 'percent_good' in df.columns:
+        order = order + ['percent_good', 'event_count']
+
+    order = order + ['region'] + space_grouping
 
     # Reorder the columns if necessary
     if 'time' in df.columns:
         df = df.rename(columns={'time': 'time_grouping'})
         if time_grouping == 'month_of_year':
-            df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
-                                                           'M02': 'February',
-                                                           'M03': 'March',
-                                                           'M04': 'April',
-                                                           'M05': 'May',
-                                                           'M06': 'June',
-                                                           'M07': 'July',
-                                                           'M08': 'August',
-                                                           'M09': 'September',
-                                                           'M10': 'October',
-                                                           'M11': 'November',
-                                                           'M12': 'December'})
+            df['time_grouping'] = df['time_grouping'].map({
+                'M01': 'January',
+                'M02': 'February',
+                'M03': 'March',
+                'M04': 'April',
+                'M05': 'May',
+                'M06': 'June',
+                'M07': 'July',
+                'M08': 'August',
+                'M09': 'September',
+                'M10': 'October',
+                'M11': 'November',
+                'M12': 'December'})
 
     else:
         df['time_grouping'] = None

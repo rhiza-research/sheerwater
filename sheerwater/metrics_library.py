@@ -806,7 +806,13 @@ class ACC(Metric):
         Metric.prepare_data(self)
         assert self.event is None, "ACC metric does not support events."
 
-        clim_ds = climatology(data=self.truth, **self.fcst_obs_kwargs, prob_type='deterministic')
+        clim_ds = climatology(
+            data=self.truth,
+            **self.fcst_obs_kwargs,
+            first_year=1990,
+            last_year=2019,
+            prob_type='deterministic',
+        )
 
         # Expand climatology to the same lead times as the forecast
         if 'prediction_timedelta' in self.metric_data['fcst'].dims:
@@ -822,6 +828,8 @@ class ACC(Metric):
         # Update the metric kwargs to include the climatology data source for
         # cache keying
         self.metric_kwargs['clim_source'] = self.truth
+        self.metric_kwargs['clim_first_year'] = 1990
+        self.metric_kwargs['clim_last_year'] = 2019
 
     def compute_metric(self):
         gs = self.grouped_statistics

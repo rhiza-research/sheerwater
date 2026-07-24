@@ -16,14 +16,14 @@ advanced_forecast_table_metrics:
       - "africa_bimodal_season"
       - "africa_unimodal_shifted_season"
   two_way_metrics:
-    metric_name: ["big_rain_days", "extreme_rain_days", "in_season_dry_spell"]
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
   one_way_metrics:
-    metric_name: ["early_season_accumulation-30d"]
+    metric_name: ['early_season_accumulation-30d-thresh-30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
@@ -43,14 +43,14 @@ advanced_ground_truth_table_metrics:
       - "africa_bimodal_season"
       - "africa_unimodal_shifted_season"
   two_way_metrics:
-    metric_name: ["big_rain_days", "extreme_rain_days", "in_season_dry_spell"]
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
   one_way_metrics:
-    metric_name: ["early_season_accumulation-30d"]
+    metric_name: ['early_season_accumulation-30d-thresh-30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
