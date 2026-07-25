@@ -677,12 +677,12 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
         "options": [
           {
             "selected": false,
-            "text": "Forecasted events",
+            "text": "True / False Alarm",
             "value": "forecast"
           },
           {
             "selected": false,
-            "text": "Observed events",
+            "text": "Detected / Missed Event",
             "value": "obs"
           },
           {
@@ -691,7 +691,7 @@ local metrics_explainer_md = importstr './assets/metrics_explainer.md';
             "value": "both"
           }
         ],
-        "query": "Forecasted events : forecast, Observed events : obs, Both : both",
+        "query": "True / False Alarm : forecast, Detected / Missed Event : obs, Both : both",
         "type": "custom"
       },
       {
