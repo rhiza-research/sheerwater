@@ -1,21 +1,25 @@
 [comment]: # (EXTERNAL:metrics_explainer.md)
-### Selected Metric: {{#if (eq metric "mae")}}MAE {{/if}} {{#if (eq metric "rmse")}}RMSE{{/if}} {{#if (eq metric "crps")}}CRPS{{/if}} {{#if (eq metric "bias")}}Bias{{/if}} {{#if (eq metric "smape")}}SMAPE{{/if}} {{#if (eq metric "seeps")}}SEEPS{{/if}} {{#if (eq metric "acc")}}ACC{{/if}}  {{#if (eq metric "heidke-1-5-10-20")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric "far-1")}}FAR 1mm{{/if}} {{#if (eq metric "far-5")}}FAR 5mm{{/if}} {{#if (eq metric "far-10")}}FAR 10mm{{/if}} {{#if (eq metric "pod-1")}}POD 1mm{{/if}} {{#if (eq metric "pod-5")}}POD 5mm{{/if}} {{#if (eq metric "pod-10")}}POD 10mm{{/if}} {{#if (eq metric "ets-1")}}ETS 1mm{{/if}} {{#if (eq metric "ets-5")}}ETS 5mm{{/if}} {{#if (eq metric "ets-10")}}ETS 10mm{{/if}} {{#if (eq metric "early_season_accumulation-30d")}}Early Season 30 day Accumulation (MAE){{/if}}{{#if (eq metric "big_rain_days")}}Large rain days (SMAPE){{/if}} {{#if (eq metric "in_season_dry_spell")}}In season dry spells (forecasted value){{/if}}
+### Selected Metric: {{#if (eq metric "mae")}}MAE {{/if}} {{#if (eq metric "rmse")}}RMSE{{/if}} {{#if (eq metric "crps")}}CRPS{{/if}} {{#if (eq metric "bias")}}Bias{{/if}} {{#if (eq metric "smape")}}SMAPE{{/if}} {{#if (eq metric "seeps")}}SEEPS{{/if}} {{#if (eq metric "acc")}}ACC{{/if}}  {{#if (eq metric "heidke-1-5-10-20")}}Heidke 1/5/10/20mm{{/if}} {{#if (eq metric "far-1")}}FAR 1mm{{/if}} {{#if (eq metric "far-5")}}FAR 5mm{{/if}} {{#if (eq metric "far-10")}}FAR 10mm{{/if}} {{#if (eq metric "pod-1")}}POD 1mm{{/if}} {{#if (eq metric "pod-5")}}POD 5mm{{/if}} {{#if (eq metric "pod-10")}}POD 10mm{{/if}} {{#if (eq metric "ets-1")}}ETS 1mm{{/if}} {{#if (eq metric "ets-5")}}ETS 5mm{{/if}} {{#if (eq metric "ets-10")}}ETS 10mm{{/if}} {{#if (eq metric "early_season_accumulation-30d-thresh-30")}}Early Season 30 day Accumulation (MAE){{/if}}{{#if (eq metric "big_rain_days-thresh-0.30")}}Large rain days (SMAPE){{/if}}{{#if (eq metric "extreme_rain_days-thresh-0.30")}}90th percentile rain (SMAPE){{/if}} {{#if (eq metric "in_season_dry_spell-thresh-20")}}In season dry spells (forecasted value){{/if}}
 
 
 
 
-{{#if (eq metric "early_season_accumulation-30d")}}
+{{#if (eq metric "early_season_accumulation-30d-thresh-30")}}
 The early season accumulation metric finds the point in every season at which *100mm* of rainfall accumulates. It then computes the MAE of the last 30 days of rainfall in both the observatoins and the forecast. For forecast lead times less than 30 days, forecasts are appended to the end of the observations. Seasons are handled based on regional seasonal classifications.\
 <span style="color: red; font-weight: bold;">🔴 Smaller is better — lower MAE means better predictions. We believe results less than about 25mm indicate good start of season predictability.</span> 
 
-{{else if (eq metric "big_rain_days")}}
+{{else if (eq metric "big_rain_days-thresh-0.30")}}
 Large rain days detects individual days where the rainfall exceeds 15mm. It then takes the SMAPE of the 5 day period around those days (+/- 2 days). A period is taken around
 the rain days to allow for slight miss-timing of the rain in the forecast and the ground truth. SMAPE is chosen to smoothly allow for more error in larger rainfall events.
 The top row is triggered on large rain days observed in the observations (high SMAPE means the forecast failed to forecast rain when it was observed). The bottom row is triggered on large rain days observed in the forecast (high SMAPE means the forecast placed rain where it wasn't observed.)\
 <span style="color: red; font-weight: bold;">🔴 Smaller is better — lower SMAPE means better predictions. We expect SMAPEs below 0.2-0.3 indicate good 
 prediction of above-average rainfall events.</span> 
 
-{{else if (eq metric "in_season_dry_spell")}}
+{{else if (eq metric "extreme_rain_days-thresh-0.30")}}
+90th percentile rain detects days in the top rainfall quantile (90th percentile) and evaluates SMAPE over a centered multi-day window around those events, allowing for slight mistiming between forecast and observations.\
+<span style="color: red; font-weight: bold;">🔴 Smaller is better — lower SMAPE means better predictions of extreme rainfall events.</span>
+
+{{else if (eq metric "in_season_dry_spell-thresh-20")}}
 The in season dry spells event finds the start of season by looking for the first rainy day within 45 days of the observations reaching 10% of the total accumulated rainfall for a season. It looks for dry spells until 40% of the rainfall has accumulated for the season. Dry spells are defined as any 10 day period with less than 15mm of total rain. We present
 the total forecasted rainfall in this period. The top row shows performance for dry spells in the observations (high rainfall means the forecast predicted rain when the observations were dry - a wet biased forecast). The top row shows performance for dry spells in the forecast (high rainfall means that rain occured when the forecast predicted dry - a dry biased forecast).\
 <span style="color: red; font-weight: bold;">🔴 Smaller is better — lower rainfall means better predictions in dry periods. We believe rainfall below about 20mm-30mm over the 10 day period to be good.</span> 
@@ -71,3 +75,18 @@ Equitable threat score (ETS) measures a combination of POD and FAR while account
 {{else}}
 _no description available for this metric._
 {{/if}}
+
+### Views
+
+Use the **View** dropdown to switch what the table shows:
+
+- **Percent Good Enough** — mean `percent_good` across cells (default)
+- **Percent Good Enough Members** — mean `percent_good_members` (**requires Prob Type = Probabilistic**)
+- **Good Enough Cells** — count of grid cells whose average `percent_good` is above **Min % Good (cell counts)** (default `0.75`)
+- **Average Metric** — mean metric value across cells (green at/below the metric’s `-thresh-…` bar; red above)
+
+Rows are listed in a fixed forecast order. Use **Compare Regions** to show one or two regions.
+
+**★** marks the best score in each lead-day column. Secondary cell lines show the delta vs the matching climatology baseline for the selected Ground Truth (labeled “(baseline)” in the forecast list), and `n=` is the mean per-cell `event_count` summed over years (not averaged per year).
+
+For thresholded advanced metrics, each event is marked good when the underlying score meets the metric's actionable threshold (the `-thresh-…` value in the metric name). `percent_good` is the fraction of events at a cell that meet that bar.
