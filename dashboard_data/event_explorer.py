@@ -21,20 +21,20 @@ def postgres_write_password():
 
     return key
 
- 
+
 @dask_remote
 @cache(cache_args=['start_time', 'end_time', 'variable',   'forecast', 'truth', 'agg_days',
                    'metric_name',  'metric_kwargs', 'lead_days',
                    'time_grouping', 'grid', 'region'], backend='sql', backend_kwargs={'hash_table_name': True})
 def forecast_metric_points(start_time, end_time, variable,
-                        forecast, truth, agg_days, metric_name,
-                        metric_kwargs=None, lead_days=7,
-                        time_grouping=None, grid='global1_5',
-                        region='global'):
+                           forecast, truth, agg_days, metric_name,
+                           metric_kwargs=None, lead_days=7,
+                           time_grouping=None, grid='global1_5',
+                           region='global'):
 
     if 'early_season_accumulation' in metric_name:
         stat = "mae"
-    elif 'big_rain_days' in metric_name:
+    elif 'big_rain_days' in metric_name or 'extreme_rain_days' in metric_name:
         stat = "smape"
     elif 'in_season_dry_spell' in metric_name:
         stat = "forecastvalue"
@@ -71,16 +71,16 @@ def forecast_metric_points(start_time, end_time, variable,
                    'metric_name',  'metric_kwargs', 'lead_days',
                    'time_grouping', 'grid', 'region'], backend='sql', backend_kwargs={'hash_table_name': True})
 def event_list(start_time, end_time, variable,
-                forecast, truth, agg_days, metric_name,
-                metric_kwargs=None, lead_days=7,
-                time_grouping=None, grid='global1_5',
-                region='global'):
+               forecast, truth, agg_days, metric_name,
+               metric_kwargs=None, lead_days=7,
+               time_grouping=None, grid='global1_5',
+               region='global'):
 
     ds = metric_event_series(start_time, end_time, variable,
-                            agg_days=agg_days, forecast=forecast, truth=truth,
-                            metric_name=metric_name, metric_kwargs=metric_kwargs,
-                            time_grouping=time_grouping, spatial=True,
-                            grid=grid, region=region)
+                             agg_days=agg_days, forecast=forecast, truth=truth,
+                             metric_name=metric_name, metric_kwargs=metric_kwargs,
+                             time_grouping=time_grouping, spatial=True,
+                             grid=grid, region=region)
 
     # get the variable name of interest - we assume it is the first
     var_name = list(ds.data_vars)[0]
@@ -90,12 +90,13 @@ def event_list(start_time, end_time, variable,
 
     # collect lists of event times and metric values
     times = ds.time.values
+
     def collect_nonnans(arr):
         mask = ~np.isnan(arr)
         return times[mask], arr[mask]
     valid_times, valid_values = xr.apply_ufunc(collect_nonnans, ds.load(), input_core_dims=[['time']], output_core_dims=[[], []],
                                                vectorize=True, output_dtypes=[object, object])
-    
+
     # convert results to a dataframe
     df_times = valid_times.rename('time').to_dataframe().reset_index()
     df_values = valid_values.rename(var_name).to_dataframe().reset_index()
