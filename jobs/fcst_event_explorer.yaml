@@ -37,7 +37,6 @@ event_explorer_points:
     region:
       - "western_africa"
       - "eastern_africa"
-  runs: {}
 event_explorer_list:
   function: event_list
   _all:
