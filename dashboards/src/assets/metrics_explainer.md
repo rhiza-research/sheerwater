@@ -87,6 +87,6 @@ Use the **View** dropdown to switch what the table shows:
 
 Rows are listed in a fixed forecast order. Use **Compare Regions** to show one or two regions.
 
-**★** marks the best score in each lead-day column. Values in parentheses are the delta vs the matching climatology baseline for the selected Ground Truth (labeled “(baseline)” in the forecast list).
+**★** marks the best score in each lead-day column. Secondary cell lines show the delta vs the matching climatology baseline for the selected Ground Truth (labeled “(baseline)” in the forecast list), and `n=` is the mean per-cell `event_count` summed over years (not averaged per year).
 
 For thresholded advanced metrics, each event is marked good when the underlying score meets the metric's actionable threshold (the `-thresh-…` value in the metric name). `percent_good` is the fraction of events at a cell that meet that bar.
