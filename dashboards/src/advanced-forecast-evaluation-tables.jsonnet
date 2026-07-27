@@ -5,12 +5,12 @@ local value_table_js = importstr './assets/advanced_eval_value_table.js';
 local summarySql(regionOption) =
   std.strReplace(summary_sql_tmpl, '__REGION_OPTION__', regionOption);
 
-local plotlyTarget(refId, regionOption) = {
+local plotlyTarget(refId, rawSql) = {
   datasource: { type: 'grafana-postgresql-datasource', uid: 'bdz3m3xs99p1cf' },
   editorMode: 'code',
   format: 'table',
   rawQuery: true,
-  rawSql: summarySql(regionOption),
+  rawSql: rawSql,
   refId: refId,
   sql: {
     columns: [{ parameters: [], type: 'function' }],
@@ -58,8 +58,8 @@ local table_panel = {
   },
   pluginVersion: '1.8.2',
   targets: [
-    plotlyTarget('A', '$region_option'),
-    plotlyTarget('B', '$region_option2'),
+    plotlyTarget('A', summarySql('$region_option')),
+    plotlyTarget('B', summarySql('$region_option2')),
   ],
   title: '',
   transparent: true,
@@ -88,7 +88,20 @@ local view_panels = [table_panel];
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Good Cells vs Cell Cutoff",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/sw-good-cells-cutoff/good-cells-vs-cell-cutoff"
+    }
+  ],
   "panels": [
     {
       "collapsed": true,
@@ -725,7 +738,7 @@ local view_panels = [table_panel];
         "type": "query"
       },
       {
-        "description": "Only used by the Good Enough Cells view: a grid cell counts when its average percent_good is above this cutoff (0–1). Does not change Percent Good Enough or Average Metric.",
+        "description": "Only used by the Good Enough Cells view: a grid cell counts when its average percent_good is at or above this cutoff (0–1). Does not change Percent Good Enough or Average Metric.",
         "current": {
           "text": "0.75",
           "value": "0.75"
