@@ -1,6 +1,6 @@
 name: Performance testing
 
-# Expensive suite: run via workflow_dispatch on a branch.
+# Expensive suite: run via workflow_dispatch on a non-main branch.
 # On success, commits baseline timings onto that branch for review + re-approve.
 # Merge queue still runs correctness / default tests only.
 
@@ -11,6 +11,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    if: github.ref_name != 'main'
     permissions:
       contents: write
       checks: write
