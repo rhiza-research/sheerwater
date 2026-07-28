@@ -65,7 +65,7 @@
         "styles": "",
         "wrap": true
       },
-      "pluginVersion": "6.2.3",
+      "pluginVersion": "6.3.0",
       "targets": [
         {
           "editorMode": "code",
@@ -605,20 +605,20 @@
       },
       {
         "current": {
-          "text": "month_of_year",
-          "value": "month_of_year"
+          "text": "None",
+          "value": "None"
         },
         "includeAll": false,
         "label": "Time Grouping",
         "name": "time_grouping",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "None",
             "value": "None"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "Month of Year",
             "value": "month_of_year"
           },
@@ -634,18 +634,10 @@
       {
         "current": {
           "text": [
-            "April",
-            "March",
-            "May",
-            "June",
-            "February"
+            "None"
           ],
           "value": [
-            "April",
-            "March",
-            "May",
-            "June",
-            "February"
+            "None"
           ]
         },
         "definition": "SELECT\n    initcap(replace(COALESCE(time_grouping, 'None'), '_', ' ')) AS __text,\n    COALESCE(time_grouping, 'None') AS __value\nFROM \"$precip_tab_name\" \nWHERE lead_day = 0;",
@@ -660,27 +652,49 @@
       },
       {
         "current": {
-          "text": "25cfb2f918f37472ac7ea38748ecca19",
-          "value": "25cfb2f918f37472ac7ea38748ecca19"
+          "text": "prob_type-probabilistic",
+          "value": "prob_type-probabilistic"
+        },
+        "label": "Prob",
+        "name": "prob_type",
+        "options": [
+          {
+            "selected": false,
+            "text": "Deterministic",
+            "value": "None"
+          },
+          {
+            "selected": true,
+            "text": "Probabilistic",
+            "value": "prob_type-probabilistic"
+          }
+        ],
+        "query": "Deterministic : None, Probabilistic : prob_type-probabilistic",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "aa3d911c996004b44c261b639c68daae",
+          "value": "aa3d911c996004b44c261b639c68daae"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "bdz3m3xs99p1cf"
         },
-        "definition": "select * from md5('forecast_metric_table/7_2024-12-31_${grid}_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip')",
+        "definition": "SELECT md5(\n    'forecast_metric_table/7_2024-12-31_${grid}_${prob_type}_${metric}_'\n    || CASE '${prob_type}'\n         WHEN 'None' THEN 'global'\n         ELSE 'Africa'\n       END\n    || '_${region}_2016-01-01_${time_grouping}_${truth}_precip')",
         "hide": 2,
         "includeAll": false,
         "name": "precip_tab_name",
         "options": [],
-        "query": "select * from md5('forecast_metric_table/7_2024-12-31_${grid}_${metric}_${region}_2016-01-01_${time_grouping}_${truth}_precip')",
+        "query": "SELECT md5(\n    'forecast_metric_table/7_2024-12-31_${grid}_${prob_type}_${metric}_'\n    || CASE '${prob_type}'\n         WHEN 'None' THEN 'global'\n         ELSE 'Africa'\n       END\n    || '_${region}_2016-01-01_${time_grouping}_${truth}_precip')",
         "refresh": 2,
         "regex": "",
         "type": "query"
       },
       {
         "current": {
-          "text": "956387e50816883aadc4099d17ff66c2",
-          "value": "956387e50816883aadc4099d17ff66c2"
+          "text": "5458f0ca1742254083c1a832241fb1b7",
+          "value": "5458f0ca1742254083c1a832241fb1b7"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
