@@ -313,23 +313,9 @@ def _metric_table_spatial(start_time, end_time, variable,
                    'grid', 'space_grouping', 'region'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def advanced_spatial_metric_table(start_time, end_time, variable,
-                                  truth, metric_name, metric_kwargs=None, time_grouping=None,
+                                  forecasts, truth, metric_name, metric_kwargs=None, time_grouping=None,
                                   grid='global1_5', space_grouping=None, region=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = [
-        'climatology_era5_1985_2015',
-        'climatology_imerg_1998_2016',
-        'ecmwf_ifs_er',
-        'ecmwf_ifs_er_debiased',
-        'ecmwf_aifs',
-        'ecmwf_ifs_ens',
-        'ecmwf_hres',
-        'fuxi',
-        'gfs',
-        'gencast',
-        'graphcast',
-        'cumulus_ai'
-    ]
     df = _metric_table_spatial(start_time=start_time, end_time=end_time, variable=variable,
                                truth=truth, metric_name=metric_name, agg_days=1, forecasts=forecasts,
                                time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,
@@ -345,15 +331,10 @@ def advanced_spatial_metric_table(start_time, end_time, variable,
                    'grid', 'space_grouping', 'region'],
        backend='sql', backend_kwargs={'hash_table_name': True})
 def advanced_ground_truth_spatial_metric_table(start_time, end_time, variable,
-                                               truth, metric_name, metric_kwargs=None, time_grouping=None,
-                                               grid='global1_5', space_grouping=None, region=None):
+                                               forecasts, truth, metric_name, metric_kwargs=None,
+                                               time_grouping=None, grid='global1_5', space_grouping=None,
+                                               region=None):
     """Runs summary metric repeatedly for all forecasts and creates a pandas table out of them."""
-    forecasts = [
-        'imerg_final',
-        'chirps_v3',
-        'era5',
-        'oya'
-    ]
     df = _metric_table_spatial(start_time=start_time, end_time=end_time, variable=variable,
                                truth=truth, metric_name=metric_name, agg_days=1, forecasts=forecasts,
                                time_grouping=time_grouping, grid=grid, space_grouping=space_grouping,

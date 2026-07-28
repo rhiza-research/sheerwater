@@ -3,6 +3,19 @@ advanced_forecast_table_metrics:
   _all:
     start_time: "2016-01-01"
     end_time: "2024-12-31"
+    forecasts:
+      - - climatology_era5_1985_2015
+        - climatology_imerg_1998_2016
+        - ecmwf_ifs_er
+        - ecmwf_ifs_er_debiased
+        - ecmwf_aifs
+        - ecmwf_ifs_ens
+        - ecmwf_hres
+        - fuxi
+        - gfs
+        - gencast
+        - graphcast
+        - cumulus_ai
     truth:
       - era5
       - imerg_final
@@ -32,6 +45,19 @@ advanced_forecast_table_metrics_probabilistic:
   _all:
     start_time: "2016-01-01"
     end_time: "2024-12-31"
+    forecasts:
+      - - climatology_era5_1985_2015
+        - climatology_imerg_1998_2016
+        - ecmwf_ifs_er
+        - ecmwf_ifs_er_debiased
+        - ecmwf_aifs
+        - ecmwf_ifs_ens
+        - ecmwf_hres
+        - fuxi
+        - gfs
+        - gencast
+        - graphcast
+        - cumulus_ai
     truth:
       - era5
       - imerg_final
@@ -64,6 +90,11 @@ advanced_ground_truth_table_metrics:
   _all:
     start_time: "2016-01-01"
     end_time: "2024-12-31"
+    forecasts:
+      - - imerg_final
+        - chirps_v3
+        - era5
+        - oya
     truth:
       - tahmo_avg
     space_grouping: [["rainfall_region", "country"]]
