@@ -806,11 +806,16 @@ class ACC(Metric):
         Metric.prepare_data(self)
         assert self.event is None, "ACC metric does not support events."
 
+        if 'first_year' not in self.metric_kwargs:
+            self.metric_kwargs['first_year'] = 1990
+        if 'last_year' not in self.metric_kwargs:
+            self.metric_kwargs['last_year'] = 2019
+
         clim_ds = climatology(
             data=self.truth,
             **self.fcst_obs_kwargs,
-            first_year=1990,
-            last_year=2019,
+            first_year=self.metric_kwargs['first_year'],
+            last_year=self.metric_kwargs['last_year'],
             prob_type='deterministic',
         )
 
@@ -828,8 +833,6 @@ class ACC(Metric):
         # Update the metric kwargs to include the climatology data source for
         # cache keying
         self.metric_kwargs['clim_source'] = self.truth
-        self.metric_kwargs['clim_first_year'] = 1990
-        self.metric_kwargs['clim_last_year'] = 2019
 
     def compute_metric(self):
         gs = self.grouped_statistics
