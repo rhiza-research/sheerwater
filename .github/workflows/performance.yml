@@ -1,61 +1,24 @@
 name: Performance testing
 
-# Expensive suite: label `run-performance` on a same-repo PR, or workflow_dispatch.
-# On success, commits baseline timings onto the PR branch for review + re-approve.
+# Expensive suite: run via workflow_dispatch on a branch.
+# On success, commits baseline timings onto that branch for review + re-approve.
 # Merge queue still runs correctness / default tests only.
 
 on:
-  pull_request:
-    types: [labeled]
   workflow_dispatch:
-    inputs:
-      pr_number:
-        description: "PR number to run against and commit baseline into"
-        required: true
-        type: string
 
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.label.name == 'run-performance' &&
-       github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: write
       checks: write
-      pull-requests: write
       id-token: write
     steps:
-    - name: Resolve PR ref
-      id: pr
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          PR_NUMBER="${{ inputs.pr_number }}"
-        else
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-        fi
-
-        meta=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" \
-          --json number,headRefName,isCrossRepository)
-        echo "$meta"
-
-        cross=$(echo "$meta" | jq -r .isCrossRepository)
-        if [ "$cross" = "true" ]; then
-          echo "Refusing to push baseline to a fork PR. Open the PR from a branch in this repo."
-          exit 1
-        fi
-
-        echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-        echo "head_ref=$(echo "$meta" | jq -r .headRefName)" >> "$GITHUB_OUTPUT"
-
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0  # Required for hatch-vcs
-        ref: ${{ steps.pr.outputs.head_ref }}
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Auth to Google Cloud
@@ -98,7 +61,7 @@ jobs:
           --cov-report=xml:coverage/coverage.xml \
           --cov-report=term
 
-    - name: Commit baseline to PR branch
+    - name: Commit baseline to branch
       id: baseline
       run: |
         git config user.name "github-actions[bot]"
@@ -112,28 +75,9 @@ jobs:
         fi
 
         git commit -m "Update metrics performance baseline"
-        git pull --rebase origin "${{ steps.pr.outputs.head_ref }}"
-        git push origin "HEAD:${{ steps.pr.outputs.head_ref }}"
+        git pull --rebase origin "${{ github.ref_name }}"
+        git push origin "HEAD:${{ github.ref_name }}"
         echo "changed=true" >> "$GITHUB_OUTPUT"
-
-    - name: Comment on PR
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        if [ "${{ steps.baseline.outputs.changed }}" = "true" ]; then
-          body="Performance suite passed and committed an update to \`sheerwater/tests/metrics_performance_baseline.json\` on this branch."$'\n\n'"Please review the timing diff, **re-approve** the PR (stale approvals are dismissed on new commits), then add it to the merge queue. Merge-queue checks run correctness / default tests only."
-        else
-          body="Performance suite passed; baseline timings were unchanged (no commit)."
-        fi
-        gh pr comment "${{ steps.pr.outputs.pr_number }}" --repo "${{ github.repository }}" --body "$body"
-
-    - name: Remove run-performance label
-      if: github.event_name == 'pull_request'
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh pr edit "${{ steps.pr.outputs.pr_number }}" --repo "${{ github.repository }}" \
-          --remove-label "run-performance" || true
 
     - name: Upload test artifacts
       uses: actions/upload-artifact@v4

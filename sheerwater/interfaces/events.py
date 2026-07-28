@@ -504,8 +504,9 @@ def icpac_onset(ds):
     agg_type = ['sum', 'sum']
     counts = [None, None]
     onset_spell_index = 0
-    return has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
-                                agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+    val = has_onset_conditions(ds, spells=spells, agg_days=agg_days, thresholds=thresholds,
+                               agg_type=agg_type, counts=counts, onset_spell_index=onset_spell_index)
+    return val
 
 
 @event(default_variable="precip", duration=30, filter=True)

@@ -99,7 +99,7 @@ local view_panels = [table_panel];
       "title": "Good Cells vs Cell Cutoff",
       "tooltip": "",
       "type": "link",
-      "url": "/d/sw-good-cells-cutoff/good-cells-vs-cell-cutoff"
+      "url": "/d/sw-good-cells-cutoff/good-cells-vs-cell-cutoff?var-gc_view=auc"
     }
   ],
   "panels": [
@@ -342,15 +342,15 @@ local view_panels = [table_panel];
       {
         "description": "Which table summary to show. Percent Good Enough Members requires Prob Type = Probabilistic.",
         "current": {
-          "text": "Percent Good Enough",
-          "value": "percent_good"
+          "text": "Average Metric",
+          "value": "metric"
         },
         "includeAll": false,
         "label": "View",
         "name": "table_view",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "Percent Good Enough",
             "value": "percent_good"
           },
@@ -365,7 +365,7 @@ local view_panels = [table_panel];
             "value": "good_enough_cells"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "Average Metric",
             "value": "metric"
           }

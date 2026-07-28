@@ -287,6 +287,35 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
+def get_onset_within_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
+    """POD for dry spells using a soft (time-margin) matching window."""
+    onset_def = experiment.split('_')[0]  # e.g. 'icpac' or 'chc'
+    within_days = int(experiment.split('_')[-1][:-1])  # e.g. '7d' -> 7
+    if region == 'africa_unimodal_season' or region == 'western_africa':
+        time_grouping = 'year'
+    elif region == 'africa_bimodal_season' or region == 'eastern_africa':
+        time_grouping = 'two_seasons'
+    elif region == 'africa_unimodal_shifted_season':
+        time_grouping = 'shifted_season'
+    else:
+        warnings.warn(f"Region {region} not supported. Using year as time grouping.")
+        time_grouping = 'year'
+
+    metric = 'pod'
+    filter_event = f'{onset_def}_onset'
+    filter_event_kwargs = {'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}}
+    metric_kwargs = _with_input_metric_kwargs({
+        'obs_filter': True,
+        'forecast_filter': False,
+        'soft_margin_in_days': within_days,
+        'densify': True
+    }, input_metric_kwargs)
+
+    event = f'{onset_def}_onset'
+    event_kwargs = {}
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
 def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     """Returns metrics configruations needed to run an advanced agricultural metric."""
     # Enable actionable thresholds for advanced metrics if the metric name is passed in the form
@@ -321,6 +350,9 @@ def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
     elif experiment_name == 'dry_spells_soft':
         metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
             get_dry_spells_soft_kwargs(experiment_name, region, input_metric_kwargs)
+    elif 'onset_within' in experiment_name:
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_onset_within_kwargs(experiment_name, region, input_metric_kwargs)
     else:
         raise ValueError(f"Experiment {experiment_name} not supported.")
 
