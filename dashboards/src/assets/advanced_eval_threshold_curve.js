@@ -201,51 +201,6 @@ for (let i = 0; i < thresh.length; i++) {
     }
 }
 
-// Hide forecasts missing any of the six lead subplots.
-for (const forecast of allForecasts) {
-    if (nanForecasts.has(forecast)) continue;
-    const missingLead = LEADS.some(ld => !byKey.has(`${forecast}||${ld}`));
-    if (missingLead) nanForecasts.add(forecast);
-}
-for (const key of [...byKey.keys()]) {
-    if (nanForecasts.has(key.split('||')[0])) byKey.delete(key);
-}
-
-const uniqueForecasts = [...new Set([...byKey.values()].map(b => b.forecast))].sort();
-const colorByForecast = new Map(
-    uniqueForecasts.map((f, i) => [f, colorForForecast(f, i)])
-);
-
-const presentLeads = LEADS.filter(ld =>
-    [...byKey.values()].some(b => b.lead === ld)
-);
-const subplotLeads = presentLeads.length ? presentLeads : LEADS;
-
-const ncols = 2;
-const nrows = 3;
-const xPad = 0.05;
-const yPadBottom = 0.08;
-const yPadTop = 0.03;
-const xGap = 0.03;
-const yGap = 0.07;
-const kpiGutter = 0.12; // space to the right of each plot for KPI boxes
-const slotW = (1 - xPad * 2 - xGap * (ncols - 1)) / ncols;
-const plotW = Math.max(0.28, slotW - kpiGutter);
-const cellH = (1 - yPadTop - yPadBottom - yGap * (nrows - 1)) / nrows;
-
-function domainFor(i) {
-    const col = i % ncols;
-    const rowFromTop = Math.floor(i / ncols);
-    const rowFromBottom = nrows - 1 - rowFromTop;
-    const slotX0 = xPad + col * (slotW + xGap);
-    const y0 = yPadBottom + rowFromBottom * (cellH + yGap);
-    return {
-        x: [slotX0, slotX0 + plotW],
-        y: [y0, y0 + cellH],
-        kpiX: slotX0 + plotW + 0.012,
-    };
-}
-
 function resolveCutoffPct(fieldVals, varName, fallback) {
     const fromSql = fieldVals.length ? fieldVals[0] : null;
     const fromVar = getVar(varName);
@@ -290,22 +245,14 @@ function leadBandExpectedCells(leadBuckets, forecastFilter) {
     };
 }
 
-const evalForecastFromSql = getField(series.fields, 'eval_forecast');
-const evalForecastRaw = (
-    (evalForecastFromSql.length ? evalForecastFromSql[0] : null)
-    ?? getVar('eval_forecast')
-);
-const evalForecastCandidate = Array.isArray(evalForecastRaw)
-    ? (evalForecastRaw[0] ?? null)
-    : (evalForecastRaw || null);
+const keysPresentForResolve = [...new Set([...byKey.values()].map(b => b.forecast))];
 
-function resolveEvalForecast(raw) {
+function resolveForecastKey(raw, knownKeys) {
     if (raw == null || raw === '') return null;
     const s = String(raw);
-    if (uniqueForecasts.includes(s)) return s;
-    // Match display label → key (e.g. "ECMWF IFS ER" → ecmwf_ifs_er)
+    if (knownKeys.includes(s)) return s;
     const lower = s.toLowerCase();
-    for (const f of uniqueForecasts) {
+    for (const f of knownKeys) {
         if (titleCase(f).toLowerCase() === lower) return f;
         if (f.toLowerCase() === lower) return f;
     }
@@ -313,7 +260,81 @@ function resolveEvalForecast(raw) {
     return s;
 }
 
-const evalForecast = resolveEvalForecast(evalForecastCandidate);
+function forecastVarCandidate(sqlFieldName, varName) {
+    const fromSql = getField(series.fields, sqlFieldName);
+    const raw = (fromSql.length ? fromSql[0] : null) ?? getVar(varName);
+    return Array.isArray(raw) ? (raw[0] ?? null) : (raw || null);
+}
+
+const evalForecast = resolveForecastKey(
+    forecastVarCandidate('eval_forecast', 'eval_forecast'),
+    keysPresentForResolve
+);
+
+function selectedForecastKeys() {
+    const raw = getVar('forecast_option');
+    const vals = Array.isArray(raw) ? raw : (raw == null || raw === '' ? [] : [raw]);
+    // Grafana "All" often arrives as a single "$__all" token — treat as unrestricted.
+    if (vals.length === 1 && String(vals[0]) === '$__all') return null;
+    if (!vals.length) return null;
+    return new Set(vals.map(String));
+}
+
+const plotSelection = selectedForecastKeys();
+
+function shouldPlotForecast(forecast) {
+    if (evalForecast && forecast === String(evalForecast)) return true;
+    // Unrestricted ("All"): plot everything returned by SQL, including baseline.
+    if (plotSelection == null) return true;
+    return plotSelection.has(forecast);
+}
+
+// Hide forecasts missing any of the six lead subplots (plotting only).
+for (const forecast of allForecasts) {
+    if (nanForecasts.has(forecast)) continue;
+    const missingLead = LEADS.some(ld => !byKey.has(`${forecast}||${ld}`));
+    if (missingLead) nanForecasts.add(forecast);
+}
+for (const key of [...byKey.keys()]) {
+    if (nanForecasts.has(key.split('||')[0])) byKey.delete(key);
+}
+
+const uniqueForecasts = [...new Set(
+    [...byKey.values()].map(b => b.forecast).filter(shouldPlotForecast)
+)].sort();
+const colorByForecast = new Map(
+    uniqueForecasts.map((f, i) => [f, colorForForecast(f, i)])
+);
+
+const presentLeads = LEADS.filter(ld =>
+    [...byKey.values()].some(b => b.lead === ld && shouldPlotForecast(b.forecast))
+);
+const subplotLeads = presentLeads.length ? presentLeads : LEADS;
+
+const ncols = 2;
+const nrows = 3;
+const xPad = 0.05;
+const yPadBottom = 0.08;
+const yPadTop = 0.03;
+const xGap = 0.03;
+const yGap = 0.07;
+const kpiGutter = 0.12; // space to the right of each plot for KPI boxes
+const slotW = (1 - xPad * 2 - xGap * (ncols - 1)) / ncols;
+const plotW = Math.max(0.28, slotW - kpiGutter);
+const cellH = (1 - yPadTop - yPadBottom - yGap * (nrows - 1)) / nrows;
+
+function domainFor(i) {
+    const col = i % ncols;
+    const rowFromTop = Math.floor(i / ncols);
+    const rowFromBottom = nrows - 1 - rowFromTop;
+    const slotX0 = xPad + col * (slotW + xGap);
+    const y0 = yPadBottom + rowFromBottom * (cellH + yGap);
+    return {
+        x: [slotX0, slotX0 + plotW],
+        y: [y0, y0 + cellH],
+        kpiX: slotX0 + plotW + 0.012,
+    };
+}
 
 const traces = [];
 const shapes = [];
@@ -353,7 +374,7 @@ subplotLeads.forEach((lead, i) => {
     };
 
     const leadBuckets = [...byKey.values()]
-        .filter(b => b.lead === lead)
+        .filter(b => b.lead === lead && shouldPlotForecast(b.forecast))
         .sort((a, b) => a.forecast.localeCompare(b.forecast));
     const bandScores = leadBandExpectedCells(leadBuckets, evalForecast);
     const midX = (domain.x[0] + domain.x[1]) / 2;

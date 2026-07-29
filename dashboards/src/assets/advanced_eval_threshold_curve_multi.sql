@@ -13,22 +13,41 @@ WITH cell_avgs AS (
       MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),
       MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)
     ) AS metric_avg,
-    COALESCE(
-      LEAST(
-        MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
+    -- In 'both' mode PostgreSQL LEAST() ignores NULLs, so a missing forecast
+    -- side would otherwise fall back to obs-only percent_good and look like a
+    -- real (bad) score. Require both sides; otherwise leave null so the lead drops out.
+    CASE
+      WHEN '${source}' = 'both' THEN
+        CASE
+          WHEN MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END) IS NOT NULL
+           AND MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END) IS NOT NULL
+          THEN LEAST(
+            MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
+            MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
+          )
+          ELSE NULL
+        END
+      WHEN '${source}' = 'obs' THEN
+        MAX(CASE WHEN source = 'obs' THEN percent_good_year_avg END)
+      ELSE
         MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
-      ),
-      MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
-      MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
-    ) AS percent_good_avg,
-    COALESCE(
-      LEAST(
-        MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
+    END AS percent_good_avg,
+    CASE
+      WHEN '${source}' = 'both' THEN
+        CASE
+          WHEN MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END) IS NOT NULL
+           AND MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END) IS NOT NULL
+          THEN LEAST(
+            MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
+            MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
+          )
+          ELSE NULL
+        END
+      WHEN '${source}' = 'obs' THEN
+        MAX(CASE WHEN source = 'obs' THEN percent_good_members_year_avg END)
+      ELSE
         MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
-      ),
-      MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
-      MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
-    ) AS percent_good_members_avg,
+    END AS percent_good_members_avg,
     AVG(event_count_year_sum) AS event_count_avg
   FROM (
     SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source,
@@ -40,7 +59,7 @@ WITH cell_avgs AS (
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
       AND $region IN (${region_option})
-      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}')
+      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('obs', 'both')
     GROUP BY forecast, $region, lead_day, lat, lon
@@ -56,7 +75,7 @@ WITH cell_avgs AS (
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
       AND $region IN (${region_option})
-      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}')
+      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('forecast', 'both')
     GROUP BY forecast, $region, lead_day, lat, lon
@@ -79,22 +98,41 @@ WITH cell_avgs AS (
       MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),
       MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)
     ) AS metric_avg,
-    COALESCE(
-      LEAST(
-        MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
+    -- In 'both' mode PostgreSQL LEAST() ignores NULLs, so a missing forecast
+    -- side would otherwise fall back to obs-only percent_good and look like a
+    -- real (bad) score. Require both sides; otherwise leave null so the lead drops out.
+    CASE
+      WHEN '${source}' = 'both' THEN
+        CASE
+          WHEN MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END) IS NOT NULL
+           AND MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END) IS NOT NULL
+          THEN LEAST(
+            MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
+            MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
+          )
+          ELSE NULL
+        END
+      WHEN '${source}' = 'obs' THEN
+        MAX(CASE WHEN source = 'obs' THEN percent_good_year_avg END)
+      ELSE
         MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
-      ),
-      MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
-      MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
-    ) AS percent_good_avg,
-    COALESCE(
-      LEAST(
-        MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
+    END AS percent_good_avg,
+    CASE
+      WHEN '${source}' = 'both' THEN
+        CASE
+          WHEN MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END) IS NOT NULL
+           AND MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END) IS NOT NULL
+          THEN LEAST(
+            MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
+            MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
+          )
+          ELSE NULL
+        END
+      WHEN '${source}' = 'obs' THEN
+        MAX(CASE WHEN source = 'obs' THEN percent_good_members_year_avg END)
+      ELSE
         MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
-      ),
-      MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
-      MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
-    ) AS percent_good_members_avg,
+    END AS percent_good_members_avg,
     AVG(event_count_year_sum) AS event_count_avg
   FROM (
     SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source,
@@ -106,7 +144,7 @@ WITH cell_avgs AS (
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
       AND $region IN (${region_option})
-      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}')
+      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('obs', 'both')
     GROUP BY forecast, $region, lead_day, lat, lon
@@ -122,7 +160,7 @@ WITH cell_avgs AS (
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
       AND $region IN (${region_option})
-      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}')
+      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('forecast', 'both')
     GROUP BY forecast, $region, lead_day, lat, lon
@@ -145,22 +183,41 @@ WITH cell_avgs AS (
       MAX(CASE WHEN source = 'obs'  THEN metric_year_avg END),
       MAX(CASE WHEN source = 'fcst' THEN metric_year_avg END)
     ) AS metric_avg,
-    COALESCE(
-      LEAST(
-        MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
+    -- In 'both' mode PostgreSQL LEAST() ignores NULLs, so a missing forecast
+    -- side would otherwise fall back to obs-only percent_good and look like a
+    -- real (bad) score. Require both sides; otherwise leave null so the lead drops out.
+    CASE
+      WHEN '${source}' = 'both' THEN
+        CASE
+          WHEN MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END) IS NOT NULL
+           AND MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END) IS NOT NULL
+          THEN LEAST(
+            MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
+            MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
+          )
+          ELSE NULL
+        END
+      WHEN '${source}' = 'obs' THEN
+        MAX(CASE WHEN source = 'obs' THEN percent_good_year_avg END)
+      ELSE
         MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
-      ),
-      MAX(CASE WHEN source = 'obs'  THEN percent_good_year_avg END),
-      MAX(CASE WHEN source = 'fcst' THEN percent_good_year_avg END)
-    ) AS percent_good_avg,
-    COALESCE(
-      LEAST(
-        MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
+    END AS percent_good_avg,
+    CASE
+      WHEN '${source}' = 'both' THEN
+        CASE
+          WHEN MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END) IS NOT NULL
+           AND MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END) IS NOT NULL
+          THEN LEAST(
+            MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
+            MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
+          )
+          ELSE NULL
+        END
+      WHEN '${source}' = 'obs' THEN
+        MAX(CASE WHEN source = 'obs' THEN percent_good_members_year_avg END)
+      ELSE
         MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
-      ),
-      MAX(CASE WHEN source = 'obs'  THEN percent_good_members_year_avg END),
-      MAX(CASE WHEN source = 'fcst' THEN percent_good_members_year_avg END)
-    ) AS percent_good_members_avg,
+    END AS percent_good_members_avg,
     AVG(event_count_year_sum) AS event_count_avg
   FROM (
     SELECT forecast, $region, lead_day, lat, lon, 'obs' AS source,
@@ -172,7 +229,7 @@ WITH cell_avgs AS (
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
       AND $region IN (${region_option})
-      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}')
+      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('obs', 'both')
     GROUP BY forecast, $region, lead_day, lat, lon
@@ -188,7 +245,7 @@ WITH cell_avgs AS (
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
       AND $region IN (${region_option})
-      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}')
+      AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('forecast', 'both')
     GROUP BY forecast, $region, lead_day, lat, lon
@@ -225,7 +282,8 @@ SELECT
   points_total::double precision AS points_total,
   '${informative_cutoff}'::double precision AS informative_cutoff,
   '${actionable_cutoff}'::double precision AS actionable_cutoff,
-  -- Forces panel refresh when Eval forecast changes; also read by Plotly script.
-  '${eval_forecast}' AS eval_forecast
+  -- Forces panel refresh when Eval/Baseline forecast changes; also read by Plotly script.
+  '${eval_forecast}' AS eval_forecast,
+  '${baseline_forecast}' AS baseline_forecast
 FROM per_forecast
 ORDER BY forecast, lead_day, cell_threshold

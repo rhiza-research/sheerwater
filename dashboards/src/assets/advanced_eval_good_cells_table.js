@@ -84,6 +84,14 @@ const VIEW_CONFIG = {
         decimals: 1,
         colorByFractionOfTotal: true,
     },
+    days_beyond_baseline: {
+        title: 'Days Beyond Baseline',
+        mode: 'days_beyond',
+        higherIsBetter: true,
+        filterNullForecasts: false,
+        asPercent: false,
+        decimals: 0,
+    },
 };
 
 function resolveTableView(series) {
@@ -102,6 +110,10 @@ function resolveTableView(series) {
         'AUC Actionable': 'auc_actionable',
         'Area Under Curve Actionable': 'auc_actionable',
         'Expected Actionable': 'auc_actionable',
+        days_beyond_baseline: 'days_beyond_baseline',
+        'Days Beyond Baseline': 'days_beyond_baseline',
+        'Actionable days': 'days_beyond_baseline',
+        'Informative days': 'days_beyond_baseline',
         // Legacy aliases from older View values
         good_enough_cells: 'auc',
         'Good Enough Cells': 'auc',
@@ -159,7 +171,255 @@ function formatDelta(raw, climRaw, { asPercent = false } = {}) {
     return `${sign}${d.toFixed(2)}`;
 }
 
+function formatDaysBeyond(v) {
+    if (v == null || !Number.isFinite(v)) return '—';
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v.toFixed(0)}`;
+}
+
+function resolveBaselineForecast(knownForecasts, series) {
+    const fromSql = getField(series?.fields || [], 'baseline_forecast');
+    const raw = (fromSql.length ? fromSql[0] : null) ?? getVar('baseline_forecast');
+    const candidate = Array.isArray(raw) ? (raw[0] ?? null) : (raw || null);
+    if (candidate == null || candidate === '') {
+        return pickClimatologyForecast(knownForecasts, getVar('truth'));
+    }
+    const s = String(candidate);
+    if (knownForecasts.includes(s)) return s;
+    const lower = s.toLowerCase();
+    for (const f of knownForecasts) {
+        if (titleCase(f).toLowerCase() === lower) return f;
+        if (f.toLowerCase() === lower) return f;
+    }
+    return s;
+}
+
+/** Σ (forecast − baseline) × lead_day over leads with usable data for both.
+ * Leads with no non-null percent_good cells (points_total == 0) are omitted from
+ * the maps below, so they drop out — no zero-fill penalty (e.g. ENS weeks 3–4).
+ */
+function daysBeyondForForecast(bandByLead, baseByLead, leads) {
+    let sum = 0;
+    let n = 0;
+    for (const lead of leads) {
+        const ev = bandByLead?.[lead];
+        const base = baseByLead?.[lead];
+        if (ev == null || !Number.isFinite(ev) || base == null || !Number.isFinite(base)) {
+            continue;
+        }
+        sum += (ev - base) * lead;
+        n += 1;
+    }
+    return n > 0 ? sum : null;
+}
+
+function buildDaysBeyondTable(series, regionLabel, domain) {
+    const fieldNames = series.fields.map(f => f.name);
+    if (fieldNames.indexOf('forecast') < 0 || fieldNames.indexOf('lead_day') < 0) {
+        return null;
+    }
+
+    const forecastField = series.fields[fieldNames.indexOf('forecast')].values;
+    const leadDayField = series.fields[fieldNames.indexOf('lead_day')].values;
+    const actField = getField(series.fields, 'auc_actionable');
+    const infoField = getField(series.fields, 'auc_informative');
+    const pointsTotalField = getField(series.fields, 'points_total');
+
+    const actMap = {};
+    const infoMap = {};
+    for (let i = 0; i < forecastField.length; i++) {
+        const f = forecastField[i];
+        const ld = Number(leadDayField[i]);
+        if (!Number.isFinite(ld)) continue;
+        // points_total = COUNT(percent_good). 0/null ⇒ no forecast eval at this lead
+        // (SQL may still emit auc=0 from an all-null curve — do not treat as a real score).
+        const pts = pointsTotalField.length ? Number(pointsTotalField[i]) : NaN;
+        if (!(pts > 0)) continue;
+
+        if (!actMap[f]) actMap[f] = {};
+        if (!infoMap[f]) infoMap[f] = {};
+        const act = actField[i];
+        const info = infoField[i];
+        if (act != null && Number.isFinite(Number(act))) actMap[f][ld] = Number(act);
+        if (info != null && Number.isFinite(Number(info))) infoMap[f][ld] = Number(info);
+    }
+
+    const allForecasts = [...new Set(forecastField)];
+    const baselineForecast = resolveBaselineForecast(allForecasts, series);
+    if (!baselineForecast || !actMap[baselineForecast]) {
+        return {
+            empty: true,
+            climNote: '',
+            uniqueLeadDays: [],
+        };
+    }
+
+    const allLeads = [7, 14, 21, 28];
+    const baseAct = actMap[baselineForecast] || {};
+    const baseInfo = infoMap[baselineForecast] || {};
+
+    // Rows: selected forecasts (and eval if present); keep baseline labeled.
+    let uniqueForecasts = allForecasts.filter(f => {
+        if (f === baselineForecast) return true;
+        const actDays = daysBeyondForForecast(actMap[f], baseAct, allLeads);
+        const infoDays = daysBeyondForForecast(infoMap[f], baseInfo, allLeads);
+        return actDays != null || infoDays != null;
+    });
+
+    // Prefer showing non-baseline first, baseline last.
+    uniqueForecasts = [
+        ...uniqueForecasts.filter(f => f !== baselineForecast).sort(),
+        ...uniqueForecasts.filter(f => f === baselineForecast),
+    ];
+
+    if (uniqueForecasts.length === 0) {
+        return { empty: true, climNote: '', uniqueLeadDays: [] };
+    }
+
+    const columns = [
+        { key: 'actionable', label: 'Actionable days', leads: allLeads, band: 'act' },
+        { key: 'informative', label: 'Informative days', leads: allLeads, band: 'info' },
+    ];
+
+    const rowValues = {};
+    for (const f of uniqueForecasts) {
+        if (f === baselineForecast) {
+            rowValues[f] = { actionable: 0, informative: 0 };
+        } else {
+            rowValues[f] = {
+                actionable: daysBeyondForForecast(actMap[f], baseAct, allLeads),
+                informative: daysBeyondForForecast(infoMap[f], baseInfo, allLeads),
+            };
+        }
+    }
+
+    const bestIdxByCol = {};
+    for (const col of columns) {
+        let bestIdx = -1;
+        let bestRaw = null;
+        uniqueForecasts.forEach((f, idx) => {
+            if (f === baselineForecast) return;
+            const raw = rowValues[f]?.[col.key];
+            if (raw == null || isNaN(raw)) return;
+            if (bestRaw == null || raw > bestRaw) {
+                bestRaw = raw;
+                bestIdx = idx;
+            }
+        });
+        bestIdxByCol[col.key] = bestIdx;
+    }
+
+    const maxAbsByCol = {};
+    for (const col of columns) {
+        let maxAbs = 0;
+        for (const f of uniqueForecasts) {
+            if (f === baselineForecast) continue;
+            const raw = rowValues[f]?.[col.key];
+            if (raw != null && Number.isFinite(raw)) {
+                maxAbs = Math.max(maxAbs, Math.abs(raw));
+            }
+        }
+        maxAbsByCol[col.key] = maxAbs;
+    }
+
+    const forecastNames = uniqueForecasts.map(f => {
+        const name = titleCase(f);
+        return f === baselineForecast ? `${name} (baseline)` : name;
+    });
+    const values = [forecastNames];
+    const ratios = [];
+    const fontWeights = [uniqueForecasts.map(() => 'normal')];
+    const fontColors = [uniqueForecasts.map(() => 'black')];
+
+    for (const col of columns) {
+        const colVals = [];
+        const ratioCol = [];
+        const weightCol = [];
+        const colorCol = [];
+        uniqueForecasts.forEach((f, idx) => {
+            const raw = rowValues[f]?.[col.key];
+            const isBest = bestIdxByCol[col.key] === idx;
+            weightCol.push(isBest ? 'bold' : 'normal');
+            colorCol.push(isBest ? '#0b3d1f' : 'black');
+
+            if (raw == null || !Number.isFinite(raw)) {
+                colVals.push('—');
+                ratioCol.push(null);
+                return;
+            }
+
+            let label = formatDaysBeyond(raw);
+            if (f === baselineForecast) {
+                label = '0';
+            }
+            if (isBest) label = `★ ${label}`;
+            colVals.push(label);
+
+            const maxAbs = maxAbsByCol[col.key];
+            // Map [-maxAbs, maxAbs] → [0, 1] with 0.5 at zero for diverging heatmap.
+            ratioCol.push(maxAbs > 0 ? 0.5 + 0.5 * (raw / maxAbs) : 0.5);
+        });
+        values.push(colVals);
+        ratios.push(ratioCol);
+        fontWeights.push(weightCol);
+        fontColors.push(colorCol);
+    }
+
+    const forecast_colors = uniqueForecasts.map(() => 'rgba(0,0,0,0)');
+    const skill_colors = ratios.map(ratioCol =>
+        ratioCol.map(v => (v == null ? 'rgba(255,255,255,0)' : getThresholdColor(v)))
+    );
+
+    const header = [`Forecast · ${regionLabel}`, ...columns.map(c => c.label)];
+    const align = ['left', 'center', 'center'];
+    const colWidth = [1.6, 1.0, 1.0];
+    const tableFont = '"IBM Plex Sans", "Source Sans 3", "Segoe UI", system-ui, sans-serif';
+    const climNote = ` · vs ${titleCase(baselineForecast)} · Δ×{7,14,21,28}`;
+
+    return {
+        empty: false,
+        regionLabel,
+        climNote,
+        daysBeyond: true,
+        trace: {
+            type: 'table',
+            domain,
+            header: {
+                values: header,
+                align,
+                line: { width: 0, color: 'rgba(0,0,0,0)' },
+                font: {
+                    family: tableFont,
+                    size: 12,
+                    weight: 600,
+                    color: '#3f3f46',
+                },
+                fill: { color: ['rgba(244,245,245,1)'] },
+                height: 30,
+            },
+            cells: {
+                values,
+                align,
+                line: { width: 0.5, color: 'rgba(219,221,222,0.85)' },
+                font: {
+                    family: tableFont,
+                    size: 12,
+                    color: fontColors,
+                    weight: fontWeights,
+                },
+                fill: { color: [forecast_colors, ...skill_colors] },
+                height: 30,
+            },
+            columnwidth: colWidth,
+            name: regionLabel,
+        },
+    };
+}
+
 function buildRegionTable(series, regionLabel, tableView, view, domain, mapLinks) {
+    if (view.mode === 'days_beyond') {
+        return buildDaysBeyondTable(series, regionLabel, domain);
+    }
     const fieldNames = series.fields.map(f => f.name);
     if (fieldNames.indexOf('forecast') < 0 || fieldNames.indexOf('lead_day') < 0) {
         return null;
