@@ -188,12 +188,13 @@ def _single_comparison(test_case, overwrite_gold_testing=False):
         return ds_new, None, 2
 
     # Get the metric name
-    mn = list(ds_new.data_vars)[0]
+    mn = ds_new.attrs.get('metric_name') or list(ds_new.data_vars)[0]
 
     # Both datasets exist (same compare structure as archive)
     new_data = ds_new[mn].compute()
     old_data = ds_old[mn].compute()
 
+    print(f"Comparing variable: {mn}")
     print(f"New function result shape: {new_data.shape}")
     print(f"Old function result shape: {old_data.shape}")
     nmin, nmax, nmean = float(new_data.min()), float(new_data.max()), float(new_data.mean())
@@ -303,6 +304,16 @@ METRIC_TEST_CASES = [
     {"name": "32_far_10_soft", "forecast": "ecmwf_ifs_er_debiased",
         "metric_name": "far-10", "variable": "precip", "spatial": True,
         "metric_kwargs": {"soft_margin_in_days": 10}},
+    # Advanced metrics with good thresholds (percent_good of underlying score)
+    {"name": "33_big_rain_days_good_threshold", "forecast": "ecmwf_ifs_er",
+        "metric_name": "big_rain_days-thresh-0.30", "spatial": True, "agg_days": 1,
+        "truth": "imerg_final", "region": "western_africa"},
+    {"name": "34_in_season_dry_spell_good_threshold", "forecast": "ecmwf_ifs_er",
+        "metric_name": "in_season_dry_spell-thresh-20.0", "spatial": True, "agg_days": 1,
+        "truth": "imerg_final", "region": "western_africa"},
+    {"name": "35_early_season_accumulation_30d_good_threshold", "forecast": "ecmwf_ifs_er",
+        "metric_name": "early_season_accumulation-30d-thresh-30.0", "spatial": True, "agg_days": 1,
+        "truth": "imerg_final", "region": "western_africa"},
 ]
 
 

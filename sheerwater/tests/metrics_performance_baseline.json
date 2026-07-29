@@ -1,97 +1,137 @@
 {
   "1_mae_global": {
-    "cold_sec": 34.539395,
-    "warm_full_sec": 9.107803,
-    "warm_metric_only_sec": 9.188847
+    "cold_sec": 28.77384,
+    "warm_full_sec": 11.803978,
+    "warm_metric_only_sec": 12.240772
   },
   "2_mae_spatial": {
-    "cold_sec": 44.594088,
-    "warm_full_sec": 17.068042,
-    "warm_metric_only_sec": 16.600686
+    "cold_sec": 28.10949,
+    "warm_full_sec": 21.619191,
+    "warm_metric_only_sec": 21.205213
   },
   "3_seeps": {
-    "cold_sec": 89.743961,
-    "warm_full_sec": 9.446674,
-    "warm_metric_only_sec": 9.380093
+    "cold_sec": 79.607385,
+    "warm_full_sec": 87.680091,
+    "warm_metric_only_sec": 21.610939
   },
   "4_heidke": {
-    "cold_sec": 120.303791,
-    "warm_full_sec": 10.835265,
-    "warm_metric_only_sec": 10.545875
+    "cold_sec": 60.165328,
+    "warm_full_sec": 13.118955,
+    "warm_metric_only_sec": 12.654117
   },
   "5_acc": {
-    "cold_sec": 35.70929,
-    "warm_full_sec": 14.993616,
-    "warm_metric_only_sec": 13.651454
+    "cold_sec": 37.640427,
+    "warm_full_sec": 15.783319,
+    "warm_metric_only_sec": 15.512168
   },
   "6_time_None": {
-    "cold_sec": 16.471496,
-    "warm_full_sec": 10.718902,
-    "warm_metric_only_sec": 11.129291
+    "cold_sec": 17.141273,
+    "warm_full_sec": 12.671914,
+    "warm_metric_only_sec": 12.491284
   },
   "7_time_month": {
-    "cold_sec": 19.164161,
-    "warm_full_sec": 12.837232,
-    "warm_metric_only_sec": 13.338879
+    "cold_sec": 18.827571,
+    "warm_full_sec": 14.664307,
+    "warm_metric_only_sec": 14.853786
   },
   "8_time_year": {
-    "cold_sec": 16.363433,
-    "warm_full_sec": 12.217652,
-    "warm_metric_only_sec": 12.140613
+    "cold_sec": 20.085523,
+    "warm_full_sec": 14.581406,
+    "warm_metric_only_sec": 14.430405
   },
   "9_space_None": {
-    "cold_sec": 16.338473,
-    "warm_full_sec": 10.295094,
-    "warm_metric_only_sec": 10.824534
+    "cold_sec": 12.909307,
+    "warm_full_sec": 12.064533,
+    "warm_metric_only_sec": 12.59673
   },
   "10_space_country": {
-    "cold_sec": 17.399573,
-    "warm_full_sec": 12.477726,
-    "warm_metric_only_sec": 12.041019
+    "cold_sec": 17.853073,
+    "warm_full_sec": 14.515776,
+    "warm_metric_only_sec": 14.43989
   },
   "11_global0_25": {
-    "cold_sec": 61.709225,
-    "warm_full_sec": 32.6031,
-    "warm_metric_only_sec": 31.391185
+    "cold_sec": 58.663957,
+    "warm_full_sec": 26.387313,
+    "warm_metric_only_sec": 23.335797
   },
   "12_pod_global": {
-    "cold_sec": 43.961572,
-    "warm_full_sec": 10.407438,
-    "warm_metric_only_sec": 10.74438
+    "cold_sec": 47.989445,
+    "warm_full_sec": 12.773135,
+    "warm_metric_only_sec": 12.843921
   },
   "13_pod_spatial": {
-    "cold_sec": 25.052859,
-    "warm_full_sec": 16.376748,
-    "warm_metric_only_sec": 16.026196
+    "cold_sec": 30.748046,
+    "warm_full_sec": 18.282606,
+    "warm_metric_only_sec": 18.027729
   },
   "14_pod_global0_25": {
-    "cold_sec": 130.390039,
-    "warm_full_sec": 39.859675,
-    "warm_metric_only_sec": 19.704615
+    "cold_sec": 203.408131,
+    "warm_full_sec": 24.693535,
+    "warm_metric_only_sec": 24.740505
   },
   "15_crps": {
-    "cold_sec": 183.473252,
-    "warm_full_sec": 48.007562,
-    "warm_metric_only_sec": 52.320525
+    "cold_sec": 249.959209,
+    "warm_full_sec": 59.695772,
+    "warm_metric_only_sec": 57.404333
   },
   "16_big_rain_days": {
-    "cold_sec": 60.973616,
-    "warm_full_sec": 18.655363,
-    "warm_metric_only_sec": 18.722859
+    "cold_sec": 42.227589,
+    "warm_full_sec": 25.366174,
+    "warm_metric_only_sec": 23.702637
   },
   "17_in_season_dry_spell": {
-    "cold_sec": 85.058157,
-    "warm_full_sec": 18.628355,
-    "warm_metric_only_sec": 18.4285
+    "cold_sec": 49.512859,
+    "warm_full_sec": 25.757072,
+    "warm_metric_only_sec": 24.636594
   },
   "18_early_season_accumulation_30d": {
-    "cold_sec": 119.984556,
-    "warm_full_sec": 18.443707,
-    "warm_metric_only_sec": 18.126922
+    "cold_sec": 85.486679,
+    "warm_full_sec": 24.309913,
+    "warm_metric_only_sec": 24.482827
   },
   "19_pod_global_soft": {
-    "cold_sec": 61.641973,
-    "warm_full_sec": 10.437805,
-    "warm_metric_only_sec": 10.673968
+    "cold_sec": 57.331453,
+    "warm_full_sec": 13.600646,
+    "warm_metric_only_sec": 13.348454
+  },
+  "20_big_rain_days_probabilistic": {
+    "cold_sec": 46.821692,
+    "warm_full_sec": 25.673335,
+    "warm_metric_only_sec": 25.83623
+  },
+  "21_in_season_dry_spell_probabilistic": {
+    "cold_sec": 35.454016,
+    "warm_full_sec": 27.294006,
+    "warm_metric_only_sec": 25.426002
+  },
+  "22_early_season_accumulation_30d_probabilistic": {
+    "cold_sec": 45.943246,
+    "warm_full_sec": 24.692215,
+    "warm_metric_only_sec": 25.030303
+  },
+  "23_mae_probabilistic": {
+    "cold_sec": 407.316327,
+    "warm_full_sec": 54.817901,
+    "warm_metric_only_sec": 43.90745
+  },
+  "25_big_rain_days_good_threshold": {
+    "cold_sec": 49.343971,
+    "warm_full_sec": 26.837988,
+    "warm_metric_only_sec": 26.399348
+  },
+  "27_early_season_accumulation_30d_good_threshold": {
+    "cold_sec": 107.151647,
+    "warm_full_sec": 34.259808,
+    "warm_metric_only_sec": 39.141035
+  },
+  "26_in_season_dry_spell_good_threshold": {
+    "cold_sec": 60.5488,
+    "warm_full_sec": 26.055216,
+    "warm_metric_only_sec": 25.303571
+  },
+  "28_in_season_dry_spell_deterministic": {
+    "cold_sec": 55.990956,
+    "warm_full_sec": 33.38552,
+    "warm_metric_only_sec": 35.274113
   }
 }

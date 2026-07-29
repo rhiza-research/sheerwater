@@ -3,6 +3,7 @@
 Run only performance tests: pytest -m performance -v -s
 Exclude from default runs: pytest -m "not performance"
 Run a specific case with -k: pytest -m performance -v -s -k "1" or -k "mae_global" or -k "acc"
+Run probabilistic advanced metrics: pytest -m performance -v -s -k "probabilistic"
 
 Each test runs three times: (1) cold with full recompute, (2) warm with full recompute,
 (3) warm with recompute only on metric (statistic from cache). Results and baseline
@@ -10,6 +11,9 @@ comparisons are printed; timings written to metrics_performance_baseline.json.
 
 On subsequent runs, current timings are compared to the baseline and the file is
 updated with the latest run.
+
+Cases 20–22 exercise advanced agricultural metrics on ensemble forecasts via
+metric_kwargs={"prob_type": "probabilistic"} (per-member deterministic scores).
 """
 import json
 import time
@@ -217,6 +221,7 @@ PERFORMANCE_TEST_CASES = [
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
     {"name": "15_crps", "metric_name": "crps", "variable": "precip",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    # Advanced metrics with deterministic forecasts
     {"name": "16_big_rain_days", "metric_name": "big_rain_days",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
         "time_grouping": "year",
@@ -231,6 +236,48 @@ PERFORMANCE_TEST_CASES = [
         "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
     {"name": "19_pod_global_soft", "grid": "global1_5", "metric_name": "pod-5",
      "metric_kwargs": {"soft_margin_in_days": 10}},
+    # Advanced metrics with ensemble forecasts (per-member deterministic scores).
+    {"name": "20_big_rain_days_probabilistic", "metric_name": "big_rain_days",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "21_in_season_dry_spell_probabilistic", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "22_early_season_accumulation_30d_probabilistic",
+        "metric_name": "early_season_accumulation-30d",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "23_mae_probabilistic",
+        "metric_name": "mae",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "24_crps_probabilistic",
+        "metric_name": "crps",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "start_time": "2016-01-01", "end_time": "2016-12-31"},
+    # Advanced metrics with good thresholds
+    {"name": "25_big_rain_days_good_threshold", "metric_name": "big_rain_days-thresh-0.30",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "26_in_season_dry_spell_good_threshold", "metric_name": "in_season_dry_spell-thresh-20.0",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "27_early_season_accumulation_30d_good_threshold",
+        "metric_name": "early_season_accumulation-30d-thresh-30.0",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    # Deterministic event-based performance test
+    {"name": "28_in_season_dry_spell_deterministic", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
 ]
 
 

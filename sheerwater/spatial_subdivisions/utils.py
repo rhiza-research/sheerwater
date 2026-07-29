@@ -15,7 +15,8 @@ from sheerwater.utils import get_grid, check_bases, is_station_grid
 import warnings
 from rasterio.errors import ShapeSkipWarning
 
-from .spatial_subdivisions import (spatial_subdivisions, get_spatial_subdivision_level,
+from .spatial_subdivisions import (spatial_subdivisions,
+                                   get_spatial_subdivision_level,
                                    clean_spatial_subdivision_name, space_grouping_labels)
 
 
@@ -104,8 +105,7 @@ def clip_region(ds, region, grid, coords_to_clip=None, drop=True):
         region_ds = region_ds.rename({'region': '_clip_region'})
         # This would improve the performance by dropping grid points that are not in the region
         # but it requires some thinking about caching, etc., so we're leaving it out for now.
-        # ds = ds.where((region_ds._clip_region.compute() == region_str), drop=True)
-        ds = ds.where((region_ds._clip_region == region_str), drop=False)
+        ds = ds.where((region_ds._clip_region.compute() == region_str), drop=drop)
         ds = ds.drop_vars('_clip_region')
 
     # restore coordinate variables to coordinates.
@@ -230,9 +230,6 @@ def clip_with_mask(ds, region_df, drop=True):
     # first filter to the bounding box of the region
     lon_min, lat_min, lon_max, lat_max = polygon.bounds
     bmask = (lon2d >= lon_min) & (lon2d <= lon_max) & (lat2d >= lat_min) & (lat2d <= lat_max)
-
-    # then filter to the precise polygon
-    # use NumPy; lazy xarray breaks Shapely and needs tricky re-alignment
     mask.values[bmask.values] = shapely.intersects_xy(polygon, lon2d.values[bmask.values], lat2d.values[bmask.values])
 
     # in a nonuniform grid, automatic dropping gets rid of interior slices in a way that leads

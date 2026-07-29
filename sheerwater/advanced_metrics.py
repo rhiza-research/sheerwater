@@ -1,5 +1,19 @@
 """Advanced metrics for agricultural applications."""
+import copy
 import warnings
+
+
+def _with_input_metric_kwargs(metric_kwargs, input_metric_kwargs=None):
+    """Merge caller overrides onto experiment defaults.
+
+    Always returns a new dict (deep-copying input) so later in-place updates —
+    densify/pre_filter, Metric storing metric_kwargs by reference, etc. — cannot
+    mutate the caller's kwargs across job iterations.
+    """
+    merged = copy.deepcopy(metric_kwargs)
+    if input_metric_kwargs:
+        merged.update(copy.deepcopy(input_metric_kwargs))
+    return merged
 
 
 def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
@@ -54,17 +68,18 @@ def get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs=Non
         'by_percent': by_percent,
         'detect_in_time': {'detect': 'first', 'time_grouping': time_grouping}
     }
-    metric_kwargs = {
+    metric_kwargs = _with_input_metric_kwargs({
         'obs_filter': True,
         'forecast_filter': False,
         'densify': True
-    }
+    }, input_metric_kwargs)
     event = 'accumulated_rain'
     agg_days = int(experiment.split('-')[-1][:-1])
     event_kwargs = {
         'agg_days': agg_days,
         'align': 'right',
     }
+
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
@@ -91,28 +106,21 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
     drying_day_threshold_mm = 15.0  # sum over drying_day_agg_in_days
     drying_day_agg_in_days = 10
 
-    if input_metric_kwargs is not None:
-        metric_kwargs = input_metric_kwargs.copy()
-        if input_metric_kwargs['forecast_filter'] and not input_metric_kwargs['obs_filter']:
-            # Filtering on forecast → evaluate observed rain
-            metric = 'obsvalue'
-            metric_kwargs.update({'densify': True})
-            metric_kwargs.update({'pre_filter': True})
-        elif input_metric_kwargs['obs_filter'] and not input_metric_kwargs['forecast_filter']:
-            # Filtering on observations → evaluate forecast rain
-            metric = 'forecastvalue'
-            metric_kwargs.update({'densify': True})
-            metric_kwargs.update({'pre_filter': True})
-        else:
-            raise ValueError("Either forecast_filter or obs_filter must be True.")
-    else:
+    metric_kwargs = _with_input_metric_kwargs({
+        'obs_filter': True,
+        'forecast_filter': False,
+        'pre_filter': True,
+        'densify': True,
+    }, input_metric_kwargs)
+    # Experiment requires densify + pre_filter regardless of caller overrides.
+    metric_kwargs.update({'densify': True, 'pre_filter': True})
+
+    if metric_kwargs['forecast_filter'] and not metric_kwargs['obs_filter']:
+        metric = 'obsvalue'
+    elif metric_kwargs['obs_filter'] and not metric_kwargs['forecast_filter']:
         metric = 'forecastvalue'
-        metric_kwargs = {
-            'obs_filter': True,
-            'forecast_filter': False,
-            'pre_filter': True,
-            'densify': True
-        }
+    else:
+        raise ValueError("Exactly one of forecast_filter or obs_filter must be True.")
 
     # Baseline filter down to the pre-sesason
     pre_filter_event = 'initial_growing_period'
@@ -133,11 +141,14 @@ def get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs=None)
         'drying_day_threshold_mm': drying_day_threshold_mm,
         'drying_day_agg_in_days': drying_day_agg_in_days,
     }
+
+    # Compare accumulated rain on the right-aligned window over the past 30 days
     event = 'accumulated_rain'
     event_kwargs = {
         'agg_days': drying_day_agg_in_days,
         'align': 'right',
     }
+
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
@@ -157,17 +168,51 @@ def get_big_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # n
         'threshold': big_rain_threshold_mm,
         'align': 'center',
     }
-    metric_kwargs = {
+    metric_kwargs = _with_input_metric_kwargs({
         'obs_filter': True,
         'forecast_filter': False,
         'densify': True
-    }
+    }, input_metric_kwargs)
     event = 'accumulated_rain'
     event_kwargs = {
         'agg_days': big_rain_margin_in_days,
         'align': 'center',
     }
 
+    return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
+
+
+def get_extreme_rain_days_kwargs(experiment, region, input_metric_kwargs=None):  # noqa: ARG001
+    """Extreme rain days according to the quantile ranks of the data source."""
+    # Configure the big rain thresholds.
+    extreme_rain_threshold_quantile = 0.90
+    extreme_rain_agg_days = 1
+    extreme_rain_margin_in_days = 5
+
+    # Compute the SMAPE of the forecasted rain during the big rain days
+    metric = 'smape'
+    # Filter on a specific threshhold of seasonal accumulation.
+    filter_event = 'quantile_extremes'
+    filter_event_kwargs = {
+        'threshold': extreme_rain_threshold_quantile,
+        'first_year': 1998,
+        'last_year': 2025,
+        'data_source': 'imerg_final',
+        'agg_days': extreme_rain_agg_days,
+        'n_quantiles': 20,
+    }
+    # Detect the first time the accumulation threshold is reached in the observation.
+    metric_kwargs = {
+        'obs_filter': True,
+        'forecast_filter': False,
+        'densify': True
+    }
+    # Compare accumulated rain on the right-aligned window over the past 30 days
+    event = 'accumulated_rain'
+    event_kwargs = {
+        'agg_days': extreme_rain_margin_in_days,
+        'align': 'center',
+    }
     return metric, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs
 
 
@@ -180,12 +225,12 @@ def get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs=None):  # 
     metric = 'pod'
     filter_event = None
     filter_event_kwargs = {}
-    metric_kwargs = {
+    metric_kwargs = _with_input_metric_kwargs({
         'obs_filter': False,
         'forecast_filter': False,
         'soft_margin_in_days': rain_margin_in_days,
         'densify': True
-    }
+    }, input_metric_kwargs)
     event = 'above_threshold'
     event_kwargs = {
         'agg_days': rain_agg_days,
@@ -206,11 +251,11 @@ def get_dry_spells_kwargs(experiment, region, input_metric_kwargs=None):  # noqa
         'threshold': dry_spell_threshold_mm,
         'align': 'right'
     }
-    metric_kwargs = {
+    metric_kwargs = _with_input_metric_kwargs({
         'obs_filter': True,
         'forecast_filter': False,
         'densify': True
-    }
+    }, input_metric_kwargs)
     event = 'accumulated_rain'
     event_kwargs = {
         'agg_days': dry_spell_agg_days,
@@ -228,12 +273,12 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
     metric = 'pod'
     filter_event = None
     filter_event_kwargs = {}
-    metric_kwargs = {
+    metric_kwargs = _with_input_metric_kwargs({
         'obs_filter': False,
         'forecast_filter': False,
         'soft_margin_in_days': margin_in_days,
         'densify': True
-    }
+    }, input_metric_kwargs)
     event = 'below_threshold'
     event_kwargs = {
         'agg_days': dry_day_agg_days,
@@ -243,26 +288,43 @@ def get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs=None):  #
 
 
 def get_experiment_kwargs(experiment, region, input_metric_kwargs=None):
-    """Return metric configurations needed to run an advanced agricultural metric."""
-    if 'season_accumulation' in experiment:
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_seasonal_accumulation_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'in_season_dry_spell':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_in_season_dry_spell_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'big_rain_days':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_big_rain_days_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'rain_days_soft':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_rain_days_soft_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'dry_spells':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spells_kwargs(experiment, region, input_metric_kwargs)
-    elif experiment == 'dry_spells_soft':
-        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
-            get_dry_spells_soft_kwargs(experiment, region, input_metric_kwargs)
+    """Returns metrics configruations needed to run an advanced agricultural metric."""
+    # Enable actionable thresholds for advanced metrics if the metric name is passed in the form
+    # 'metric-thresh-<value>', e.g. 'big_rain_days-thresh-0.30' or
+    # 'early_season_accumulation-30d-thresh-30'. If set, the metric evaluates the passing
+    # fraction of the underlying score (value must be a plain float, no unit suffix).
+    if '-thresh-' in experiment:
+        experiment_name = experiment.split('-thresh-')[0]
+        good_threshold = float(experiment.split('-thresh-')[1])
     else:
-        raise ValueError(f"Experiment {experiment} not supported.")
+        experiment_name = experiment
+        good_threshold = None
+
+    if 'season_accumulation' in experiment_name:
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_seasonal_accumulation_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'in_season_dry_spell':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_in_season_dry_spell_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'big_rain_days':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_big_rain_days_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'extreme_rain_days':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_extreme_rain_days_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'rain_days_soft':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_rain_days_soft_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'dry_spells':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_dry_spells_kwargs(experiment_name, region, input_metric_kwargs)
+    elif experiment_name == 'dry_spells_soft':
+        metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs = \
+            get_dry_spells_soft_kwargs(experiment_name, region, input_metric_kwargs)
+    else:
+        raise ValueError(f"Experiment {experiment_name} not supported.")
+
+    if good_threshold is not None:
+        metric_kwargs['good_threshold'] = good_threshold
 
     return metric_name, metric_kwargs, event, event_kwargs, filter_event, filter_event_kwargs

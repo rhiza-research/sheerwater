@@ -49,8 +49,9 @@ def ifs_ens_raw(start_time, end_time, variable='precip', prob_type='deterministi
         ds[variable] = ds[variable] * 1000.0
         ds[variable].attrs.update(units='mm')
         ds[variable] = np.maximum(ds[variable], 0)
-        # Since we are getting the 24 hr precip variable
-        ds = ds.where(ds.prediction_timedelta.dt.hour == 0, drop=True)
+        # Since we are getting the 24 hr precip variable, keep daily leads only.
+        hours = ds.prediction_timedelta.values / np.timedelta64(1, 'h')
+        ds = ds.isel(prediction_timedelta=(hours % 24 == 0))
     elif variable == 'ssrd':
         ds[variable].attrs.update(units='Joules/m^2')
         ds[variable] = np.maximum(ds[variable], 0)

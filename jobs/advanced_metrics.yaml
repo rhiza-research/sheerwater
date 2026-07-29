@@ -25,36 +25,57 @@ advanced_forecast_metrics:
     grid: ['global1_5']
   obs_only:
     region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
-    time_grouping: ['None', 'year']
-    metric_name: ['early_season_accumulation-30d']
-    metric_kwargs:
-      - obs_filter: true
-        forecast_filter: false
-  obs_only_bimodal:
-    region: ['africa_bimodal_season'] 
-    time_grouping: ['two_seasons']
-    metric_name: ['early_season_accumulation-30d']
+    time_grouping: ['year']
+    metric_name: ['early_season_accumulation-30d-thresh-30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
   fcst_obs:
     region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
-    time_grouping: ['None', 'year']
-    metric_name: ['in_season_dry_spell', 'big_rain_days']
+    time_grouping: ['year']
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
       - obs_filter: false
         forecast_filter: true
-  fcst_obs_bimodal:
-    region: ['africa_bimodal_season'] 
-    time_grouping: ['two_seasons']
-    metric_name: ['in_season_dry_spell', 'big_rain_days']
+advanced_forecast_metrics_probabilistic:
+  function: metric
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecast:
+      - climatology_era5_1985_2015
+      - climatology_imerg_1998_2016
+      - ecmwf_ifs_er
+      - ecmwf_ifs_ens
+      - cumulus_ai
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    spatial: true
+    variable: ['precip']
+    grid: ['global1_5']
+  obs_only:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['year']
+    metric_name: ['early_season_accumulation-30d-thresh-30']
     metric_kwargs:
       - obs_filter: true
         forecast_filter: false
+        prob_type: 'probabilistic'
+  fcst_obs:
+    region: ['africa_bimodal_season', 'africa_unimodal_season', 'africa_unimodal_shifted_season']
+    time_grouping: ['year']
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+        prob_type: 'probabilistic'
       - obs_filter: false
         forecast_filter: true
+        prob_type: 'probabilistic'
 advanced_forecast_metric_maps:
   function: forecast_metric_map
   _all:
