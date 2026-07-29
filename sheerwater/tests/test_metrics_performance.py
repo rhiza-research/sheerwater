@@ -8,6 +8,8 @@ Run probabilistic advanced metrics: pytest -m performance -v -s -k "probabilisti
 Each test runs three times: (1) cold with full recompute, (2) warm with full recompute,
 (3) warm with recompute only on metric (statistic from cache). Results and baseline
 comparisons are printed; timings written to metrics_performance_baseline.json.
+Cluster bring-up is handled in the remote_dask_cluster fixture (wait for workers +
+warmup task) so cold timings exclude Coiled/Dask startup.
 
 On subsequent runs, current timings are compared to the baseline and the file is
 updated with the latest run.
@@ -254,8 +256,7 @@ PERFORMANCE_TEST_CASES = [
         "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
         "metric_kwargs": {"prob_type": "probabilistic"}},
     {"name": "23_mae_probabilistic",
-        "metric_name": "mae",
-        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "metric_name": "mae", "variable": "precip",
         "metric_kwargs": {"prob_type": "probabilistic"}},
     # Advanced metrics with good thresholds
     {"name": "25_big_rain_days_good_threshold", "metric_name": "big_rain_days-thresh-0.30",

@@ -1,8 +1,8 @@
 {
   "1_mae_global": {
-    "cold_sec": 73.293233,
-    "warm_full_sec": 13.920954,
-    "warm_metric_only_sec": 11.422823
+    "cold_sec": 28.269621,
+    "warm_full_sec": 12.542049,
+    "warm_metric_only_sec": 19.338294
   },
   "2_mae_spatial": {
     "cold_sec": 26.62622,
@@ -110,9 +110,9 @@
     "warm_metric_only_sec": 20.069453
   },
   "23_mae_probabilistic": {
-    "cold_sec": 870.940924,
-    "warm_full_sec": 49.031825,
-    "warm_metric_only_sec": 50.830992
+    "cold_sec": 174.397585,
+    "warm_full_sec": 13.41035,
+    "warm_metric_only_sec": 13.282912
   },
   "25_big_rain_days_good_threshold": {
     "cold_sec": 26.552403,
