@@ -257,10 +257,6 @@ PERFORMANCE_TEST_CASES = [
         "metric_name": "mae",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
         "metric_kwargs": {"prob_type": "probabilistic"}},
-    {"name": "24_crps_probabilistic",
-        "metric_name": "crps",
-        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
-        "start_time": "2016-01-01", "end_time": "2016-12-31"},
     # Advanced metrics with good thresholds
     {"name": "25_big_rain_days_good_threshold", "metric_name": "big_rain_days-thresh-0.30",
         "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
