@@ -1,8 +1,9 @@
 name: Performance testing
 
 # Expensive suite: run via workflow_dispatch on a non-main branch.
-# On success, commits baseline timings onto that branch for review + re-approve.
-# Merge queue still runs correctness / default tests only.
+# Commits baseline timings onto that branch even on partial failure so progress
+# from completed cases is not lost. Merge queue still runs correctness / default
+# tests only.
 
 on:
   workflow_dispatch:
@@ -54,6 +55,7 @@ jobs:
       run: uv run coiled login --token ${{ secrets.COILED_API_TOKEN }}
 
     - name: Run tests
+      id: pytest
       run: |
         mkdir -p coverage
         uv run pytest -m performance \
@@ -62,8 +64,11 @@ jobs:
           --cov-report=xml:coverage/coverage.xml \
           --cov-report=term
 
+    # Completed cases write timings as they finish; commit even if the suite
+    # fails or times out later so partial progress is retained on the branch.
     - name: Commit baseline to branch
       id: baseline
+      if: always()
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -75,7 +80,13 @@ jobs:
           exit 0
         fi
 
-        git commit -m "Update metrics performance baseline"
+        if [ "${{ steps.pytest.outcome }}" = "success" ]; then
+          msg="Update metrics performance baseline"
+        else
+          msg="Update metrics performance baseline (partial run)"
+        fi
+
+        git commit -m "$msg"
         git pull --rebase origin "${{ github.ref_name }}"
         git push origin "HEAD:${{ github.ref_name }}"
         echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -88,7 +99,9 @@ jobs:
         path: |
           coverage/junit.xml
           coverage/coverage.xml
+          sheerwater/tests/metrics_performance_baseline.json
         retention-days: 30
+        if-no-files-found: warn
 
   # Separate job so the third-party action doesn't have access to GCS credentials
   publish-results:
