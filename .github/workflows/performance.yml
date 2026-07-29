@@ -57,7 +57,6 @@ jobs:
       run: |
         mkdir -p coverage
         uv run pytest -m performance -v -s \
-          --cluster sheerwater_performance \
           --junitxml=coverage/junit.xml \
           --cov-report=xml:coverage/coverage.xml \
           --cov-report=term
