@@ -193,7 +193,7 @@ SELECT
   forecast,
   $region,
   lead_day,
-      COUNT(CASE WHEN percent_good_avg > ${threshold}::float THEN 1 END) AS points_above_threshold,
+      COUNT(CASE WHEN percent_good_avg >= ${threshold}::float THEN 1 END) AS points_above_threshold,
   COUNT(percent_good_avg) AS points_total,
   AVG(metric_avg) AS metric_mean,
   AVG(percent_good_avg) AS percent_good_mean,

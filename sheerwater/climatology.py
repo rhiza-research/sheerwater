@@ -1,7 +1,6 @@
 """A climatology baseline forecast for benchmarking."""
-from datetime import datetime
-
 import dask
+from datetime import datetime
 import dateparser
 import numpy as np
 import pandas as pd
@@ -9,16 +8,16 @@ import xarray as xr
 from dateutil.relativedelta import relativedelta
 from nuthatch import cache
 from nuthatch.processors import timeseries
-
-from sheerwater.interfaces import forecast as sheerwater_forecast, data as sheerwater_data, spatial, get_data
 from sheerwater.reanalysis import era5
+from sheerwater.interfaces import (forecast as sheerwater_forecast,
+                                   data as sheerwater_data, spatial,
+                                   get_data)
 from sheerwater.utils import (
     add_dayofyear,
     convert_pred_time_to_init_time,
-    dask_remote,
     get_dates,
-    pad_with_leapdays,
-)
+    dask_remote, groupby_time,
+    pad_with_leapdays)
 
 
 @dask_remote
@@ -84,6 +83,39 @@ def seeps_wet_threshold(first_year=1985, last_year=2014, agg_days=7, grid='globa
 
 @dask_remote
 @spatial()
+@cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'agg_days',
+                   'time_grouping', 'n_quantiles', 'grid'],
+       backend_kwargs={'chunking': {"lat": 300, "lon": 300, "group": 20, 'quantile': 50}
+                       })
+def quantile_ranks(variable, data='imerg_final', first_year=1998, last_year=2015, agg_days=1,
+                   time_grouping=None, n_quantiles=20,
+                   grid="global1_5", mask=None, region='global'):  # noqa: ARG001
+    """Generates quantile ranks of a dataset."""
+    start_time = f"{first_year}-01-01"
+    end_time = f"{last_year}-12-31"
+
+    # Try to get a dataset for remapping
+    data_fn = get_data(data)
+    ds = data_fn(start_time, end_time, variable=variable, agg_days=agg_days, grid=grid, mask=None, region='global')
+
+    # Select only the variable of interest
+    ds = ds[[variable]]
+
+    # Add one to account for the end point in the quantile calculation
+    ranks = np.linspace(0, 1, n_quantiles+1, endpoint=True)  # Includes 1
+    ranks = np.round(ranks, 5)  # round to 5 decimal places for more stable merging
+
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = ds.chunk({"time": -1})
+    if time_grouping is not None:
+        qs = ds.groupby("group").quantile(q=ranks, dim="time", skipna=True)
+    else:
+        qs = ds.quantile(q=ranks, dim="time", skipna=True)
+    return qs
+
+
+@dask_remote
+@spatial()
 @cache(cache_args=['variable', 'first_year', 'last_year', 'grid'],
        backend_kwargs={
            'chunking': {"lat": 721, "lon": 1440, "dayofyear": 30}
@@ -110,10 +142,10 @@ def climatology_raw(variable, first_year=1985, last_year=2014, grid='global1_5',
 @spatial()
 @cache(cache_args=['variable', 'data', 'first_year', 'last_year', 'prob_type', 'agg_days', 'grid'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "dayofyear": 1000, "member": 1},
+           'chunking': {"lat": 40, "lon": 40, "dayofyear": 366, "member": 50},
            'chunk_by_arg': {
                'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, 'dayofyear': 30, 'member': 1}
+                   'global0_25': {"lat": 40, "lon": 40, 'dayofyear': 366, 'member': 50}
                }
            }
 })
@@ -138,21 +170,12 @@ def climatology_agg_raw(variable, data='era5', first_year=1985, last_year=2014,
     if prob_type == 'deterministic':
         return ds.groupby('dayofyear').mean(dim='time', skipna=True)
     elif prob_type == 'probabilistic':
-        # Otherwise, get ensemble members sampled from climatology
-        def sample_members(sub_ds, members=30):
-            doy = sub_ds.dayofyear.values[0]
-            ind = np.random.randint(0, len(sub_ds.time.values), size=(members,))
-            sub = sub_ds.isel(time=ind)
-            sub = sub.assign_coords(time=np.arange(members)).rename({'time': 'member'})
-            sub = sub.assign_coords(dayofyear=doy)
-            return sub
-
-        doys = []
-        for doy in np.unique(ds.dayofyear.values):
-            doys.append(
-                sample_members(ds.isel(time=(ds.dayofyear.values == doy))))
-        ds = xr.concat(doys, dim='dayofyear')
-        ds = ds.chunk(member=1)
+        # Each year's day-of-year trajectory is one ensemble member.
+        ds = ds.assign_coords(year=('time', ds.time.dt.year.data))
+        ds = ds.set_index(time=['year', 'dayofyear']).unstack('time')
+        ds = ds.rename({'year': 'member'})
+        ds = ds.assign_coords(member=('member', np.arange(ds.sizes['member'])))
+        ds = ds.chunk({'member': -1, 'dayofyear': -1})
         return ds
     else:
         raise ValueError(f"Unsupported prob_type: {prob_type}")
@@ -393,10 +416,10 @@ def climatology(start_time, end_time, variable, agg_days, data='era5',  # noqa: 
                 prob_type='deterministic', grid='global0_25', mask=None, region='global'):
     """Standard daily climatology between start time and end time."""
     default_years = {
-        'era5': (1990, 2019),
+        'era5': (1985, 2014),
         'imerg_final': (1998, 2015),
-        'chirps_v3': (1998, 2023),
-        'stations': (2015, 2024),
+        'chirps_v3': (1998, 2015),
+        'stations': (2012, 2015),
     }
     if first_year is None or last_year is None:
         fy, ly = default_years.get(data, (1985, 2014))
