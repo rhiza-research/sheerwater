@@ -10,6 +10,22 @@ from sheerwater.spatial_subdivisions import space_grouping_labels, clip_region
 from google.cloud import secretmanager
 
 
+_MONTH_LABELS = {
+    'M01': 'January',
+    'M02': 'February',
+    'M03': 'March',
+    'M04': 'April',
+    'M05': 'May',
+    'M06': 'June',
+    'M07': 'July',
+    'M08': 'August',
+    'M09': 'September',
+    'M10': 'October',
+    'M11': 'November',
+    'M12': 'December',
+}
+
+
 @config_parameter('password', location='root', backend='sql', secret=True)
 def postgres_write_password():
     """Get a postgres write password."""
@@ -20,6 +36,31 @@ def postgres_write_password():
     key = response.payload.data.decode("UTF-8")
 
     return key
+
+
+def _append_forecast_result(results_ds, ds, forecast):
+    """Expand a per-forecast result, normalize lead days, and merge into results."""
+    ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
+    if 'prediction_timedelta' in ds.coords:
+        lead_values = (ds.prediction_timedelta.values / np.timedelta64(1, 'D')).astype('int64')
+        ds = ds.assign_coords(prediction_timedelta=lead_values)
+        ds = ds.rename({'prediction_timedelta': 'lead_day'})
+    return results_ds.merge(ds)
+
+
+def _finalize_table_df(df, time_grouping, order):
+    """Normalize time_grouping / region columns and select output order."""
+    if 'time' in df.columns:
+        df = df.rename(columns={'time': 'time_grouping'})
+        if time_grouping == 'month_of_year':
+            df['time_grouping'] = df['time_grouping'].map(_MONTH_LABELS)
+    else:
+        df['time_grouping'] = None
+
+    if 'region' not in df.columns:
+        df['region'] = None
+
+    return df[order]
 
 
 @dask_remote
@@ -53,36 +94,22 @@ def _metric_table(start_time, end_time, variable,
             except NotImplementedError:
                 ds = None
 
+            if ds is None:
+                continue
+
             if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
-            if 'prediction_timedelta' in ds.coords:
-                table_type = 'forecast'
-            else:
-                table_type = 'ground_truth'
+            # Ground-truth tables rename the metric variable to the agg window length.
+            if 'prediction_timedelta' not in ds.coords:
+                if '-' in metric_name:
+                    met_name = metric_name.split('-')[0].lower()
+                else:
+                    met_name = metric_name.lower()
+                ds = ds.rename({met_name: agg})
 
-            if ds:
-                # Get the metric name to rename the variable
-                if table_type == 'ground_truth':
-                    if '-' in metric_name:
-                        met_name = metric_name.split('-')[0].lower()
-                    else:
-                        met_name = metric_name.lower()
-
-                    ds = ds.rename({met_name: agg})
-
-                ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
-
-                # For climatology forecasts, we need to expand the prediction_timedelta coordinate
-                if 'prediction_timedelta' in ds.coords:
-                    lead_values = ds.prediction_timedelta.values / np.timedelta64(1, 'D')
-                    lead_values = lead_values.astype('int64')
-                    ds = ds.assign_coords(prediction_timedelta=lead_values)
-                    ds = ds.rename({'prediction_timedelta': 'lead_day'})
-                # results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
-
-                results_ds = results_ds.merge(ds)
-                print(results_ds)
+            results_ds = _append_forecast_result(results_ds, ds, forecast)
+            print(results_ds)
 
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)
@@ -103,32 +130,7 @@ def _metric_table(start_time, end_time, variable,
     else:
         order = ['forecast', 'time_grouping', 'region'] + agg_days
 
-    # Reorder the columns if necessary
-    if 'time' in df.columns:
-        df = df.rename(columns={'time': 'time_grouping'})
-        if time_grouping == 'month_of_year':
-            df['time_grouping'] = df['time_grouping'].map({'M01': 'January',
-                                                           'M02': 'February',
-                                                           'M03': 'March',
-                                                           'M04': 'April',
-                                                           'M05': 'May',
-                                                           'M06': 'June',
-                                                           'M07': 'July',
-                                                           'M08': 'August',
-                                                           'M09': 'September',
-                                                           'M10': 'October',
-                                                           'M11': 'November',
-                                                           'M12': 'December'})
-
-    else:
-        df['time_grouping'] = None
-
-    if 'region' not in df.columns:
-        df['region'] = None
-
-    df = df[order]
-
-    return df
+    return _finalize_table_df(df, time_grouping, order)
 
 
 @dask_remote
@@ -233,20 +235,8 @@ def _metric_table_spatial(start_time, end_time, variable,
             if 'prediction_timedelta' in ds.coords and len(agg_days) > 1:
                 raise ValueError("Cannot run multiple aggregation days in the same table for a forecast with leads.")
 
-            if ds:
-                ds = ds.expand_dims({'forecast': [forecast]}, axis=0)
-
-            # For climatology forecasts, we need to expand the prediction_timedelta coordinate
-            if 'prediction_timedelta' in ds.coords:
-                lead_values = ds.prediction_timedelta.values / np.timedelta64(1, 'D')
-                lead_values = lead_values.astype('int64')
-                ds = ds.assign_coords(prediction_timedelta=lead_values)
-                ds = ds.rename({'prediction_timedelta': 'lead_day'})
-
-                # results_ds = xr.combine_by_coords([results_ds, ds], combine_attrs='override')
-
-                results_ds = results_ds.merge(ds)
-                print(results_ds)
+            results_ds = _append_forecast_result(results_ds, ds, forecast)
+            print(results_ds)
 
     if not time_grouping:
         results_ds = results_ds.reset_coords('time', drop=True)
@@ -278,33 +268,7 @@ def _metric_table_spatial(start_time, end_time, variable,
 
     order = order + ['region'] + space_grouping
 
-    # Reorder the columns if necessary
-    if 'time' in df.columns:
-        df = df.rename(columns={'time': 'time_grouping'})
-        if time_grouping == 'month_of_year':
-            df['time_grouping'] = df['time_grouping'].map({
-                'M01': 'January',
-                'M02': 'February',
-                'M03': 'March',
-                'M04': 'April',
-                'M05': 'May',
-                'M06': 'June',
-                'M07': 'July',
-                'M08': 'August',
-                'M09': 'September',
-                'M10': 'October',
-                'M11': 'November',
-                'M12': 'December'})
-
-    else:
-        df['time_grouping'] = None
-
-    if 'region' not in df.columns:
-        df['region'] = None
-
-    df = df[order]
-
-    return df
+    return _finalize_table_df(df, time_grouping, order)
 
 
 @dask_remote
