@@ -50,7 +50,7 @@ jobs:
       run: uv sync --all-groups --all-extras
 
     - name: Coiled Login
-      run: uv run coiled login --token ${{ secrets.COILED_API_TOKEN }}
+      run: uv run coiled login --token ${{ secrets.COILED_API_TOKEN }} --workspace sheerwater
 
     - name: Run tests
       id: pytest
