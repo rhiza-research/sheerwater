@@ -58,7 +58,11 @@ WITH cell_avgs AS (
     FROM "${unimodal_metric_name}" t
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
-      AND $region IN (${region_option})
+      AND (
+        '$__all' IN (${region_option})
+        OR '__all__' IN (${region_option})
+        OR $region IN (${region_option})
+      )
       AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('obs', 'both')
@@ -74,7 +78,11 @@ WITH cell_avgs AS (
     FROM "${unimodal_metric_fcst_name}" t
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
-      AND $region IN (${region_option})
+      AND (
+        '$__all' IN (${region_option})
+        OR '__all__' IN (${region_option})
+        OR $region IN (${region_option})
+      )
       AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('forecast', 'both')
@@ -143,7 +151,11 @@ WITH cell_avgs AS (
     FROM "${unimodal_shifted_metric_name}" t
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
-      AND $region IN (${region_option})
+      AND (
+        '$__all' IN (${region_option})
+        OR '__all__' IN (${region_option})
+        OR $region IN (${region_option})
+      )
       AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('obs', 'both')
@@ -159,7 +171,11 @@ WITH cell_avgs AS (
     FROM "${unimodal_shifted_fcst_metric_name}" t
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
-      AND $region IN (${region_option})
+      AND (
+        '$__all' IN (${region_option})
+        OR '__all__' IN (${region_option})
+        OR $region IN (${region_option})
+      )
       AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('forecast', 'both')
@@ -228,7 +244,11 @@ WITH cell_avgs AS (
     FROM "${bimodal_metric_name}" t
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
-      AND $region IN (${region_option})
+      AND (
+        '$__all' IN (${region_option})
+        OR '__all__' IN (${region_option})
+        OR $region IN (${region_option})
+      )
       AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('obs', 'both')
@@ -244,7 +264,11 @@ WITH cell_avgs AS (
     FROM "${bimodal_metric_fcst_name}" t
     WHERE
       COALESCE(time_grouping, 'None') IN (${time_option})
-      AND $region IN (${region_option})
+      AND (
+        '$__all' IN (${region_option})
+        OR '__all__' IN (${region_option})
+        OR $region IN (${region_option})
+      )
       AND (forecast IN (${forecast_option}) OR forecast = '${eval_forecast}' OR forecast = '${baseline_forecast}')
       AND lead_day IN (7, 14, 21, 28, 35, 42)
       AND '${source}' IN ('forecast', 'both')

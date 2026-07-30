@@ -92,6 +92,11 @@ function isFiniteNumber(v) {
 function formatList(raw, { empty = 'selected', max = 3 } = {}) {
     const vals = Array.isArray(raw) ? raw : (raw == null || raw === '' ? [] : [raw]);
     if (!vals.length) return empty;
+    // Grafana "All": $__all, or custom allValue (quoted for SQL: '__all__').
+    const allTokens = new Set(['$__all', '__all__', "'__all__'"]);
+    if (vals.length === 1 && allTokens.has(String(vals[0]))) {
+        return 'All';
+    }
     const names = vals.map(titleCase);
     if (names.length <= max) return names.join(', ');
     return `${names.slice(0, max).join(', ')} +${names.length - max} more`;
@@ -132,6 +137,20 @@ function formatExpectedCells(v) {
     return v.toFixed(1);
 }
 
+function formatDeltaCells(v) {
+    if (v == null || !Number.isFinite(v)) return '—';
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v.toFixed(1)}`;
+}
+
+function deltaOrNull(evalVal, baseVal) {
+    if (evalVal == null || !Number.isFinite(evalVal)
+        || baseVal == null || !Number.isFinite(baseVal)) {
+        return null;
+    }
+    return evalVal - baseVal;
+}
+
 if (!data.series || data.series.length === 0) {
     return { data: [], layout: { title: { text: 'Good cells vs cell cutoff — no data' } } };
 }
@@ -149,38 +168,24 @@ if (!thresh.length) {
     return { data: [], layout: { title: { text: 'Good cells vs cell cutoff — no data' } } };
 }
 
-// Drop forecasts with any missing/non-finite good_cells, empty cell sets, or
-// incomplete lead coverage (those show up as flat/null lines on the subplots).
-const nanForecasts = new Set();
+// Keep usable (forecast, lead) curves only. Skip bad rows — do NOT drop a whole
+// forecast because some leads are missing (ENS / short-range models).
 const allForecasts = new Set();
-for (let i = 0; i < goods.length; i++) {
-    const forecast = String(forecasts[i]);
-    allForecasts.add(forecast);
-    const pts = pointsTotals.length ? pointsTotals[i] : null;
-    if (!isFiniteNumber(goods[i])) {
-        nanForecasts.add(forecast);
-        continue;
-    }
-    if (pts != null && (!isFiniteNumber(pts) || Number(pts) <= 0)) {
-        nanForecasts.add(forecast);
-        continue;
-    }
-    // At 0% cutoff every valid cell counts; 0 good cells ⇒ no usable percent_good.
-    const xp = toPercent(thresh[i]);
-    if (xp != null && xp <= 0.0001 && Number(goods[i]) <= 0) {
-        nanForecasts.add(forecast);
-    }
-}
-
 const byKey = new Map();
 for (let i = 0; i < thresh.length; i++) {
     const forecast = String(forecasts[i]);
-    if (nanForecasts.has(forecast)) continue;
+    allForecasts.add(forecast);
     if (!isFiniteNumber(goods[i])) continue;
+    const pts = pointsTotals.length ? pointsTotals[i] : null;
+    // points_total = 0/null ⇒ no non-null percent_good at this lead (omit lead only).
+    if (pts != null && (!isFiniteNumber(pts) || Number(pts) <= 0)) continue;
     const xp = toPercent(thresh[i]);
     if (xp == null) continue;
+    // At 0% cutoff every valid cell counts; 0 good cells ⇒ unusable point.
+    if (xp <= 0.0001 && Number(goods[i]) <= 0) continue;
 
     const lead = Number(leads[i]);
+    if (!Number.isFinite(lead)) continue;
     const key = `${forecast}||${lead}`;
     if (!byKey.has(key)) {
         byKey.set(key, {
@@ -200,6 +205,12 @@ for (let i = 0; i < thresh.length; i++) {
         bucket.pointsTotal = Number(pointsTotals[i]);
     }
 }
+
+// Forecasts that had SQL rows but no usable lead curves (for the title note).
+const forecastsWithCurves = new Set([...byKey.values()].map(b => b.forecast));
+const nanForecasts = new Set(
+    [...allForecasts].filter(f => !forecastsWithCurves.has(f))
+);
 
 function resolveCutoffPct(fieldVals, varName, fallback) {
     const fromSql = fieldVals.length ? fieldVals[0] : null;
@@ -270,6 +281,10 @@ const evalForecast = resolveForecastKey(
     forecastVarCandidate('eval_forecast', 'eval_forecast'),
     keysPresentForResolve
 );
+const baselineForecast = resolveForecastKey(
+    forecastVarCandidate('baseline_forecast', 'baseline_forecast'),
+    keysPresentForResolve
+);
 
 function selectedForecastKeys() {
     const raw = getVar('forecast_option');
@@ -289,16 +304,7 @@ function shouldPlotForecast(forecast) {
     return plotSelection.has(forecast);
 }
 
-// Hide forecasts missing any of the six lead subplots (plotting only).
-for (const forecast of allForecasts) {
-    if (nanForecasts.has(forecast)) continue;
-    const missingLead = LEADS.some(ld => !byKey.has(`${forecast}||${ld}`));
-    if (missingLead) nanForecasts.add(forecast);
-}
-for (const key of [...byKey.keys()]) {
-    if (nanForecasts.has(key.split('||')[0])) byKey.delete(key);
-}
-
+// Plot each forecast on whichever leads it has; missing leads stay empty.
 const uniqueForecasts = [...new Set(
     [...byKey.values()].map(b => b.forecast).filter(shouldPlotForecast)
 )].sort();
@@ -376,10 +382,17 @@ subplotLeads.forEach((lead, i) => {
     const leadBuckets = [...byKey.values()]
         .filter(b => b.lead === lead && shouldPlotForecast(b.forecast))
         .sort((a, b) => a.forecast.localeCompare(b.forecast));
-    const bandScores = leadBandExpectedCells(leadBuckets, evalForecast);
+    // KPI boxes: eval − baseline (baseline may be absent from the plot selection).
+    const allLeadBuckets = [...byKey.values()].filter(b => b.lead === lead);
+    const evalScores = leadBandExpectedCells(allLeadBuckets, evalForecast);
+    const baseScores = leadBandExpectedCells(allLeadBuckets, baselineForecast);
+    const infoDelta = deltaOrNull(evalScores.info, baseScores.info);
+    const actDelta = deltaOrNull(evalScores.act, baseScores.act);
     const midX = (domain.x[0] + domain.x[1]) / 2;
     const midY = (domain.y[0] + domain.y[1]) / 2;
-    const evalLabel = evalForecast ? titleCase(evalForecast) : 'selected';
+    const deltaCaption = (evalForecast && baselineForecast)
+        ? `${titleCase(evalForecast)} − ${titleCase(baselineForecast)}`
+        : (evalForecast ? titleCase(evalForecast) : 'selected');
 
     annotations.push({
         text: `<b>${weekLabel(lead)}</b> · D${lead}`,
@@ -393,11 +406,11 @@ subplotLeads.forEach((lead, i) => {
         font: { size: 12, color: '#27272a' },
     });
 
-    // Final KPIs for Eval forecast, stacked beside the plot.
+    // Final KPIs: expected-cell deltas vs baseline, stacked beside the plot.
     annotations.push({
         text:
-            `<span style="font-size:9px;letter-spacing:0.04em">INFORMATIVE</span><br>`
-            + `<b style="font-size:18px">${formatExpectedCells(bandScores.info)}</b>`,
+            `<span style="font-size:9px;letter-spacing:0.04em">INFORMATIVE Δ</span><br>`
+            + `<b style="font-size:18px">${formatDeltaCells(infoDelta)}</b>`,
         xref: 'paper',
         yref: 'paper',
         x: domain.kpiX,
@@ -418,8 +431,8 @@ subplotLeads.forEach((lead, i) => {
     });
     annotations.push({
         text:
-            `<span style="font-size:9px;letter-spacing:0.04em">ACTIONABLE</span><br>`
-            + `<b style="font-size:18px">${formatExpectedCells(bandScores.act)}</b>`,
+            `<span style="font-size:9px;letter-spacing:0.04em">ACTIONABLE Δ</span><br>`
+            + `<b style="font-size:18px">${formatDeltaCells(actDelta)}</b>`,
         xref: 'paper',
         yref: 'paper',
         x: domain.kpiX,
@@ -439,7 +452,7 @@ subplotLeads.forEach((lead, i) => {
         },
     });
     annotations.push({
-        text: evalLabel,
+        text: deltaCaption,
         xref: 'paper',
         yref: 'paper',
         x: domain.kpiX,
@@ -552,7 +565,7 @@ const forecastTitle = formatList(
     { empty: 'selected forecasts' }
 );
 const droppedNote = nanForecasts.size
-    ? ` · hidden ${nanForecasts.size} with NaN`
+    ? ` · hidden ${nanForecasts.size} with no usable leads`
     : '';
 
 return {

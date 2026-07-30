@@ -699,6 +699,11 @@ function buildRegionTable(series, regionLabel, tableView, view, domain, mapLinks
 function formatRegions(raw) {
     const vals = Array.isArray(raw) ? raw : (raw == null || raw === '' ? [] : [raw]);
     if (!vals.length) return 'selected regions';
+    // Grafana "All": $__all, or custom allValue (quoted for SQL: '__all__').
+    const allTokens = new Set(['$__all', '__all__', "'__all__'"]);
+    if (vals.length === 1 && allTokens.has(String(vals[0]))) {
+        return 'All regions';
+    }
     const names = vals.map(v => {
         const s = String(v).replaceAll('_', ' ');
         return s.charAt(0).toUpperCase() + s.slice(1);
