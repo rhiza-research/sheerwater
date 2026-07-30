@@ -32,12 +32,22 @@ def forecast_metric_points(start_time, end_time, variable,
                            time_grouping=None, grid='global1_5',
                            region='global'):
 
+    # Match advanced_metrics: dry-spell score is forecastvalue when scoring
+    # observed events, obsvalue when scoring forecast-triggered events.
+    mk = metric_kwargs or {}
     if 'early_season_accumulation' in metric_name:
         stat = "mae"
     elif 'big_rain_days' in metric_name or 'extreme_rain_days' in metric_name:
         stat = "smape"
     elif 'in_season_dry_spell' in metric_name:
-        stat = "forecastvalue"
+        if mk.get('forecast_filter') and not mk.get('obs_filter'):
+            stat = "obsvalue"
+        elif mk.get('obs_filter') and not mk.get('forecast_filter'):
+            stat = "forecastvalue"
+        else:
+            raise ValueError(
+                "in_season_dry_spell requires exactly one of forecast_filter/obs_filter True"
+            )
     else:
         raise ValueError(f"Metric {metric_name} is not supported")
 
@@ -58,6 +68,11 @@ def forecast_metric_points(start_time, end_time, variable,
 
     # convert to dataframe
     ds = ds.drop_vars([c for c in ds.coords if c not in ds.dims])
+    if stat not in ds:
+        raise KeyError(
+            f"Expected '{stat}' in metric output for {metric_name} "
+            f"(kwargs={mk}); available: {list(ds.data_vars)}"
+        )
     # rename the statistic to "value" so it can be handled consistently in dashboard
     ds = ds[stat].rename("value")
     df = ds.to_dataframe()

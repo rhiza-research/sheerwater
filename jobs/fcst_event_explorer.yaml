@@ -5,63 +5,18 @@ event_explorer_points:
     end_time: "2024-12-31"
     variable: "precip"
     forecast:
-      - climatology_era5_1985_2015
       - climatology_imerg_1998_2016
       - ecmwf_ifs_er
       - ecmwf_ifs_er_debiased
-      - ecmwf_aifs
       - ecmwf_ifs_ens
-      - ecmwf_hres
-      - fuxi
       - gfs
-      - gencast
-      - graphcast
       - cumulus_ai
     truth: "imerg_final"
     agg_days: 1
     metric_name:
       - "big_rain_days"
       - "in_season_dry_spell"
-      - "early_season_accumulation"
-    metric_kwargs:
-      - forecast_filter: false
-        obs_filter: true
-      - forecast_filter: true
-        obs_filter: false
-    lead_days:
-      - 7
-      - 14
-      - 21
-    time_grouping: None
-    grid: "global1_5"
-    region:
-      - "western_africa"
-      - "eastern_africa"
-event_explorer_list:
-  function: event_list
-  _all:
-    start_time: "2016-01-01"
-    end_time: "2024-12-31"
-    variable: "precip"
-    forecast:
-      - climatology_era5_1985_2015
-      - climatology_imerg_1998_2016
-      - ecmwf_ifs_er
-      - ecmwf_ifs_er_debiased
-      - ecmwf_aifs
-      - ecmwf_ifs_ens
-      - ecmwf_hres
-      - fuxi
-      - gfs
-      - gencast
-      - graphcast
-      - cumulus_ai
-    truth: "imerg_final"
-    agg_days: 1
-    metric_name:
-      - "big_rain_days"
-      - "in_season_dry_spell"
-      - "early_season_accumulation"
+      - "early_season_accumulation-30d"
     metric_kwargs:
       - forecast_filter: false
         obs_filter: true
@@ -77,3 +32,102 @@ event_explorer_list:
       - "western_africa"
       - "eastern_africa"
 
+event_explorer_list:
+  function: event_list
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    variable: "precip"
+    forecast:
+      - climatology_imerg_1998_2016
+      - ecmwf_ifs_er
+      - ecmwf_ifs_er_debiased
+      - ecmwf_ifs_ens
+      - gfs
+      - cumulus_ai
+    truth: "imerg_final"
+    agg_days: 1
+    metric_name:
+      - "big_rain_days"
+      - "in_season_dry_spell"
+      - "early_season_accumulation-30d"
+    metric_kwargs:
+      - forecast_filter: false
+        obs_filter: true
+      - forecast_filter: true
+        obs_filter: false
+    lead_days:
+      - 7
+      - 14
+      - 21
+    time_grouping: None
+    grid: "global1_5"
+    region:
+      - "western_africa"
+      - "eastern_africa"
+
+# Smaller set for dashboard defaults (ECMWF IFS-ER + Cumulus, all event types).
+# 2 forecasts × 2 truths × 3 metrics × 2 filters × 3 leads × 2 regions = 144 each.
+event_explorer_points_priority:
+  function: forecast_metric_points
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    variable: "precip"
+    forecast:
+      - ecmwf_ifs_er
+      - cumulus_ai
+    truth:
+      - "imerg_final"
+      - "era5"
+    agg_days: 1
+    metric_name:
+      - "big_rain_days"
+      - "in_season_dry_spell"
+      - "early_season_accumulation-30d"
+    metric_kwargs:
+      - forecast_filter: false
+        obs_filter: true
+      - forecast_filter: true
+        obs_filter: false
+    lead_days:
+      - 7
+      - 14
+      - 21
+    time_grouping: None
+    grid: "global1_5"
+    region:
+      - "western_africa"
+      - "eastern_africa"
+
+event_explorer_list_priority:
+  function: event_list
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    variable: "precip"
+    forecast:
+      - ecmwf_ifs_er
+      - cumulus_ai
+    truth:
+      - "imerg_final"
+      - "era5"
+    agg_days: 1
+    metric_name:
+      - "big_rain_days"
+      - "in_season_dry_spell"
+      - "early_season_accumulation-30d"
+    metric_kwargs:
+      - forecast_filter: false
+        obs_filter: true
+      - forecast_filter: true
+        obs_filter: false
+    lead_days:
+      - 7
+      - 14
+      - 21
+    time_grouping: None
+    grid: "global1_5"
+    region:
+      - "western_africa"
+      - "eastern_africa"
