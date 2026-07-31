@@ -51,28 +51,38 @@ def forecast_metric_points(start_time, end_time, variable,
     else:
         raise ValueError(f"Metric {metric_name} is not supported")
 
-    # Get the metric
-    ds = metric(start_time, end_time, variable,
-                agg_days=agg_days, forecast=forecast, truth=truth,
-                metric_name=metric_name, metric_kwargs=metric_kwargs,
-                time_grouping=time_grouping, spatial=True,
-                grid=grid, region=region, recompute=False)
+    # Get the metric. Some combos are unsupported (e.g. early-season with
+    # forecast_filter on short-lead models needing 120 lead days) — skip them.
+    try:
+        ds = metric(start_time, end_time, variable,
+                    agg_days=agg_days, forecast=forecast, truth=truth,
+                    metric_name=metric_name, metric_kwargs=metric_kwargs,
+                    time_grouping=time_grouping, spatial=True,
+                    grid=grid, region=region, recompute=False)
+    except ValueError as e:
+        print(f"Skipping forecast_metric_points ({metric_name}, {forecast}, "
+              f"{region}, lead={lead_days}, kwargs={mk}): {e}")
+        return None
 
-    # Select the correct lead in days
+    # Select the correct lead in days. Some forecasts only expose a subset of
+    # leads (e.g. climatology / short-range models); skip missing ones.
     target_lead = pd.Timedelta(days=lead_days)
-    if target_lead in ds.prediction_timedelta:
+    try:
         ds = ds.sel(prediction_timedelta=target_lead)
-    else:
-        print("Lead not found in metric - returning None")
+    except KeyError:
+        available = list(pd.to_timedelta(ds.prediction_timedelta.values))
+        print(f"Lead {lead_days}d not found in metric (available={available}) "
+              f"for {forecast}/{region}/{metric_name} - returning None")
         return None
 
     # convert to dataframe
     ds = ds.drop_vars([c for c in ds.coords if c not in ds.dims])
     if stat not in ds:
-        raise KeyError(
+        print(
             f"Expected '{stat}' in metric output for {metric_name} "
-            f"(kwargs={mk}); available: {list(ds.data_vars)}"
+            f"(kwargs={mk}); available: {list(ds.data_vars)} - returning None"
         )
+        return None
     # rename the statistic to "value" so it can be handled consistently in dashboard
     ds = ds[stat].rename("value")
     df = ds.to_dataframe()
@@ -91,16 +101,28 @@ def event_list(start_time, end_time, variable,
                time_grouping=None, grid='global1_5',
                region='global'):
 
-    ds = metric_event_series(start_time, end_time, variable,
-                             agg_days=agg_days, forecast=forecast, truth=truth,
-                             metric_name=metric_name, metric_kwargs=metric_kwargs,
-                             time_grouping=time_grouping, spatial=True,
-                             grid=grid, region=region)
+    try:
+        ds = metric_event_series(start_time, end_time, variable,
+                                 agg_days=agg_days, forecast=forecast, truth=truth,
+                                 metric_name=metric_name, metric_kwargs=metric_kwargs,
+                                 time_grouping=time_grouping, spatial=True,
+                                 grid=grid, region=region)
+    except ValueError as e:
+        print(f"Skipping event_list ({metric_name}, {forecast}, "
+              f"{region}, lead={lead_days}, kwargs={metric_kwargs}): {e}")
+        return None
 
     # get the variable name of interest - we assume it is the first
     var_name = list(ds.data_vars)[0]
-    # select lead time and drop lead time dimension
-    ds = ds.sel(prediction_timedelta=pd.Timedelta(days=lead_days)).drop_vars('prediction_timedelta')
+    # Select lead; skip if this forecast does not have that lead.
+    target_lead = pd.Timedelta(days=lead_days)
+    try:
+        ds = ds.sel(prediction_timedelta=target_lead).drop_vars('prediction_timedelta')
+    except KeyError:
+        available = list(pd.to_timedelta(ds.prediction_timedelta.values))
+        print(f"Lead {lead_days}d not found in event series (available={available}) "
+              f"for {forecast}/{region}/{metric_name} - returning None")
+        return None
     ds = ds[var_name].chunk({'time': -1})
 
     # collect lists of event times and metric values
