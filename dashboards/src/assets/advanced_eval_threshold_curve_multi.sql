@@ -287,6 +287,7 @@ valid_cells AS (
   WHERE percent_good_avg IS NOT NULL
 ),
 per_forecast AS (
+  -- Pool selected regions' cells for the curve (spatial union).
   SELECT
     t.cell_threshold,
     c.lead_day,

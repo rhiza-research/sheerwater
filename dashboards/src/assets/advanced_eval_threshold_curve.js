@@ -106,41 +106,32 @@ function axisId(i, axis) {
     return i === 0 ? axis : `${axis}${i + 1}`;
 }
 
-/** Trapezoidal ∫ good_cells dθ over [loPct, hiPct] (θ as percent 0–100). */
-function integrateBand(xPct, y, loPct, hiPct) {
-    if (!(hiPct > loPct)) return null;
+/** Linear-interpolate good_cells at cutoffPct (θ as percent 0–100). */
+function valueAtCutoff(xPct, y, cutoffPct) {
+    if (cutoffPct == null || !Number.isFinite(cutoffPct)) return null;
     const pairs = xPct.map((x, i) => [Number(x), Number(y[i])])
         .filter(([x, yi]) => Number.isFinite(x) && Number.isFinite(yi))
         .sort((a, b) => a[0] - b[0]);
-    if (pairs.length < 2) return null;
-
-    let area = 0; // in good_cells · θ_fraction
+    if (!pairs.length) return null;
+    if (cutoffPct <= pairs[0][0]) return pairs[0][1];
+    if (cutoffPct >= pairs[pairs.length - 1][0]) return pairs[pairs.length - 1][1];
     for (let i = 0; i < pairs.length - 1; i++) {
         const [x0, y0] = pairs[i];
         const [x1, y1] = pairs[i + 1];
-        const left = Math.max(x0, loPct);
-        const right = Math.min(x1, hiPct);
-        if (!(right > left)) continue;
-        const t0 = x1 === x0 ? 0 : (left - x0) / (x1 - x0);
-        const t1 = x1 === x0 ? 1 : (right - x0) / (x1 - x0);
-        const yl = y0 + t0 * (y1 - y0);
-        const yr = y0 + t1 * (y1 - y0);
-        // dθ_fraction = dθ_pct / 100
-        area += 0.5 * (yl + yr) * ((right - left) / 100);
+        if (cutoffPct >= x0 && cutoffPct <= x1) {
+            if (x1 === x0) return y0;
+            const t = (cutoffPct - x0) / (x1 - x0);
+            return y0 + t * (y1 - y0);
+        }
     }
-    const width = (hiPct - loPct) / 100; // θ fraction
-    return { area, width };
-}
-
-function formatExpectedCells(v) {
-    if (v == null || !Number.isFinite(v)) return '—';
-    return v.toFixed(1);
+    return null;
 }
 
 function formatDeltaCells(v) {
     if (v == null || !Number.isFinite(v)) return '—';
     const sign = v > 0 ? '+' : '';
-    return `${sign}${v.toFixed(1)}`;
+    const n = Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1);
+    return `${sign}${n} cells`;
 }
 
 function deltaOrNull(evalVal, baseVal) {
@@ -232,18 +223,17 @@ if (mid < bandLo) {
 bandLo = Math.min(Math.max(bandLo, 0), bandHi);
 mid = Math.min(Math.max(mid, bandLo), bandHi);
 
-function leadBandExpectedCells(leadBuckets, forecastFilter) {
+function leadCutoffCells(leadBuckets, forecastFilter) {
     const buckets = forecastFilter
         ? leadBuckets.filter(b => b.forecast === String(forecastFilter))
         : leadBuckets;
     const infos = [];
     const acts = [];
     for (const b of buckets) {
-        const info = integrateBand(b.x, b.y, bandLo, mid);
-        const act = integrateBand(b.x, b.y, mid, bandHi);
-        // Expected cells = ∫ good_cells dθ / band width.
-        if (info && info.width > 0) infos.push(info.area / info.width);
-        if (act && act.width > 0) acts.push(act.area / act.width);
+        const info = valueAtCutoff(b.x, b.y, bandLo);
+        const act = valueAtCutoff(b.x, b.y, mid);
+        if (info != null && Number.isFinite(info)) infos.push(info);
+        if (act != null && Number.isFinite(act)) acts.push(act);
     }
     const mean = arr => (arr.length
         ? arr.reduce((s, v) => s + v, 0) / arr.length
@@ -384,8 +374,8 @@ subplotLeads.forEach((lead, i) => {
         .sort((a, b) => a.forecast.localeCompare(b.forecast));
     // KPI boxes: eval − baseline (baseline may be absent from the plot selection).
     const allLeadBuckets = [...byKey.values()].filter(b => b.lead === lead);
-    const evalScores = leadBandExpectedCells(allLeadBuckets, evalForecast);
-    const baseScores = leadBandExpectedCells(allLeadBuckets, baselineForecast);
+    const evalScores = leadCutoffCells(allLeadBuckets, evalForecast);
+    const baseScores = leadCutoffCells(allLeadBuckets, baselineForecast);
     const infoDelta = deltaOrNull(evalScores.info, baseScores.info);
     const actDelta = deltaOrNull(evalScores.act, baseScores.act);
     const midX = (domain.x[0] + domain.x[1]) / 2;
@@ -406,11 +396,11 @@ subplotLeads.forEach((lead, i) => {
         font: { size: 12, color: '#27272a' },
     });
 
-    // Final KPIs: expected-cell deltas vs baseline, stacked beside the plot.
+    // Final KPIs: good-cell deltas at cutoff points vs baseline.
     annotations.push({
         text:
-            `<span style="font-size:9px;letter-spacing:0.04em">INFORMATIVE Δ</span><br>`
-            + `<b style="font-size:18px">${formatDeltaCells(infoDelta)}</b>`,
+            `<span style="font-size:9px;letter-spacing:0.04em">INFORMATIVE @${Math.round(bandLo)}%</span><br>`
+            + `<b style="font-size:16px">${formatDeltaCells(infoDelta)}</b>`,
         xref: 'paper',
         yref: 'paper',
         x: domain.kpiX,
@@ -431,8 +421,8 @@ subplotLeads.forEach((lead, i) => {
     });
     annotations.push({
         text:
-            `<span style="font-size:9px;letter-spacing:0.04em">ACTIONABLE Δ</span><br>`
-            + `<b style="font-size:18px">${formatDeltaCells(actDelta)}</b>`,
+            `<span style="font-size:9px;letter-spacing:0.04em">ACTIONABLE @${Math.round(mid)}%</span><br>`
+            + `<b style="font-size:16px">${formatDeltaCells(actDelta)}</b>`,
         xref: 'paper',
         yref: 'paper',
         x: domain.kpiX,
@@ -468,62 +458,51 @@ subplotLeads.forEach((lead, i) => {
         },
     });
 
-    // Band labels inside the shaded regions
-    if (mid > bandLo + 2) {
-        annotations.push({
-            text: 'informative',
-            xref: xid,
-            yref: `${yid} domain`,
-            x: (bandLo + mid) / 2,
-            y: 0.96,
-            showarrow: false,
-            xanchor: 'center',
-            yanchor: 'top',
-            font: { size: 9, color: '#0f766e', family: '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif' },
-        });
-    }
-    if (bandHi > mid + 2) {
-        annotations.push({
-            text: 'actionable',
-            xref: xid,
-            yref: `${yid} domain`,
-            x: (mid + bandHi) / 2,
-            y: 0.96,
-            showarrow: false,
-            xanchor: 'center',
-            yanchor: 'top',
-            font: { size: 9, color: '#4d7c0f', family: '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif' },
-        });
-    }
-
+    // Narrow full-height bands marking the selected cutoff points (not whole regions).
+    const markerHalfWidth = 1.5; // percent points on the threshold axis
     shapes.push(
         {
             type: 'rect', xref: xid, yref: `${yid} domain`,
-            x0: bandLo, x1: mid, y0: 0, y1: 1,
-            fillcolor: 'rgba(20, 120, 120, 0.14)',
+            x0: Math.max(0, bandLo - markerHalfWidth),
+            x1: Math.min(100, bandLo + markerHalfWidth),
+            y0: 0, y1: 1,
+            fillcolor: 'rgba(15, 118, 110, 0.28)',
             line: { width: 0 },
             layer: 'below',
         },
         {
             type: 'rect', xref: xid, yref: `${yid} domain`,
-            x0: mid, x1: bandHi, y0: 0, y1: 1,
-            fillcolor: 'rgba(100, 110, 40, 0.14)',
+            x0: Math.max(0, mid - markerHalfWidth),
+            x1: Math.min(100, mid + markerHalfWidth),
+            y0: 0, y1: 1,
+            fillcolor: 'rgba(77, 124, 15, 0.28)',
             line: { width: 0 },
             layer: 'below',
-        },
-        {
-            type: 'line', xref: xid, yref: `${yid} domain`,
-            x0: bandLo, x1: bandLo, y0: 0, y1: 1,
-            line: { color: '#0f766e', width: 1.1, dash: 'dot' },
-            layer: 'above',
-        },
-        {
-            type: 'line', xref: xid, yref: `${yid} domain`,
-            x0: mid, x1: mid, y0: 0, y1: 1,
-            line: { color: '#18181b', width: 1.2, dash: 'dash' },
-            layer: 'above',
         }
     );
+    // Labels at the top of each band, just inside the plot (below week titles).
+    annotations.push({
+        text: '<b>informative</b>',
+        xref: xid,
+        yref: `${yid} domain`,
+        x: bandLo,
+        y: 0.97,
+        showarrow: false,
+        xanchor: 'center',
+        yanchor: 'top',
+        font: { size: 10, color: '#0f766e', family: '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif' },
+    });
+    annotations.push({
+        text: '<b>actionable</b>',
+        xref: xid,
+        yref: `${yid} domain`,
+        x: mid,
+        y: 0.97,
+        showarrow: false,
+        xanchor: 'center',
+        yanchor: 'top',
+        font: { size: 10, color: '#4d7c0f', family: '"IBM Plex Sans", "Segoe UI", system-ui, sans-serif' },
+    });
 
     leadBuckets.forEach(({ forecast, x, y }) => {
         const pairs = x.map((xi, j) => [xi, y[j]])

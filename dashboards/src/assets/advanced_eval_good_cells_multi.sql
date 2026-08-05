@@ -280,6 +280,18 @@ thresholds AS (
   SELECT (gs::double precision / 100.0) AS cell_threshold
   FROM generate_series(0, 100, 5) AS gs
 ),
+cutoffs AS (
+  SELECT
+    LEAST(
+      GREATEST(LEAST('${informative_cutoff}'::float, '${actionable_cutoff}'::float), 0.0),
+      1.0
+    ) AS info_lo,
+    LEAST(
+      GREATEST(GREATEST('${informative_cutoff}'::float, '${actionable_cutoff}'::float), 0.0),
+      1.0
+    ) AS act_lo
+),
+-- Pooled curve over all selected-region cells (for expected-cells views).
 curve AS (
   SELECT
     t.cell_threshold,
@@ -298,23 +310,7 @@ curve_auc AS (
     SUM(
       0.5 * (good_cells + next_good_cells) * (next_threshold - cell_threshold)
     ) AS auc_raw,
-    -- Informative band: [info_lo, act_lo]; actionable band: [act_lo, 1.0]
-    -- (same bands as the threshold-curve subplot shading).
-    SUM(
-      0.5 * (good_cells + next_good_cells)
-        * (LEAST(next_threshold, act_lo) - GREATEST(cell_threshold, info_lo))
-    ) FILTER (
-      WHERE LEAST(next_threshold, act_lo) > GREATEST(cell_threshold, info_lo)
-    ) AS auc_informative_raw,
-    SUM(
-      0.5 * (good_cells + next_good_cells)
-        * (LEAST(next_threshold, 1.0) - GREATEST(cell_threshold, act_lo))
-    ) FILTER (
-      WHERE LEAST(next_threshold, 1.0) > GREATEST(cell_threshold, act_lo)
-    ) AS auc_actionable_raw,
-    MAX(points_total) AS points_total,
-    MAX(info_lo) AS info_lo,
-    MAX(act_lo) AS act_lo
+    MAX(points_total) AS points_total
   FROM (
     SELECT
       forecast,
@@ -327,55 +323,122 @@ curve_auc AS (
       ) AS next_threshold,
       LEAD(good_cells) OVER (
         PARTITION BY forecast, lead_day ORDER BY cell_threshold
-      ) AS next_good_cells,
-      LEAST(
-        GREATEST(LEAST('${informative_cutoff}'::float, '${actionable_cutoff}'::float), 0.0),
-        1.0
-      ) AS info_lo,
-      LEAST(
-        GREATEST(GREATEST('${informative_cutoff}'::float, '${actionable_cutoff}'::float), 0.0),
-        1.0
-      ) AS act_lo
+      ) AS next_good_cells
     FROM curve
   ) steps
   WHERE next_threshold IS NOT NULL
   GROUP BY forecast, lead_day
 ),
+-- Good-cell counts at the Informative and Actionable cutoff points (not band averages).
 at_cutoff AS (
   SELECT
+    c.forecast,
+    c.lead_day,
+    COUNT(*) FILTER (
+      WHERE c.percent_good_avg >= k.act_lo
+    ) AS points_above_threshold,
+    COUNT(*) FILTER (
+      WHERE c.percent_good_avg >= k.info_lo
+    ) AS points_above_informative,
+    COUNT(c.percent_good_avg) AS points_total,
+    AVG(c.event_count_avg) AS event_count_mean
+  FROM cell_avgs c
+  CROSS JOIN cutoffs k
+  GROUP BY c.forecast, c.lead_day
+),
+-- Per-cell pass/fail at each cutoff point.
+cell_frac AS (
+  SELECT
+    c.forecast,
+    c.lead_day,
+    c.lat,
+    c.lon,
+    CASE WHEN c.percent_good_avg >= k.act_lo THEN 1.0 ELSE 0.0 END AS frac_actionable,
+    CASE WHEN c.percent_good_avg >= k.info_lo THEN 1.0 ELSE 0.0 END AS frac_informative
+  FROM cell_avgs c
+  CROSS JOIN cutoffs k
+  WHERE c.lead_day IN (7, 14, 21, 28)
+    AND c.percent_good_avg IS NOT NULL
+),
+-- Per-cell longest lead (days) that still meets each cutoff, then
+-- days-beyond-baseline = horizon_F − horizon_B; report avg/max over cells.
+cell_horizon AS (
+  SELECT
     forecast,
-    lead_day,
-    COUNT(CASE WHEN percent_good_avg >= '${actionable_cutoff}'::float THEN 1 END) AS points_above_threshold,
-    COUNT(percent_good_avg) AS points_total,
-    AVG(event_count_avg) AS event_count_mean
-  FROM cell_avgs
-  GROUP BY forecast, lead_day
+    lat,
+    lon,
+    COALESCE(MAX(lead_day) FILTER (WHERE frac_actionable = 1.0), 0)::double precision AS act_horizon,
+    COALESCE(MAX(lead_day) FILTER (WHERE frac_informative = 1.0), 0)::double precision AS info_horizon
+  FROM cell_frac
+  GROUP BY forecast, lat, lon
+),
+cell_days AS (
+  SELECT
+    f.forecast,
+    f.lat,
+    f.lon,
+    (f.act_horizon - b.act_horizon) AS act_days,
+    (f.info_horizon - b.info_horizon) AS info_days
+  FROM cell_horizon f
+  INNER JOIN cell_horizon b
+    ON b.forecast = '${baseline_forecast}'
+   AND b.lat = f.lat
+   AND b.lon = f.lon
+),
+cell_days_summary AS (
+  SELECT
+    forecast,
+    MIN(act_days)::double precision AS act_min,
+    AVG(act_days)::double precision AS act_avg,
+    MAX(act_days)::double precision AS act_max,
+    MIN(info_days)::double precision AS info_min,
+    AVG(info_days)::double precision AS info_avg,
+    MAX(info_days)::double precision AS info_max,
+    COUNT(*)::double precision AS n_cells
+  FROM cell_days
+  GROUP BY forecast
 )
 SELECT
   a.forecast,
   a.lead_day,
-  a.points_above_threshold,
-  a.points_total,
-  a.event_count_mean,
-  c.auc_raw::double precision AS auc_raw,
-  -- Expected cells = ∫ good_cells dθ / band width (θ ~ Uniform on the band).
-  -- points_total = 0 means no non-null percent_good (no forecast at this lead);
-  -- do not emit a spurious 0 AUC from an all-null curve.
+  a.points_above_threshold::double precision AS points_above_threshold,
+  a.points_total::double precision AS points_total,
+  a.event_count_mean::double precision AS event_count_mean,
+  CASE
+    WHEN a.points_total IS NULL OR a.points_total = 0 OR c.auc_raw IS NULL THEN NULL
+    ELSE c.auc_raw::double precision
+  END AS auc_raw,
   CASE
     WHEN a.points_total IS NULL OR a.points_total = 0 OR c.auc_raw IS NULL THEN NULL
     ELSE c.auc_raw::double precision
   END AS auc,
+  a.points_above_informative::double precision AS auc_informative,
+  a.points_above_threshold::double precision AS auc_actionable,
   CASE
-    WHEN a.points_total IS NULL OR a.points_total = 0
-         OR c.auc_informative_raw IS NULL OR c.info_lo IS NULL OR c.act_lo IS NULL
-         OR c.act_lo <= c.info_lo THEN NULL
-    ELSE (c.auc_informative_raw / (c.act_lo - c.info_lo))::double precision
-  END AS auc_informative,
+    WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
+    ELSE d.act_min
+  END AS act_min,
   CASE
-    WHEN a.points_total IS NULL OR a.points_total = 0
-         OR c.auc_actionable_raw IS NULL OR c.act_lo IS NULL OR c.act_lo >= 1.0 THEN NULL
-    ELSE (c.auc_actionable_raw / (1.0 - c.act_lo))::double precision
-  END AS auc_actionable,
+    WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
+    ELSE d.act_avg
+  END AS act_avg,
+  CASE
+    WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
+    ELSE d.act_max
+  END AS act_max,
+  CASE
+    WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
+    ELSE d.info_min
+  END AS info_min,
+  CASE
+    WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
+    ELSE d.info_avg
+  END AS info_avg,
+  CASE
+    WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
+    ELSE d.info_max
+  END AS info_max,
+  d.n_cells,
   '${gc_view}' AS table_view,
   'no' AS compare_regions,
   '${prob_type}' AS prob_type,
@@ -384,4 +447,6 @@ SELECT
 FROM at_cutoff a
 LEFT JOIN curve_auc c
   ON c.forecast = a.forecast AND c.lead_day = a.lead_day
+LEFT JOIN cell_days_summary d
+  ON d.forecast = a.forecast
 ORDER BY a.forecast, a.lead_day

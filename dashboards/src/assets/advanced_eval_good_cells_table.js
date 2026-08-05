@@ -65,7 +65,7 @@ const VIEW_CONFIG = {
         colorByFractionOfTotal: true,
     },
     auc_informative: {
-        title: 'Expected Informative',
+        title: 'Cells @ Informative',
         mode: 'value',
         field: 'auc_informative',
         higherIsBetter: true,
@@ -75,7 +75,7 @@ const VIEW_CONFIG = {
         colorByFractionOfTotal: true,
     },
     auc_actionable: {
-        title: 'Expected Actionable',
+        title: 'Cells @ Actionable',
         mode: 'value',
         field: 'auc_actionable',
         higherIsBetter: true,
@@ -177,9 +177,6 @@ function formatDaysBeyond(v) {
     return `${sign}${v.toFixed(1)}`;
 }
 
-// Spacing between weekly lead samples (7, 14, 21, 28).
-const LEAD_DELTA_DAYS = 7;
-
 function resolveBaselineForecast(knownForecasts, series) {
     const fromSql = getField(series?.fields || [], 'baseline_forecast');
     const raw = (fromSql.length ? fromSql[0] : null) ?? getVar('baseline_forecast');
@@ -197,201 +194,195 @@ function resolveBaselineForecast(knownForecasts, series) {
     return s;
 }
 
-/** Soft horizon days beyond baseline over leads with usable data for both.
+/** Days beyond baseline at cutoff points, summarized over grid cells.
  *
- * At each lead L, convert expected cells to a domain fraction
- * (expected_cells / points_total), then weight by the lead spacing ΔL (= 7d):
+ * For each cell, horizon = longest lead L ∈ {7,14,21,28} where percent_good
+ * meets the Informative / Actionable cutoff (0 if never). Days beyond baseline
+ * = horizon_F − horizon_B; the table reports the mean of that over cells.
  *
- *   days = Σ_L ((frac_F[L] − frac_B[L]) × ΔL)
- *
- * So a forecast that keeps the whole domain actionable at all four weekly leads
- * scores +28 vs a baseline of 0. Leads with no usable percent_good
- * (points_total == 0) are skipped — no zero-fill penalty (e.g. ENS weeks 3–4).
+ * Layout: forecasts as columns; two rows = Informative / Actionable.
  */
-function daysBeyondForForecast(bandByLead, baseByLead, ptsByLead, basePtsByLead, leads) {
-    let sum = 0;
-    let n = 0;
-    for (const lead of leads) {
-        const ev = bandByLead?.[lead];
-        const base = baseByLead?.[lead];
-        const pts = ptsByLead?.[lead];
-        const basePts = basePtsByLead?.[lead];
-        if (ev == null || !Number.isFinite(ev) || base == null || !Number.isFinite(base)) {
-            continue;
-        }
-        if (!(pts > 0) || !(basePts > 0)) continue;
-        sum += ((ev / pts) - (base / basePts)) * LEAD_DELTA_DAYS;
-        n += 1;
-    }
-    return n > 0 ? sum : null;
-}
-
 function buildDaysBeyondTable(series, regionLabel, domain) {
     const fieldNames = series.fields.map(f => f.name);
-    if (fieldNames.indexOf('forecast') < 0 || fieldNames.indexOf('lead_day') < 0) {
+    if (fieldNames.indexOf('forecast') < 0) {
         return null;
     }
 
     const forecastField = series.fields[fieldNames.indexOf('forecast')].values;
-    const leadDayField = series.fields[fieldNames.indexOf('lead_day')].values;
-    const actField = getField(series.fields, 'auc_actionable');
-    const infoField = getField(series.fields, 'auc_informative');
-    const pointsTotalField = getField(series.fields, 'points_total');
+    const keys = ['act_min', 'act_avg', 'act_max', 'info_min', 'info_avg', 'info_max'];
+    const fields = Object.fromEntries(keys.map(k => [k, getField(series.fields, k)]));
+    const nCellsField = getField(series.fields, 'n_cells');
 
-    const actMap = {};
-    const infoMap = {};
-    const ptsMap = {};
+    function parseNullableNumber(raw) {
+        // Important: Number(null) === 0 in JS, so treat null/undefined/'' as missing.
+        if (raw == null || raw === '') return null;
+        const v = Number(raw);
+        return Number.isFinite(v) ? v : null;
+    }
+
+    const rowValues = {};
+    const nCellsByForecast = {};
     for (let i = 0; i < forecastField.length; i++) {
         const f = forecastField[i];
-        const ld = Number(leadDayField[i]);
-        if (!Number.isFinite(ld)) continue;
-        // points_total = COUNT(percent_good). 0/null ⇒ no forecast eval at this lead
-        // (SQL may still emit auc=0 from an all-null curve — do not treat as a real score).
-        const pts = pointsTotalField.length ? Number(pointsTotalField[i]) : NaN;
-        if (!(pts > 0)) continue;
-
-        if (!actMap[f]) actMap[f] = {};
-        if (!infoMap[f]) infoMap[f] = {};
-        if (!ptsMap[f]) ptsMap[f] = {};
-        ptsMap[f][ld] = pts;
-        const act = actField[i];
-        const info = infoField[i];
-        if (act != null && Number.isFinite(Number(act))) actMap[f][ld] = Number(act);
-        if (info != null && Number.isFinite(Number(info))) infoMap[f][ld] = Number(info);
+        if (rowValues[f]) continue; // same summary on every lead row
+        const row = {};
+        for (const k of keys) {
+            row[k] = fields[k].length ? parseNullableNumber(fields[k][i]) : null;
+        }
+        rowValues[f] = row;
+        if (nCellsField.length) {
+            const n = parseNullableNumber(nCellsField[i]);
+            if (n != null) nCellsByForecast[f] = n;
+        }
     }
 
     const allForecasts = [...new Set(forecastField)];
     const baselineForecast = resolveBaselineForecast(allForecasts, series);
-    if (!baselineForecast || !actMap[baselineForecast]) {
-        return {
-            empty: true,
-            climNote: '',
-            uniqueLeadDays: [],
-        };
+    if (!baselineForecast) {
+        return { empty: true, climNote: '', uniqueLeadDays: [] };
     }
+    // Baseline is the reference: always 0 when present.
+    rowValues[baselineForecast] = Object.fromEntries(keys.map(k => [k, 0]));
 
-    const allLeads = [7, 14, 21, 28];
-    const baseAct = actMap[baselineForecast] || {};
-    const baseInfo = infoMap[baselineForecast] || {};
-    const basePts = ptsMap[baselineForecast] || {};
-
-    // Rows: selected forecasts (and eval if present); keep baseline labeled.
-    let uniqueForecasts = allForecasts.filter(f => {
-        if (f === baselineForecast) return true;
-        const actDays = daysBeyondForForecast(actMap[f], baseAct, ptsMap[f], basePts, allLeads);
-        const infoDays = daysBeyondForForecast(infoMap[f], baseInfo, ptsMap[f], basePts, allLeads);
-        return actDays != null || infoDays != null;
-    });
-
-    // Prefer showing non-baseline first, baseline last.
-    uniqueForecasts = [
-        ...uniqueForecasts.filter(f => f !== baselineForecast).sort(),
-        ...uniqueForecasts.filter(f => f === baselineForecast),
+    let uniqueForecasts = [
+        ...allForecasts.filter(f => f !== baselineForecast).sort(),
+        ...allForecasts.filter(f => f === baselineForecast),
     ];
-
-    if (uniqueForecasts.length === 0) {
+    if (!uniqueForecasts.length) {
         return { empty: true, climNote: '', uniqueLeadDays: [] };
     }
 
-    const columns = [
-        { key: 'actionable', label: 'Actionable days', leads: allLeads, band: 'act' },
-        { key: 'informative', label: 'Informative days', leads: allLeads, band: 'info' },
-    ];
-
-    const rowValues = {};
+    // Prefer a non-baseline n_cells for the title note (comparable cells).
+    let nCells = null;
     for (const f of uniqueForecasts) {
-        if (f === baselineForecast) {
-            rowValues[f] = { actionable: 0, informative: 0 };
-        } else {
-            rowValues[f] = {
-                actionable: daysBeyondForForecast(actMap[f], baseAct, ptsMap[f], basePts, allLeads),
-                informative: daysBeyondForForecast(infoMap[f], baseInfo, ptsMap[f], basePts, allLeads),
-            };
+        if (f === baselineForecast) continue;
+        if (nCellsByForecast[f] != null) {
+            nCells = nCellsByForecast[f];
+            break;
         }
     }
+    if (nCells == null) nCells = nCellsByForecast[baselineForecast] ?? null;
 
-    const bestIdxByCol = {};
-    for (const col of columns) {
+    const metrics = [
+        { key: 'info', label: 'Informative', prefix: 'info' },
+        { key: 'act', label: 'Actionable', prefix: 'act' },
+    ];
+
+    function formatAvg(row, prefix, isBaseline) {
+        if (isBaseline) return '0';
+        // No overlapping cells / no usable percent_good ⇒ dash, not 0.
+        const av = row?.[`${prefix}_avg`];
+        if (av == null) return null;
+        return formatDaysBeyond(av);
+    }
+
+    // Best forecast index per metric row (exclude baseline).
+    const bestIdxByMetric = {};
+    const maxAbsByMetric = {};
+    for (const metric of metrics) {
         let bestIdx = -1;
         let bestRaw = null;
+        let maxAbs = 0;
         uniqueForecasts.forEach((f, idx) => {
             if (f === baselineForecast) return;
-            const raw = rowValues[f]?.[col.key];
-            if (raw == null || isNaN(raw)) return;
+            const raw = rowValues[f]?.[`${metric.prefix}_avg`];
+            if (raw == null || !Number.isFinite(raw)) return;
+            maxAbs = Math.max(maxAbs, Math.abs(raw));
             if (bestRaw == null || raw > bestRaw) {
                 bestRaw = raw;
                 bestIdx = idx;
             }
         });
-        bestIdxByCol[col.key] = bestIdx;
+        bestIdxByMetric[metric.key] = bestIdx;
+        maxAbsByMetric[metric.key] = maxAbs;
     }
 
-    const maxAbsByCol = {};
-    for (const col of columns) {
-        let maxAbs = 0;
-        for (const f of uniqueForecasts) {
-            if (f === baselineForecast) continue;
-            const raw = rowValues[f]?.[col.key];
-            if (raw != null && Number.isFinite(raw)) {
-                maxAbs = Math.max(maxAbs, Math.abs(raw));
+    /** Soft-wrap a label with <br> so Plotly table headers aren't clipped. */
+    function wrapLabel(text, maxChars = 10) {
+        const words = String(text).split(/\s+/).filter(Boolean);
+        if (!words.length) return text;
+        const lines = [];
+        let line = '';
+        for (const w of words) {
+            const next = line ? `${line} ${w}` : w;
+            if (line && next.length > maxChars) {
+                lines.push(line);
+                line = w;
+            } else {
+                line = next;
             }
         }
-        maxAbsByCol[col.key] = maxAbs;
+        if (line) lines.push(line);
+        // Also break very long tokens (e.g. ECMWF…) mid-word as a last resort.
+        return lines.map(ln => {
+            if (ln.length <= maxChars + 4) return ln;
+            const chunks = [];
+            for (let i = 0; i < ln.length; i += maxChars) {
+                chunks.push(ln.slice(i, i + maxChars));
+            }
+            return chunks.join('<br>');
+        }).join('<br>');
     }
 
+    const wrapWidth = uniqueForecasts.length >= 8 ? 8 : (uniqueForecasts.length >= 5 ? 10 : 12);
     const forecastNames = uniqueForecasts.map(f => {
-        const name = titleCase(f);
-        return f === baselineForecast ? `${name} (baseline)` : name;
+        const name = wrapLabel(titleCase(f), wrapWidth);
+        return f === baselineForecast
+            ? `${name}<br><span style="font-size:10px;opacity:0.7">baseline</span>`
+            : name;
     });
-    const values = [forecastNames];
-    const ratios = [];
-    const fontWeights = [uniqueForecasts.map(() => 'normal')];
-    const fontColors = [uniqueForecasts.map(() => 'black')];
 
-    for (const col of columns) {
+    // Plotly tables are column-oriented: values[c][r].
+    const values = [metrics.map(m => m.label)];
+    const fillColors = [metrics.map(() => 'rgba(0,0,0,0)')];
+    const fontWeights = [metrics.map(() => '600')];
+    const fontColors = [metrics.map(() => '#27272a')];
+
+    uniqueForecasts.forEach((f, fIdx) => {
         const colVals = [];
         const ratioCol = [];
         const weightCol = [];
         const colorCol = [];
-        uniqueForecasts.forEach((f, idx) => {
-            const raw = rowValues[f]?.[col.key];
-            const isBest = bestIdxByCol[col.key] === idx;
+        const isBaseline = f === baselineForecast;
+        for (const metric of metrics) {
+            const row = rowValues[f];
+            const avg = row?.[`${metric.prefix}_avg`];
+            const isBest = !isBaseline && bestIdxByMetric[metric.key] === fIdx;
+            const label = formatAvg(row, metric.prefix, isBaseline);
+
+            if (label == null) {
+                colVals.push('—');
+                ratioCol.push(null);
+                weightCol.push('normal');
+                colorCol.push('black');
+                continue;
+            }
+
+            colVals.push(isBest ? `★ ${label}` : label);
             weightCol.push(isBest ? 'bold' : 'normal');
             colorCol.push(isBest ? '#0b3d1f' : 'black');
 
-            if (raw == null || !Number.isFinite(raw)) {
-                colVals.push('—');
-                ratioCol.push(null);
-                return;
-            }
-
-            let label = formatDaysBeyond(raw);
-            if (f === baselineForecast) {
-                label = '0';
-            }
-            if (isBest) label = `★ ${label}`;
-            colVals.push(label);
-
-            const maxAbs = maxAbsByCol[col.key];
-            // Map [-maxAbs, maxAbs] → [0, 1] with 0.5 at zero for diverging heatmap.
-            ratioCol.push(maxAbs > 0 ? 0.5 + 0.5 * (raw / maxAbs) : 0.5);
-        });
+            const maxAbs = maxAbsByMetric[metric.key];
+            ratioCol.push(
+                avg != null && Number.isFinite(avg) && maxAbs > 0
+                    ? 0.5 + 0.5 * (avg / maxAbs)
+                    : (isBaseline ? 0.5 : null)
+            );
+        }
         values.push(colVals);
-        ratios.push(ratioCol);
+        fillColors.push(ratioCol.map(v => (v == null ? 'rgba(255,255,255,0)' : getThresholdColor(v))));
         fontWeights.push(weightCol);
         fontColors.push(colorCol);
-    }
+    });
 
-    const forecast_colors = uniqueForecasts.map(() => 'rgba(0,0,0,0)');
-    const skill_colors = ratios.map(ratioCol =>
-        ratioCol.map(v => (v == null ? 'rgba(255,255,255,0)' : getThresholdColor(v)))
-    );
-
-    const header = [`Forecast · ${regionLabel}`, ...columns.map(c => c.label)];
-    const align = ['left', 'center', 'center'];
-    const colWidth = [1.6, 1.0, 1.0];
+    const header = [`${regionLabel}`, ...forecastNames];
+    const align = ['left', ...uniqueForecasts.map(() => 'center')];
+    const labelWidth = 1.3;
+    const forecastWidth = Math.max(0.85, 3.2 / Math.max(uniqueForecasts.length, 1));
+    const colWidth = [labelWidth, ...uniqueForecasts.map(() => forecastWidth)];
     const tableFont = '"IBM Plex Sans", "Source Sans 3", "Segoe UI", system-ui, sans-serif';
-    const climNote = ` · vs ${titleCase(baselineForecast)} · Δ×{7,14,21,28}`;
+    const nNote = nCells != null ? ` · mean over ${Math.round(nCells)} cells` : ' · mean over cells';
+    const climNote = ` · vs ${titleCase(baselineForecast)}${nNote}`;
 
     return {
         empty: false,
@@ -407,12 +398,12 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
                 line: { width: 0, color: 'rgba(0,0,0,0)' },
                 font: {
                     family: tableFont,
-                    size: 12,
+                    size: 11,
                     weight: 600,
                     color: '#3f3f46',
                 },
                 fill: { color: ['rgba(244,245,245,1)'] },
-                height: 30,
+                height: 56,
             },
             cells: {
                 values,
@@ -420,18 +411,19 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
                 line: { width: 0.5, color: 'rgba(219,221,222,0.85)' },
                 font: {
                     family: tableFont,
-                    size: 12,
+                    size: 13,
                     color: fontColors,
                     weight: fontWeights,
                 },
-                fill: { color: [forecast_colors, ...skill_colors] },
-                height: 30,
+                fill: { color: fillColors },
+                height: 36,
             },
             columnwidth: colWidth,
             name: regionLabel,
         },
     };
 }
+
 
 function buildRegionTable(series, regionLabel, tableView, view, domain, mapLinks) {
     if (view.mode === 'days_beyond') {
@@ -465,8 +457,6 @@ function buildRegionTable(series, regionLabel, tableView, view, domain, mapLinks
                 display = `${num} / ${denom}`;
             }
         } else if (view.mode === 'auc_points') {
-            // auc_raw = ∫ good_cells d(threshold) over [0,1] → mean # good cells;
-            // max possible is points_total (all cells good at every threshold).
             const num = aucRawField[i];
             const denom = pointsTotalField[i];
             if (
@@ -758,12 +748,13 @@ if (!builtA || builtA.empty) {
 }
 
 const climTitleNote = builtA.climNote || '';
+const bestNote = builtA.daysBeyond ? '★ = best in row' : '★ = best in column';
 
 return {
     data: [builtA.trace],
     layout: {
         title: {
-            text: `${view.title} — ${regionTitle}${climTitleNote} · ★ = best in column`,
+            text: `${view.title} — ${regionTitle}${climTitleNote} · ${bestNote}`,
             xanchor: 'left',
             x: 0,
             font: {
