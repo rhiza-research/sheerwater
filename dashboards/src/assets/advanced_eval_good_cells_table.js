@@ -90,7 +90,7 @@ const VIEW_CONFIG = {
         higherIsBetter: true,
         filterNullForecasts: false,
         asPercent: false,
-        decimals: 0,
+        decimals: 1,
     },
 };
 
@@ -174,8 +174,11 @@ function formatDelta(raw, climRaw, { asPercent = false } = {}) {
 function formatDaysBeyond(v) {
     if (v == null || !Number.isFinite(v)) return '—';
     const sign = v > 0 ? '+' : '';
-    return `${sign}${v.toFixed(0)}`;
+    return `${sign}${v.toFixed(1)}`;
 }
+
+// Spacing between weekly lead samples (7, 14, 21, 28).
+const LEAD_DELTA_DAYS = 7;
 
 function resolveBaselineForecast(knownForecasts, series) {
     const fromSql = getField(series?.fields || [], 'baseline_forecast');
@@ -194,20 +197,30 @@ function resolveBaselineForecast(knownForecasts, series) {
     return s;
 }
 
-/** Σ (forecast − baseline) × lead_day over leads with usable data for both.
- * Leads with no non-null percent_good cells (points_total == 0) are omitted from
- * the maps below, so they drop out — no zero-fill penalty (e.g. ENS weeks 3–4).
+/** Soft horizon days beyond baseline over leads with usable data for both.
+ *
+ * At each lead L, convert expected cells to a domain fraction
+ * (expected_cells / points_total), then weight by the lead spacing ΔL (= 7d):
+ *
+ *   days = Σ_L ((frac_F[L] − frac_B[L]) × ΔL)
+ *
+ * So a forecast that keeps the whole domain actionable at all four weekly leads
+ * scores +28 vs a baseline of 0. Leads with no usable percent_good
+ * (points_total == 0) are skipped — no zero-fill penalty (e.g. ENS weeks 3–4).
  */
-function daysBeyondForForecast(bandByLead, baseByLead, leads) {
+function daysBeyondForForecast(bandByLead, baseByLead, ptsByLead, basePtsByLead, leads) {
     let sum = 0;
     let n = 0;
     for (const lead of leads) {
         const ev = bandByLead?.[lead];
         const base = baseByLead?.[lead];
+        const pts = ptsByLead?.[lead];
+        const basePts = basePtsByLead?.[lead];
         if (ev == null || !Number.isFinite(ev) || base == null || !Number.isFinite(base)) {
             continue;
         }
-        sum += (ev - base) * lead;
+        if (!(pts > 0) || !(basePts > 0)) continue;
+        sum += ((ev / pts) - (base / basePts)) * LEAD_DELTA_DAYS;
         n += 1;
     }
     return n > 0 ? sum : null;
@@ -227,6 +240,7 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
 
     const actMap = {};
     const infoMap = {};
+    const ptsMap = {};
     for (let i = 0; i < forecastField.length; i++) {
         const f = forecastField[i];
         const ld = Number(leadDayField[i]);
@@ -238,6 +252,8 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
 
         if (!actMap[f]) actMap[f] = {};
         if (!infoMap[f]) infoMap[f] = {};
+        if (!ptsMap[f]) ptsMap[f] = {};
+        ptsMap[f][ld] = pts;
         const act = actField[i];
         const info = infoField[i];
         if (act != null && Number.isFinite(Number(act))) actMap[f][ld] = Number(act);
@@ -257,12 +273,13 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
     const allLeads = [7, 14, 21, 28];
     const baseAct = actMap[baselineForecast] || {};
     const baseInfo = infoMap[baselineForecast] || {};
+    const basePts = ptsMap[baselineForecast] || {};
 
     // Rows: selected forecasts (and eval if present); keep baseline labeled.
     let uniqueForecasts = allForecasts.filter(f => {
         if (f === baselineForecast) return true;
-        const actDays = daysBeyondForForecast(actMap[f], baseAct, allLeads);
-        const infoDays = daysBeyondForForecast(infoMap[f], baseInfo, allLeads);
+        const actDays = daysBeyondForForecast(actMap[f], baseAct, ptsMap[f], basePts, allLeads);
+        const infoDays = daysBeyondForForecast(infoMap[f], baseInfo, ptsMap[f], basePts, allLeads);
         return actDays != null || infoDays != null;
     });
 
@@ -287,8 +304,8 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
             rowValues[f] = { actionable: 0, informative: 0 };
         } else {
             rowValues[f] = {
-                actionable: daysBeyondForForecast(actMap[f], baseAct, allLeads),
-                informative: daysBeyondForForecast(infoMap[f], baseInfo, allLeads),
+                actionable: daysBeyondForForecast(actMap[f], baseAct, ptsMap[f], basePts, allLeads),
+                informative: daysBeyondForForecast(infoMap[f], baseInfo, ptsMap[f], basePts, allLeads),
             };
         }
     }
