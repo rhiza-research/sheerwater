@@ -83,7 +83,11 @@ def overwrite_gold_testing(request):
 # Scope to module so the memoizer is active throughout performance tests
 @pytest.fixture(scope='module')
 def remote_dask_cluster(request):
-    """Start a remote Dask cluster for the test session (used by metric correctness and performance tests)."""
+    """Start a remote Dask cluster for the test session (used by metric correctness and performance tests).
+
+    Waits for workers and runs a trivial task before yielding so Coiled/Dask
+    bring-up is not charged to the first timed performance test.
+    """
     from sheerwater.utils import start_remote
 
     remote_name = request.config.getoption("--cluster")
@@ -91,6 +95,14 @@ def remote_dask_cluster(request):
         remote_name=remote_name,
         remote_config=["xlarge_cluster", "xlarge_node"],
     )
+
+    # xlarge_cluster preset targets [15, 16] workers. Wait for the floor so
+    # timed tests do not include Coiled scale-up; then touch the cluster so
+    # the first real task is not paying connection setup.
+    client.wait_for_workers(n_workers=15, timeout=60 * 30)
+    client.submit(lambda: None).result()
+    client.run(lambda: None)
+
     yield
 
     # Close the client so other tests don't have to use it

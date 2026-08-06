@@ -5,6 +5,7 @@ from .metrics_tables import (
     advanced_spatial_metric_table,
     advanced_ground_truth_spatial_metric_table)
 from .metrics_maps import forecast_metric_map, ground_truth_metric_map
+from .event_explorer import forecast_metric_points, event_list
 
 from .coverage_tables import coverage_table
 
@@ -16,4 +17,6 @@ __all__ = [
     'forecast_metric_map',
     'ground_truth_metric_map',
     'coverage_table',
+    'forecast_metric_points',
+    'event_list',
 ]
