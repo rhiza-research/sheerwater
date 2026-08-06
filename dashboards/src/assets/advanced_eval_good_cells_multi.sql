@@ -368,6 +368,10 @@ cell_days AS (
     f.forecast,
     f.lat,
     f.lon,
+    COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_actionable = 1.0), 0)::double precision
+      AS act_horizon,
+    COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_informative = 1.0), 0)::double precision
+      AS info_horizon,
     (
       COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_actionable = 1.0), 0)
       - COALESCE(MAX(b.lead_day) FILTER (WHERE b.frac_actionable = 1.0), 0)
@@ -387,6 +391,8 @@ cell_days AS (
 cell_days_summary AS (
   SELECT
     forecast,
+    AVG(act_horizon)::double precision AS act_horizon_avg,
+    AVG(info_horizon)::double precision AS info_horizon_avg,
     MIN(act_days)::double precision AS act_min,
     AVG(act_days)::double precision AS act_avg,
     MAX(act_days)::double precision AS act_max,
@@ -413,6 +419,8 @@ SELECT
   END AS auc,
   a.points_above_informative::double precision AS auc_informative,
   a.points_above_threshold::double precision AS auc_actionable,
+  d.act_horizon_avg,
+  d.info_horizon_avg,
   CASE
     WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
     ELSE d.act_min
