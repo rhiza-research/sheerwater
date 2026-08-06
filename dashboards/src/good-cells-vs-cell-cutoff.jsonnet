@@ -305,8 +305,8 @@
     "list": [
       {
         "current": {
-          "text": "big_rain_days-thresh-0.30",
-          "value": "big_rain_days-thresh-0.30"
+          "text": "extreme_rain_days-thresh-0.30",
+          "value": "extreme_rain_days-thresh-0.30"
         },
         "description": "Advanced event metric. percent_good is computed against the -thresh- actionable bar in the metric name.",
         "includeAll": false,
@@ -320,11 +320,6 @@
           },
           {
             "selected": true,
-            "text": "Large rain days",
-            "value": "big_rain_days-thresh-0.30"
-          },
-          {
-            "selected": false,
             "text": "90th percentile rain",
             "value": "extreme_rain_days-thresh-0.30"
           },
@@ -334,13 +329,13 @@
             "value": "in_season_dry_spell-thresh-20"
           }
         ],
-        "query": "Early season accumulation : early_season_accumulation-30d-thresh-30, Large rain days : big_rain_days-thresh-0.30, 90th percentile rain : extreme_rain_days-thresh-0.30, In season dry spells : in_season_dry_spell-thresh-20",
+        "query": "Early season accumulation : early_season_accumulation-30d-thresh-30, 90th percentile rain : extreme_rain_days-thresh-0.30, In season dry spells : in_season_dry_spell-thresh-20",
         "type": "custom"
       },
       {
         "current": {
-          "text": "big_rain_days",
-          "value": "big_rain_days"
+          "text": "extreme_rain_days",
+          "value": "extreme_rain_days"
         },
         "definition": "SELECT split_part('${metric}', '-thresh-', 1)",
         "description": "SQL column name for the selected metric (metric name with the -thresh-\u2026 suffix removed).",
