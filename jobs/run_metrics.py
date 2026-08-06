@@ -142,23 +142,23 @@ def extract_combos_from_file(file, metric_group):
         all_combos = data['_all']
         del data['_all']
 
-    # Subsections merge on top of _all. If there are none, expand _all alone.
-    sections = data if data else {'_all': {}}
-
-    def product_dict(**kwargs):
-        keys = kwargs.keys()
-        for instance in itertools.product(*kwargs.values()):
-            yield dict(zip(keys, instance))
-
-    for key, value in sections.items():
+    for key, value in data.items():
         current_combo = copy.deepcopy(all_combos)
-        if value:
-            current_combo.update(value)
+        # print(current_combo)
+        # print(data[key])
+
+        # Update and add section-specific options
+        current_combo.update(data[key])
 
         # Anything that is a string should be turned into a list for the product
         for k, v in current_combo.items():
             if not isinstance(v, list):
                 current_combo[k] = [v]
+
+        def product_dict(**kwargs):
+            keys = kwargs.keys()
+            for instance in itertools.product(*kwargs.values()):
+                yield dict(zip(keys, instance))
 
         order = ['start_time', 'end_time', 'forecast', 'truth', 'variable',
                  'grid', 'agg_days', 'metric_name', 'space_grouping', 'time_grouping']
@@ -167,7 +167,9 @@ def extract_combos_from_file(file, metric_group):
             key: current_combo[key] for key in current_combo if key not in order
         })
 
-        combos.extend(list(product_dict(**ordered_combo)))
+        products = list(product_dict(**ordered_combo))
+
+        combos.extend(products)
 
     return function, combos
 

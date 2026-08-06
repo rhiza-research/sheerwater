@@ -58,7 +58,8 @@ const VIEW_CONFIG = {
         mode: 'value',
         field: 'auc',
         higherIsBetter: true,
-        filterNullForecasts: true,
+        // Null lead = noop (show "-"); do not drop the whole forecast.
+        filterNullForecasts: false,
         asPercent: false,
         decimals: 1,
         // Color heatmap as fraction of max cells (points_total).
@@ -69,7 +70,7 @@ const VIEW_CONFIG = {
         mode: 'value',
         field: 'auc_informative',
         higherIsBetter: true,
-        filterNullForecasts: true,
+        filterNullForecasts: false,
         asPercent: false,
         decimals: 1,
         colorByFractionOfTotal: true,
@@ -79,7 +80,7 @@ const VIEW_CONFIG = {
         mode: 'value',
         field: 'auc_actionable',
         higherIsBetter: true,
-        filterNullForecasts: true,
+        filterNullForecasts: false,
         asPercent: false,
         decimals: 1,
         colorByFractionOfTotal: true,
@@ -196,9 +197,9 @@ function resolveBaselineForecast(knownForecasts, series) {
 
 /** Days beyond baseline at cutoff points, summarized over grid cells.
  *
- * For each cell, horizon = longest lead L ∈ {7,14,21,28} where percent_good
- * meets the Informative / Actionable cutoff (0 if never). Days beyond baseline
- * = horizon_F − horizon_B; the table reports the mean of that over cells.
+ * For each cell, only leads where both F and B have non-null percent_good
+ * count (null lead = noop). Horizon = longest such lead meeting the cutoff
+ * (0 if never). Days = horizon_F − horizon_B; table reports the mean over cells.
  *
  * Layout: forecasts as columns; two rows = Informative / Actionable.
  */
@@ -488,9 +489,10 @@ function buildRegionTable(series, regionLabel, tableView, view, domain, mapLinks
     let uniqueForecasts = [...new Set(forecastField)];
     const uniqueLeadDays = [...new Set(leadDayField)].sort((a, b) => a - b);
     if (view.filterNullForecasts) {
-        // Hide a forecast if any lead is missing or null (same rule as the curve).
+        // Only drop forecasts with no usable leads at all. A null at one lead
+        // is a noop (cell shows "-"), not a reason to hide the forecast.
         uniqueForecasts = uniqueForecasts.filter(f =>
-            uniqueLeadDays.every(ld => {
+            uniqueLeadDays.some(ld => {
                 const d = dataMap[f]?.[ld];
                 return d && d.raw != null && !isNaN(d.raw);
             })

@@ -592,21 +592,6 @@ class Metric(ABC):
 
         return ds
 
-    def compute_event_series(self) -> xr.Dataset:
-        """Compute the per-event metric series (no time/space grouping).
-
-        Runs prepare_data + gather_statistics and leaves results on
-        ``self.statistic_values`` (NaN where the event filter excludes a point).
-        Used by the forecast events explorer to list individual event dates
-        and scores at each lat/lon.
-        """
-        if self.valid_variables and self.variable not in self.valid_variables:
-            raise ValueError(f"Variable {self.variable} is not valid for metric {self.name}")
-
-        self.prepare_data()
-        self.gather_statistics()
-        return self.statistic_values
-
 
 class ContingencyMetric(Metric):  # noqa: N801
     """Base class for contingency metrics, both dichotomous and multiclass."""
