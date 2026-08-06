@@ -305,8 +305,8 @@
     "list": [
       {
         "current": {
-          "text": "extreme_rain_days-thresh-0.30",
-          "value": "extreme_rain_days-thresh-0.30"
+          "text": "in_season_dry_spell-thresh-20",
+          "value": "in_season_dry_spell-thresh-20"
         },
         "description": "Advanced event metric. percent_good is computed against the -thresh- actionable bar in the metric name.",
         "includeAll": false,
@@ -319,12 +319,12 @@
             "value": "early_season_accumulation-30d-thresh-30"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "90th percentile rain",
             "value": "extreme_rain_days-thresh-0.30"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "In season dry spells",
             "value": "in_season_dry_spell-thresh-20"
           }
@@ -334,8 +334,8 @@
       },
       {
         "current": {
-          "text": "extreme_rain_days",
-          "value": "extreme_rain_days"
+          "text": "in_season_dry_spell",
+          "value": "in_season_dry_spell"
         },
         "definition": "SELECT split_part('${metric}', '-thresh-', 1)",
         "description": "SQL column name for the selected metric (metric name with the -thresh-\u2026 suffix removed).",
@@ -635,8 +635,8 @@
       },
       {
         "current": {
-          "text": "Climatology IMERG 1998-2015",
-          "value": "climatology_imerg_1998_2016"
+          "text": "ECMWF IFS ER",
+          "value": "ecmwf_ifs_er"
         },
         "definition": "SELECT DISTINCT CASE forecast\n  WHEN 'ecmwf_ifs_er' THEN 'ECMWF IFS ER'\n  WHEN 'ecmwf_ifs_ens' THEN 'ECMWF IFS ENS'\n  WHEN 'ecmwf_ifs_er_debiased' THEN 'ECMWF IFS ER Debiased'\n  WHEN 'ecmwf_aifs' THEN 'ECMWF AIFS'\n  WHEN 'ecmwf_hres' THEN 'ECMWF HRES'\n  WHEN 'gfs' THEN 'GFS'\n  WHEN 'salient' THEN 'AI-Enhanced NWP'\n  WHEN 'fuxi' THEN 'FuXi S2S'\n  WHEN 'graphcast' THEN 'GraphCast'\n  WHEN 'gencast' THEN 'GenCast'\n  WHEN 'climatology_2015' THEN 'Climatology 1985-2014'\n  WHEN 'climatology_trend_2015' THEN 'Climatology 1985-2014 w/Trend'\n  WHEN 'climatology_era5_1985_2015' THEN 'Climatology ERA5 1985-2014'\n  WHEN 'climatology_imerg_1998_2016' THEN 'Climatology IMERG 1998-2015'\n  WHEN 'cumulus_ai' THEN 'Cumulus AI v0.0.0'\n  ELSE initcap(replace(forecast, '_', ' '))\nEND\n AS __text, forecast AS __value\nFROM \"${unimodal_metric_name}\" WHERE lead_day IN (7, 14, 21, 28, 35, 42)\nUNION\nSELECT DISTINCT CASE forecast\n  WHEN 'ecmwf_ifs_er' THEN 'ECMWF IFS ER'\n  WHEN 'ecmwf_ifs_ens' THEN 'ECMWF IFS ENS'\n  WHEN 'ecmwf_ifs_er_debiased' THEN 'ECMWF IFS ER Debiased'\n  WHEN 'ecmwf_aifs' THEN 'ECMWF AIFS'\n  WHEN 'ecmwf_hres' THEN 'ECMWF HRES'\n  WHEN 'gfs' THEN 'GFS'\n  WHEN 'salient' THEN 'AI-Enhanced NWP'\n  WHEN 'fuxi' THEN 'FuXi S2S'\n  WHEN 'graphcast' THEN 'GraphCast'\n  WHEN 'gencast' THEN 'GenCast'\n  WHEN 'climatology_2015' THEN 'Climatology 1985-2014'\n  WHEN 'climatology_trend_2015' THEN 'Climatology 1985-2014 w/Trend'\n  WHEN 'climatology_era5_1985_2015' THEN 'Climatology ERA5 1985-2014'\n  WHEN 'climatology_imerg_1998_2016' THEN 'Climatology IMERG 1998-2015'\n  WHEN 'cumulus_ai' THEN 'Cumulus AI v0.0.0'\n  ELSE initcap(replace(forecast, '_', ' '))\nEND\n AS __text, forecast AS __value\nFROM \"${unimodal_shifted_metric_name}\" WHERE lead_day IN (7, 14, 21, 28, 35, 42)\nUNION\nSELECT DISTINCT CASE forecast\n  WHEN 'ecmwf_ifs_er' THEN 'ECMWF IFS ER'\n  WHEN 'ecmwf_ifs_ens' THEN 'ECMWF IFS ENS'\n  WHEN 'ecmwf_ifs_er_debiased' THEN 'ECMWF IFS ER Debiased'\n  WHEN 'ecmwf_aifs' THEN 'ECMWF AIFS'\n  WHEN 'ecmwf_hres' THEN 'ECMWF HRES'\n  WHEN 'gfs' THEN 'GFS'\n  WHEN 'salient' THEN 'AI-Enhanced NWP'\n  WHEN 'fuxi' THEN 'FuXi S2S'\n  WHEN 'graphcast' THEN 'GraphCast'\n  WHEN 'gencast' THEN 'GenCast'\n  WHEN 'climatology_2015' THEN 'Climatology 1985-2014'\n  WHEN 'climatology_trend_2015' THEN 'Climatology 1985-2014 w/Trend'\n  WHEN 'climatology_era5_1985_2015' THEN 'Climatology ERA5 1985-2014'\n  WHEN 'climatology_imerg_1998_2016' THEN 'Climatology IMERG 1998-2015'\n  WHEN 'cumulus_ai' THEN 'Cumulus AI v0.0.0'\n  ELSE initcap(replace(forecast, '_', ' '))\nEND\n AS __text, forecast AS __value\nFROM \"${bimodal_metric_name}\" WHERE lead_day IN (7, 14, 21, 28, 35, 42)\nORDER BY 1",
         "description": "Comparator for days-beyond-baseline longest-lead horizons (mean over grid cells).",
