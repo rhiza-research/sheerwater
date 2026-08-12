@@ -1,13 +1,17 @@
 local bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js = importstr './assets/bfd145p7u3jlse-multimap-forecast-evaluation-call-function.js';
 local bfd145p7u3jlse_multimap_forecast_evaluation_params_js = importstr './assets/bfd145p7u3jlse-multimap-forecast-evaluation-params.js';
+local bt_after_ready_imports_js = importstr './assets/bt_after_ready_imports.js';
+local bt_shared_preload_exports_js = importstr './assets/bt_shared_preload_exports.js';
 local color_utilities_js = importstr './assets/color_utilities.js';
 local maplibre_map_builder_js = importstr './assets/maplibre-map-builder.js';
 local maplibre_multimap_layout_js = importstr './assets/maplibre-multimap-layout.js';
 local maplibre_multimap_orchestration_js = importstr './assets/maplibre-multimap-orchestration.js';
 local maplibre_singlemap_orchestration_js = importstr './assets/maplibre-singlemap-orchestration.js';
 local metrics_utilities_js = importstr './assets/metrics_utilities.js';
+local params_maplibre_maps_js = importstr './assets/params_maplibre_maps.js';
 local terracotta_dataset_utilities_js = importstr './assets/terracotta_dataset_utilities.js';
 local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.js';
+local vars_utilities_js = importstr './assets/vars_utilities.js';
 
 {
   "annotations": {
@@ -62,7 +66,7 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
       },
       "id": 9,
       "options": {
-        "afterRender": bfd145p7u3jlse_multimap_forecast_evaluation_params_js + maplibre_map_builder_js + time_grouping_utilities_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js,
+        "afterRender": bt_after_ready_imports_js + bfd145p7u3jlse_multimap_forecast_evaluation_params_js + bfd145p7u3jlse_multimap_forecast_evaluation_call_function_js,
         "content": "<div id=\"map-container\" style=\"height:900px\" />",
         "contentPartials": [],
         "defaultContent": "",
@@ -71,10 +75,11 @@ local time_grouping_utilities_js = importstr './assets/time_grouping_utilities.j
           "language": "html"
         },
         "editors": [
-          "afterRender"
+          "afterRender",
+          "helpers"
         ],
         "externalStyles": [],
-        "helpers": "",
+        "helpers": vars_utilities_js + params_maplibre_maps_js + maplibre_map_builder_js + time_grouping_utilities_js + metrics_utilities_js + color_utilities_js + terracotta_dataset_utilities_js + maplibre_singlemap_orchestration_js + maplibre_multimap_orchestration_js + maplibre_multimap_layout_js + bt_shared_preload_exports_js,
         "renderMode": "data",
         "styles": "",
         "wrap": true
