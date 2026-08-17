@@ -17,7 +17,8 @@ from sheerwater.utils import dask_remote, groupby_region, groupby_time
                    'event', 'event_kwargs', 'filter_event', 'filter_event_kwargs',
                    'time_grouping', 'space_grouping', 'spatial', 'grid', 'mask', 'region'],
        backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300, 'prediction_timedelta': -1},
+           'chunking': {"lat": 121, "lon": 240, "time": 100, 'region': 300,
+                        'prediction_timedelta': -1, 'member': -1},
            'chunk_by_arg': {
                'grid': {
                    'global0_25': {"lat": 721, "lon": 1440, "time": 30}
@@ -31,9 +32,18 @@ def metric(start_time, end_time, variable, forecast, truth,
            time_grouping=None, space_grouping=None,
            spatial=False, grid="global1_5", mask='lsm', region='global',
            memoize_forecast=True, memoize_truth=True):
-    """Compute a grouped metric for a forecast at a specific lead."""
+    """Compute a grouped metric for a forecast at a specific lead with event count.
+
+    Returns:
+        A dataframe with variables
+        - metric_name: the name of the metric, specfied under the attribute 'metric_name'
+        - event_count: the number of events
+        - percent_good (optional): the percentage of events for which a good threshold was met
+        - percent_good_members (optional): the percentage of ensemble members for which a good threshold was met
+    """
     # Use the metric registry to get the metric class
-    metric_obj = metric_factory(metric_name, metric_kwargs=metric_kwargs,
+    metric_obj = metric_factory(metric_name,
+                                metric_kwargs=metric_kwargs,
                                 event=event,
                                 event_kwargs=event_kwargs,
                                 filter_event=filter_event,
@@ -127,4 +137,4 @@ def station_coverage(start_time=None, end_time=None, variable='precip', agg_days
     return data
 
 
-__all__ = ['metric']
+__all__ = ['metric', 'station_coverage']

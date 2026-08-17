@@ -276,7 +276,10 @@ def chirps_v2(start_time=None, end_time=None, variable='precip', agg_days=1,  # 
 @dask_remote
 @sheerwater_data()
 @cache(cache=False, cache_args=['variable', 'agg_days', 'event', 'event_kwargs', 'processors', 'processor_kwargs',
-                                'grid', 'mask', 'region'])
+                                'grid', 'mask', 'region'],
+       backend_kwargs={
+           'chunking': {'lat': 300, 'lon': 300, 'time': 365}
+       })
 def chirps_v3(start_time=None, end_time=None, variable='precip', agg_days=1,  # noqa: ARG001
               event=None, event_kwargs=None,  # noqa: ARG001
               processors=None, processor_kwargs=None,  # noqa: ARG001

@@ -1,9 +1,10 @@
 """A decorator for identifying data sources."""
 import math
-
+import copy
 import xarray as xr
 import pandas as pd
 from nuthatch.processor import NuthatchProcessor
+from nuthatch.processors import timeseries
 from nuthatch import cache
 import warnings
 from sheerwater.utils import (convert_init_time_to_pred_time, convert_pred_time_to_init_time,
@@ -60,14 +61,13 @@ class SheerwaterDataset(NuthatchProcessor):
         self.mask = bound_args.arguments.get('mask', None)
         self.variable = bound_args.arguments.get('variable', None)
         self.missing_thresh = bound_args.arguments.get('missing_thresh', 1)
+        self.prob_type = bound_args.arguments.get('prob_type', 'deterministic')
 
         # Event handling
         self.event = bound_args.arguments.get('event', None)
         if self.event is not None and self.agg_days != 1:
             raise ValueError(f"Event {self.event} requires agg_days to be 1.")
-        self.event_kwargs = bound_args.arguments.get('event_kwargs', None)
-        if self.event_kwargs is None:
-            self.event_kwargs = {}
+        self.event_kwargs = copy.deepcopy(bound_args.arguments.get('event_kwargs') or {})
         self.event_fn = get_event_fn(self.event) if self.event is not None else None
 
         if 'detect_in_time' in self.event_kwargs:
@@ -254,6 +254,7 @@ class data(SheerwaterDataset):
                     "Datasources must have a complete daily time index to enable valid windowing. "
                     f"The following dates are missing: {missing_dates} "
                     "Please reindex your data source in time.")
+
             ds = self.event_fn(ds, **self.event_kwargs)
             # Add an attribute to the dataset to indicate the event name
             ds = ds.assign_attrs({'event': self.event})
@@ -285,14 +286,7 @@ class data(SheerwaterDataset):
 
 @spatial()
 @cache(cache=True, cache_args=['lookback_source', 'variable', 'grid'],
-       backend_kwargs={
-           'chunking': {"lat": 121, "lon": 240, "init_time": 1000, "prediction_timedelta": 1},
-           'chunk_by_arg': {
-               'grid': {
-                   'global0_25': {"lat": 721, "lon": 1440, "init_time": 30, "prediction_timedelta": 1}
-               },
-           }
-})
+       backend_kwargs={'chunking': {"lat": 15, "lon": 15, "init_time": 3000, "prediction_timedelta": 50}})
 def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
     """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
     # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
@@ -303,7 +297,37 @@ def obs_with_lookback(start_time, end_time, lookback_source, variable, grid,  ma
     lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
     ds_obs = ds_obs.expand_dims({"prediction_timedelta": lookbacks.values})
     ds_obs = convert_pred_time_to_init_time(ds_obs)
+    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore?
+    ds_obs = ds_obs.chunk({'lat': 15, 'lon': 15, 'init_time': 3000, 'prediction_timedelta': 50})
     return ds_obs
+
+
+@spatial()
+@timeseries(timeseries='init_time')
+@cache(
+    cache=True, cache_args=['fcst', 'prob_type', 'variable', 'grid'],
+    backend_kwargs={'chunking': {"lat": 15, "lon": 15, "init_time": 3000, "prediction_timedelta": 50},
+                    'chunk_by_arg': {
+        'prob_type': {
+            'probabilistic': {"lat": 2, "lon": 2, "init_time": 3000, "prediction_timedelta": 50, "member": 50},
+        },
+    }
+    })
+def dense_fcst(start_time, end_time, fcst, prob_type, variable, grid,  mask='lsm', region='global'):  # noqa: ARG001
+    """Observational data expanded out to contain a 30 day lookback period, easily merged with the forecast dataset."""
+    # Get observational dataset on the global grid and with no mask; spatial decorator will handle the rest
+    ds = get_forecast(fcst)(start_time=start_time, end_time=end_time,
+                            prob_type=prob_type, variable=variable, grid=grid,
+                            mask=None, region='global')
+    ds = densify_fcst(ds)
+
+    # Seems to help to enforce chunks if we chunk in the call; otherwise, sometimes the backend seems to ignore?
+    if prob_type == 'probabilistic':
+        chunks = {'lat': 2, 'lon': 2, 'init_time': 3000, 'prediction_timedelta': 50, 'member': 50}
+    else:
+        chunks = {'lat': 15, 'lon': 15, 'init_time': 3000, 'prediction_timedelta': 50}
+    ds = ds.chunk(chunks)
+    return ds
 
 
 class forecast(SheerwaterDataset):
@@ -346,8 +370,8 @@ class forecast(SheerwaterDataset):
         # Get the observations for forecast period + the lookback period
         new_start = shift_by_days(fcst.init_time.values.min(), -lookback_days)
         new_end = fcst.init_time.values.max()
-        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source, variable=self.variable,
-                                grid=self.grid, mask=self.mask, region=self.region)
+        obs = obs_with_lookback(new_start, new_end, lookback_source=lookback_source,
+                                variable=self.variable, grid=self.grid, mask=self.mask, region=self.region)
 
         # Select the approriate lookback periods for the duration of the event and on the forecast init times.
         lookbacks = pd.timedelta_range(start=f"-{lookback_days}D", end="-1D", freq='D')
@@ -365,6 +389,22 @@ class forecast(SheerwaterDataset):
         Enables blending the forecast and observations, event definition, conversion of init time to valid time,
         and general spatial postprocessing, including region clipping and masking.
         """
+        # Run the events on the forecast: requires blending in lookback obs and renaming time labels
+        if self.event is not None and 'event' not in ds.attrs and self.densify:
+            #################################################################################################
+            # 1. Densify the forecast if requested (fill in missing init time gaps with previous forecast values)
+            # Run this first, as we will re-get the forecast from dense cache, so post processors will be lost
+            ##################################################################################################
+            # Get the observations for forecast period + the lookback period
+            new_start = ds.init_time.values.min()
+            new_end = ds.init_time.values.max()
+            attrs = ds.attrs.copy()
+
+            ds = dense_fcst(new_start, new_end, fcst=self.func_name,
+                            prob_type=self.prob_type, variable=self.variable,
+                            grid=self.grid, mask=self.mask, region=self.region, memoize=True)
+            ds = ds.assign_attrs(attrs)
+
         # Clip and mask the dataset
         ds = SheerwaterDataset.post_process(self, ds)
 
@@ -372,17 +412,11 @@ class forecast(SheerwaterDataset):
         if self.event is not None and 'event' not in ds.attrs:
             # If the first event has a lookback period, blend in the lookback observations
 
-            #################################################################################################
-            # 1. Desnify the forecast if requested (fill in missing init time gaps with previous forecast values)
-            ##################################################################################################
-            if self.densify or self.event_kwargs.get('densify', False):
-                ds = densify_fcst(ds)
-
             ##################################################################################################
             # 2. Blend in the lookback observations up to the event duration
             ##################################################################################################
-            lookback_days = self.event_fn.duration(self.event_kwargs) if callable(self.event_fn.duration) \
-                else self.event_fn.duration
+            lookback_days = self.event_fn.duration(self.event_kwargs) if callable(
+                self.event_fn.duration) else self.event_fn.duration
 
             if self.lookback_source is not None:
                 ds = self.blend_fcst_and_obs(ds, lookback_source=self.lookback_source, lookback_days=lookback_days)
@@ -397,6 +431,7 @@ class forecast(SheerwaterDataset):
             # For the first event, rename prediction timedelta to time to act along leads
             ds = ds.rename({'prediction_timedelta': 'time'})
             ds = self.event_fn(ds, **self.event_kwargs)
+
             # Add an attribute to the dataset to indicate the event name
             ds = ds.rename({'time': 'prediction_timedelta'})
             ds = ds.assign_attrs({'event': self.event})
@@ -464,3 +499,15 @@ def list_data():
     import sheerwater.climatology  # noqa: F401
     import sheerwater.reanalysis  # noqa: F401
     return list(DATA_REGISTRY.keys())
+
+
+def get_forecast_or_data(forecast_or_data_name):
+    """Get a forecast or data from the global forecast or data registry."""
+    try:
+        return get_forecast(forecast_or_data_name), "forecast"
+    except KeyError:
+        try:
+            return get_data(forecast_or_data_name), "data"
+        except KeyError:
+            raise ValueError(
+                f"Forecast or data {forecast_or_data_name} not found in the global forecast or data registry.")

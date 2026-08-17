@@ -8,10 +8,64 @@ supported in a more general way.
 """
 from functools import wraps
 import numpy as np
+import pandas as pd
 import xarray as xr
-from sheerwater.utils import roll_and_agg, groupby_time
+from sheerwater.utils import roll_and_agg, groupby_time, get_dates
 
 EVENT_REGISTRY = {}
+
+
+def remove_partial_time_groups(ds, time_grouping='year', coverage_threshold=0.95):
+    """Remove seasons (time groups) from the dataset that do not have sufficient data coverage.
+
+    To accomplish this, the function pads the dataset's time dimension beyond its original bounds,
+    groups by time grouping, and calculates the coverage of the data.
+      1. It determines the earliest and latest years in the data.
+      2. It extends (pads) the timeseries to start on September 1st of the year before the earliest year,
+         and ends on February 28th of the year after the latest year. This allows for the calculation of
+         completeness for seasons that are not year-aligned, e.g., shifted rainy seasons that run
+         from September to May of the following year.
+      3. It reindexes the data at daily resolution over this expanded time span, filling missing entries with NaN.
+
+    Returns:
+        A dataset with the time dimension padded to start on September 1st of the year before the earliest year,
+        and ends on February 28th of the year after the latest year.
+        All time points that fall within incomplete seasons are set to NaN and all time points that
+        do not fall within a season defined by the time grouping are set to NaN.
+    """
+    years = pd.to_datetime(ds.time.values).year
+    min_year = years.min()
+    max_year = years.max()
+    # Pad the dataset with lagging and leading time to ensure that all partial seasons
+    # are dropped properly, even those that are misaligned with the start and end
+    # of the year
+    start_time = pd.Timestamp(f"{min_year-1}-09-01")
+    end_time = pd.Timestamp(f"{max_year+1}-02-28")
+    daily_timeseries = get_dates(start_time, end_time, stride='day', return_string=False)
+    ds = ds.reindex(time=daily_timeseries, fill_value=np.nan)
+
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+
+    # Add indicator and non-null variables to the dataset
+    var = list(ds.data_vars)[0]
+    ds['indicator'] = xr.ones_like(ds[var])
+    ds['non_null'] = ds[var].notnull()
+
+    # Coverage per group: fraction of timesteps with non-null data
+    group_sums = ds[['indicator', 'non_null']].groupby('group').sum(dim="time", min_count=1)
+    group_coverage = group_sums['non_null'] / group_sums['indicator']
+
+    # Set all times to zero where the group in the null mask (i.e., season was None)
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, other=np.nan)
+
+    # Remove groups that don't have enough coverage
+    coverage_at_time = group_coverage.sel(group=ds['group'])
+    ds = ds.where(coverage_at_time >= coverage_threshold, other=np.nan)
+    ds = ds.drop_vars(['indicator', 'non_null'])
+
+    return ds
 
 
 def wrap_duration(duration_fn, event_name):
@@ -75,9 +129,9 @@ def event(default_variable=None, duration=0, filter=False):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
-def digitized(ds, agg_days, bins):
+def digitized(ds, agg_days, bins, align='left'):
     """An event to digitize a dataset into bins."""
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean')
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", agg_fn='mean', align=align)
 
     # Save and restore the null pattern, which is removed by the boolean operations
     null_mask = ds.isnull()
@@ -97,20 +151,60 @@ def digitized(ds, agg_days, bins):
 
 
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
-def above_threshold(ds, agg_days, threshold):
+def above_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, margin_align='center'):
     """An event to calculate the above threshold of a dataset."""
     # Bins will be in the format [-inf, threshold, inf]
     bins = [-np.inf, threshold, np.inf]
-    ds = digitized(ds, agg_days=agg_days, bins=bins)
+    ds = digitized(ds, agg_days=agg_days, bins=bins, align=align)
     # Convert from the outptut of digitized (1,2) to floating (0, 1)
+
     ds = ds.astype(float) - 1.0
+    if margin_in_days > 0:
+        # Soften the detections by margin in days
+        ds = roll_and_agg(ds, agg=margin_in_days, agg_col="time", align=margin_align, agg_fn='max')
     return ds
 
 
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
+def below_threshold(ds, agg_days, threshold, align='left', margin_in_days=0, margin_align='center'):
+    """An event to calculate the above threshold of a dataset."""
+    above = above_threshold(ds, agg_days=agg_days, threshold=threshold, align=align,
+                            margin_in_days=margin_in_days, margin_align=margin_align)
+    return 1.0 - above
+
+
+@event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=True)
+def quantile_extremes(ds, threshold, data_source='imerg_final', first_year=1998, last_year=2025,
+                      agg_days=1, n_quantiles=20):
+    """Get extreme events according to the quantile ranks of the data source."""
+    # Save the null pattern
+    null_mask = ds.isnull()
+
+    # Get the quantile ranks for the dataset
+    grid = ds.attrs['grid']
+    region = ds.attrs['region']
+    var = list(ds.data_vars)[0]
+    from sheerwater.climatology import quantile_ranks
+    qr = quantile_ranks(variable=var, data=data_source, first_year=first_year, last_year=last_year,
+                        agg_days=agg_days, time_grouping=None,
+                        n_quantiles=n_quantiles, grid=grid, region=region)
+
+    qr_idx = np.abs(qr['quantile'].values - threshold).argmin(axis=-1)
+    qr_values = qr[var].isel(quantile=qr_idx)
+
+    # Clip qr_values to be between 7 and 25mm to prevent trigger on big rain days
+    # that are too small or not triggering on days that are very large
+    qr_values = np.clip(qr_values, 7, 25)
+
+    extreme_events = (ds > qr_values).astype(int)
+    extreme_events = extreme_events.where(~null_mask, other=np.nan)
+    return extreme_events
+
+
 @event(default_variable="precip", duration=lambda kwargs: kwargs["agg_days"], filter=False)
-def accumulated_rain(ds, agg_days):
-    """An event to calculate the accumulated rain over a sliding, right-aligned window."""
-    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", align='right', agg_fn='sum')
+def accumulated_rain(ds, agg_days, align='right'):
+    """An event to calculate the accumulated rain over a sliding, aligned window."""
+    ds = roll_and_agg(ds, agg=agg_days, agg_col="time", align=align, agg_fn='sum')
     return ds
 
 
@@ -163,28 +257,34 @@ def has_continuous_days_above_threshold(ds, threshold, smoothing, continuous_day
 
 
 @event(default_variable="precip", duration=120, filter=False)
-def seasonal_accumulation(ds, time_grouping='year', by_percent=False):
+def seasonal_accumulation(ds, time_grouping='year', by_percent=False, minimum_accumulation_mm=0.0):
     """A function to calculate the seasonal accumulation of a dataset."""
     # Add the grouping coordinates but perform no aggregation
     ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+
     nanmask = ds.isnull()
 
     # Set all times to zero where the group in the null mask (i.e., season was None)
     is_null_group = ds['group'].astype(str).str.contains('None')
     ds = ds.where(~is_null_group, np.nan)
 
-    def seasonal_accumulation(x):
+    def seasonal_accumulation_runner(x):
         cumsum = x.cumsum(dim="time")
         # There is a bug in xarray cumsum that causes the time coordinate to be lost
         # https://github.com/pydata/xarray/issues/6528
         cumsum = cumsum.assign_coords(time=x['time'])
+        low_season_rain = (cumsum.max(dim="time") < minimum_accumulation_mm).astype(int)
         if by_percent:
             cumsum = cumsum / cumsum.max(dim="time")
+        # Remove low rain seasons
+        cumsum = xr.where(low_season_rain == 1, 0, cumsum)
+        cumsum = cumsum.astype(int)
         return cumsum
 
     # Ensure that the timedimension is sorted
     ds = ds.sortby("time")
-    ret = ds.groupby("group").map(seasonal_accumulation)
+    ret = ds.groupby("group").map(seasonal_accumulation_runner)
 
     # Restore the null pattern and attributes, which are lost during the grouping
     ret = ret.where(~nanmask, other=np.nan)
@@ -205,6 +305,194 @@ def has_seasonal_accumulation(ds, time_grouping='year', accumulation_threshold=2
 
     attrs = ds.attrs.copy()
     return ds_suitable.assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=120, filter=True)
+def in_season(ds, time_grouping='year',
+              start_season_accumulation=0.2,
+              end_season_accumulation=0.8,
+              by_percent=True,
+              minimum_accumulation_mm=0.0):
+    """Calculate the in season period of a dataset.
+
+    Marks all times where the cumulative sum is between the start and end season accumulation thresholds with 1.
+
+    Args:
+        ds: The input xarray.Dataset
+        time_grouping: How to group time ("year" by default)
+        start_season_accumulation: Threshold (value) in the cumsum to start the season
+        end_season_accumulation: Threshold (value) in the cumsum to end the season
+        by_percent: Whether to compute cumsum as percent of max in season
+        minimum_accumulation_mm: Minimum accumulation value to use if using by percent accumulation.
+    """
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    nanmask = ds.isnull()
+
+    # Set all times to NaN where season/group is None
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
+
+    def in_season(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+
+        low_season_rain = (cumsum.max(dim="time") < minimum_accumulation_mm).astype(int)
+        if by_percent:
+            cumsum = cumsum / cumsum.max(dim="time")
+        season = (cumsum >= start_season_accumulation) & (cumsum <= end_season_accumulation)
+        season = season & ~low_season_rain
+        season = season.astype(int)
+        return season
+
+    # Ensure that the time dimension is sorted
+    ds = ds.sortby("time")
+    ret = ds.groupby("group").map(in_season)
+
+    # Restore the null pattern and attributes, which are lost during the grouping
+    ret = ret.where(~nanmask, other=np.nan)
+    ret = ret.assign_attrs(ds.attrs)
+    return ret
+
+
+@event(default_variable="precip", duration=120, filter=True)
+def first_seasonal_accumulation(ds, time_grouping='year', by_percent=False,
+                                accumulation_threshold=200.0):
+    """Calculate the first time(s) a seasonal accumulation threshholds(s) is crossed.
+
+    Marks all times where the cumulative sum crosses any of the specified accumulation thresholds with a 1.
+
+    Args:
+        ds: The input xarray.Dataset
+        time_grouping: How to group time ("year" by default)
+        by_percent: Whether to compute cumsum as percent of max in season
+        accumulation_threshold: Threshold (value) in the cumsum to flag.
+        by_percent_minimum_accumulation: Minimum accumulation value to use if using by percent accumulation.
+    """
+    if not isinstance(accumulation_threshold, list):
+        accumulation_threshold = [accumulation_threshold]
+
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    nanmask = ds.isnull()
+
+    # Set all times to NaN where season/group is None
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
+
+    def multi_point_accumulation(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+        if by_percent:
+            cumsum = cumsum / cumsum.max(dim="time")
+
+        # For each threshold, flag all times the cumsum crosses the threshold; then "or" them together
+        result = None
+        for thresh in accumulation_threshold:
+            above = (cumsum >= thresh)
+            # Mark the first crossing with 1, and 0 elsewhere for this threshold
+            above_int = above.astype(int)
+            # Only want the first crossing: same logic as before, cumsum and equals 1
+            crossing = ((above_int == 1) & (above_int.cumsum(dim="time") == 1)).astype(int)
+            # Accumulate all such cross-points (logical OR)
+            if result is None:
+                result = crossing
+            else:
+                result = result + crossing  # sum is fine; values will be >=0
+        # Convert to 1s, but not double count if multiple hits happen at once
+        result = (result >= 1).astype(int)
+        return result
+
+    # Ensure that the time dimension is sorted
+    ds = ds.sortby("time")
+    ret = ds.groupby("group").map(multi_point_accumulation)
+
+    # Restore the null pattern and attributes, which are lost during the grouping
+    ret = ret.where(~nanmask, other=np.nan)
+    ret = ret.assign_attrs(ds.attrs)
+    return ret
+
+
+@event(default_variable="precip", duration=lambda kwargs: kwargs["drying_day_agg_in_days"], filter=True)
+def drying_spells(ds, drying_day_threshold_mm=2.0, drying_day_agg_in_days=5):
+    """A function to calculate the drying spells of a dataset."""
+    # Find drying spells
+    total_rain = accumulated_rain(ds, agg_days=drying_day_agg_in_days, align='right')
+    null_mask = total_rain.isnull()
+    drying_spells = (total_rain < drying_day_threshold_mm).astype(int)
+    drying_spells = drying_spells.where(~null_mask, np.nan)
+    attrs = ds.attrs.copy()
+    return drying_spells.assign_attrs(attrs)
+
+
+@event(default_variable="precip", duration=120, filter=True)
+def initial_growing_period(
+        ds,
+        time_grouping='year',
+        early_season_accumulation_by_percent=0.10,
+        mid_season_accumulation_by_percent=0.30,
+        season_accumulation_minimum_mm=300.0,
+        first_rain_threshold_mm=5.0,
+        pre_period_in_days=30):
+    """A function to calculate the initial growing period of a dataset."""
+    null_mask = ds.isnull()
+
+    # Add the grouping coordinates but perform no aggregation
+    ds = groupby_time(ds, time_grouping, agg_fn=None)
+    ds = remove_partial_time_groups(ds, time_grouping=time_grouping, coverage_threshold=0.95)
+    null_mask = ds.isnull()
+
+    # Set all times to NaN where time group is None
+    is_null_group = ds['group'].astype(str).str.contains('None')
+    ds = ds.where(~is_null_group, np.nan)
+
+    def in_season(x):
+        cumsum = x.cumsum(dim="time")
+        # There is a bug in xarray cumsum that causes the time coordinate to be lost
+        # https://github.com/pydata/xarray/issues/6528
+        cumsum = cumsum.assign_coords(time=x['time'])
+
+        low_season_rain = (cumsum.max(dim="time") < season_accumulation_minimum_mm).astype(int)
+        cumsum = cumsum / cumsum.max(dim="time")
+        season = (cumsum >= early_season_accumulation_by_percent) & (cumsum <= mid_season_accumulation_by_percent)
+        season = season & ~low_season_rain
+        season = season.astype(int)
+        return season
+
+    # Ensure that the time dimension is sorted
+    ds = ds.sortby("time")
+    season = ds.groupby("group").map(in_season)
+    season = season.persist()
+
+    # Expand the season by detection period in days
+    pre_season = roll_and_agg(season, agg=pre_period_in_days, agg_col="time", align="left", agg_fn='max')
+    has_rain = (ds > first_rain_threshold_mm).astype(int)
+
+    # Find the first time where the precipitation is greater than the first rain threshold and the season is active.
+    # Floatwise "and-ing" of the two spells together to get the planting suitability
+    # Ensure that attributes pass through
+    pre_season_rain = pre_season * has_rain
+    # Continue forward from first rain through the initial growing period
+    # Okay to fill past the first date, becuase we're going to
+    # or this with the pre-season afterwards.
+    first_rain_period = roll_and_agg(pre_season_rain, agg=pre_period_in_days,
+                                     agg_col="time", align="right", agg_fn='max')
+
+    # Clip the first rain period back down to the pre-season + season
+    full_period = first_rain_period * pre_season
+
+    # Some times have been lost in the rollings, so we will update the null mask to valid times
+    null_mask = null_mask.sel(time=full_period.time.values)
+    full_period = full_period.where(~null_mask, np.nan)
+
+    attrs = ds.attrs.copy()
+    return full_period.assign_attrs(attrs)
 
 
 @event(default_variable="precip", duration=10, filter=True)

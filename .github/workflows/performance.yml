@@ -1,0 +1,115 @@
+name: Performance testing
+
+# Manual workflow_dispatch. Commits baseline even on partial failure.
+# On main: opens a PR. On other branches: commits to that branch.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      contents: write
+      checks: write
+      pull-requests: write
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Auth to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        token_format: 'access_token'
+        workload_identity_provider: "projects/730596460290/locations/global/workloadIdentityPools/rhiza-github/providers/rhiza-github"
+        service_account: "rhiza-github-action@rhiza-shared.iam.gserviceaccount.com"
+        export_environment_variables: true
+
+    - name: Setup gcloud
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Cache nuthatch data
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuthatch/caches
+        key: nuthatch-${{ runner.os }}
+        restore-keys: |
+          nuthatch-
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Set up Python
+      run: uv python install 3.12
+
+    - name: Install dependencies
+      run: uv sync --all-groups --all-extras
+
+    - name: Coiled Login
+      run: uv run coiled login --token ${{ secrets.COILED_API_TOKEN }} --workspace sheerwater
+
+    - name: Run tests
+      id: pytest
+      run: |
+        mkdir -p coverage
+        uv run pytest -m performance -v -s \
+          --junitxml=coverage/junit.xml \
+          --cov-report=xml:coverage/coverage.xml \
+          --cov-report=term
+
+    - name: Commit baseline
+      if: always()
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git add sheerwater/tests/metrics_performance_baseline.json
+        git diff --staged --quiet && exit 0
+
+        msg="Update metrics performance baseline"
+        [ "${{ steps.pytest.outcome }}" = "success" ] || msg="$msg (partial run)"
+
+        if [ "${{ github.ref_name }}" = "main" ]; then
+          git checkout -b "performance-baseline-${{ github.run_id }}"
+          git commit -m "$msg"
+          git push -u origin HEAD
+          gh pr create --base main --title "$msg" --body "From run ${{ github.run_id }}."
+        else
+          git commit -m "$msg"
+          git pull --rebase origin "${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"
+        fi
+
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          coverage/junit.xml
+          coverage/coverage.xml
+          sheerwater/tests/metrics_performance_baseline.json
+        retention-days: 30
+        if-no-files-found: warn
+
+  publish-results:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always() && needs.test.result != 'skipped'
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: test-results
+    - uses: EnricoMi/publish-unit-test-result-action@v2
+      with:
+        files: junit.xml

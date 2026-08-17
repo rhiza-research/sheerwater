@@ -3,13 +3,19 @@
 Run only performance tests: pytest -m performance -v -s
 Exclude from default runs: pytest -m "not performance"
 Run a specific case with -k: pytest -m performance -v -s -k "1" or -k "mae_global" or -k "acc"
+Run probabilistic advanced metrics: pytest -m performance -v -s -k "probabilistic"
 
 Each test runs three times: (1) cold with full recompute, (2) warm with full recompute,
 (3) warm with recompute only on metric (statistic from cache). Results and baseline
 comparisons are printed; timings written to metrics_performance_baseline.json.
+Cluster bring-up is handled in the remote_dask_cluster fixture (wait for workers +
+warmup task) so cold timings exclude Coiled/Dask startup.
 
 On subsequent runs, current timings are compared to the baseline and the file is
 updated with the latest run.
+
+Cases 20–22 exercise advanced agricultural metrics on ensemble forecasts via
+metric_kwargs={"prob_type": "probabilistic"} (per-member deterministic scores).
 """
 import json
 import time
@@ -18,6 +24,7 @@ from pathlib import Path
 import pytest
 
 from sheerwater.metrics import metric
+from sheerwater.advanced_metrics import get_experiment_kwargs
 
 pytestmark = pytest.mark.performance
 
@@ -183,9 +190,17 @@ def _assert_metric_result(result, cold_sec, expected_var=None, test_label=""):
         )
 
 
-def _expected_var(metric_name):
-    """Result variable name for metric_name (e.g. 'ets-5' -> 'ets')."""
-    return metric_name.split("-")[0] if "-" in metric_name else metric_name
+def _expected_var(metric_name, region="global"):
+    """Result variable name for metric_name.
+
+    For advanced metrics (experiments), calls get_experiment_kwargs to get the
+    underlying metric name. Falls back to splitting on '-' for standard metrics.
+    """
+    try:
+        underlying, *_ = get_experiment_kwargs(metric_name, region)
+        return underlying
+    except (ValueError, KeyError):
+        return metric_name.split("-")[0] if "-" in metric_name else metric_name
 
 
 # Each case has "name" (test id and baseline key); rest are overrides for _metric_kwargs.
@@ -208,8 +223,58 @@ PERFORMANCE_TEST_CASES = [
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
     {"name": "15_crps", "metric_name": "crps", "variable": "precip",
         "start_time": "2016-01-01", "end_time": "2016-12-31"},
-    {"name": "16_pod_global_soft", "grid": "global1_5", "metric_name": "pod-5",
+    # Advanced metrics with deterministic forecasts
+    {"name": "16_big_rain_days", "metric_name": "big_rain_days",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "17_in_season_dry_spell", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "18_early_season_accumulation_30d", "metric_name": "early_season_accumulation-30d",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "19_pod_global_soft", "grid": "global1_5", "metric_name": "pod-5",
      "metric_kwargs": {"soft_margin_in_days": 10}},
+    # Advanced metrics with ensemble forecasts (per-member deterministic scores).
+    {"name": "20_big_rain_days_probabilistic", "metric_name": "big_rain_days",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "21_in_season_dry_spell_probabilistic", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "22_early_season_accumulation_30d_probabilistic",
+        "metric_name": "early_season_accumulation-30d",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1,
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    {"name": "23_mae_probabilistic",
+        "metric_name": "mae", "variable": "precip",
+        "metric_kwargs": {"prob_type": "probabilistic"}},
+    # Advanced metrics with good thresholds
+    {"name": "25_big_rain_days_good_threshold", "metric_name": "big_rain_days-thresh-0.30",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "26_in_season_dry_spell_good_threshold", "metric_name": "in_season_dry_spell-thresh-20.0",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    {"name": "27_early_season_accumulation_30d_good_threshold",
+        "metric_name": "early_season_accumulation-30d-thresh-30.0",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year", "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
+    # Deterministic event-based performance test
+    {"name": "28_in_season_dry_spell_deterministic", "metric_name": "in_season_dry_spell",
+        "variable": "precip", "forecast": "ecmwf_ifs_er", "truth": "imerg_final",
+        "time_grouping": "year",
+        "region": "africa_bimodal_season", "spatial": True, "agg_days": 1},
 ]
 
 
@@ -224,7 +289,8 @@ def test_metric_performance(remote_dask_cluster, case):  # noqa: ARG001
     kwargs = _metric_kwargs(overrides)
     result, cold_sec, warm_full_sec, warm_metric_only_sec = _run_metric_three_ways(kwargs)
     metric_name = overrides.get("metric_name", "mae")
-    expected_var = _expected_var(metric_name)
+    region = overrides.get("region", "global")
+    expected_var = _expected_var(metric_name, region=region)
     config_str = ", ".join(f"{k}={v}" for k, v in sorted(overrides.items())) if overrides else "default"
 
     _print_metric_performance(

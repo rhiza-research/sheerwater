@@ -1,0 +1,119 @@
+advanced_forecast_table_metrics:
+  function: advanced_spatial_metric_table
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecasts:
+      - - climatology_era5_1985_2015
+        - climatology_imerg_1998_2016
+        - ecmwf_ifs_er
+        - ecmwf_ifs_er_debiased
+        - ecmwf_aifs
+        - ecmwf_ifs_ens
+        - ecmwf_hres
+        - fuxi
+        - gfs
+        - gencast
+        - graphcast
+        - cumulus_ai
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    space_grouping: [["rainfall_region", "country"]]
+    grid: ["global1_5"]
+    variable: ["precip"]
+    time_grouping: ["year"]
+    region:
+      - "africa_unimodal_season"
+      - "africa_bimodal_season"
+      - "africa_unimodal_shifted_season"
+  two_way_metrics:
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  one_way_metrics:
+    metric_name: ['early_season_accumulation-30d-thresh-30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+advanced_forecast_table_metrics_probabilistic:
+  function: advanced_spatial_metric_table
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecasts:
+      - - climatology_era5_1985_2015
+        - climatology_imerg_1998_2016
+        - ecmwf_ifs_er
+        - ecmwf_ifs_er_debiased
+        - ecmwf_aifs
+        - ecmwf_ifs_ens
+        - ecmwf_hres
+        - fuxi
+        - gfs
+        - gencast
+        - graphcast
+        - cumulus_ai
+    truth:
+      - era5
+      - imerg_final
+      - chirps_v3
+    space_grouping: [["rainfall_region", "country"]]
+    grid: ["global1_5"]
+    variable: ["precip"]
+    time_grouping: ["year"]
+    region:
+      - "africa_unimodal_season"
+      - "africa_bimodal_season"
+      - "africa_unimodal_shifted_season"
+  two_way_metrics:
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+        prob_type: 'probabilistic'
+      - obs_filter: false
+        forecast_filter: true
+        prob_type: 'probabilistic'
+  one_way_metrics:
+    metric_name: ['early_season_accumulation-30d-thresh-30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+        prob_type: 'probabilistic'
+advanced_ground_truth_table_metrics:
+  function: advanced_ground_truth_spatial_metric_table
+  _all:
+    start_time: "2016-01-01"
+    end_time: "2024-12-31"
+    forecasts:
+      - - imerg_final
+        - chirps_v3
+        - era5
+        - oya
+    truth:
+      - tahmo_avg
+    space_grouping: [["rainfall_region", "country"]]
+    grid: ["global1_5"]
+    variable: ["precip"]
+    time_grouping: ["year"]
+    region:
+      - "africa_unimodal_season"
+      - "africa_bimodal_season"
+      - "africa_unimodal_shifted_season"
+  two_way_metrics:
+    metric_name: ['in_season_dry_spell-thresh-20', 'big_rain_days-thresh-0.30', 'extreme_rain_days-thresh-0.30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false
+      - obs_filter: false
+        forecast_filter: true
+  one_way_metrics:
+    metric_name: ['early_season_accumulation-30d-thresh-30']
+    metric_kwargs:
+      - obs_filter: true
+        forecast_filter: false

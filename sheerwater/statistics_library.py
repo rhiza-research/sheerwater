@@ -396,6 +396,27 @@ def fn_crps(data, **cache_kwargs):  # noqa: F821
     return m_ds
 
 
+@statistic(cache=False, name='percent_good')
+def fn_percent_good(data, **cache_kwargs):  # noqa: F821
+    """For any input statistic, pass the statistic through a good threshold function to get a binary output."""
+    stat_name = cache_kwargs['metric_kwargs']['good_threshold_statistic']
+    if stat_name is None:
+        raise ValueError("This statistic requires a good_threshold_statistic to be specified in the metric kwargs.")
+    stat_fn = statistic_factory(stat_name)
+    stat_data = stat_fn(data, **cache_kwargs)
+    good_threshold = cache_kwargs['metric_kwargs']['good_threshold']
+    good_data = (stat_data <= good_threshold)
+    return good_data
+
+
+@statistic(cache=False, name='percent_good_members')
+def fn_percent_good_members(data, **cache_kwargs):  # noqa: F821
+    ds = fn_percent_good(data, **cache_kwargs)
+    if 'member' in ds.coords:
+        ds = ds.mean(dim='member', keep_attrs=True)
+    return ds
+
+
 def statistic_factory(statistic_name: str):
     """Get a statistic function by name from the registry."""
     try:

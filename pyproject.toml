@@ -50,7 +50,7 @@ dependencies = [
     "bottleneck",
     "pyzstd==0.16.2",
     "properscoring",
-    "nuthatch",
+    "nuthatch>=0.4.10",
     "xesmf",
     "earthaccess",
     "xee",
