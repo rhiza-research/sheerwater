@@ -58,7 +58,8 @@ const VIEW_CONFIG = {
         mode: 'value',
         field: 'auc',
         higherIsBetter: true,
-        filterNullForecasts: true,
+        // Null lead = noop (show "-"); do not drop the whole forecast.
+        filterNullForecasts: false,
         asPercent: false,
         decimals: 1,
         // Color heatmap as fraction of max cells (points_total).
@@ -69,7 +70,7 @@ const VIEW_CONFIG = {
         mode: 'value',
         field: 'auc_informative',
         higherIsBetter: true,
-        filterNullForecasts: true,
+        filterNullForecasts: false,
         asPercent: false,
         decimals: 1,
         colorByFractionOfTotal: true,
@@ -79,7 +80,7 @@ const VIEW_CONFIG = {
         mode: 'value',
         field: 'auc_actionable',
         higherIsBetter: true,
-        filterNullForecasts: true,
+        filterNullForecasts: false,
         asPercent: false,
         decimals: 1,
         colorByFractionOfTotal: true,
@@ -174,7 +175,7 @@ function formatDelta(raw, climRaw, { asPercent = false } = {}) {
 function formatDaysBeyond(v) {
     if (v == null || !Number.isFinite(v)) return '—';
     const sign = v > 0 ? '+' : '';
-    return `${sign}${v.toFixed(1)}`;
+    return `${sign}${v.toFixed(1)} days`;
 }
 
 function resolveBaselineForecast(knownForecasts, series) {
@@ -196,9 +197,9 @@ function resolveBaselineForecast(knownForecasts, series) {
 
 /** Days beyond baseline at cutoff points, summarized over grid cells.
  *
- * For each cell, horizon = longest lead L ∈ {7,14,21,28} where percent_good
- * meets the Informative / Actionable cutoff (0 if never). Days beyond baseline
- * = horizon_F − horizon_B; the table reports the mean of that over cells.
+ * For each cell, only leads where both F and B have non-null percent_good
+ * count (null lead = noop). Horizon = longest such lead meeting the cutoff
+ * (0 if never). Days = horizon_F − horizon_B; table reports the mean over cells.
  *
  * Layout: forecasts as columns; two rows = Informative / Actionable.
  */
@@ -209,7 +210,10 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
     }
 
     const forecastField = series.fields[fieldNames.indexOf('forecast')].values;
-    const keys = ['act_min', 'act_avg', 'act_max', 'info_min', 'info_avg', 'info_max'];
+    const keys = [
+        'act_horizon_avg', 'info_horizon_avg',
+        'act_min', 'act_avg', 'act_max', 'info_min', 'info_avg', 'info_max',
+    ];
     const fields = Object.fromEntries(keys.map(k => [k, getField(series.fields, k)]));
     const nCellsField = getField(series.fields, 'n_cells');
 
@@ -241,8 +245,12 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
     if (!baselineForecast) {
         return { empty: true, climNote: '', uniqueLeadDays: [] };
     }
-    // Baseline is the reference: always 0 when present.
-    rowValues[baselineForecast] = Object.fromEntries(keys.map(k => [k, 0]));
+    // Baseline deltas are always 0; keep its absolute horizons from SQL.
+    if (rowValues[baselineForecast]) {
+        for (const k of ['act_min', 'act_avg', 'act_max', 'info_min', 'info_avg', 'info_max']) {
+            rowValues[baselineForecast][k] = 0;
+        }
+    }
 
     let uniqueForecasts = [
         ...allForecasts.filter(f => f !== baselineForecast).sort(),
@@ -264,16 +272,19 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
     if (nCells == null) nCells = nCellsByForecast[baselineForecast] ?? null;
 
     const metrics = [
-        { key: 'info', label: 'Informative', prefix: 'info' },
-        { key: 'act', label: 'Actionable', prefix: 'act' },
+        { key: 'info', label: 'Forecast informative at:', prefix: 'info' },
+        { key: 'act', label: 'Forecast actionable at:', prefix: 'act' },
     ];
 
     function formatAvg(row, prefix, isBaseline) {
-        if (isBaseline) return '0';
+        const horizon = row?.[`${prefix}_horizon_avg`];
+        const delta = isBaseline ? 0 : row?.[`${prefix}_avg`];
         // No overlapping cells / no usable percent_good ⇒ dash, not 0.
-        const av = row?.[`${prefix}_avg`];
-        if (av == null) return null;
-        return formatDaysBeyond(av);
+        if (horizon == null && delta == null) return null;
+        if (horizon == null) return formatDaysBeyond(delta);
+        const horizonLabel = `${Number(horizon).toFixed(1)} days`;
+        const deltaLabel = formatDaysBeyond(delta == null ? 0 : delta);
+        return `${horizonLabel}<br><span style="font-size:10px;opacity:0.72">${deltaLabel}</span>`;
     }
 
     // Best forecast index per metric row (exclude baseline).
@@ -377,8 +388,8 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
 
     const header = [`${regionLabel}`, ...forecastNames];
     const align = ['left', ...uniqueForecasts.map(() => 'center')];
-    const labelWidth = 1.3;
-    const forecastWidth = Math.max(0.85, 3.2 / Math.max(uniqueForecasts.length, 1));
+    const labelWidth = 1.55;
+    const forecastWidth = Math.max(0.95, 3.2 / Math.max(uniqueForecasts.length, 1));
     const colWidth = [labelWidth, ...uniqueForecasts.map(() => forecastWidth)];
     const tableFont = '"IBM Plex Sans", "Source Sans 3", "Segoe UI", system-ui, sans-serif';
     const nNote = nCells != null ? ` · mean over ${Math.round(nCells)} cells` : ' · mean over cells';
@@ -416,7 +427,7 @@ function buildDaysBeyondTable(series, regionLabel, domain) {
                     weight: fontWeights,
                 },
                 fill: { color: fillColors },
-                height: 36,
+                height: 44,
             },
             columnwidth: colWidth,
             name: regionLabel,
@@ -488,9 +499,10 @@ function buildRegionTable(series, regionLabel, tableView, view, domain, mapLinks
     let uniqueForecasts = [...new Set(forecastField)];
     const uniqueLeadDays = [...new Set(leadDayField)].sort((a, b) => a - b);
     if (view.filterNullForecasts) {
-        // Hide a forecast if any lead is missing or null (same rule as the curve).
+        // Only drop forecasts with no usable leads at all. A null at one lead
+        // is a noop (cell shows "-"), not a reason to hide the forecast.
         uniqueForecasts = uniqueForecasts.filter(f =>
-            uniqueLeadDays.every(ld => {
+            uniqueLeadDays.some(ld => {
                 const d = dataMap[f]?.[ld];
                 return d && d.raw != null && !isNaN(d.raw);
             })

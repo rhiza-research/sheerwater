@@ -360,34 +360,39 @@ cell_frac AS (
   WHERE c.lead_day IN (7, 14, 21, 28)
     AND c.percent_good_avg IS NOT NULL
 ),
--- Per-cell longest lead (days) that still meets each cutoff, then
--- days-beyond-baseline = horizon_F − horizon_B; report avg/max over cells.
-cell_horizon AS (
-  SELECT
-    forecast,
-    lat,
-    lon,
-    COALESCE(MAX(lead_day) FILTER (WHERE frac_actionable = 1.0), 0)::double precision AS act_horizon,
-    COALESCE(MAX(lead_day) FILTER (WHERE frac_informative = 1.0), 0)::double precision AS info_horizon
-  FROM cell_frac
-  GROUP BY forecast, lat, lon
-),
+-- Per-cell days beyond baseline, using only leads where BOTH F and B have
+-- non-null percent_good for that cell. A null lead is a noop (skipped).
+-- Horizons are longest shared lead that still meets each cutoff.
 cell_days AS (
   SELECT
     f.forecast,
     f.lat,
     f.lon,
-    (f.act_horizon - b.act_horizon) AS act_days,
-    (f.info_horizon - b.info_horizon) AS info_days
-  FROM cell_horizon f
-  INNER JOIN cell_horizon b
+    COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_actionable = 1.0), 0)::double precision
+      AS act_horizon,
+    COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_informative = 1.0), 0)::double precision
+      AS info_horizon,
+    (
+      COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_actionable = 1.0), 0)
+      - COALESCE(MAX(b.lead_day) FILTER (WHERE b.frac_actionable = 1.0), 0)
+    )::double precision AS act_days,
+    (
+      COALESCE(MAX(f.lead_day) FILTER (WHERE f.frac_informative = 1.0), 0)
+      - COALESCE(MAX(b.lead_day) FILTER (WHERE b.frac_informative = 1.0), 0)
+    )::double precision AS info_days
+  FROM cell_frac f
+  INNER JOIN cell_frac b
     ON b.forecast = '${baseline_forecast}'
    AND b.lat = f.lat
    AND b.lon = f.lon
+   AND b.lead_day = f.lead_day
+  GROUP BY f.forecast, f.lat, f.lon
 ),
 cell_days_summary AS (
   SELECT
     forecast,
+    AVG(act_horizon)::double precision AS act_horizon_avg,
+    AVG(info_horizon)::double precision AS info_horizon_avg,
     MIN(act_days)::double precision AS act_min,
     AVG(act_days)::double precision AS act_avg,
     MAX(act_days)::double precision AS act_max,
@@ -414,6 +419,8 @@ SELECT
   END AS auc,
   a.points_above_informative::double precision AS auc_informative,
   a.points_above_threshold::double precision AS auc_actionable,
+  d.act_horizon_avg,
+  d.info_horizon_avg,
   CASE
     WHEN a.forecast = '${baseline_forecast}' THEN 0::double precision
     ELSE d.act_min
