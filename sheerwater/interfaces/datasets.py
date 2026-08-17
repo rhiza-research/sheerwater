@@ -137,6 +137,9 @@ class SheerwaterDataset(NuthatchProcessor):
                 packed_processor_kwargs['func_name'] = self.func_name
                 packed_processor_kwargs['variable'] = self.variable
                 packed_processor_kwargs['grid'] = self.grid
+                packed_processor_kwargs['region'] = self.region
+                packed_processor_kwargs['mask'] = self.mask
+                packed_processor_kwargs['agg_days'] = self.agg_days
 
                 if 'time' in ds.coords:
                     start = ds.time.values.min()

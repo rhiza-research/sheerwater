@@ -27,7 +27,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean', time_dim='time'):
         3: 'first',
         4: 'first',
         5: 'first',
-        6: 'first',
+        6: 'second',
         7: 'second',
         8: 'second',
         9: 'second',
@@ -72,7 +72,7 @@ def groupby_time(ds, time_grouping, agg_fn='mean', time_dim='time'):
         elif time_grouping == 'two_seasons':
             coords = [
                 f"{two_seasons_mapping.get(pd.to_datetime(x).month, None)}-{pd.to_datetime(x).year:04d}"
-                for x in ds.time.values]
+                for x in ds[time_dim].values]
         elif time_grouping == 'shifted_season':
             coords = []
             for x in ds.time.values:
