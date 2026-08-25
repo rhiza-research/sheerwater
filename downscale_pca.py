@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm
 
 from sheerwater.utils import start_remote
 from sheerwater.data import imerg_final
@@ -54,9 +55,9 @@ if __name__ == "__main__":
     start_time = "2016-01-01"
     end_time = "2024-12-31"
     #imerg_lo = imerg_final(start_time, end_time, grid="global1_5", region=region)
-    imerg_hi = imerg_final(start_time, end_time, grid="global0_25", region=region)
+    imerg_hi = imerg_final(start_time, end_time, grid="global0_1", region=region)
 
-    n_lat, n_lon = 6, 6
+    n_lat, n_lon = 15, 15
 
     blocked = imerg_hi["precip"].coarsen(lat=n_lat, lon=n_lon, boundary="trim").construct(
         lat=("lat_lo", "lat_within"),
@@ -129,8 +130,20 @@ if __name__ == "__main__":
     unique_days = dimensionality.n_significant / dimensionality.n_days
 
     # plot 1x2 plot with n_significant and n_days side by side
+    N_SIGNIFICANT_BINWIDTH = 5
+
+    max_n_significant = float(np.nanmax(dimensionality.n_significant.values))
+    n_bins = int(np.ceil(max_n_significant / N_SIGNIFICANT_BINWIDTH))
+    bin_edges = 0.5 + N_SIGNIFICANT_BINWIDTH * np.arange(n_bins + 1)
+    cmap = plt.get_cmap("viridis", n_bins)
+    norm = BoundaryNorm(bin_edges, cmap.N)
+
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    dimensionality.n_significant.plot(ax=axes[0], x="lon")
+    im = dimensionality.n_significant.plot(ax=axes[0], x="lon", cmap=cmap, norm=norm, add_colorbar=False)
+    cbar = fig.colorbar(im, ax=axes[0], ticks=bin_edges[:-1] + N_SIGNIFICANT_BINWIDTH / 2)
+    cbar.ax.set_yticklabels(
+        [f"{int(lo + 0.5)}-{int(lo + N_SIGNIFICANT_BINWIDTH - 0.5)}" for lo in bin_edges[:-1]]
+    )
     dimensionality.n_days.plot(ax=axes[1], x="lon")
 
     breakpoint()
