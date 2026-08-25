@@ -23,11 +23,12 @@ def _normalized_svd(x, lo=None, hi=None):
     if n_days < 2 or np.any(np.isnan(x)):
         return None, None, n_days
 
-    # mean = x.mean()
-    # std = x.std()
-    # if std == 0:
-    #     return None, None, n_days
-    # x = (x - mean) / std
+    # normalize each day by its own total rainfall, so decomposition captures
+    # spatial distribution (shape) rather than day-to-day rainfall magnitude
+    row_sums = x.sum(axis=1, keepdims=True)
+    if np.any(row_sums <= 0):
+        return None, None, n_days
+    x = x / row_sums
 
     _, s, vt = np.linalg.svd(x, full_matrices=False)
     return s, vt, n_days
@@ -51,7 +52,7 @@ def singular_vector(x, sv, lo=None, hi=None):
 if __name__ == "__main__":
     start_remote(remote_name="downscale_pca", remote_config="large_cluster")
 
-    region = "asia"
+    region = "africa"
     start_time = "2016-01-01"
     end_time = "2024-12-31"
     #imerg_lo = imerg_final(start_time, end_time, grid="global1_5", region=region)
@@ -65,9 +66,6 @@ if __name__ == "__main__":
     )
     blocked = blocked.stack(cell=("lat_within", "lon_within"))
     blocked = blocked.chunk(time=-1, cell=-1, lat_lo=10, lon_lo=10)
-
-    """ manually check for one block """
-    #breakpoint()
 
     lo_thresh, hi_thresh = 1.0, None
 
@@ -135,7 +133,7 @@ if __name__ == "__main__":
     max_n_significant = float(np.nanmax(dimensionality.n_significant.values))
     n_bins = int(np.ceil(max_n_significant / N_SIGNIFICANT_BINWIDTH))
     bin_edges = 0.5 + N_SIGNIFICANT_BINWIDTH * np.arange(n_bins + 1)
-    cmap = plt.get_cmap("viridis", n_bins)
+    cmap = plt.get_cmap("turbo", n_bins)
     norm = BoundaryNorm(bin_edges, cmap.N)
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
