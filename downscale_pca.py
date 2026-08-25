@@ -1,0 +1,136 @@
+import numpy as np
+import xarray as xr
+import matplotlib.pyplot as plt
+
+from sheerwater.utils import start_remote
+from sheerwater.data import imerg_final
+
+
+VARIANCE_THRESHOLD = 0.95
+
+
+def _normalized_svd(x, lo=None, hi=None):
+    day_mean = np.nanmean(x, axis=1)
+    mask = np.ones(x.shape[0], dtype=bool)
+    if lo is not None:
+        mask &= day_mean >= lo
+    if hi is not None:
+        mask &= day_mean < hi
+    x = x[mask]
+    n_days = x.shape[0]
+
+    if n_days < 2 or np.any(np.isnan(x)):
+        return None, None, n_days
+
+    # mean = x.mean()
+    # std = x.std()
+    # if std == 0:
+    #     return None, None, n_days
+    # x = (x - mean) / std
+
+    _, s, vt = np.linalg.svd(x, full_matrices=False)
+    return s, vt, n_days
+
+
+def significant_singvals(x, threshold=VARIANCE_THRESHOLD, lo=None, hi=None):
+    s, _, n_days = _normalized_svd(x, lo=lo, hi=hi)
+    if s is None:
+        return np.nan, n_days
+    energy = np.cumsum(s ** 2) / np.sum(s ** 2)
+    return float(np.searchsorted(energy, threshold) + 1), n_days
+
+
+def singular_vector(x, sv, lo=None, hi=None):
+    s, vt, _ = _normalized_svd(x, lo=lo, hi=hi)
+    if s is None or sv >= len(s):
+        return np.full(x.shape[1], np.nan)
+    return vt[sv]
+
+
+if __name__ == "__main__":
+    start_remote(remote_name="downscale_pca", remote_config="large_cluster")
+
+    region = "asia"
+    start_time = "2016-01-01"
+    end_time = "2024-12-31"
+    #imerg_lo = imerg_final(start_time, end_time, grid="global1_5", region=region)
+    imerg_hi = imerg_final(start_time, end_time, grid="global0_25", region=region)
+
+    n_lat, n_lon = 6, 6
+
+    blocked = imerg_hi["precip"].coarsen(lat=n_lat, lon=n_lon, boundary="trim").construct(
+        lat=("lat_lo", "lat_within"),
+        lon=("lon_lo", "lon_within"),
+    )
+    blocked = blocked.stack(cell=("lat_within", "lon_within"))
+    blocked = blocked.chunk(time=-1, cell=-1, lat_lo=10, lon_lo=10)
+
+    """ manually check for one block """
+    #breakpoint()
+
+    lo_thresh, hi_thresh = 1.0, None
+
+    n_significant, n_days = xr.apply_ufunc(
+        significant_singvals,
+        blocked,
+        input_core_dims=[["time", "cell"]],
+        output_core_dims=[[], []],
+        kwargs={"threshold": VARIANCE_THRESHOLD, "lo": lo_thresh, "hi": hi_thresh},
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float, float],
+    )
+    dimensionality = xr.Dataset({"n_significant": n_significant, "n_days": n_days})
+
+    pattern = xr.apply_ufunc(
+        singular_vector,
+        blocked,
+        input_core_dims=[["time", "cell"]],
+        output_core_dims=[["cell"]],
+        kwargs={"sv": 0, "lo": lo_thresh, "hi": hi_thresh},
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float],
+        dask_gufunc_kwargs={"output_sizes": {"cell": blocked.sizes["cell"]}},
+    )
+
+    n_lat_lo, n_lon_lo = dimensionality.sizes["lat_lo"], dimensionality.sizes["lon_lo"]
+    lat_lo_coords = imerg_hi.lat.values[: n_lat_lo * n_lat].reshape(n_lat_lo, n_lat).mean(axis=1)
+    lon_lo_coords = imerg_hi.lon.values[: n_lon_lo * n_lon].reshape(n_lon_lo, n_lon).mean(axis=1)
+
+    dimensionality = dimensionality.assign_coords(
+        lat_lo=lat_lo_coords,
+        lon_lo=lon_lo_coords,
+    ).rename(lat_lo="lat", lon_lo="lon")
+
+    pattern = pattern.drop_vars(["lat", "lon"])
+    pattern = pattern.assign_coords(
+        lat_lo=("lat_lo", lat_lo_coords),
+        lon_lo=("lon_lo", lon_lo_coords),
+    )
+    pattern = pattern.unstack("cell")
+
+    pattern_full = pattern.stack(
+        lat_stacked=("lat_lo", "lat_within"),
+        lon_stacked=("lon_lo", "lon_within"),
+    )
+    n_hi_lat = pattern_full.sizes["lat_stacked"]
+    n_hi_lon = pattern_full.sizes["lon_stacked"]
+    pattern_full = (
+        pattern_full
+        .reset_index(["lat_stacked", "lon_stacked"], drop=True)
+        .rename(lat_stacked="lat", lon_stacked="lon")
+        .assign_coords(lat=imerg_hi.lat.values[:n_hi_lat], lon=imerg_hi.lon.values[:n_hi_lon])
+    )
+    pattern_full = abs(pattern_full)
+
+    dimensionality = dimensionality.compute()
+    pattern_full = pattern_full.compute()
+    unique_days = dimensionality.n_significant / dimensionality.n_days
+
+    # plot 1x2 plot with n_significant and n_days side by side
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    dimensionality.n_significant.plot(ax=axes[0], x="lon")
+    dimensionality.n_days.plot(ax=axes[1], x="lon")
+
+    breakpoint()
