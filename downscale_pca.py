@@ -52,7 +52,7 @@ def singular_vector(x, sv, lo=None, hi=None):
 if __name__ == "__main__":
     start_remote(remote_name="downscale_pca", remote_config="large_cluster")
 
-    region = "africa"
+    region = "south_america"
     start_time = "2016-01-01"
     end_time = "2024-12-31"
     #imerg_lo = imerg_final(start_time, end_time, grid="global1_5", region=region)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     pattern_full = pattern_full.compute()
     unique_days = dimensionality.n_significant / dimensionality.n_days
 
-    # plot 1x2 plot with n_significant and n_days side by side
+    # plot 1: map of number of significant singular values
     N_SIGNIFICANT_BINWIDTH = 5
 
     max_n_significant = float(np.nanmax(dimensionality.n_significant.values))
@@ -136,12 +136,29 @@ if __name__ == "__main__":
     cmap = plt.get_cmap("turbo", n_bins)
     norm = BoundaryNorm(bin_edges, cmap.N)
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-    im = dimensionality.n_significant.plot(ax=axes[0], x="lon", cmap=cmap, norm=norm, add_colorbar=False)
-    cbar = fig.colorbar(im, ax=axes[0], ticks=bin_edges[:-1] + N_SIGNIFICANT_BINWIDTH / 2)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    im = dimensionality.n_significant.plot(ax=ax, x="lon", cmap=cmap, norm=norm, add_colorbar=False)
+    cbar = fig.colorbar(im, ax=ax, ticks=bin_edges[:-1] + N_SIGNIFICANT_BINWIDTH / 2)
     cbar.ax.set_yticklabels(
         [f"{int(lo + 0.5)}-{int(lo + N_SIGNIFICANT_BINWIDTH - 0.5)}" for lo in bin_edges[:-1]]
     )
-    dimensionality.n_days.plot(ax=axes[1], x="lon")
+    plt.show()
+    breakpoint()
 
+    # plot 2: map of number of days meeting criteria
+    fig, ax = plt.subplots(figsize=(6, 5))
+    dimensionality.n_days.plot(ax=ax, x="lon")
+    plt.show()
+    breakpoint()
+
+    # plot 3: scatter of n_significant vs n_days, per cell
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(
+        dimensionality.n_days.values.flatten(),
+        dimensionality.n_significant.values.flatten(),
+        s=8, alpha=0.5,
+    )
+    ax.set_xlabel("n_days")
+    ax.set_ylabel("n_significant")
+    plt.show()
     breakpoint()

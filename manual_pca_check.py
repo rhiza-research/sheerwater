@@ -6,8 +6,9 @@ from sheerwater.data import imerg_final
 
 
 N_COMPONENTS = 10
-TARGET_LAT = -30
-TARGET_LON = 25
+REGION = "europe"
+TARGET_LAT = 65
+TARGET_LON = 12
 
 
 def decompose(x, method, n_components=N_COMPONENTS):
@@ -41,12 +42,11 @@ def decompose(x, method, n_components=N_COMPONENTS):
 
 
 if __name__ == "__main__":
-    start_remote(remote_name="downscale_pca", remote_config="large_cluster")
+    start_remote(remote_name="downscale_focused", remote_config="large_cluster")
 
-    region = "africa"
     start_time = "2016-01-01"
     end_time = "2024-12-31"
-    imerg_hi = imerg_final(start_time, end_time, grid="global0_1", region=region)
+    imerg_hi = imerg_final(start_time, end_time, grid="global0_1", region=REGION)
 
     n_lat, n_lon = 15, 15
 
