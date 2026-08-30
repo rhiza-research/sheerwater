@@ -58,8 +58,7 @@ def clim_stats_raw(data_name, variable, first_year=1985, last_year=2014, is_fore
 
 @dask_remote
 @sheerwater_forecast()
-@cache(cache=False,
-       cache_args=['variable', 'data_name', 'first_year', 'last_year',
+@cache(cache_args=['variable', 'data_name', 'first_year', 'last_year',
                    'forecast_lead_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
 def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: ARG001
@@ -97,11 +96,12 @@ def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: A
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
-def clim_era5(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+def clim_era5(variable, agg_days=1,  # noqa: ARG001
               prob_type='deterministic',  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
-    """Daily ERA5 climatology (mean + variance), 1990-2019."""
-    return clim_daily(start_time, end_time, variable, data_name='era5',
+    """Daily ERA5 climatology (mean + variance), 1990-2019.
+    """
+    return clim_daily('1904-01-01', '1904-12-31', variable, data_name='era5',
                       first_year=1990, last_year=2019, is_forecast=False,
                       forecast_lead_days=46, grid=grid, mask=mask, region=region)
 
@@ -111,11 +111,12 @@ def clim_era5(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
-def clim_imerg(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+def clim_imerg(variable, agg_days=1,  # noqa: ARG001
                prob_type='deterministic',  # noqa: ARG001
                grid='global0_25', mask='lsm', region='global'):
-    """Daily IMERG climatology (mean + variance), 1998-2024."""
-    return clim_daily(start_time, end_time, variable, data_name='imerg_final',
+    """Daily IMERG climatology (mean + variance), 1998-2024.
+    """
+    return clim_daily('1904-01-01', '1904-12-31', variable, data_name='imerg_final',
                       first_year=1998, last_year=2024, is_forecast=False,
                       forecast_lead_days=46, grid=grid, mask=mask, region=region)
 
@@ -125,11 +126,12 @@ def clim_imerg(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
-def clim_chirps(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+def clim_chirps(variable, agg_days=1,  # noqa: ARG001
                 prob_type='deterministic',  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
-    """Daily CHIRPS v3 climatology (mean + variance), 1998-2024."""
-    return clim_daily(start_time, end_time, variable, data_name='chirps_v3',
+    """Daily CHIRPS v3 climatology (mean + variance), 1998-2024.
+    """
+    return clim_daily('1904-01-01', '1904-12-31', variable, data_name='chirps_v3',
                       first_year=1998, last_year=2024, is_forecast=False,
                       forecast_lead_days=46, grid=grid, mask=mask, region=region)
 
@@ -139,11 +141,11 @@ def clim_chirps(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
-def clim_ecmwf_ifs_er(start_time, end_time, variable, agg_days=1,  # noqa: ARG001
+def clim_ecmwf_ifs_er(variable, agg_days=1,  # noqa: ARG001
                       prob_type='deterministic',  # noqa: ARG001
                       grid='global0_25', mask='lsm', region='global'):
     """Daily, per-lead ECMWF IFS extended-range climatology (mean + variance), 2018-2022.
     """
-    return clim_daily(start_time, end_time, variable, data_name='ecmwf_ifs_er',
+    return clim_daily('1904-01-01', '1904-12-31', variable, data_name='ecmwf_ifs_er',
                       first_year=2018, last_year=2022, is_forecast=True,
                       forecast_lead_days=None, grid=grid, mask=mask, region=region)
