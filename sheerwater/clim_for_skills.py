@@ -8,7 +8,6 @@ from nuthatch import cache
 from sheerwater.interfaces import forecast as sheerwater_forecast, spatial, get_data, get_forecast
 from sheerwater.utils import (
     add_dayofyear,
-    convert_pred_time_to_init_time,
     dask_remote,
     get_dates,
     pad_with_leapdays,
@@ -17,7 +16,7 @@ from sheerwater.utils import (
 
 @dask_remote
 @spatial()
-@cache(cache_args=['data_name', 'variable', 'first_year', 'last_year', 'grid'],
+@cache(cache_args=['data_name', 'variable', 'first_year', 'last_year', 'grid', 'mask', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "dayofyear": 1000, "prediction_timedelta": 1},
            'chunk_by_arg': {
@@ -60,7 +59,7 @@ def clim_stats_raw(data_name, variable, first_year=1985, last_year=2014, is_fore
 @sheerwater_forecast()
 @cache(cache_args=['variable', 'data_name', 'first_year', 'last_year',
                    'forecast_lead_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
 def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: ARG001
                 first_year=1985, last_year=2014, is_forecast=False,
                 forecast_lead_days=None, prob_type='deterministic',  # noqa: ARG001
@@ -81,11 +80,10 @@ def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: A
         # forecast already has leads.
         ds = ds.sel(time=slice(start_time, end_time))
     else:
-        # create synthetic leads for a climatological forecast.
+        # climatology is lead independent, so create synthetic leads.
         leads = [np.timedelta64(x, "D").astype('timedelta64[ns]') for x in range(0, forecast_lead_days)]
         ds = ds.expand_dims({"prediction_timedelta": leads})
-        ds = convert_pred_time_to_init_time(ds)
-        ds = ds.sel(init_time=slice(start_time, end_time))
+        ds = ds.sel(time=slice(start_time, end_time))
 
     ds = ds.chunk({'lat': 121, 'lon': 240, 'prediction_timedelta': 1})
     return ds
@@ -95,7 +93,7 @@ def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: A
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
 def clim_era5(variable, agg_days=1,  # noqa: ARG001
               prob_type='deterministic',  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
@@ -110,7 +108,7 @@ def clim_era5(variable, agg_days=1,  # noqa: ARG001
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
 def clim_imerg(variable, agg_days=1,  # noqa: ARG001
                prob_type='deterministic',  # noqa: ARG001
                grid='global0_25', mask='lsm', region='global'):
@@ -125,7 +123,7 @@ def clim_imerg(variable, agg_days=1,  # noqa: ARG001
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
 def clim_chirps(variable, agg_days=1,  # noqa: ARG001
                 prob_type='deterministic',  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
@@ -140,7 +138,7 @@ def clim_chirps(variable, agg_days=1,  # noqa: ARG001
 @sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
 def clim_ecmwf_ifs_er(variable, agg_days=1,  # noqa: ARG001
                       prob_type='deterministic',  # noqa: ARG001
                       grid='global0_25', mask='lsm', region='global'):
