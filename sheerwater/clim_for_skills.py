@@ -16,7 +16,8 @@ from sheerwater.utils import (
 
 @dask_remote
 @spatial()
-@cache(cache_args=['data_name', 'variable', 'first_year', 'last_year', 'grid', 'mask', 'region'],
+@cache(cache=False,
+       cache_args=['data_name', 'variable', 'first_year', 'last_year', 'grid', 'mask', 'region'],
        backend_kwargs={
            'chunking': {"lat": 121, "lon": 240, "dayofyear": 1000, "prediction_timedelta": 1},
            'chunk_by_arg': {
@@ -31,8 +32,7 @@ def clim_stats_raw(data_name, variable, first_year=1985, last_year=2014, is_fore
 
     Returns:
         xr.Dataset: Dataset with a `dayofyear` dimension (and `prediction_timedelta`,
-            if `is_forecast=True`) containing `{variable}` (climatological mean) and
-            `{variable}_variance` (climatological variance).
+            if `is_forecast=True`) containing `mean` and `variance`.
     """
     data_fn = get_forecast(data_name) if is_forecast else get_data(data_name)
 
@@ -49,15 +49,16 @@ def clim_stats_raw(data_name, variable, first_year=1985, last_year=2014, is_fore
                          f"of the climatology period {first_year}-{last_year}.")
 
     grouped = ds.groupby('dayofyear')
-    mean_ds = grouped.mean(dim='time', skipna=True)
-    var_ds = grouped.var(dim='time', skipna=True).rename({variable: f"{variable}_variance"})
+    mean_ds = grouped.mean(dim='time', skipna=True).rename({variable: 'mean'})
+    var_ds = grouped.var(dim='time', skipna=True).rename({variable: 'variance'})
     ds = xr.merge([mean_ds, var_ds])
     return ds
 
 
 @dask_remote
 @sheerwater_forecast()
-@cache(cache_args=['variable', 'data_name', 'first_year', 'last_year',
+@cache(cache=True,
+       cache_args=['variable', 'data_name', 'first_year', 'last_year',
                    'forecast_lead_days', 'prob_type', 'grid', 'mask', 'region'],
        backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
 def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: ARG001
