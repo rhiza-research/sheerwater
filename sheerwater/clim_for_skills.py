@@ -1,13 +1,14 @@
-"""Simplified daily climatologies (mean + variance) for skills.
+"""Simplified daily climatologies (mean + std) for skills.
 """
 
 import numpy as np
 import xarray as xr
 from nuthatch import cache
 
-from sheerwater.interfaces import forecast as sheerwater_forecast, spatial, get_data, get_forecast
+from sheerwater.interfaces import spatial, get_data, get_forecast
 from sheerwater.utils import (
     add_dayofyear,
+    convert_pred_time_to_init_time,
     dask_remote,
     get_dates,
     pad_with_leapdays,
@@ -28,11 +29,11 @@ from sheerwater.utils import (
 })
 def clim_stats_raw(data_name, variable, first_year=1985, last_year=2014, is_forecast=False,
                     grid='global1_5', mask=None, region='global'):
-    """Compute the per-day-of-year climatological mean and variance for a data source.
+    """Compute the per-day-of-year climatological mean and standard deviation for a data source.
 
     Returns:
         xr.Dataset: Dataset with a `dayofyear` dimension (and `prediction_timedelta`,
-            if `is_forecast=True`) containing `mean` and `variance`.
+            if `is_forecast=True`) containing `avg` and `std`.
     """
     data_fn = get_forecast(data_name) if is_forecast else get_data(data_name)
 
@@ -48,24 +49,26 @@ def clim_stats_raw(data_name, variable, first_year=1985, last_year=2014, is_fore
         raise ValueError(f"Underlying data source {data_name} does not have full coverage "
                          f"of the climatology period {first_year}-{last_year}.")
 
+    if grid in ["global0_25", "global0_1", "global0_05"]:
+        ds = ds.chunk({'lat': 48, 'lon': 48, 'time': -1})
+
     grouped = ds.groupby('dayofyear')
-    mean_ds = grouped.mean(dim='time', skipna=True).rename({variable: 'mean'})
-    var_ds = grouped.var(dim='time', skipna=True).rename({variable: 'variance'})
-    ds = xr.merge([mean_ds, var_ds])
+    mean_ds = grouped.mean(dim='time', skipna=True).rename({variable: 'avg'})
+    std_ds = grouped.std(dim='time', skipna=True).rename({variable: 'std'})
+    ds = xr.merge([mean_ds, std_ds])
     return ds
 
 
 @dask_remote
-@sheerwater_forecast()
 @cache(cache=True,
        cache_args=['variable', 'data_name', 'first_year', 'last_year',
                    'forecast_lead_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
 def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: ARG001
                 first_year=1985, last_year=2014, is_forecast=False,
                 forecast_lead_days=None, prob_type='deterministic',  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
-    """Standard-format daily climatology forecast (mean + variance) for a given data source.
+    """Standard-format daily climatology (mean + std) for a given data source.
     """
     raw = clim_stats_raw(data_name, variable, first_year=first_year, last_year=last_year,
                          is_forecast=is_forecast, grid=grid, mask=mask, region=region)
@@ -77,28 +80,26 @@ def clim_daily(start_time, end_time, variable, data_name, agg_days=1,  # noqa: A
     ds = ds.drop_vars('dayofyear')
     ds = ds.assign_attrs(prob_type="deterministic")
 
-    if is_forecast:
-        # forecast already has leads.
-        ds = ds.sel(time=slice(start_time, end_time))
-    else:
-        # climatology is lead independent, so create synthetic leads.
+    if not is_forecast:
+        # climatology has no lead-dependence -- broadcast the same value across synthetic leads.
         leads = [np.timedelta64(x, "D").astype('timedelta64[ns]') for x in range(0, forecast_lead_days)]
         ds = ds.expand_dims({"prediction_timedelta": leads})
-        ds = ds.sel(time=slice(start_time, end_time))
 
+    ds = convert_pred_time_to_init_time(ds)
+    ds = ds.sel(init_time=slice(start_time, end_time))
+    ds = ds.transpose('lat', 'lon', 'init_time', 'prediction_timedelta')
     ds = ds.chunk({'lat': 121, 'lon': 240, 'prediction_timedelta': 1})
     return ds
 
 
 @dask_remote
-@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
 def clim_era5(variable, agg_days=1,  # noqa: ARG001
               prob_type='deterministic',  # noqa: ARG001
               grid='global0_25', mask='lsm', region='global'):
-    """Daily ERA5 climatology (mean + variance), 1990-2019.
+    """Daily ERA5 climatology (mean + std), 1990-2019.
     """
     return clim_daily('1904-01-01', '1904-12-31', variable, data_name='era5',
                       first_year=1990, last_year=2019, is_forecast=False,
@@ -106,14 +107,13 @@ def clim_era5(variable, agg_days=1,  # noqa: ARG001
 
 
 @dask_remote
-@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
 def clim_imerg(variable, agg_days=1,  # noqa: ARG001
                prob_type='deterministic',  # noqa: ARG001
                grid='global0_25', mask='lsm', region='global'):
-    """Daily IMERG climatology (mean + variance), 1998-2024.
+    """Daily IMERG climatology (mean + std), 1998-2024.
     """
     return clim_daily('1904-01-01', '1904-12-31', variable, data_name='imerg_final',
                       first_year=1998, last_year=2024, is_forecast=False,
@@ -121,14 +121,13 @@ def clim_imerg(variable, agg_days=1,  # noqa: ARG001
 
 
 @dask_remote
-@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
 def clim_chirps(variable, agg_days=1,  # noqa: ARG001
                 prob_type='deterministic',  # noqa: ARG001
                 grid='global0_25', mask='lsm', region='global'):
-    """Daily CHIRPS v3 climatology (mean + variance), 1998-2024.
+    """Daily CHIRPS v3 climatology (mean + std), 1998-2024.
     """
     return clim_daily('1904-01-01', '1904-12-31', variable, data_name='chirps_v3',
                       first_year=1998, last_year=2024, is_forecast=False,
@@ -136,15 +135,14 @@ def clim_chirps(variable, agg_days=1,  # noqa: ARG001
 
 
 @dask_remote
-@sheerwater_forecast()
 @cache(cache=False,
        cache_args=['variable', 'agg_days', 'prob_type', 'grid', 'mask', 'region'],
-       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'time': 365, 'prediction_timedelta': 1}})
+       backend_kwargs={'chunking': {'lat': 300, 'lon': 300, 'init_time': 365, 'prediction_timedelta': 1}})
 def clim_ecmwf_ifs_er(variable, agg_days=1,  # noqa: ARG001
                       prob_type='deterministic',  # noqa: ARG001
                       grid='global0_25', mask='lsm', region='global'):
-    """Daily, per-lead ECMWF IFS extended-range climatology (mean + variance), 2018-2022.
+    """Daily, per-lead ECMWF IFS extended-range climatology (mean + std), 2018-2022.
     """
     return clim_daily('1904-01-01', '1904-12-31', variable, data_name='ecmwf_ifs_er',
                       first_year=2018, last_year=2022, is_forecast=True,
-                      forecast_lead_days=None, grid=grid, mask=mask, region=region)
+                      grid=grid, mask=mask, region=region)
