@@ -24,7 +24,7 @@ pip install sheerwater
 ```py
 from sheerwater.reanalysis import era5
 from sheerwater.data import ghcn, chirps_v3
-from sheerwater.metrics import grouped_metric
+from sheerwater.metrics import metric
 
 # Get ERA5 as an xarray
 ds_era5 = era5("2020-01-01", "2022-01-01", agg_days=1, variable="precip", grid="global1_5",)
@@ -33,7 +33,7 @@ ds_era5 = era5("2020-01-01", "2022-01-01", agg_days=1, variable="precip", grid="
 ds_ghcn = ghcn("2020-01-01", "2022-01-01", agg_days=7, variable="precip", grid="global0_25")
 
 # Get chirps data with default parameters
-ds_chirps = chirps_v2()
+ds_chirps = chirps_v3()
 ```
 
 3) Run evaluation metrics on public forecasts or data

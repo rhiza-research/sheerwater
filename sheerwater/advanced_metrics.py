@@ -244,7 +244,7 @@ def get_dry_spells_kwargs(experiment, region, input_metric_kwargs=None):  # noqa
     dry_spell_threshold_mm = 1.5  # average daily rain
     dry_spell_agg_days = 5
 
-    metric = 'forecastabsolutevalue'
+    metric = 'forecastvalue'
     filter_event = 'below_threshold'
     filter_event_kwargs = {
         'agg_days': dry_spell_agg_days,

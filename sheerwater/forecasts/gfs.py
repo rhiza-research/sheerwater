@@ -34,7 +34,7 @@ def gfs_raw(start_time, end_time, variable='precip', prob_type='deterministic', 
     _, _, size, _  = get_grid(grid)
 
     if size < 0.25:
-        raise ValueError("GFS only supports grids of 0.25 or less.")
+        raise ValueError("GFS only supports grids of 0.25 degrees or coarser.")
 
     if grid != 'global0_25':
         ds = regrid(ds, grid, base='base180', method='conservative', region=region)
