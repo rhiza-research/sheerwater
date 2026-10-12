@@ -33,7 +33,7 @@ resource "google_project" "project" {
 ################################################
 
 module "random_password_postgres_read" {
-  source = "git@github.com:rhiza-research/infrastructure.git//terraform/modules/random-gsm-secret?ref=argocd"
+  source = "git@github.com:rhiza-research/infrastructure.git//terraform/modules/random-gsm-secret"
   random_password_secret_name = "postgres-read-password"
   project = google_project.project.project_id
 }
@@ -49,7 +49,7 @@ resource "postgresql_role" "read" {
 ################################################
 
 module "random_password_postgres_write" {
-  source = "git@github.com:rhiza-research/infrastructure.git//terraform/modules/random-gsm-secret?ref=argocd"
+  source = "git@github.com:rhiza-research/infrastructure.git//terraform/modules/random-gsm-secret"
   random_password_secret_name = "postgres-write-password"
   project = google_project.project.project_id
 }
