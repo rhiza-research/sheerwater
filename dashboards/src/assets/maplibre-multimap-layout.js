@@ -136,7 +136,7 @@ function ensureMultimapStyles() {
     document.head.appendChild(css);
 }
 
-function buildMultimapLayout(leadWeeks) {
+function buildMultimapLayout(leadWeeks, products) {
     ensureMultimapStyles();
     const host = getOrCreateHostContainer();
     let metricPanel = document.getElementById("metric-description-panel");
@@ -159,7 +159,7 @@ function buildMultimapLayout(leadWeeks) {
     root.id = rootId;
     root.className = "bt-multimap-root";
 
-    MULTIMAP_PRODUCTS.forEach((product) => {
+    (products || []).forEach((product) => {
         const row = document.createElement("div");
         row.className = "bt-multimap-row";
         row.id = `bt-multimap-row-${product.key}`;
@@ -219,9 +219,9 @@ function buildMultimapLayout(leadWeeks) {
     return root;
 }
 
-function getCellDefinitions(leadWeeks) {
+function getCellDefinitions(leadWeeks, products) {
     const cells = [];
-    MULTIMAP_PRODUCTS.forEach((product) => {
+    (products || []).forEach((product) => {
         leadWeeks.forEach((week) => {
             cells.push({
                 key: `${product.key}-week${week}`,

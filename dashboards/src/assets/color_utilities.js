@@ -68,7 +68,7 @@ function getColorStops(colormap) {
     return colormap.endsWith("_r") ? [...stops].reverse() : stops;
 }
 
-function renderColorScaleHtml(stretch, product, metric) {
+function renderColorScaleHtml(stretch, product, metric, options = {}) {
     if (!stretch) {
         return "<span style='font-size:14px;'>No stretch</span>";
     }
@@ -76,7 +76,7 @@ function renderColorScaleHtml(stretch, product, metric) {
     const colormapMatch = decoded.match(/colormap=([^&]+)/);
     const rangeMatch = decoded.match(/stretch_range=\[([^\]]+)\]/);
     const colormap = colormapMatch ? colormapMatch[1] : "";
-    const units = getUnits(metric, product);
+    const units = options?.unitless ? "" : getUnits(metric, product);
     const unitsSuffix = units ? ` ${units}` : "";
     let min = "min";
     let max = "max";
@@ -98,10 +98,10 @@ function renderColorScaleHtml(stretch, product, metric) {
     `;
 }
 
-function refreshColorScale(stretch, product, metric) {
+function refreshColorScale(stretch, product, metric, options = {}) {
     const scale = document.getElementById("map-colorscale");
     if (!scale) {
         return;
     }
-    scale.innerHTML = renderColorScaleHtml(stretch, product, metric);
+    scale.innerHTML = renderColorScaleHtml(stretch, product, metric, options);
 }
